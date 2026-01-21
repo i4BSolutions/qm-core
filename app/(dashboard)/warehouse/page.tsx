@@ -28,14 +28,15 @@ export default function WarehousesPage() {
     setIsLoading(true);
     const supabase = createClient();
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("warehouses")
-      .select("*")
+      .select("id, name, location, description, capacity_notes")
       .eq("is_active", true)
-      .order("name");
+      .order("name")
+      .limit(50);
 
     if (data) {
-      setWarehouses(data);
+      setWarehouses(data as WarehouseType[]);
     }
     setIsLoading(false);
   };

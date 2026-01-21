@@ -28,14 +28,15 @@ export default function SuppliersPage() {
     setIsLoading(true);
     const supabase = createClient();
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("suppliers")
-      .select("*")
+      .select("id, name, company_name, phone, email, tax_id, payment_terms")
       .eq("is_active", true)
-      .order("name");
+      .order("name")
+      .limit(200);
 
     if (data) {
-      setSuppliers(data);
+      setSuppliers(data as Supplier[]);
     }
     setIsLoading(false);
   };

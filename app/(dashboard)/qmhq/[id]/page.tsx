@@ -1,0 +1,847 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Loader2,
+  Package,
+  Wallet,
+  ShoppingCart,
+  Edit,
+  Plus,
+  DollarSign,
+  Clock,
+  User,
+  Building2,
+  CalendarDays,
+  FileText,
+  ExternalLink,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatCurrency } from "@/lib/utils";
+import { useAuth } from "@/components/providers/auth-provider";
+import { TransactionDialog } from "@/components/qmhq/transaction-dialog";
+import { POStatusBadge } from "@/components/po/po-status-badge";
+import { POProgressBar } from "@/components/po/po-progress-bar";
+import { calculatePOProgress } from "@/lib/utils/po-status";
+import type {
+  QMHQ,
+  StatusConfig,
+  Category,
+  User as UserType,
+  QMRL,
+  Item,
+  ContactPerson,
+  FinancialTransaction,
+  PurchaseOrder,
+  Supplier,
+  POStatusEnum,
+} from "@/types/database";
+
+// Extended types
+interface QMHQWithRelations extends QMHQ {
+  status?: StatusConfig | null;
+  category?: Category | null;
+  assigned_user?: UserType | null;
+  created_by_user?: UserType | null;
+  qmrl?: Pick<QMRL, "id" | "request_id" | "title"> | null;
+  item?: Item | null;
+  contact_person?: ContactPerson | null;
+}
+
+interface FinancialTransactionWithUser extends FinancialTransaction {
+  created_by_user?: Pick<UserType, "id" | "full_name"> | null;
+}
+
+interface POWithRelations extends PurchaseOrder {
+  supplier?: Pick<Supplier, "id" | "name" | "company_name"> | null;
+  line_items_aggregate?: {
+    total_quantity: number;
+    total_invoiced: number;
+    total_received: number;
+  };
+}
+
+// Route type configuration
+const routeConfig: Record<string, { icon: typeof Package; label: string; color: string; bgColor: string }> = {
+  item: { icon: Package, label: "Item", color: "text-blue-400", bgColor: "bg-blue-500/10 border-blue-500/20" },
+  expense: { icon: Wallet, label: "Expense", color: "text-emerald-400", bgColor: "bg-emerald-500/10 border-emerald-500/20" },
+  po: { icon: ShoppingCart, label: "PO", color: "text-purple-400", bgColor: "bg-purple-500/10 border-purple-500/20" },
+};
+
+export default function QMHQDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const { user } = useAuth();
+  const qmhqId = params.id as string;
+
+  const [qmhq, setQmhq] = useState<QMHQWithRelations | null>(null);
+  const [transactions, setTransactions] = useState<FinancialTransactionWithUser[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<POWithRelations[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("details");
+  const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (qmhqId) {
+      fetchData();
+    }
+  }, [qmhqId]);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    const supabase = createClient();
+
+    // Fetch QMHQ with relations
+    const { data: qmhqData, error: qmhqError } = await supabase
+      .from("qmhq")
+      .select(`
+        *,
+        status:status_config(id, name, color, status_group),
+        category:categories(id, name, color),
+        assigned_user:users!qmhq_assigned_to_fkey(id, full_name, email),
+        created_by_user:users!qmhq_created_by_fkey(id, full_name),
+        qmrl:qmrl!qmhq_qmrl_id_fkey(id, request_id, title),
+        item:items!qmhq_item_id_fkey(id, name, sku, default_unit),
+        contact_person:contact_persons!qmhq_contact_person_id_fkey(id, name, position)
+      `)
+      .eq("id", qmhqId)
+      .single();
+
+    if (qmhqError) {
+      console.error("Error fetching QMHQ:", qmhqError);
+      setIsLoading(false);
+      return;
+    }
+
+    setQmhq(qmhqData as unknown as QMHQWithRelations);
+
+    // Fetch financial transactions for expense/po routes
+    if (qmhqData && (qmhqData.route_type === "expense" || qmhqData.route_type === "po")) {
+      const { data: txData } = await supabase
+        .from("financial_transactions")
+        .select(`
+          *,
+          created_by_user:users!financial_transactions_created_by_fkey(id, full_name)
+        `)
+        .eq("qmhq_id", qmhqId)
+        .eq("is_active", true)
+        .eq("is_voided", false)
+        .order("transaction_date", { ascending: false });
+
+      if (txData) setTransactions(txData as FinancialTransactionWithUser[]);
+    }
+
+    // Fetch purchase orders for PO route
+    if (qmhqData && qmhqData.route_type === "po") {
+      const { data: posData } = await supabase
+        .from("purchase_orders")
+        .select(`
+          *,
+          supplier:suppliers(id, name, company_name)
+        `)
+        .eq("qmhq_id", qmhqId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+
+      if (posData) {
+        // Fetch line item aggregates for each PO
+        const posWithAggregates = await Promise.all(
+          posData.map(async (po) => {
+            const { data: lineItems } = await supabase
+              .from("po_line_items")
+              .select("quantity, invoiced_quantity, received_quantity")
+              .eq("po_id", po.id)
+              .eq("is_active", true);
+
+            const aggregate = lineItems?.reduce(
+              (acc, item) => ({
+                total_quantity: acc.total_quantity + (item.quantity || 0),
+                total_invoiced: acc.total_invoiced + (item.invoiced_quantity || 0),
+                total_received: acc.total_received + (item.received_quantity || 0),
+              }),
+              { total_quantity: 0, total_invoiced: 0, total_received: 0 }
+            );
+
+            return {
+              ...po,
+              line_items_aggregate: aggregate,
+            };
+          })
+        );
+        setPurchaseOrders(posWithAggregates as POWithRelations[]);
+      }
+    }
+
+    setIsLoading(false);
+  };
+
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const formatDateTime = (dateStr: string | null | undefined) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+          <p className="text-sm text-slate-400 font-mono uppercase tracking-wider">
+            Loading QMHQ data...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!qmhq) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <AlertTriangle className="h-12 w-12 text-amber-500" />
+        <h2 className="text-xl font-semibold text-slate-200">QMHQ Not Found</h2>
+        <p className="text-slate-400">The requested QMHQ line could not be found.</p>
+        <Link href="/qmhq">
+          <Button variant="outline" className="border-slate-700">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to QMHQ List
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const RouteIcon = routeConfig[qmhq.route_type]?.icon || Package;
+  const routeColors = routeConfig[qmhq.route_type];
+
+  // Calculate totals for financial tab
+  const moneyInTotal = transactions
+    .filter((t) => t.transaction_type === "money_in")
+    .reduce((sum, t) => sum + (t.amount_eusd ?? 0), 0);
+
+  const moneyOutTotal = transactions
+    .filter((t) => t.transaction_type === "money_out")
+    .reduce((sum, t) => sum + (t.amount_eusd ?? 0), 0);
+
+  return (
+    <div className="space-y-6 relative">
+      {/* Grid overlay */}
+      <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
+
+      {/* Header */}
+      <div className="relative flex items-start justify-between animate-fade-in">
+        <div className="flex items-start gap-4">
+          <Link href="/qmhq">
+            <Button variant="ghost" size="icon" className="mt-1 hover:bg-amber-500/10 hover:text-amber-500">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            {/* Route Type Badge */}
+            <div className="flex items-center gap-3 mb-2">
+              <div className={`flex items-center gap-2 px-3 py-1 rounded border ${routeColors?.bgColor}`}>
+                <RouteIcon className={`h-4 w-4 ${routeColors?.color}`} />
+                <span className={`text-xs font-semibold uppercase tracking-widest ${routeColors?.color}`}>
+                  {routeColors?.label} Route
+                </span>
+              </div>
+              {qmhq.status && (
+                <Badge
+                  variant="outline"
+                  className="text-xs font-mono uppercase tracking-wider"
+                  style={{
+                    borderColor: qmhq.status.color || undefined,
+                    color: qmhq.status.color || undefined,
+                  }}
+                >
+                  {qmhq.status.name}
+                </Badge>
+              )}
+            </div>
+
+            {/* Request ID */}
+            <div className="request-id-badge mb-2">
+              <code className="text-lg">{qmhq.request_id}</code>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-2xl font-bold tracking-tight text-slate-200">
+              {qmhq.line_name}
+            </h1>
+
+            {/* Parent QMRL Link */}
+            {qmhq.qmrl && (
+              <Link href={`/qmrl/${qmhq.qmrl.id}`} className="inline-flex items-center gap-2 mt-2 text-sm text-slate-400 hover:text-amber-400 transition-colors">
+                <span>From:</span>
+                <code className="text-amber-400">{qmhq.qmrl.request_id}</code>
+                <span className="truncate max-w-[200px]">{qmhq.qmrl.title}</span>
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Link href={`/qmhq/${qmhqId}/edit`}>
+            <Button variant="outline" className="border-slate-700 hover:bg-slate-800 text-slate-300">
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Financial Summary for expense/po routes */}
+      {(qmhq.route_type === "expense" || qmhq.route_type === "po") && (
+        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
+          <div className="grid grid-cols-5 gap-4">
+            {/* QMHQ Amount (Budget) */}
+            <div className="text-center p-4 rounded-lg bg-slate-800/30 border border-slate-700">
+              <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">
+                QMHQ Amount
+              </p>
+              <p className="text-xl font-mono font-bold text-slate-200">
+                {formatCurrency(qmhq.amount_eusd ?? 0)}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">EUSD</p>
+            </div>
+
+            {/* Yet to Receive */}
+            <div className="text-center p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+              <p className="text-xs text-cyan-400 uppercase tracking-wider mb-2">Yet to Receive</p>
+              <p className="text-xl font-mono font-bold text-cyan-400">
+                {formatCurrency(Math.max(0, (qmhq.amount_eusd ?? 0) - moneyInTotal))}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">EUSD</p>
+            </div>
+
+            {/* Money In */}
+            <div className="text-center p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <p className="text-xs text-emerald-400 uppercase tracking-wider mb-2">Money In</p>
+              <p className="text-xl font-mono font-bold text-emerald-400">
+                {formatCurrency(moneyInTotal)}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">EUSD</p>
+            </div>
+
+            {/* Money Out */}
+            <div className="text-center p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <p className="text-xs text-amber-400 uppercase tracking-wider mb-2">
+                {qmhq.route_type === "po" ? "PO Committed" : "Money Out"}
+              </p>
+              <p className="text-xl font-mono font-bold text-amber-400">
+                {formatCurrency(qmhq.route_type === "po" ? (qmhq.total_po_committed ?? 0) : moneyOutTotal)}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">EUSD</p>
+            </div>
+
+            {/* Balance in Hand */}
+            <div className="text-center p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+              <p className="text-xs text-purple-400 uppercase tracking-wider mb-2">
+                Balance in Hand
+              </p>
+              <p className="text-xl font-mono font-bold text-purple-400">
+                {formatCurrency(moneyInTotal - (qmhq.route_type === "po" ? (qmhq.total_po_committed ?? 0) : moneyOutTotal))}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">EUSD</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="animate-slide-up" style={{ animationDelay: "200ms" }}>
+        <TabsList className="bg-slate-800/50 border border-slate-700">
+          <TabsTrigger value="details" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+            Details
+          </TabsTrigger>
+          {(qmhq.route_type === "expense" || qmhq.route_type === "po") && (
+            <TabsTrigger value="transactions" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+              Transactions ({transactions.length})
+            </TabsTrigger>
+          )}
+          {qmhq.route_type === "po" && (
+            <TabsTrigger value="purchase-orders" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+              Purchase Orders
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="history" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+            History
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Details Tab */}
+        <TabsContent value="details" className="mt-6 space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Basic Info */}
+            <div className="command-panel corner-accents">
+              <div className="section-header">
+                <FileText className="h-4 w-4 text-amber-500" />
+                <h2>Basic Information</h2>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Category</p>
+                    {qmhq.category ? (
+                      <Badge
+                        variant="outline"
+                        style={{
+                          borderColor: qmhq.category.color || undefined,
+                          color: qmhq.category.color || undefined,
+                        }}
+                      >
+                        {qmhq.category.name}
+                      </Badge>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Status</p>
+                    {qmhq.status ? (
+                      <Badge
+                        variant="outline"
+                        style={{
+                          borderColor: qmhq.status.color || undefined,
+                          color: qmhq.status.color || undefined,
+                        }}
+                      >
+                        {qmhq.status.name}
+                      </Badge>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
+                  </div>
+                </div>
+
+                {qmhq.description && (
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Description</p>
+                    <p className="text-slate-200">{qmhq.description}</p>
+                  </div>
+                )}
+
+                {qmhq.notes && (
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Notes</p>
+                    <p className="text-slate-300">{qmhq.notes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Assignment Info */}
+            <div className="command-panel corner-accents">
+              <div className="section-header">
+                <User className="h-4 w-4 text-amber-500" />
+                <h2>Assignment</h2>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                    <User className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider">Assigned To</p>
+                    <p className="text-slate-200 font-medium">
+                      {qmhq.assigned_user?.full_name || "Unassigned"}
+                    </p>
+                  </div>
+                </div>
+
+                {qmhq.contact_person && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                      <Building2 className="h-5 w-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 uppercase tracking-wider">Contact Person</p>
+                      <p className="text-slate-200 font-medium">{qmhq.contact_person.name}</p>
+                      {qmhq.contact_person.position && (
+                        <p className="text-xs text-slate-400">{qmhq.contact_person.position}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Route-specific Info */}
+            {qmhq.route_type === "item" && (
+              <div className="command-panel corner-accents">
+                <div className="section-header">
+                  <Package className="h-4 w-4 text-blue-400" />
+                  <h2>Item Details</h2>
+                </div>
+
+                <div className="space-y-4">
+                  {qmhq.item && (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                        <Package className="h-5 w-5 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 uppercase tracking-wider">Item</p>
+                        <p className="text-slate-200 font-medium">{qmhq.item.name}</p>
+                        {qmhq.item.sku && (
+                          <code className="text-xs text-amber-400">{qmhq.item.sku}</code>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Quantity</p>
+                    <p className="text-xl font-mono text-slate-200">
+                      {qmhq.quantity ?? "—"}
+                      {qmhq.item?.default_unit && (
+                        <span className="text-sm text-slate-400 ml-2">{qmhq.item.default_unit}</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Financial Info for expense/po */}
+            {(qmhq.route_type === "expense" || qmhq.route_type === "po") && (
+              <div className="command-panel corner-accents">
+                <div className="section-header">
+                  <DollarSign className={`h-4 w-4 ${qmhq.route_type === "expense" ? "text-emerald-400" : "text-purple-400"}`} />
+                  <h2>Financial Details</h2>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Amount</p>
+                      <p className="text-lg font-mono text-slate-200">
+                        {formatCurrency(qmhq.amount ?? 0)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Currency</p>
+                      <p className="text-lg text-slate-200">{qmhq.currency || "MMK"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Exchange Rate</p>
+                      <p className="text-lg font-mono text-slate-200">{qmhq.exchange_rate ?? 1}</p>
+                    </div>
+                  </div>
+
+                  <div className={`p-3 rounded-lg ${
+                    qmhq.route_type === "expense"
+                      ? "bg-emerald-500/10 border border-emerald-500/20"
+                      : "bg-purple-500/10 border border-purple-500/20"
+                  }`}>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Amount in EUSD</p>
+                    <p className={`text-2xl font-mono font-bold ${
+                      qmhq.route_type === "expense" ? "text-emerald-400" : "text-purple-400"
+                    }`}>
+                      {formatCurrency(qmhq.amount_eusd ?? 0)} EUSD
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Timestamps */}
+            <div className="command-panel corner-accents">
+              <div className="section-header">
+                <Clock className="h-4 w-4 text-amber-500" />
+                <h2>Timeline</h2>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <CalendarDays className="h-5 w-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider">Created</p>
+                    <p className="text-slate-200">{formatDateTime(qmhq.created_at)}</p>
+                    {qmhq.created_by_user && (
+                      <p className="text-xs text-slate-400">by {qmhq.created_by_user.full_name}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider">Last Updated</p>
+                    <p className="text-slate-200">{formatDateTime(qmhq.updated_at)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Transactions Tab */}
+        {(qmhq.route_type === "expense" || qmhq.route_type === "po") && (
+          <TabsContent value="transactions" className="mt-6">
+            <div className="command-panel corner-accents">
+              <div className="flex items-center justify-between mb-6">
+                <div className="section-header mb-0">
+                  <DollarSign className="h-4 w-4 text-amber-500" />
+                  <h2>Financial Transactions</h2>
+                </div>
+                <Button
+                  onClick={() => setIsTransactionDialogOpen(true)}
+                  className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Transaction
+                </Button>
+              </div>
+
+              {transactions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+                    <DollarSign className="h-8 w-8 text-slate-500" />
+                  </div>
+                  <h3 className="text-lg font-medium text-slate-300 mb-2">No Transactions Yet</h3>
+                  <p className="text-sm text-slate-400 max-w-md">
+                    Record Money In or Money Out transactions for this QMHQ line.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {transactions.map((tx) => (
+                    <div
+                      key={tx.id}
+                      className={`p-4 rounded-lg border ${
+                        tx.transaction_type === "money_in"
+                          ? "bg-emerald-500/5 border-emerald-500/20"
+                          : "bg-amber-500/5 border-amber-500/20"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                            tx.transaction_type === "money_in"
+                              ? "bg-emerald-500/20"
+                              : "bg-amber-500/20"
+                          }`}>
+                            {tx.transaction_type === "money_in" ? (
+                              <TrendingUp className="h-5 w-5 text-emerald-400" />
+                            ) : (
+                              <TrendingDown className="h-5 w-5 text-amber-400" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <code className={`text-sm font-mono ${
+                                tx.transaction_type === "money_in"
+                                  ? "text-emerald-400"
+                                  : "text-amber-400"
+                              }`}>
+                                {tx.transaction_id || "—"}
+                              </code>
+                              <span className={`text-xs px-2 py-0.5 rounded ${
+                                tx.transaction_type === "money_in"
+                                  ? "bg-emerald-500/20 text-emerald-400"
+                                  : "bg-amber-500/20 text-amber-400"
+                              }`}>
+                                {tx.transaction_type === "money_in" ? "IN" : "OUT"}
+                              </span>
+                            </div>
+                            <p className="text-sm text-slate-400 mt-1">{tx.notes || "No notes"}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-lg font-mono font-bold ${
+                            tx.transaction_type === "money_in"
+                              ? "text-emerald-400"
+                              : "text-amber-400"
+                          }`}>
+                            {tx.transaction_type === "money_in" ? "+" : "-"}{formatCurrency(tx.amount_eusd ?? 0)} EUSD
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {formatCurrency(tx.amount ?? 0)} {tx.currency}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
+                        <span>{formatDate(tx.transaction_date)}</span>
+                        {tx.created_by_user && (
+                          <span>by {tx.created_by_user.full_name}</span>
+                        )}
+                        {tx.attachment_url && (
+                          <a
+                            href={tx.attachment_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-amber-400 hover:text-amber-300"
+                          >
+                            View Attachment
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        )}
+
+        {/* Purchase Orders Tab */}
+        {qmhq.route_type === "po" && (
+          <TabsContent value="purchase-orders" className="mt-6">
+            <div className="command-panel corner-accents">
+              <div className="flex items-center justify-between mb-6">
+                <div className="section-header mb-0">
+                  <ShoppingCart className="h-4 w-4 text-amber-500" />
+                  <h2>Purchase Orders ({purchaseOrders.length})</h2>
+                </div>
+                <Link href={`/po/new?qmhq=${qmhqId}`}>
+                  <Button
+                    className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400"
+                    disabled={(qmhq.balance_in_hand ?? 0) <= 0}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create PO
+                  </Button>
+                </Link>
+              </div>
+
+              {(qmhq.balance_in_hand ?? 0) <= 0 && purchaseOrders.length === 0 && (
+                <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-6">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-amber-400">Insufficient Balance</p>
+                      <p className="text-sm text-slate-400">
+                        You need to add Money In transactions before creating Purchase Orders.
+                        Current Balance in Hand: {formatCurrency(qmhq.balance_in_hand ?? 0)} EUSD
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {purchaseOrders.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+                    <ShoppingCart className="h-8 w-8 text-slate-500" />
+                  </div>
+                  <h3 className="text-lg font-medium text-slate-300 mb-2">No Purchase Orders Yet</h3>
+                  <p className="text-sm text-slate-400 max-w-md">
+                    Purchase Orders will be listed here once created. Add Money In transactions first to fund POs.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {purchaseOrders.map((po) => {
+                    const progress = calculatePOProgress(
+                      po.line_items_aggregate?.total_quantity ?? 0,
+                      po.line_items_aggregate?.total_invoiced ?? 0,
+                      po.line_items_aggregate?.total_received ?? 0
+                    );
+
+                    return (
+                      <Link key={po.id} href={`/po/${po.id}`}>
+                        <div className="p-4 rounded-lg border border-slate-700 bg-slate-800/30 hover:bg-slate-800/50 hover:border-purple-500/30 transition-colors cursor-pointer">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="request-id-badge">
+                                <code>{po.po_number}</code>
+                              </div>
+                              <POStatusBadge status={(po.status || "not_started") as POStatusEnum} size="sm" />
+                            </div>
+                            <div className="text-right">
+                              <p className="font-mono text-emerald-400">{formatCurrency(po.total_amount_eusd ?? 0)} EUSD</p>
+                              <p className="text-xs text-slate-400">{formatCurrency(po.total_amount ?? 0)} {po.currency || "MMK"}</p>
+                            </div>
+                          </div>
+                          {po.supplier && (
+                            <p className="text-sm text-slate-300 mb-3">
+                              {po.supplier.company_name || po.supplier.name}
+                            </p>
+                          )}
+                          <div className="w-full">
+                            <POProgressBar
+                              invoicedPercent={progress.invoicedPercent}
+                              receivedPercent={progress.receivedPercent}
+                              showLabels={false}
+                              size="sm"
+                            />
+                            <div className="flex justify-between mt-1 text-xs text-slate-500">
+                              <span>Invoiced: {progress.invoicedPercent}%</span>
+                              <span>Received: {progress.receivedPercent}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        )}
+
+        {/* History Tab */}
+        <TabsContent value="history" className="mt-6">
+          <div className="command-panel corner-accents">
+            <div className="section-header">
+              <Clock className="h-4 w-4 text-amber-500" />
+              <h2>Activity History</h2>
+            </div>
+
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+                <Clock className="h-8 w-8 text-slate-500" />
+              </div>
+              <h3 className="text-lg font-medium text-slate-300 mb-2">Audit Log Coming Soon</h3>
+              <p className="text-sm text-slate-400 max-w-md">
+                Activity history and audit trail will be available in a future update.
+              </p>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Transaction Dialog */}
+      {(qmhq.route_type === "expense" || qmhq.route_type === "po") && user && (
+        <TransactionDialog
+          open={isTransactionDialogOpen}
+          onOpenChange={setIsTransactionDialogOpen}
+          qmhqId={qmhqId}
+          routeType={qmhq.route_type as "expense" | "po"}
+          userId={user.id}
+          onSuccess={fetchData}
+        />
+      )}
+    </div>
+  );
+}

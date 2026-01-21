@@ -1,47 +1,553 @@
-import { Plus, LayoutGrid, List } from "lucide-react";
-import { Button } from "@/components/ui";
+"use client";
+
+import { useEffect, useState, useMemo } from "react";
+import { Plus, Search, LayoutGrid, List, Package, Wallet, ShoppingCart, Radio, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Pagination } from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { formatCurrency } from "@/lib/utils";
+import type { QMHQ, StatusConfig, Category, User as UserType, QMRL } from "@/types/database";
+
+// Extended QMHQ type with joined relations
+interface QMHQWithRelations extends QMHQ {
+  status?: StatusConfig | null;
+  category?: Category | null;
+  assigned_user?: UserType | null;
+  qmrl?: Pick<QMRL, "id" | "request_id" | "title"> | null;
+}
+
+// Route type configuration
+const routeConfig: Record<string, { icon: typeof Package; label: string; color: string; bgColor: string }> = {
+  item: { icon: Package, label: "Item", color: "text-blue-400", bgColor: "bg-blue-500/10 border-blue-500/20" },
+  expense: { icon: Wallet, label: "Expense", color: "text-emerald-400", bgColor: "bg-emerald-500/10 border-emerald-500/20" },
+  po: { icon: ShoppingCart, label: "PO", color: "text-purple-400", bgColor: "bg-purple-500/10 border-purple-500/20" },
+};
+
+// Status group configuration
+const statusGroups = [
+  { key: "to_do", label: "PENDING", dotClass: "status-dot status-dot-todo", color: "slate" },
+  { key: "in_progress", label: "IN PROGRESS", dotClass: "status-dot status-dot-progress", color: "amber" },
+  { key: "done", label: "COMPLETED", dotClass: "status-dot status-dot-done", color: "emerald" },
+] as const;
 
 export default function QMHQPage() {
+  const [qmhqs, setQmhqs] = useState<QMHQWithRelations[]>([]);
+  const [statuses, setStatuses] = useState<StatusConfig[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [routeFilter, setRouteFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"card" | "list">("card");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    const supabase = createClient();
+
+    const [qmhqRes, statusRes, categoryRes] = await Promise.all([
+      supabase
+        .from("qmhq")
+        .select(`
+          id, request_id, line_name, description, route_type,
+          status_id, category_id, assigned_to, qmrl_id,
+          amount, currency, exchange_rate, amount_eusd,
+          quantity, item_id, created_at,
+          status:status_config(id, name, color, status_group),
+          category:categories(id, name, color),
+          assigned_user:users!qmhq_assigned_to_fkey(id, full_name),
+          qmrl:qmrl!qmhq_qmrl_id_fkey(id, request_id, title)
+        `)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("status_config")
+        .select("id, name, color, status_group, display_order")
+        .eq("entity_type", "qmhq")
+        .eq("is_active", true)
+        .order("display_order"),
+      supabase
+        .from("categories")
+        .select("id, name, color, display_order")
+        .eq("entity_type", "qmhq")
+        .eq("is_active", true)
+        .order("display_order"),
+    ]);
+
+    if (qmhqRes.data) setQmhqs(qmhqRes.data as QMHQWithRelations[]);
+    if (statusRes.data) setStatuses(statusRes.data as StatusConfig[]);
+    if (categoryRes.data) setCategories(categoryRes.data as Category[]);
+
+    setIsLoading(false);
+  };
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, routeFilter, statusFilter]);
+
+  const filteredQmhqs = useMemo(() => {
+    return qmhqs.filter((qmhq) => {
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          qmhq.line_name?.toLowerCase().includes(query) ||
+          qmhq.request_id?.toLowerCase().includes(query) ||
+          qmhq.qmrl?.request_id?.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
+      if (routeFilter !== "all" && qmhq.route_type !== routeFilter) return false;
+      if (statusFilter !== "all" && qmhq.status_id !== statusFilter) return false;
+      return true;
+    });
+  }, [qmhqs, searchQuery, routeFilter, statusFilter]);
+
+  // Pagination calculations
+  const totalItems = filteredQmhqs.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+
+  // Paginated items
+  const paginatedQmhqs = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredQmhqs.slice(start, end);
+  }, [filteredQmhqs, currentPage, pageSize]);
+
+  const groupedQmhqs = useMemo(() => {
+    const groups: Record<string, QMHQWithRelations[]> = {
+      to_do: [],
+      in_progress: [],
+      done: [],
+    };
+
+    paginatedQmhqs.forEach((qmhq) => {
+      const statusGroup = qmhq.status?.status_group || "to_do";
+      if (groups[statusGroup]) {
+        groups[statusGroup].push(qmhq);
+      } else {
+        groups.to_do.push(qmhq);
+      }
+    });
+
+    return groups;
+  }, [paginatedQmhqs]);
+
+  // Handle page size change
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const RouteIcon = ({ routeType }: { routeType: string }) => {
+    const config = routeConfig[routeType];
+    if (!config) return null;
+    const Icon = config.icon;
+    return <Icon className={`h-4 w-4 ${config.color}`} />;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-10 w-36" />
+        </div>
+        <Skeleton className="h-12 w-full" />
+        <div className="grid gap-6 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="space-y-3">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-40 w-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 relative">
+      {/* Subtle grid overlay */}
+      <div className="fixed inset-0 pointer-events-none grid-overlay opacity-50" />
+
+      {/* Page Header */}
+      <div className="relative flex items-start justify-between">
         <div>
-          <h1 className="text-display-sm font-bold tracking-tight text-foreground">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-2 px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
+              <Radio className="h-4 w-4 text-emerald-500" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-500">
+                Operations
+              </span>
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-200">
             QMHQ Lines
           </h1>
-          <p className="mt-1 text-muted-foreground">
-            View and manage all QMHQ fulfillment lines
+          <p className="mt-1 text-slate-400">
+            {totalItems} line{totalItems !== 1 ? "s" : ""} found
+            {totalItems !== qmhqs.length && (
+              <span className="text-slate-500"> (of {qmhqs.length} total)</span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* View toggle placeholder */}
-          <div className="flex rounded-lg border border-border bg-background p-1">
-            <button className="rounded-md bg-accent px-3 py-1.5">
+          {/* View Toggle */}
+          <div className="flex items-center border border-slate-700 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode("card")}
+              className={`p-2 transition-colors ${
+                viewMode === "card"
+                  ? "bg-amber-500/20 text-amber-400"
+                  : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
+              }`}
+            >
               <LayoutGrid className="h-4 w-4" />
             </button>
-            <button className="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`p-2 transition-colors ${
+                viewMode === "list"
+                  ? "bg-amber-500/20 text-amber-400"
+                  : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
+              }`}
+            >
               <List className="h-4 w-4" />
             </button>
           </div>
-          <Button>
-            <Plus className="h-4 w-4" />
-            New QMHQ
-          </Button>
+          <Link href="/qmhq/new">
+            <Button className="group relative overflow-hidden">
+              <span className="relative z-10 flex items-center gap-2">
+                <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+                New QMHQ
+              </span>
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {/* Placeholder content */}
-      <div className="card-elevated flex h-64 items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg font-medium text-muted-foreground">
-            QMHQ list will be implemented in Iteration 6
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Card/List views with route types: Item, Expense, PO
-          </p>
+      {/* Filters Bar */}
+      <div className="command-panel">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative flex-1 min-w-[240px] max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              placeholder="Search by name or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-slate-800/50 border-slate-700 focus:border-amber-500/50 font-mono text-sm"
+            />
+          </div>
+
+          <Select value={routeFilter} onValueChange={setRouteFilter}>
+            <SelectTrigger className="w-[140px] bg-slate-800/50 border-slate-700">
+              <SelectValue placeholder="Route" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Routes</SelectItem>
+              <SelectItem value="item">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-blue-400" />
+                  Item
+                </div>
+              </SelectItem>
+              <SelectItem value="expense">
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-emerald-400" />
+                  Expense
+                </div>
+              </SelectItem>
+              <SelectItem value="po">
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4 text-purple-400" />
+                  PO
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[160px] bg-slate-800/50 border-slate-700">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {statuses.map((status) => (
+                <SelectItem key={status.id} value={status.id}>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: status.color || "#94a3b8" }}
+                    />
+                    {status.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
+
+      {/* Card View - Kanban Style */}
+      {viewMode === "card" && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          {statusGroups.map((group) => (
+            <div key={group.key} className="flex flex-col">
+              {/* Column Header */}
+              <div className="column-header">
+                <div className={group.dotClass} />
+                <h2 className="text-sm font-bold uppercase tracking-widest text-slate-200">
+                  {group.label}
+                </h2>
+                <span className="stat-counter ml-auto">
+                  {groupedQmhqs[group.key].length}
+                </span>
+              </div>
+
+              {/* Column Body */}
+              <div className="flex-1 rounded-b-lg border border-t-0 border-slate-700 bg-slate-900/30 p-3 min-h-[400px]">
+                <div className="space-y-3">
+                  {groupedQmhqs[group.key].length === 0 ? (
+                    <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-slate-700">
+                      <p className="text-sm text-slate-400">No items</p>
+                    </div>
+                  ) : (
+                    groupedQmhqs[group.key].map((qmhq, index) => (
+                      <Link key={qmhq.id} href={`/qmhq/${qmhq.id}`} className="block mb-2">
+                        <div
+                          className="tactical-card corner-accents p-4 animate-slide-up cursor-pointer"
+                          style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                          {/* Scan line effect */}
+                          <div className="scan-overlay" />
+
+                          {/* Header Row */}
+                          <div className="relative flex items-center justify-between mb-3">
+                            <div className="request-id-badge">
+                              <code>{qmhq.request_id}</code>
+                            </div>
+                            <div className={`flex items-center gap-1.5 px-2 py-1 rounded border ${routeConfig[qmhq.route_type]?.bgColor}`}>
+                              <RouteIcon routeType={qmhq.route_type} />
+                              <span className={`text-xs font-medium ${routeConfig[qmhq.route_type]?.color}`}>
+                                {routeConfig[qmhq.route_type]?.label}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Title */}
+                          <h3 className="font-semibold text-slate-200 mb-2 line-clamp-2 leading-snug">
+                            {qmhq.line_name}
+                          </h3>
+
+                          {/* Parent QMRL */}
+                          {qmhq.qmrl && (
+                            <div className="mb-3 text-xs text-slate-400">
+                              <span className="text-slate-500">From:</span>{" "}
+                              <code className="text-amber-400">{qmhq.qmrl.request_id}</code>
+                            </div>
+                          )}
+
+                          {/* Financial Info for expense/po routes */}
+                          {(qmhq.route_type === "expense" || qmhq.route_type === "po") && qmhq.amount && (
+                            <div className="mb-3 p-2 rounded bg-slate-800/50 border border-slate-700">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-slate-400">Amount</span>
+                                <span className="font-mono text-sm text-emerald-400">
+                                  {formatCurrency(qmhq.amount_eusd ?? 0)} EUSD
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Category Tag */}
+                          {qmhq.category && (
+                            <div className="mb-3">
+                              <Badge
+                                variant="outline"
+                                className="text-xs font-medium"
+                                style={{
+                                  borderColor: qmhq.category.color || "rgb(100, 116, 139)",
+                                  color: qmhq.category.color || "rgb(148, 163, 184)",
+                                  backgroundColor: `${qmhq.category.color}10` || "transparent",
+                                }}
+                              >
+                                {qmhq.category.name}
+                              </Badge>
+                            </div>
+                          )}
+
+                          {/* Divider */}
+                          <div className="divider-accent" />
+
+                          {/* Meta Row */}
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-3 text-slate-400">
+                              <span>{formatDate(qmhq.created_at)}</span>
+                              {qmhq.assigned_user && (
+                                <span className="truncate max-w-[80px]">
+                                  {qmhq.assigned_user.full_name?.split(" ")[0]}
+                                </span>
+                              )}
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-slate-400" />
+                          </div>
+
+                          {/* Status Badge */}
+                          {qmhq.status && (
+                            <div className="mt-3 pt-3 border-t border-slate-700/50">
+                              <Badge
+                                variant="outline"
+                                className="text-xs font-mono uppercase tracking-wider"
+                                style={{
+                                  borderColor: qmhq.status.color || undefined,
+                                  color: qmhq.status.color || undefined,
+                                }}
+                              >
+                                {qmhq.status.name}
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* List View */}
+      {viewMode === "list" && (
+        <div className="command-panel">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-700">
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">ID</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Name</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Route</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Parent QMRL</th>
+                  <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Amount (EUSD)</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Status</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Assigned</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedQmhqs.map((qmhq) => (
+                  <tr
+                    key={qmhq.id}
+                    className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer"
+                    onClick={() => window.location.href = `/qmhq/${qmhq.id}`}
+                  >
+                    <td className="py-3 px-4">
+                      <code className="text-amber-400 text-sm">{qmhq.request_id}</code>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="text-slate-200 font-medium">{qmhq.line_name}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border ${routeConfig[qmhq.route_type]?.bgColor}`}>
+                        <RouteIcon routeType={qmhq.route_type} />
+                        <span className={`text-xs font-medium ${routeConfig[qmhq.route_type]?.color}`}>
+                          {routeConfig[qmhq.route_type]?.label}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      {qmhq.qmrl ? (
+                        <code className="text-slate-400 text-sm">{qmhq.qmrl.request_id}</code>
+                      ) : (
+                        <span className="text-slate-500">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      {(qmhq.route_type === "expense" || qmhq.route_type === "po") && qmhq.amount_eusd ? (
+                        <span className="font-mono text-emerald-400">
+                          {formatCurrency(qmhq.amount_eusd)} EUSD
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
+                      {qmhq.status ? (
+                        <Badge
+                          variant="outline"
+                          className="text-xs"
+                          style={{
+                            borderColor: qmhq.status.color || undefined,
+                            color: qmhq.status.color || undefined,
+                          }}
+                        >
+                          {qmhq.status.name}
+                        </Badge>
+                      ) : (
+                        <span className="text-slate-500">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="text-slate-400 text-sm">
+                        {qmhq.assigned_user?.full_name || "—"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {paginatedQmhqs.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                      No QMHQ lines found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalItems > 0 && (
+        <div className="command-panel mt-6">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={handlePageSizeChange}
+          />
+        </div>
+      )}
     </div>
   );
 }

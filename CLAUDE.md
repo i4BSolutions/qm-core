@@ -110,6 +110,121 @@ npm run test:watch   # Watch mode
 
 ---
 
+## Status System (Notion-Style)
+
+Both QMRL and QMHQ use a **single status system** similar to Notion Database Status column.
+
+### Status Configuration
+
+| Field | Description |
+|-------|-------------|
+| `entity_type` | Which entity this status belongs to (`qmrl` or `qmhq`) |
+| `status_group` | Visual grouping: `to_do`, `in_progress`, `done` |
+| `name` | Display name (user-customizable) |
+| `color` | Hex color for badge display |
+| `is_default` | Auto-select for new records |
+
+### Default QMRL Statuses
+
+| Group | Name | Color |
+|-------|------|-------|
+| to_do | Draft | #9CA3AF (gray) |
+| to_do | Pending Review | #F59E0B (amber) |
+| in_progress | Under Processing | #3B82F6 (blue) |
+| in_progress | Awaiting Approval | #8B5CF6 (purple) |
+| done | Completed | #10B981 (green) |
+| done | Rejected | #EF4444 (red) |
+
+### Default QMHQ Statuses
+
+| Group | Name | Color |
+|-------|------|-------|
+| to_do | Not Started | #9CA3AF (gray) |
+| to_do | Pending | #F59E0B (amber) |
+| in_progress | Processing | #3B82F6 (blue) |
+| in_progress | Awaiting Delivery | #8B5CF6 (purple) |
+| done | Completed | #10B981 (green) |
+| done | Cancelled | #EF4444 (red) |
+
+---
+
+## Categories System
+
+Categories provide classification/grouping for QMRL and QMHQ (distinct from QMHQ route types).
+
+### Category Configuration
+
+| Field | Description |
+|-------|-------------|
+| `entity_type` | Which entity (`qmrl` or `qmhq`) |
+| `name` | Display name |
+| `color` | Hex color for badge |
+| `display_order` | Sort order in dropdowns |
+
+### Default QMRL Categories
+
+- **Operations** - Operational requests
+- **Logistics** - Supply chain and transport
+- **Equipment** - Hardware and machinery
+- **Personnel** - Staffing related
+- **Emergency** - Urgent priority
+
+### Default QMHQ Categories
+
+- **Purchase** - Item procurement
+- **Service** - Service contracts
+- **Travel** - Travel expenses
+- **Maintenance** - Repair and upkeep
+- **Other** - Miscellaneous
+
+---
+
+## Inline Creation Pattern
+
+Both **Status** and **Category** support **inline creation** during QMRL/QMHQ forms:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Category: *                                   [+]  │
+│  [🔍 Select category...                      ▼]     │
+│                                                     │
+│  Clicking [+] expands inline form:                 │
+│  ┌─────────────────────────────────────────────┐   │
+│  │ Name: * [_______________]                   │   │
+│  │ Color: [🎨 #3B82F6]                         │   │
+│  │                       [Cancel] [Create & Select] │
+│  └─────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+### Implementation Component
+
+Create `/components/forms/inline-create-select.tsx`:
+- Combines Select dropdown with [+] button
+- Expandable inline form for creating new item
+- "Create & Select" action adds to database and selects it
+- Works for both Status and Category
+
+---
+
+## Admin Management Pages
+
+### Status Management (`/admin/statuses`)
+
+- List all statuses grouped by entity_type
+- Create/Edit dialog with: name, entity_type, status_group, color, is_default
+- Reorder via drag-and-drop or display_order input
+- Soft delete (is_active = false)
+- Cannot delete default status
+
+### Category Management (`/admin/categories`)
+
+- List all categories grouped by entity_type
+- Create/Edit dialog with: name, entity_type, color, display_order
+- Reorder functionality
+- Soft delete (is_active = false)
+
+---
 
 ## Iteration Guide
 
@@ -193,11 +308,13 @@ Development is organized into 10 iterations with minimal cross-dependencies. Com
 4. **Status Config Table**
    - Entity types: `qmrl`, `qmhq`
    - Status groups: `to_do`, `in_progress`, `done`
-   - Default statuses seeded
+   - Seed default QMRL statuses: Draft, Pending Review, Under Processing, Awaiting Approval, Completed, Rejected
+   - Seed default QMHQ statuses: Not Started, Pending, Processing, Awaiting Delivery, Completed, Cancelled
 
 5. **Categories Table**
    - Entity types: `qmrl`, `qmhq`
-   - Default categories seeded
+   - Seed default QMRL categories: Operations, Logistics, Equipment, Personnel, Emergency
+   - Seed default QMHQ categories: Purchase, Service, Travel, Maintenance, Other
 
 6. **ID Generation Utility**
    - Function to generate `QMRL-YYYY-NNNNN` format IDs
@@ -336,11 +453,12 @@ wac_amount_eusd DECIMAL(15,2) GENERATED ALWAYS AS (...)
    - Edit functionality
    - Link to create QMHQ
 
-5. **Inline Creation Pattern**
+5. **Inline Creation Pattern** (for Status and Category)
    - `/components/forms/inline-create-select.tsx`
    - Select dropdown with [+] button
    - Expandable inline form for new item creation
    - "Create & Select" action
+   - Works for both Status and Category dropdowns
 
 #### QMRL Fields
 - `request_id` (QMRL-YYYY-NNNNN)
@@ -610,6 +728,16 @@ CHECK (reason IN ('request', 'consumption', 'damage', 'lost', 'transfer', 'adjus
    - Skeleton loaders for lists/cards
    - Suspense boundaries
 
+9. **Admin Management Pages**
+   - `/admin/statuses` - Status configuration management
+     - List grouped by entity_type (qmrl, qmhq)
+     - Create/Edit dialog: name, entity_type, status_group, color, is_default
+     - Reorder functionality
+   - `/admin/categories` - Category management
+     - List grouped by entity_type
+     - Create/Edit dialog: name, entity_type, color, display_order
+     - Reorder functionality
+
 #### Action Icons for History
 | Action | Icon |
 |--------|------|
@@ -625,6 +753,37 @@ CHECK (reason IN ('request', 'consumption', 'damage', 'lost', 'transfer', 'adjus
 ---
 
 ## Quick Reference
+
+### Frontend Routes
+
+| Route | Page | Access |
+|-------|------|--------|
+| `/login` | Login | Public |
+| `/dashboard` | Dashboard | All |
+| `/qmrl` | QMRL List | All |
+| `/qmrl/new` | Create QMRL | Requester+ |
+| `/qmrl/[id]` | QMRL Detail | Role-based |
+| `/qmhq` | QMHQ List (Card/List) | Role-based |
+| `/qmhq/new?qmrl={id}` | Create QMHQ (2-Page) | Proposal+ |
+| `/qmhq/[id]` | QMHQ Detail | Role-based |
+| `/po` | PO List (Card/List) | Proposal, Finance |
+| `/po/new` | Create PO | Proposal, Finance |
+| `/po/[id]` | PO Detail | Proposal, Finance |
+| `/invoice` | Invoice List (Card/List) | Finance |
+| `/invoice/new` | Create Invoice (4 steps) | Finance |
+| `/invoice/[id]` | Invoice Detail | Finance, Inventory |
+| `/inventory` | Inventory Dashboard | Inventory, Admin |
+| `/inventory/stock-in` | Stock In Form | Inventory |
+| `/inventory/stock-out` | Stock Out Form | Inventory |
+| `/warehouse` | Warehouse List | Inventory, Admin |
+| `/warehouse/[id]` | Warehouse Detail (with WAC) | Inventory, Admin |
+| `/item` | Item List | All |
+| `/item/[id]` | Item Detail (with WAC) | Role-based |
+| `/admin/users` | User Management | Admin |
+| `/admin/contacts` | Contact Persons | Admin |
+| `/admin/suppliers` | Supplier Management | Admin |
+| `/admin/categories` | Category Management | Admin |
+| `/admin/statuses` | Status Management | Admin |
 
 ### QMHQ Routes
 

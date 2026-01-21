@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
-import type { User, UserRole } from "@/types";
+import type { User } from "@/types";
 
 interface AuthContextType {
   user: User | null;
@@ -16,24 +16,28 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Create supabase client outside component to avoid re-creation on every render
+const supabase = createClient();
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = createClient();
+  // Track if initial load has completed to avoid double fetching
+  const initialLoadDone = useRef(false);
 
-  const fetchUserProfile = useCallback(async (authUser: SupabaseUser) => {
+  const fetchUserProfile = useCallback(async (authUser: SupabaseUser): Promise<User | null> => {
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from("users")
         .select("*")
         .eq("id", authUser.id)
         .single();
 
-      if (error) {
-        console.error("Error fetching user profile:", error);
+      if (fetchError) {
+        console.error("Error fetching user profile:", fetchError);
         setError("Failed to load user profile");
         return null;
       }
@@ -44,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError("Failed to load user profile");
       return null;
     }
-  }, [supabase]);
+  }, []); // No dependencies - supabase is now a module-level constant
 
   const refreshUser = useCallback(async () => {
     setIsLoading(true);
@@ -67,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [supabase, fetchUserProfile]);
+  }, [fetchUserProfile]);
 
   const signOut = useCallback(async () => {
     try {
@@ -78,9 +82,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Error signing out:", err);
       setError("Failed to sign out");
     }
-  }, [supabase]);
+  }, []); // No dependencies - supabase is now a module-level constant
 
   useEffect(() => {
+    // Only run initial load once
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+
     // Initial load
     refreshUser();
 
@@ -91,9 +99,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSupabaseUser(session.user);
           const profile = await fetchUserProfile(session.user);
           setUser(profile);
+          setIsLoading(false);
         } else if (event === "SIGNED_OUT") {
           setUser(null);
           setSupabaseUser(null);
+          setIsLoading(false);
         }
       }
     );
@@ -101,19 +111,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [refreshUser, fetchUserProfile, supabase.auth]);
+  }, [refreshUser, fetchUserProfile]); // These are now stable references
+
+  // Memoize context value to prevent unnecessary re-renders of consumers
+  const contextValue = useMemo<AuthContextType>(() => ({
+    user,
+    supabaseUser,
+    isLoading,
+    error,
+    signOut,
+    refreshUser,
+  }), [user, supabaseUser, isLoading, error, signOut, refreshUser]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        supabaseUser,
-        isLoading,
-        error,
-        signOut,
-        refreshUser,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

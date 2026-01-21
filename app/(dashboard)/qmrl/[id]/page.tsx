@@ -18,13 +18,17 @@ import {
   Clock,
   Target,
   ExternalLink,
+  Package,
+  Wallet,
+  ShoppingCart,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { QMRL, StatusConfig, Category, Department, ContactPerson, User as UserType } from "@/types/database";
+import type { QMRL, QMHQ, StatusConfig, Category, Department, ContactPerson, User as UserType } from "@/types/database";
+import { formatCurrency } from "@/lib/utils";
 
 interface QMRLWithRelations extends QMRL {
   status?: StatusConfig | null;
@@ -34,6 +38,19 @@ interface QMRLWithRelations extends QMRL {
   department?: Department | null;
   contact_person?: ContactPerson | null;
 }
+
+interface QMHQWithRelations extends QMHQ {
+  status?: StatusConfig | null;
+  category?: Category | null;
+  assigned_user?: UserType | null;
+}
+
+// Route type configuration for QMHQ display
+const routeConfig: Record<string, { icon: typeof Package; label: string; color: string; bgColor: string }> = {
+  item: { icon: Package, label: "Item", color: "text-blue-400", bgColor: "bg-blue-500/10 border-blue-500/20" },
+  expense: { icon: Wallet, label: "Expense", color: "text-emerald-400", bgColor: "bg-emerald-500/10 border-emerald-500/20" },
+  po: { icon: ShoppingCart, label: "PO", color: "text-purple-400", bgColor: "bg-purple-500/10 border-purple-500/20" },
+};
 
 const priorityConfig: Record<string, { class: string; label: string; icon: string }> = {
   low: { class: "priority-tactical priority-tactical-low", label: "LOW", icon: "slate" },
@@ -46,6 +63,7 @@ export default function QMRLDetailPage() {
   const params = useParams();
   const router = useRouter();
   const [qmrl, setQmrl] = useState<QMRLWithRelations | null>(null);
+  const [relatedQmhq, setRelatedQmhq] = useState<QMHQWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -58,6 +76,7 @@ export default function QMRLDetailPage() {
     setIsLoading(true);
     const supabase = createClient();
 
+    // Fetch QMRL data
     const { data, error } = await supabase
       .from("qmrl")
       .select(`
@@ -78,6 +97,24 @@ export default function QMRLDetailPage() {
     }
 
     setQmrl(data as QMRLWithRelations);
+
+    // Fetch related QMHQ records
+    const { data: qmhqData } = await supabase
+      .from("qmhq")
+      .select(`
+        *,
+        status:status_config(*),
+        category:categories(*),
+        assigned_user:users!qmhq_assigned_to_fkey(id, full_name)
+      `)
+      .eq("qmrl_id", id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (qmhqData) {
+      setRelatedQmhq(qmhqData as unknown as QMHQWithRelations[]);
+    }
+
     setIsLoading(false);
   };
 
@@ -228,7 +265,7 @@ export default function QMRLDetailPage() {
           </TabsTrigger>
           <TabsTrigger value="qmhq" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
             <ExternalLink className="mr-2 h-4 w-4" />
-            QMHQ Lines
+            QMHQ Lines ({relatedQmhq.length})
           </TabsTrigger>
           <TabsTrigger value="history" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
             <History className="mr-2 h-4 w-4" />
@@ -258,6 +295,15 @@ export default function QMRLDetailPage() {
                       <p className="data-value font-mono">{formatDate(qmrl.request_date)}</p>
                     </div>
                   </div>
+                  {qmrl.request_letter_no && (
+                    <>
+                      <div className="divider-accent" />
+                      <div>
+                        <p className="data-label mb-1">Request Letter No</p>
+                        <p className="data-value font-mono">{qmrl.request_letter_no}</p>
+                      </div>
+                    </>
+                  )}
                   <div className="divider-accent" />
                   <div>
                     <p className="data-label mb-1">Contact Person</p>
@@ -420,17 +466,96 @@ export default function QMRLDetailPage() {
               </Link>
             </div>
 
-            <div className="flex h-40 items-center justify-center border border-dashed border-sidebar-border rounded-lg bg-slate-900/30">
-              <div className="text-center">
-                <ExternalLink className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-sm text-slate-400">No QMHQ lines yet</p>
-                <p className="text-xs text-slate-400 mt-1">Click "Add Line" to create one</p>
+            {relatedQmhq.length === 0 ? (
+              <div className="flex h-40 items-center justify-center border border-dashed border-sidebar-border rounded-lg bg-slate-900/30">
+                <div className="text-center">
+                  <ExternalLink className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm text-slate-400">No QMHQ lines yet</p>
+                  <p className="text-xs text-slate-400 mt-1">Click "Add Line" to create one</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                {relatedQmhq.map((qmhqItem) => {
+                  const RouteIcon = routeConfig[qmhqItem.route_type]?.icon || Package;
+                  const routeColors = routeConfig[qmhqItem.route_type];
 
-            <p className="mt-4 text-xs text-slate-400 text-center">
-              QMHQ lines will be implemented in Iteration 6
-            </p>
+                  return (
+                    <Link
+                      key={qmhqItem.id}
+                      href={`/qmhq/${qmhqItem.id}`}
+                      className="block p-4 rounded-lg border border-slate-700 bg-slate-800/30 hover:bg-slate-800/50 hover:border-amber-500/30 transition-all"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          {/* Route Type Icon */}
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${routeColors?.bgColor}`}>
+                            <RouteIcon className={`h-5 w-5 ${routeColors?.color}`} />
+                          </div>
+
+                          <div>
+                            {/* Request ID and Route Badge */}
+                            <div className="flex items-center gap-2 mb-1">
+                              <code className="text-sm font-mono text-amber-400">
+                                {qmhqItem.request_id}
+                              </code>
+                              <span className={`text-xs px-2 py-0.5 rounded border ${routeColors?.bgColor} ${routeColors?.color}`}>
+                                {routeColors?.label}
+                              </span>
+                              {qmhqItem.status && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs"
+                                  style={{
+                                    borderColor: qmhqItem.status.color || undefined,
+                                    color: qmhqItem.status.color || undefined,
+                                  }}
+                                >
+                                  {qmhqItem.status.name}
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Line Name */}
+                            <p className="text-slate-200 font-medium">
+                              {qmhqItem.line_name}
+                            </p>
+
+                            {/* Meta Info */}
+                            <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
+                              {qmhqItem.assigned_user && (
+                                <span className="flex items-center gap-1">
+                                  <User className="h-3 w-3" />
+                                  {qmhqItem.assigned_user.full_name}
+                                </span>
+                              )}
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {formatDate(qmhqItem.created_at)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Amount/Quantity Display */}
+                        <div className="text-right">
+                          {qmhqItem.route_type === "item" && qmhqItem.quantity && (
+                            <p className="text-lg font-mono font-bold text-blue-400">
+                              {qmhqItem.quantity} <span className="text-xs text-slate-400">units</span>
+                            </p>
+                          )}
+                          {(qmhqItem.route_type === "expense" || qmhqItem.route_type === "po") && qmhqItem.amount_eusd && (
+                            <p className={`text-lg font-mono font-bold ${routeColors?.color}`}>
+                              {formatCurrency(qmhqItem.amount_eusd)} <span className="text-xs text-slate-400">EUSD</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </TabsContent>
 

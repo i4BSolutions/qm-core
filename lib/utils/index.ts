@@ -10,29 +10,41 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Format a number as currency with proper decimal places
+ * Format a number with thousand separators and proper decimal places
+ * Returns just the formatted number (e.g., "1,234.56")
+ * Rounds to specified decimals to avoid floating point display issues
  */
 export function formatCurrency(
   amount: number,
-  currency: string = "MMK",
-  locale: string = "en-US"
+  decimals: number = 2
 ): string {
-  return new Intl.NumberFormat(locale, {
+  // Round first to avoid floating point precision issues (e.g., 3999.9999999 -> 4000)
+  const multiplier = Math.pow(10, decimals);
+  const rounded = Math.round(amount * multiplier) / multiplier;
+
+  return new Intl.NumberFormat("en-US", {
     style: "decimal",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount) + ` ${currency}`;
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(rounded);
 }
 
 /**
- * Format a number as EUSD equivalent
+ * Format a number with currency suffix (e.g., "1,234.56 MMK")
+ */
+export function formatAmount(
+  amount: number,
+  currency: string = "MMK",
+  decimals: number = 2
+): string {
+  return formatCurrency(amount, decimals) + ` ${currency}`;
+}
+
+/**
+ * Format a number as EUSD equivalent (e.g., "1,234.56 EUSD")
  */
 export function formatEUSD(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "decimal",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount) + " USD";
+  return formatCurrency(amount, 2) + " EUSD";
 }
 
 /**

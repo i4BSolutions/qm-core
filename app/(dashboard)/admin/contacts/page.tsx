@@ -36,17 +36,22 @@ export default function ContactPersonsPage() {
     const [contactsRes, deptsRes] = await Promise.all([
       supabase
         .from("contact_persons")
-        .select("*, departments(id, name)")
+        .select("id, name, department_id, position, phone, email, departments(id, name)")
+        .eq("is_active", true)
+        .order("name")
+        .limit(200),
+      supabase
+        .from("departments")
+        .select("id, name")
         .eq("is_active", true)
         .order("name"),
-      supabase.from("departments").select("*").eq("is_active", true).order("name"),
     ]);
 
     if (contactsRes.data) {
       setContacts(contactsRes.data as ContactPersonWithDepartment[]);
     }
     if (deptsRes.data) {
-      setDepartments(deptsRes.data);
+      setDepartments(deptsRes.data as Department[]);
     }
     setIsLoading(false);
   };

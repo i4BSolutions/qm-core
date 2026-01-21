@@ -36,14 +36,15 @@ export default function ItemsPage() {
     setIsLoading(true);
     const supabase = createClient();
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("items")
-      .select("*")
+      .select("id, name, description, category, sku, default_unit, wac_amount, wac_currency, wac_amount_eusd")
       .eq("is_active", true)
-      .order("name");
+      .order("name")
+      .limit(200);
 
     if (data) {
-      setItems(data);
+      setItems(data as Item[]);
     }
     setIsLoading(false);
   };

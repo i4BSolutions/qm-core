@@ -19,6 +19,8 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Badge } from "@/components/ui/badge";
+import { DatePicker } from "@/components/ui/date-picker";
+import { InlineCreateSelect } from "@/components/forms/inline-create-select";
 import type { StatusConfig, Category, Department, ContactPerson, User as UserType } from "@/types/database";
 
 type ContactPersonWithDepartment = ContactPerson & {
@@ -41,16 +43,17 @@ export default function NewQMRLPage() {
 
   const [formData, setFormData] = useState({
     title: "",
+    request_letter_no: "",
     category_id: "",
     priority: "medium",
     department_id: "",
     contact_person_id: "",
-    request_date: new Date().toISOString().split("T")[0],
     assigned_to: "",
     status_id: "",
     description: "",
     notes: "",
   });
+  const [requestDate, setRequestDate] = useState<Date | undefined>(new Date());
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [statuses, setStatuses] = useState<StatusConfig[]>([]);
@@ -149,11 +152,12 @@ export default function NewQMRLPage() {
 
     const insertData = {
       title: formData.title,
+      request_letter_no: formData.request_letter_no || null,
       category_id: formData.category_id || null,
       priority: formData.priority,
       department_id: departmentId,
       contact_person_id: formData.contact_person_id,
-      request_date: formData.request_date,
+      request_date: requestDate ? requestDate.toISOString().split("T")[0] : null,
       assigned_to: formData.assigned_to || null,
       status_id: formData.status_id || null,
       description: formData.description || null,
@@ -253,30 +257,33 @@ export default function NewQMRLPage() {
               />
             </div>
 
+            <div className="grid gap-2">
+              <Label htmlFor="request_letter_no" className="data-label">
+                Request Letter No
+              </Label>
+              <Input
+                id="request_letter_no"
+                value={formData.request_letter_no}
+                onChange={(e) => setFormData({ ...formData, request_letter_no: e.target.value })}
+                placeholder="External reference number (e.g., RL-2024-001)"
+                className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 text-slate-200 max-w-md"
+              />
+              <p className="text-xs text-slate-400">External/physical request letter reference number</p>
+            </div>
+
             <div className="grid grid-cols-2 gap-6">
               <div className="grid gap-2">
                 <Label htmlFor="category" className="data-label">Category</Label>
-                <Select
+                <InlineCreateSelect
                   value={formData.category_id}
                   onValueChange={(value) => setFormData({ ...formData, category_id: value })}
-                >
-                  <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        <div className="flex items-center gap-2">
-                          {cat.color && (
-                            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: cat.color }} />
-                          )}
-                          {cat.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-slate-400">Classification only</p>
+                  options={categories}
+                  onOptionsChange={setCategories}
+                  placeholder="Select category"
+                  entityType="qmrl"
+                  createType="category"
+                />
+                <p className="text-xs text-slate-400">Classification only — click [+] to create new</p>
               </div>
 
               <div className="grid gap-2">
@@ -364,14 +371,13 @@ export default function NewQMRLPage() {
               <Label htmlFor="request_date" className="data-label">
                 Request Date <span className="text-red-400">*</span>
               </Label>
-              <Input
-                id="request_date"
-                type="date"
-                value={formData.request_date}
-                onChange={(e) => setFormData({ ...formData, request_date: e.target.value })}
-                className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 font-mono max-w-xs"
-                required
-              />
+              <div className="max-w-xs">
+                <DatePicker
+                  date={requestDate}
+                  onDateChange={setRequestDate}
+                  placeholder="Select request date"
+                />
+              </div>
               <p className="text-xs text-slate-400">Backdates allowed for late entries</p>
             </div>
           </div>
@@ -408,26 +414,16 @@ export default function NewQMRLPage() {
 
             <div className="grid gap-2">
               <Label htmlFor="status" className="data-label">Initial Status</Label>
-              <Select
+              <InlineCreateSelect
                 value={formData.status_id}
                 onValueChange={(value) => setFormData({ ...formData, status_id: value })}
-              >
-                <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      <div className="flex items-center gap-2">
-                        {s.color && (
-                          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
-                        )}
-                        {s.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={statuses}
+                onOptionsChange={setStatuses}
+                placeholder="Select status"
+                entityType="qmrl"
+                createType="status"
+              />
+              <p className="text-xs text-slate-400">Click [+] to create new status</p>
             </div>
           </div>
         </div>

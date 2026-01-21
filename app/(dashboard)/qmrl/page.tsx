@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Pagination } from "@/components/ui/pagination";
 import {
   Select,
   SelectContent,
@@ -51,6 +52,10 @@ export default function QMRLPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [assignedFilter, setAssignedFilter] = useState<string>("all");
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -59,46 +64,54 @@ export default function QMRLPage() {
     setIsLoading(true);
     const supabase = createClient();
 
-    const { data: qmrlData } = await supabase
-      .from("qmrl")
-      .select(`
-        *,
-        status:status_config(*),
-        category:categories(*),
-        assigned_user:users!qmrl_assigned_to_fkey(*),
-        requester:users!qmrl_requester_id_fkey(*),
-        department:departments(*)
-      `)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false });
+    // Parallel fetching for better performance
+    const [qmrlRes, statusRes, categoryRes, userRes] = await Promise.all([
+      supabase
+        .from("qmrl")
+        .select(`
+          id, request_id, title, priority, request_date, description,
+          status_id, category_id, assigned_to, requester_id, department_id,
+          created_at,
+          status:status_config(id, name, color, status_group),
+          category:categories(id, name, color),
+          assigned_user:users!qmrl_assigned_to_fkey(id, full_name),
+          requester:users!qmrl_requester_id_fkey(id, full_name),
+          department:departments(id, name)
+        `)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("status_config")
+        .select("id, name, color, status_group, display_order")
+        .eq("entity_type", "qmrl")
+        .eq("is_active", true)
+        .order("display_order"),
+      supabase
+        .from("categories")
+        .select("id, name, color, display_order")
+        .eq("entity_type", "qmrl")
+        .eq("is_active", true)
+        .order("display_order"),
+      supabase
+        .from("users")
+        .select("id, full_name")
+        .eq("is_active", true)
+        .order("full_name"),
+    ]);
 
-    const { data: statusData } = await supabase
-      .from("status_config")
-      .select("*")
-      .eq("entity_type", "qmrl")
-      .eq("is_active", true)
-      .order("display_order");
-
-    const { data: categoryData } = await supabase
-      .from("categories")
-      .select("*")
-      .eq("entity_type", "qmrl")
-      .eq("is_active", true)
-      .order("display_order");
-
-    const { data: userData } = await supabase
-      .from("users")
-      .select("*")
-      .eq("is_active", true)
-      .order("full_name");
-
-    if (qmrlData) setQmrls(qmrlData as QMRLWithRelations[]);
-    if (statusData) setStatuses(statusData);
-    if (categoryData) setCategories(categoryData);
-    if (userData) setUsers(userData);
+    if (qmrlRes.data) setQmrls(qmrlRes.data as QMRLWithRelations[]);
+    if (statusRes.data) setStatuses(statusRes.data as StatusConfig[]);
+    if (categoryRes.data) setCategories(categoryRes.data as Category[]);
+    if (userRes.data) setUsers(userRes.data as UserType[]);
 
     setIsLoading(false);
   };
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, categoryFilter, assignedFilter]);
 
   const filteredQmrls = useMemo(() => {
     return qmrls.filter((qmrl) => {
@@ -116,6 +129,17 @@ export default function QMRLPage() {
     });
   }, [qmrls, searchQuery, categoryFilter, assignedFilter]);
 
+  // Pagination calculations
+  const totalItems = filteredQmrls.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+
+  // Paginated items
+  const paginatedQmrls = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredQmrls.slice(start, end);
+  }, [filteredQmrls, currentPage, pageSize]);
+
   const groupedQmrls = useMemo(() => {
     const groups: Record<string, QMRLWithRelations[]> = {
       to_do: [],
@@ -123,7 +147,7 @@ export default function QMRLPage() {
       done: [],
     };
 
-    filteredQmrls.forEach((qmrl) => {
+    paginatedQmrls.forEach((qmrl) => {
       const statusGroup = qmrl.status?.status_group || "to_do";
       if (groups[statusGroup]) {
         groups[statusGroup].push(qmrl);
@@ -133,7 +157,13 @@ export default function QMRLPage() {
     });
 
     return groups;
-  }, [filteredQmrls]);
+  }, [paginatedQmrls]);
+
+  // Handle page size change
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
@@ -184,7 +214,10 @@ export default function QMRLPage() {
             Request Letters
           </h1>
           <p className="mt-1 text-slate-400">
-            {filteredQmrls.length} active request{filteredQmrls.length !== 1 ? "s" : ""} in system
+            {totalItems} request{totalItems !== 1 ? "s" : ""} found
+            {totalItems !== qmrls.length && (
+              <span className="text-slate-500"> (of {qmrls.length} total)</span>
+            )}
           </p>
         </div>
         <Link href="/qmrl/new">
@@ -266,7 +299,7 @@ export default function QMRLPage() {
                   </div>
                 ) : (
                   groupedQmrls[group.key].map((qmrl, index) => (
-                    <Link key={qmrl.id} href={`/qmrl/${qmrl.id}`}>
+                    <Link key={qmrl.id} href={`/qmrl/${qmrl.id}`} className="block mb-2">
                       <div
                         className="tactical-card corner-accents p-4 animate-slide-up cursor-pointer"
                         style={{ animationDelay: `${index * 50}ms` }}
@@ -356,6 +389,20 @@ export default function QMRLPage() {
           </div>
         ))}
       </div>
+
+      {/* Pagination */}
+      {totalItems > 0 && (
+        <div className="command-panel mt-6">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={handlePageSizeChange}
+          />
+        </div>
+      )}
     </div>
   );
 }
