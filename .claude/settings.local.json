@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"C:\\\\Users\\\\User\\\\Documents\\\\qm-core\" /s /b)",
+      "Skill(frontend-design)",
+      "Bash(npm install)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(npx supabase:*)",
+      "Bash(curl:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"\nconst SUPABASE_URL = ''https://vfmodxydmunqgbkjolpz.supabase.co'';\nconst SERVICE_ROLE_KEY = ''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmbW9keHlkbXVucWdia2pvbHB6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODk4NDUxNSwiZXhwIjoyMDg0NTYwNTE1fQ.CotLtwJD-pqqsQacDjlIiom0k6RC1jqkUDgI4GEpb3s'';\n\nasync function createAdmin\\(\\) {\n  const createRes = await fetch\\(SUPABASE_URL + ''/auth/v1/admin/users'', {\n    method: ''POST'',\n    headers: {\n      ''Authorization'': ''Bearer '' + SERVICE_ROLE_KEY,\n      ''apikey'': SERVICE_ROLE_KEY,\n      ''Content-Type'': ''application/json''\n    },\n    body: JSON.stringify\\({\n      email: ''yaungni@i4bsolutions.com'',\n      email_confirm: true,\n      user_metadata: { full_name: ''Yaung Ni'' }\n    }\\)\n  }\\);\n  \n  const userData = await createRes.json\\(\\);\n  console.log\\(''Auth user:'', JSON.stringify\\(userData, null, 2\\)\\);\n  \n  if \\(userData.id\\) {\n    const updateRes = await fetch\\(SUPABASE_URL + ''/rest/v1/users?id=eq.'' + userData.id, {\n      method: ''PATCH'',\n      headers: {\n        ''Authorization'': ''Bearer '' + SERVICE_ROLE_KEY,\n        ''apikey'': SERVICE_ROLE_KEY,\n        ''Content-Type'': ''application/json'',\n        ''Prefer'': ''return=representation''\n      },\n      body: JSON.stringify\\({ role: ''admin'', full_name: ''Yaung Ni'' }\\)\n    }\\);\n    \n    const updateData = await updateRes.json\\(\\);\n    console.log\\(''Updated:'', JSON.stringify\\(updateData, null, 2\\)\\);\n  }\n}\n\ncreateAdmin\\(\\).catch\\(console.error\\);\n\")",
+      "Bash(npm install:*)",
+      "Bash(ls:*)",
+      "Bash(node -e:*)",
+      "Bash(npm run build:*)",
+      "Bash(timeout:*)",
+      "Bash(git -C \"C:/Users/User/Documents/qm-core\" status)",
+      "Bash(git -C \"C:/Users/User/Documents/qm-core\" diff --stat)",
+      "Bash(git -C \"C:/Users/User/Documents/qm-core\" log --oneline -5)",
+      "Bash(git init:*)",
+      "Bash(git -C \"C:/Users/User/Documents/qm-core\" add -A)",
+      "Bash(git -C \"C:/Users/User/Documents/qm-core\" commit -m \"$\\(cat <<''EOF''\nfeat: QM System foundation with tactical UI design\n\nInitial implementation of QM System including:\n- Next.js 14 with App Router and TypeScript\n- Supabase integration for auth and database\n- Tactical Command Center UI theme with amber/slate dark design\n- Core UI components with proper dark mode contrast\n- QMRL module with kanban board view\n- Master data management \\(Contacts, Suppliers, Items, Warehouses\\)\n- Authentication with OTP/Magic Link flow\n\nAll components use explicit slate colors for proper contrast\nin the dark tactical theme.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+Study the project context, app dynamics, project structure, CLAUDE.md and all of the documents in our project system first. Understanding these at first.
+{{{What you WANT}}
+
+
+## Notes for Development Process
+
+1. **Before Each Iteration:**
+   - Review iteration tasks and deliverables
+   - Ask clarifying questions
+   - Confirm understanding of requirements
+   - Check dependencies are completed
+
+2. **During Iteration:**
+   - Work through tasks sequentially
+   - Test as you go (don't wait until end)
+   - Commit code frequently
+   - Document any deviations from plan
+
+3. **After Iteration:**
+   - Run all testing checklist items
+   - Verify all deliverables are complete
+   - Document any issues or blockers
+   - Update the walkthrough and what had done, what kind of problem occurs and how to solved in Progress.md file(if not exist create for first ever run)
+   - Discuss before moving to next iteration
+
+4. **Git Workflow:**
+   - Create feature branch for each iteration
+   - Commit with clear messages
+   - Merge to main after iteration review
+   - Tag releases (v0.1, v0.2, etc.)
+
+5. **Communication:**
+   - Stop and discuss if requirements are unclear
+   - Ask questions before making assumptions
+   - Report blockers immediately
+   - Document decisions
+
+whenever asking questions : questions with choices

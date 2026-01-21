@@ -1,0 +1,460 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Pencil,
+  Plus,
+  Calendar,
+  User,
+  Building2,
+  Tag,
+  AlertCircle,
+  FileText,
+  History,
+  Loader2,
+  Clock,
+  Target,
+  ExternalLink,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { QMRL, StatusConfig, Category, Department, ContactPerson, User as UserType } from "@/types/database";
+
+interface QMRLWithRelations extends QMRL {
+  status?: StatusConfig | null;
+  category?: Category | null;
+  assigned_user?: UserType | null;
+  requester?: UserType | null;
+  department?: Department | null;
+  contact_person?: ContactPerson | null;
+}
+
+const priorityConfig: Record<string, { class: string; label: string; icon: string }> = {
+  low: { class: "priority-tactical priority-tactical-low", label: "LOW", icon: "slate" },
+  medium: { class: "priority-tactical priority-tactical-medium", label: "MEDIUM", icon: "blue" },
+  high: { class: "priority-tactical priority-tactical-high", label: "HIGH", icon: "amber" },
+  critical: { class: "priority-tactical priority-tactical-critical", label: "CRITICAL", icon: "red" },
+};
+
+export default function QMRLDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const [qmrl, setQmrl] = useState<QMRLWithRelations | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (params.id) {
+      fetchQMRL(params.id as string);
+    }
+  }, [params.id]);
+
+  const fetchQMRL = async (id: string) => {
+    setIsLoading(true);
+    const supabase = createClient();
+
+    const { data, error } = await supabase
+      .from("qmrl")
+      .select(`
+        *,
+        status:status_config(*),
+        category:categories(*),
+        assigned_user:users!qmrl_assigned_to_fkey(*),
+        requester:users!qmrl_requester_id_fkey(*),
+        department:departments(*),
+        contact_person:contact_persons(*)
+      `)
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      router.push("/qmrl");
+      return;
+    }
+
+    setQmrl(data as QMRLWithRelations);
+    setIsLoading(false);
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  const formatDateTime = (dateStr: string | null) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-8 w-96" />
+          </div>
+        </div>
+        <Skeleton className="h-[600px] w-full" />
+      </div>
+    );
+  }
+
+  if (!qmrl) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+          <p className="text-slate-400">Request not found</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 relative">
+      {/* Grid overlay */}
+      <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
+
+      {/* Header */}
+      <div className="relative flex items-start justify-between animate-fade-in">
+        <div className="flex items-start gap-4">
+          <Link href="/qmrl">
+            <Button variant="ghost" size="icon" className="mt-1 hover:bg-amber-500/10 hover:text-amber-500">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            {/* Request ID Badge */}
+            <div className="flex items-center gap-3 mb-3">
+              <div className="request-id-badge">
+                <Target className="h-4 w-4 text-amber-500" />
+                <code>{qmrl.request_id}</code>
+              </div>
+              {qmrl.priority && (
+                <span className={priorityConfig[qmrl.priority]?.class}>
+                  <AlertCircle className="h-3 w-3" />
+                  {priorityConfig[qmrl.priority]?.label}
+                </span>
+              )}
+              {qmrl.status && (
+                <Badge
+                  variant="outline"
+                  className="font-mono uppercase tracking-wider text-xs"
+                  style={{
+                    borderColor: qmrl.status.color || undefined,
+                    color: qmrl.status.color || undefined,
+                    backgroundColor: `${qmrl.status.color}15` || "transparent",
+                  }}
+                >
+                  {qmrl.status.name}
+                </Badge>
+              )}
+            </div>
+
+            {/* Title */}
+            <h1 className="text-2xl font-bold tracking-tight text-slate-200 mb-2">
+              {qmrl.title}
+            </h1>
+
+            {/* Category & Meta */}
+            <div className="flex items-center gap-4 text-sm text-slate-400">
+              {qmrl.category && (
+                <Badge
+                  variant="outline"
+                  className="text-xs"
+                  style={{
+                    borderColor: qmrl.category.color || "rgb(100, 116, 139)",
+                    color: qmrl.category.color || "rgb(148, 163, 184)",
+                  }}
+                >
+                  <Tag className="mr-1 h-3 w-3" />
+                  {qmrl.category.name}
+                </Badge>
+              )}
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {formatDate(qmrl.request_date)}
+              </span>
+              {qmrl.department && (
+                <span className="flex items-center gap-1">
+                  <Building2 className="h-3 w-3" />
+                  {qmrl.department.name}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <Link href={`/qmrl/${qmrl.id}/edit`}>
+            <Button variant="outline" className="border-slate-700 hover:bg-slate-800 hover:border-amber-500/30">
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
+          </Link>
+          <Link href={`/qmhq/new?qmrl=${qmrl.id}`}>
+            <Button className="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400">
+              <Plus className="mr-2 h-4 w-4" />
+              Add QMHQ Line
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="details" className="space-y-6">
+        <TabsList className="bg-slate-800/50 border border-slate-700 p-1">
+          <TabsTrigger value="details" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
+            <FileText className="mr-2 h-4 w-4" />
+            Details
+          </TabsTrigger>
+          <TabsTrigger value="qmhq" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
+            <ExternalLink className="mr-2 h-4 w-4" />
+            QMHQ Lines
+          </TabsTrigger>
+          <TabsTrigger value="history" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
+            <History className="mr-2 h-4 w-4" />
+            History
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Details Tab */}
+        <TabsContent value="details" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Left Column */}
+            <div className="space-y-6">
+              {/* Department & Contact */}
+              <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
+                <div className="section-header">
+                  <Building2 className="h-4 w-4 text-amber-500" />
+                  <h3>Department & Contact</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="data-label mb-1">Department</p>
+                      <p className="data-value">{qmrl.department?.name || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="data-label mb-1">Request Date</p>
+                      <p className="data-value font-mono">{formatDate(qmrl.request_date)}</p>
+                    </div>
+                  </div>
+                  <div className="divider-accent" />
+                  <div>
+                    <p className="data-label mb-1">Contact Person</p>
+                    <p className="data-value">
+                      {qmrl.contact_person?.name || "—"}
+                      {qmrl.contact_person?.position && (
+                        <span className="text-slate-400 ml-2">— {qmrl.contact_person.position}</span>
+                      )}
+                    </p>
+                    {qmrl.contact_person?.phone && (
+                      <p className="text-xs text-slate-400 mt-1 font-mono">{qmrl.contact_person.phone}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "200ms" }}>
+                <div className="section-header">
+                  <FileText className="h-4 w-4 text-amber-500" />
+                  <h3>Description</h3>
+                </div>
+                {qmrl.description ? (
+                  <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">
+                    {qmrl.description}
+                  </p>
+                ) : (
+                  <p className="text-slate-400 italic">No description provided</p>
+                )}
+              </div>
+
+              {/* Notes */}
+              {qmrl.notes && (
+                <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "300ms" }}>
+                  <div className="section-header">
+                    <Clock className="h-4 w-4 text-amber-500" />
+                    <h3>Internal Notes</h3>
+                  </div>
+                  <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">
+                    {qmrl.notes}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-6">
+              {/* Assignment */}
+              <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "150ms" }}>
+                <div className="section-header">
+                  <User className="h-4 w-4 text-amber-500" />
+                  <h3>Assignment</h3>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <p className="data-label mb-1">Assigned To</p>
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                        <User className="h-4 w-4 text-amber-500" />
+                      </div>
+                      <div>
+                        <p className="data-value">{qmrl.assigned_user?.full_name || "Unassigned"}</p>
+                        {qmrl.assigned_user?.role && (
+                          <p className="text-xs text-slate-400 capitalize">{qmrl.assigned_user.role}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="divider-accent" />
+                  <div>
+                    <p className="data-label mb-1">Requester</p>
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center">
+                        <User className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <div>
+                        <p className="data-value">{qmrl.requester?.full_name || "—"}</p>
+                        {qmrl.requester?.role && (
+                          <p className="text-xs text-slate-400 capitalize">{qmrl.requester.role}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Info */}
+              <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "250ms" }}>
+                <div className="section-header">
+                  <Target className="h-4 w-4 text-amber-500" />
+                  <h3>Status Information</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="data-label mb-1">Current Status</p>
+                      {qmrl.status ? (
+                        <Badge
+                          variant="outline"
+                          className="font-mono uppercase tracking-wider"
+                          style={{
+                            borderColor: qmrl.status.color || undefined,
+                            color: qmrl.status.color || undefined,
+                          }}
+                        >
+                          {qmrl.status.name}
+                        </Badge>
+                      ) : (
+                        <p className="data-value">—</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="data-label mb-1">Priority</p>
+                      {qmrl.priority ? (
+                        <span className={priorityConfig[qmrl.priority]?.class}>
+                          {priorityConfig[qmrl.priority]?.label}
+                        </span>
+                      ) : (
+                        <p className="data-value">—</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Audit Info */}
+              <div className="command-panel animate-slide-up" style={{ animationDelay: "350ms" }}>
+                <div className="section-header">
+                  <Clock className="h-4 w-4 text-amber-500" />
+                  <h3>Audit Trail</h3>
+                </div>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="data-label">Created</span>
+                    <span className="data-value font-mono text-xs">{formatDateTime(qmrl.created_at)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="data-label">Last Modified</span>
+                    <span className="data-value font-mono text-xs">{formatDateTime(qmrl.updated_at)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* QMHQ Lines Tab */}
+        <TabsContent value="qmhq">
+          <div className="command-panel corner-accents animate-slide-up">
+            <div className="flex items-center justify-between mb-6">
+              <div className="section-header mb-0">
+                <ExternalLink className="h-4 w-4 text-amber-500" />
+                <h3>QMHQ Lines</h3>
+              </div>
+              <Link href={`/qmhq/new?qmrl=${qmrl.id}`}>
+                <Button size="sm" className="bg-gradient-to-r from-amber-600 to-amber-500">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Line
+                </Button>
+              </Link>
+            </div>
+
+            <div className="flex h-40 items-center justify-center border border-dashed border-sidebar-border rounded-lg bg-slate-900/30">
+              <div className="text-center">
+                <ExternalLink className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                <p className="text-sm text-slate-400">No QMHQ lines yet</p>
+                <p className="text-xs text-slate-400 mt-1">Click "Add Line" to create one</p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs text-slate-400 text-center">
+              QMHQ lines will be implemented in Iteration 6
+            </p>
+          </div>
+        </TabsContent>
+
+        {/* History Tab */}
+        <TabsContent value="history">
+          <div className="command-panel corner-accents animate-slide-up">
+            <div className="section-header">
+              <History className="h-4 w-4 text-amber-500" />
+              <h3>Activity History</h3>
+            </div>
+
+            <div className="flex h-40 items-center justify-center border border-dashed border-sidebar-border rounded-lg bg-slate-900/30">
+              <div className="text-center">
+                <History className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                <p className="text-sm text-slate-400">No activity recorded</p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs text-slate-400 text-center">
+              Audit logging will be implemented in Iteration 10
+            </p>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
