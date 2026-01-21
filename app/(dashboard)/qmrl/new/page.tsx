@@ -18,7 +18,12 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/providers/auth-provider";
+import { Badge } from "@/components/ui/badge";
 import type { StatusConfig, Category, Department, ContactPerson, User as UserType } from "@/types/database";
+
+type ContactPersonWithDepartment = ContactPerson & {
+  departments: Pick<Department, "id" | "name"> | null;
+};
 
 const priorities = [
   { value: "low", label: "Low", class: "priority-tactical priority-tactical-low" },
@@ -49,9 +54,12 @@ export default function NewQMRLPage() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [statuses, setStatuses] = useState<StatusConfig[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [contactPersons, setContactPersons] = useState<ContactPerson[]>([]);
+  const [contactPersons, setContactPersons] = useState<ContactPersonWithDepartment[]>([]);
   const [users, setUsers] = useState<UserType[]>([]);
+
+  // Get the selected contact person's department
+  const selectedContactPerson = contactPersons.find(cp => cp.id === formData.contact_person_id);
+  const selectedDepartment = selectedContactPerson?.departments;
 
   useEffect(() => {
     fetchReferenceData();
@@ -75,15 +83,10 @@ export default function NewQMRLPage() {
       .eq("is_active", true)
       .order("display_order");
 
-    const { data: deptData } = await supabase
-      .from("departments")
-      .select("*")
-      .eq("is_active", true)
-      .order("name");
-
+    // Fetch contact persons WITH their department info
     const { data: contactData } = await supabase
       .from("contact_persons")
-      .select("*")
+      .select("*, departments(id, name)")
       .eq("is_active", true)
       .order("name");
 
@@ -101,8 +104,7 @@ export default function NewQMRLPage() {
         setFormData((prev) => ({ ...prev, status_id: defaultStatus.id }));
       }
     }
-    if (deptData) setDepartments(deptData);
-    if (contactData) setContactPersons(contactData);
+    if (contactData) setContactPersons(contactData as ContactPersonWithDepartment[]);
     if (userData) setUsers(userData);
 
     setIsLoading(false);
@@ -111,10 +113,10 @@ export default function NewQMRLPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title || !formData.department_id) {
+    if (!formData.title || !formData.contact_person_id) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields (Title and Contact Person).",
         variant: "destructive",
       });
       return;
@@ -129,6 +131,19 @@ export default function NewQMRLPage() {
       return;
     }
 
+    // Get department_id from selected contact person
+    const contactPerson = contactPersons.find(cp => cp.id === formData.contact_person_id);
+    const departmentId = contactPerson?.department_id;
+
+    if (!departmentId) {
+      toast({
+        title: "Validation Error",
+        description: "Selected contact person has no department assigned.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     const supabase = createClient();
 
@@ -136,8 +151,8 @@ export default function NewQMRLPage() {
       title: formData.title,
       category_id: formData.category_id || null,
       priority: formData.priority,
-      department_id: formData.department_id,
-      contact_person_id: formData.contact_person_id || null,
+      department_id: departmentId,
+      contact_person_id: formData.contact_person_id,
       request_date: formData.request_date,
       assigned_to: formData.assigned_to || null,
       status_id: formData.status_id || null,
@@ -171,10 +186,6 @@ export default function NewQMRLPage() {
 
     router.push(`/qmrl/${data.id}`);
   };
-
-  const filteredContactPersons = formData.department_id
-    ? contactPersons.filter((cp) => cp.department_id === formData.department_id)
-    : contactPersons;
 
   if (isLoading) {
     return (
@@ -299,76 +310,68 @@ export default function NewQMRLPage() {
           </div>
         </div>
 
-        {/* Section 2: Department & Contacts */}
+        {/* Section 2: Contact & Department */}
         <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "200ms" }}>
           <div className="section-header">
-            <Building2 className="h-4 w-4 text-amber-500" />
-            <h2>Department & Contacts</h2>
+            <Users className="h-4 w-4 text-amber-500" />
+            <h2>Contact & Department</h2>
           </div>
 
           <div className="space-y-5">
-            <div className="grid gap-2">
-              <Label htmlFor="department" className="data-label">
-                Department <span className="text-red-400">*</span>
-              </Label>
-              <Select
-                value={formData.department_id}
-                onValueChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    department_id: value,
-                    contact_person_id: "",
-                  })
-                }
-              >
-                <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                  <SelectValue placeholder="Select requesting department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="grid grid-cols-2 gap-6">
               <div className="grid gap-2">
-                <Label htmlFor="contact_person" className="data-label">Contact Person</Label>
+                <Label htmlFor="contact_person" className="data-label">
+                  Contact Person <span className="text-red-400">*</span>
+                </Label>
                 <Select
                   value={formData.contact_person_id}
                   onValueChange={(value) => setFormData({ ...formData, contact_person_id: value })}
-                  disabled={!formData.department_id}
                 >
                   <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                    <SelectValue placeholder={formData.department_id ? "Select contact" : "Select department first"} />
+                    <SelectValue placeholder="Select contact person" />
                   </SelectTrigger>
                   <SelectContent>
-                    {filteredContactPersons.map((cp) => (
+                    {contactPersons.map((cp) => (
                       <SelectItem key={cp.id} value={cp.id}>
-                        {cp.name}
-                        {cp.position && <span className="text-slate-400 ml-2">— {cp.position}</span>}
+                        <div className="flex items-center gap-2">
+                          <span>{cp.name}</span>
+                          {cp.position && <span className="text-slate-400">— {cp.position}</span>}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-slate-400">Department will be set automatically</p>
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="request_date" className="data-label">
-                  Request Date <span className="text-red-400">*</span>
-                </Label>
-                <Input
-                  id="request_date"
-                  type="date"
-                  value={formData.request_date}
-                  onChange={(e) => setFormData({ ...formData, request_date: e.target.value })}
-                  className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 font-mono"
-                  required
-                />
+                <Label className="data-label">Department</Label>
+                <div className="flex items-center h-10 px-3 rounded-lg border border-slate-700 bg-slate-800/30">
+                  {selectedDepartment ? (
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-amber-500" />
+                      <span className="text-slate-200">{selectedDepartment.name}</span>
+                    </div>
+                  ) : (
+                    <span className="text-slate-500 italic">Select a contact person</span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400">Based on contact person</p>
               </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="request_date" className="data-label">
+                Request Date <span className="text-red-400">*</span>
+              </Label>
+              <Input
+                id="request_date"
+                type="date"
+                value={formData.request_date}
+                onChange={(e) => setFormData({ ...formData, request_date: e.target.value })}
+                className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 font-mono max-w-xs"
+                required
+              />
             </div>
           </div>
         </div>
@@ -376,7 +379,7 @@ export default function NewQMRLPage() {
         {/* Section 3: Assignment & Status */}
         <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "300ms" }}>
           <div className="section-header">
-            <Users className="h-4 w-4 text-amber-500" />
+            <ClipboardList className="h-4 w-4 text-amber-500" />
             <h2>Assignment & Status</h2>
           </div>
 
@@ -431,7 +434,7 @@ export default function NewQMRLPage() {
         {/* Section 4: Description */}
         <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "400ms" }}>
           <div className="section-header">
-            <ClipboardList className="h-4 w-4 text-amber-500" />
+            <FileText className="h-4 w-4 text-amber-500" />
             <h2>Description & Notes</h2>
           </div>
 
@@ -471,7 +474,7 @@ export default function NewQMRLPage() {
           </Link>
           <Button
             type="submit"
-            disabled={isSubmitting || !formData.title || !formData.department_id}
+            disabled={isSubmitting || !formData.title || !formData.contact_person_id}
             className="min-w-[140px] bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400"
           >
             {isSubmitting ? (
