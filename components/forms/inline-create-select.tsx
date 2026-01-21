@@ -49,7 +49,7 @@ interface InlineCreateSelectProps<T extends BaseOption> {
   required?: boolean;
   disabled?: boolean;
   // For creation
-  entityType: "qmrl" | "qmhq";
+  entityType: "qmrl" | "qmhq" | "item";
   createType: "category" | "status";
   // For status creation only
   statusGroup?: "to_do" | "in_progress" | "done";

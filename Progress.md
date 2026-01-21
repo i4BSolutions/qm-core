@@ -1821,6 +1821,36 @@ The `calculate_po_status()` function determines PO status based on:
 
 ---
 
+## Iteration 7.7: Item Category Inline Creation
+
+**Status:** Completed
+**Date:** January 2026
+
+### What Was Done
+
+1. **Updated InlineCreateSelect Component**
+   - Extended `entityType` prop to support `"item"` in addition to `"qmrl"` and `"qmhq"`
+   - Now supports: `entityType: "qmrl" | "qmhq" | "item"`
+
+2. **Updated Item Dialog**
+   - Replaced standard Select with InlineCreateSelect for category field
+   - Users can now create new item categories inline with [+] button
+   - New categories are immediately added to options and selected
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `components/forms/inline-create-select.tsx` | Added "item" to entityType union |
+| `app/(dashboard)/item/item-dialog.tsx` | Replaced Select with InlineCreateSelect |
+
+### Deliverables Verified
+- [x] Item category can be created inline with [+] button
+- [x] New category is selected after creation
+- [x] TypeScript compiles without errors
+
+---
+
 ## Next Iteration: Iteration 8 - Invoices
 
 **Dependencies:** Iteration 7 (Purchase Orders)
@@ -1888,6 +1918,7 @@ The `calculate_po_status()` function determines PO status based on:
 | v0.5.4 | Jan 2026 | 7.4 | Simplified Supplier to only Name, Email, Phone |
 | v0.5.5 | Jan 2026 | 7.5 | Simplified Item: Name, Category (from table), Photo (upload), SKU (auto-generated) |
 | v0.5.6 | Jan 2026 | 7.6 | Department Management: Name, Code, Department Head |
+| v0.5.7 | Jan 2026 | 7.7 | Item category inline creation (like QMRL/QMHQ) |
 
 ---
 

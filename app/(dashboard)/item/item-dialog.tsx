@@ -13,15 +13,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { ImageIcon, X, Upload, Loader2 } from "lucide-react";
+import { InlineCreateSelect } from "@/components/forms/inline-create-select";
+import { ImageIcon, X, Loader2 } from "lucide-react";
 import type { Item, Category } from "@/types/database";
 
 interface ItemDialogProps {
@@ -250,30 +244,18 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
 
             {/* Category */}
             <div className="grid gap-2">
-              <Label htmlFor="category">Category</Label>
-              <Select
+              <Label>Category</Label>
+              <InlineCreateSelect
                 value={formData.category_id}
                 onValueChange={(value) =>
                   setFormData({ ...formData, category_id: value })
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: cat.color || "#6B7280" }}
-                        />
-                        {cat.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={categories}
+                onOptionsChange={setCategories}
+                placeholder="Select category"
+                entityType="item"
+                createType="category"
+              />
             </div>
 
             {/* SKU (read-only, shown for existing items) */}
