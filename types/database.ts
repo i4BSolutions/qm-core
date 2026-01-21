@@ -152,9 +152,11 @@ export type Database = {
       }
       departments: {
         Row: {
+          code: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
+          head_id: string | null
           id: string
           is_active: boolean | null
           name: string
@@ -163,9 +165,11 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          code?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          head_id?: string | null
           id?: string
           is_active?: boolean | null
           name: string
@@ -174,9 +178,11 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          code?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          head_id?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
@@ -188,6 +194,13 @@ export type Database = {
           {
             foreignKeyName: "departments_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_head_id_fkey"
+            columns: ["head_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]

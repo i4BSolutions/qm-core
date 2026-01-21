@@ -1769,6 +1769,58 @@ The `calculate_po_status()` function determines PO status based on:
 
 ---
 
+## Iteration 7.6: Department Management Page
+
+**Status:** Completed
+**Date:** January 2026
+
+### What Was Done
+
+1. **Database Migration** (`019_departments_code_head.sql`)
+   - Added `code` column (TEXT, unique) for department codes
+   - Added `head_id` column (UUID FK to users) for department head
+
+2. **Updated TypeScript Types** (`types/database.ts`)
+   - Added `code: string | null` to departments Row, Insert, Update
+   - Added `head_id: string | null` to departments Row, Insert, Update
+   - Added head_id relationship to departments Relationships
+
+3. **Department List Page** (`/admin/departments`)
+   - DataTable with columns: Name, Code, Department Head, Actions
+   - Search by department name
+   - Department code shown in monospace amber badge
+   - Department head shows user name
+
+4. **Department Dialog** (`department-dialog.tsx`)
+   - Fields: Name (required), Department Code (auto-uppercase), Department Head (user select)
+   - Code input converts to uppercase automatically
+   - User select populated from active users
+
+### Files Created
+
+**Migration:**
+- `supabase/migrations/019_departments_code_head.sql`
+
+**Pages:**
+- `app/(dashboard)/admin/departments/page.tsx`
+- `app/(dashboard)/admin/departments/department-dialog.tsx`
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `types/database.ts` | Added code and head_id to departments type |
+
+### Deliverables Verified
+- [x] Database migration applied successfully
+- [x] Department list page shows Name, Code, Head columns
+- [x] Department create/edit dialog has 3 fields
+- [x] Department code auto-uppercase
+- [x] Department head select populated from users
+- [x] TypeScript compiles without errors
+
+---
+
 ## Next Iteration: Iteration 8 - Invoices
 
 **Dependencies:** Iteration 7 (Purchase Orders)
@@ -1835,6 +1887,7 @@ The `calculate_po_status()` function determines PO status based on:
 | v0.5.3 | Jan 2026 | 7.3 | Currency field required with no default value |
 | v0.5.4 | Jan 2026 | 7.4 | Simplified Supplier to only Name, Email, Phone |
 | v0.5.5 | Jan 2026 | 7.5 | Simplified Item: Name, Category (from table), Photo (upload), SKU (auto-generated) |
+| v0.5.6 | Jan 2026 | 7.6 | Department Management: Name, Code, Department Head |
 
 ---
 
