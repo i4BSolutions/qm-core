@@ -1851,6 +1851,40 @@ The `calculate_po_status()` function determines PO status based on:
 
 ---
 
+## Iteration 7.8: Filter by Entity Type in Categories and Statuses
+
+**Status:** Completed
+**Date:** January 2026
+
+### What Was Done
+
+1. **Categories Page Filter**
+   - Added entity type filter tabs: All, QMRL, QMHQ, Item
+   - Filter buttons show count for each entity type
+   - Stats cards updated to 4 columns including Item count
+   - DataTable filters data based on selected entity type
+
+2. **Statuses Page Filter**
+   - Added entity type filter tabs: All, QMRL, QMHQ
+   - Filter buttons show count for each entity type
+   - DataTable filters data based on selected entity type
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/(dashboard)/admin/categories/page.tsx` | Added entity type filter with counts |
+| `app/(dashboard)/admin/statuses/page.tsx` | Added entity type filter with counts |
+
+### Deliverables Verified
+- [x] Categories page has All/QMRL/QMHQ/Item filter tabs
+- [x] Statuses page has All/QMRL/QMHQ filter tabs
+- [x] Filter tabs show count for each entity type
+- [x] DataTable filters correctly based on selection
+- [x] TypeScript compiles without errors
+
+---
+
 ## Next Iteration: Iteration 8 - Invoices
 
 **Dependencies:** Iteration 7 (Purchase Orders)
@@ -1919,6 +1953,7 @@ The `calculate_po_status()` function determines PO status based on:
 | v0.5.5 | Jan 2026 | 7.5 | Simplified Item: Name, Category (from table), Photo (upload), SKU (auto-generated) |
 | v0.5.6 | Jan 2026 | 7.6 | Department Management: Name, Code, Department Head |
 | v0.5.7 | Jan 2026 | 7.7 | Item category inline creation (like QMRL/QMHQ) |
+| v0.5.8 | Jan 2026 | 7.8 | Entity type filters in Categories and Statuses pages |
 
 ---
 

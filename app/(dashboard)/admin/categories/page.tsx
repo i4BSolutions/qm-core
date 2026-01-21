@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2, Radio, Tag } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Radio, Tag, Filter } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
@@ -14,20 +14,31 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { CategoryDialog } from "./category-dialog";
+import { cn } from "@/lib/utils";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Category } from "@/types/database";
 
 const entityTypeLabels: Record<string, string> = {
   qmrl: "QMRL",
   qmhq: "QMHQ",
+  item: "Item",
 };
+
+type EntityTypeFilter = "all" | "qmrl" | "qmhq" | "item";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [entityFilter, setEntityFilter] = useState<EntityTypeFilter>("all");
   const { toast } = useToast();
+
+  // Filter categories based on selected entity type
+  const filteredCategories = useMemo(() => {
+    if (entityFilter === "all") return categories;
+    return categories.filter((c) => c.entity_type === entityFilter);
+  }, [categories, entityFilter]);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -185,8 +196,33 @@ export default function CategoriesPage() {
         </Button>
       </div>
 
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2">
+        <Filter className="h-4 w-4 text-slate-400" />
+        <span className="text-sm text-slate-400 mr-2">Filter:</span>
+        {(["all", "qmrl", "qmhq", "item"] as EntityTypeFilter[]).map((filter) => (
+          <button
+            key={filter}
+            onClick={() => setEntityFilter(filter)}
+            className={cn(
+              "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
+              entityFilter === filter
+                ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                : "bg-slate-800/50 text-slate-400 border border-slate-700 hover:bg-slate-800 hover:text-slate-200"
+            )}
+          >
+            {filter === "all" ? "All" : entityTypeLabels[filter]}
+            <span className="ml-1.5 text-xs opacity-70">
+              ({filter === "all"
+                ? categories.length
+                : categories.filter((c) => c.entity_type === filter).length})
+            </span>
+          </button>
+        ))}
+      </div>
+
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="command-panel p-4">
           <div className="flex items-center gap-3">
             <Tag className="h-5 w-5 text-blue-400" />
@@ -194,7 +230,7 @@ export default function CategoriesPage() {
               <p className="text-2xl font-bold text-slate-200">
                 {categories.filter((c) => c.entity_type === "qmrl").length}
               </p>
-              <p className="text-xs text-slate-400">QMRL Categories</p>
+              <p className="text-xs text-slate-400">QMRL</p>
             </div>
           </div>
         </div>
@@ -205,7 +241,18 @@ export default function CategoriesPage() {
               <p className="text-2xl font-bold text-slate-200">
                 {categories.filter((c) => c.entity_type === "qmhq").length}
               </p>
-              <p className="text-xs text-slate-400">QMHQ Categories</p>
+              <p className="text-xs text-slate-400">QMHQ</p>
+            </div>
+          </div>
+        </div>
+        <div className="command-panel p-4">
+          <div className="flex items-center gap-3">
+            <Tag className="h-5 w-5 text-purple-400" />
+            <div>
+              <p className="text-2xl font-bold text-slate-200">
+                {categories.filter((c) => c.entity_type === "item").length}
+              </p>
+              <p className="text-xs text-slate-400">Item</p>
             </div>
           </div>
         </div>
@@ -214,7 +261,7 @@ export default function CategoriesPage() {
             <Tag className="h-5 w-5 text-amber-400" />
             <div>
               <p className="text-2xl font-bold text-slate-200">{categories.length}</p>
-              <p className="text-xs text-slate-400">Total Categories</p>
+              <p className="text-xs text-slate-400">Total</p>
             </div>
           </div>
         </div>
@@ -224,7 +271,7 @@ export default function CategoriesPage() {
       <div className="command-panel">
         <DataTable
           columns={columns}
-          data={categories}
+          data={filteredCategories}
           isLoading={isLoading}
           searchKey="name"
           searchPlaceholder="Search categories..."
