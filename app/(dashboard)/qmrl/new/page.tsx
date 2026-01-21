@@ -372,6 +372,7 @@ export default function NewQMRLPage() {
                 className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 font-mono max-w-xs"
                 required
               />
+              <p className="text-xs text-slate-400">Backdates allowed for late entries</p>
             </div>
           </div>
         </div>
