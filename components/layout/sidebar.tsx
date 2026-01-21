@@ -89,6 +89,7 @@ const adminNavigation: NavItem[] = [
     roles: ["admin"],
     children: [
       { label: "Users", href: "/admin/users" },
+      { label: "Departments", href: "/admin/departments" },
       { label: "Suppliers", href: "/admin/suppliers" },
       { label: "Contacts", href: "/admin/contacts" },
       { label: "Categories", href: "/admin/categories" },
