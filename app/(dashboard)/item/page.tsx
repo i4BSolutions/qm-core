@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2, Package, Tag, Box } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Package, Tag, Box, ImageIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
@@ -15,18 +15,15 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { ItemDialog } from "./item-dialog";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { Item } from "@/types/database";
-import { formatCurrency } from "@/lib/utils";
+import type { Item, Category } from "@/types/database";
 
-const categoryColors: Record<string, string> = {
-  equipment: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  consumable: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  uniform: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  other: "bg-slate-500/20 text-slate-400 border-slate-500/30",
-};
+// Extended item type with category relation
+interface ItemWithCategory extends Item {
+  category_rel?: Category | null;
+}
 
 export default function ItemsPage() {
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<ItemWithCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -38,13 +35,16 @@ export default function ItemsPage() {
 
     const { data } = await supabase
       .from("items")
-      .select("id, name, description, category, sku, default_unit, wac_amount, wac_currency, wac_amount_eusd")
+      .select(`
+        id, name, sku, photo_url, category_id,
+        category_rel:categories(id, name, color)
+      `)
       .eq("is_active", true)
       .order("name")
       .limit(200);
 
     if (data) {
-      setItems(data as Item[]);
+      setItems(data as ItemWithCategory[]);
     }
     setIsLoading(false);
   };
@@ -94,7 +94,27 @@ export default function ItemsPage() {
     }
   };
 
-  const columns: ColumnDef<Item>[] = [
+  const columns: ColumnDef<ItemWithCategory>[] = [
+    {
+      accessorKey: "photo_url",
+      header: "Photo",
+      cell: ({ row }) => {
+        const photoUrl = row.getValue("photo_url") as string | null;
+        return (
+          <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-700 bg-slate-800/50 flex items-center justify-center">
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt="Item"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <ImageIcon className="h-4 w-4 text-slate-500" />
+            )}
+          </div>
+        );
+      },
+    },
     {
       accessorKey: "sku",
       header: ({ column }) => (
@@ -121,48 +141,26 @@ export default function ItemsPage() {
       ),
     },
     {
-      accessorKey: "category",
+      accessorKey: "category_rel",
       header: "Category",
       cell: ({ row }) => {
-        const category = row.getValue("category") as string;
+        const category = row.original.category_rel as Category | null;
+        if (!category) {
+          return <span className="text-slate-400">—</span>;
+        }
         return (
           <Badge
             variant="outline"
-            className={categoryColors[category] || categoryColors.other}
+            className="border-slate-600"
+            style={{
+              backgroundColor: `${category.color}20`,
+              color: category.color || "#9CA3AF",
+              borderColor: `${category.color}40`,
+            }}
           >
             <Tag className="mr-1 h-3 w-3" />
-            {category || "other"}
+            {category.name}
           </Badge>
-        );
-      },
-    },
-    {
-      accessorKey: "default_unit",
-      header: "Unit",
-      cell: ({ row }) => (
-        <span className="text-slate-200">
-          {row.getValue("default_unit") || "pcs"}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "wac_amount",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="WAC" />
-      ),
-      cell: ({ row }) => {
-        const wac = row.original.wac_amount ?? 0;
-        const currency = row.original.wac_currency ?? "USD";
-        const eusd = row.original.wac_amount_eusd ?? 0;
-        return (
-          <div className="text-right">
-            <div className="font-medium text-slate-200">
-              {formatCurrency(wac)} {currency}
-            </div>
-            <div className="text-xs text-slate-400">
-              {formatCurrency(eusd)} EUSD
-            </div>
-          </div>
         );
       },
     },

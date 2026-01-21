@@ -66,7 +66,7 @@ export default function POCreatePage() {
   const [supplierId, setSupplierId] = useState<string>("");
   const [poDate, setPoDate] = useState<Date>(new Date());
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<Date | undefined>();
-  const [currency, setCurrency] = useState("MMK");
+  const [currency, setCurrency] = useState("");
   const [exchangeRate, setExchangeRate] = useState(1);
   const [contactPersonName, setContactPersonName] = useState("");
   const [signPersonName, setSignPersonName] = useState("");
@@ -131,6 +131,7 @@ export default function POCreatePage() {
   const canSubmit =
     selectedQmhqId &&
     supplierId &&
+    currency &&
     lineItems.length > 0 &&
     lineItems.every((li) => li.item_id && li.quantity > 0 && li.unit_price > 0) &&
     !exceedsBalance;
@@ -399,11 +400,11 @@ export default function POCreatePage() {
             {/* Currency */}
             <div>
               <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Currency
+                Currency <span className="text-red-400">*</span>
               </label>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                  <SelectValue />
+                  <SelectValue placeholder="Select currency..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MMK">MMK</SelectItem>

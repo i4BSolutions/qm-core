@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2, Building, Phone, Mail, Truck } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Phone, Mail, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
@@ -11,7 +11,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { SupplierDialog } from "./supplier-dialog";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -30,7 +29,7 @@ export default function SuppliersPage() {
 
     const { data } = await supabase
       .from("suppliers")
-      .select("id, name, company_name, phone, email, tax_id, payment_terms")
+      .select("id, name, phone, email")
       .eq("is_active", true)
       .order("name")
       .limit(200);
@@ -90,45 +89,13 @@ export default function SuppliersPage() {
     {
       accessorKey: "name",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Contact Name" />
+        <DataTableColumnHeader column={column} title="Name" />
       ),
       cell: ({ row }) => (
         <div className="font-medium text-slate-200">
           {row.getValue("name")}
         </div>
       ),
-    },
-    {
-      accessorKey: "company_name",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Company" />
-      ),
-      cell: ({ row }) => {
-        const company = row.getValue("company_name") as string | null;
-        return company ? (
-          <Badge variant="secondary" className="font-normal">
-            <Building className="mr-1 h-3 w-3" />
-            {company}
-          </Badge>
-        ) : (
-          <span className="text-slate-400">—</span>
-        );
-      },
-    },
-    {
-      accessorKey: "phone",
-      header: "Phone",
-      cell: ({ row }) => {
-        const phone = row.getValue("phone") as string | null;
-        return phone ? (
-          <div className="flex items-center gap-1 text-slate-200">
-            <Phone className="h-3 w-3 text-slate-400" />
-            {phone}
-          </div>
-        ) : (
-          <span className="text-slate-400">—</span>
-        );
-      },
     },
     {
       accessorKey: "email",
@@ -146,13 +113,19 @@ export default function SuppliersPage() {
       },
     },
     {
-      accessorKey: "payment_terms",
-      header: "Payment Terms",
-      cell: ({ row }) => (
-        <span className="text-slate-200">
-          {row.getValue("payment_terms") || "—"}
-        </span>
-      ),
+      accessorKey: "phone",
+      header: "Phone",
+      cell: ({ row }) => {
+        const phone = row.getValue("phone") as string | null;
+        return phone ? (
+          <div className="flex items-center gap-1 text-slate-200 font-mono">
+            <Phone className="h-3 w-3 text-slate-400" />
+            {phone}
+          </div>
+        ) : (
+          <span className="text-slate-400">—</span>
+        );
+      },
     },
     {
       id: "actions",

@@ -1625,6 +1625,150 @@ The `calculate_po_status()` function determines PO status based on:
 
 ---
 
+## Iteration 7.3: Currency Field Required with No Default
+
+**Status:** Completed
+**Date:** January 2026
+
+### What Was Done
+
+1. **Currency Field - No Default Value** (`app/(dashboard)/po/new/page.tsx`)
+   - Changed default from "MMK" to empty string
+   - Shows "Select currency..." placeholder when empty
+   - Marked as required field with red asterisk
+   - Added `currency` to `canSubmit` validation - form cannot submit without selection
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/(dashboard)/po/new/page.tsx` | Currency no default, placeholder, required validation |
+
+### Deliverables Verified
+- [x] Currency field starts empty with placeholder
+- [x] Currency is required for form submission
+- [x] TypeScript compiles without errors
+
+---
+
+## Iteration 7.4: Simplified Supplier Fields
+
+**Status:** Completed
+**Date:** January 2026
+
+### What Was Done
+
+1. **Simplified Supplier List Page** (`app/(dashboard)/admin/suppliers/page.tsx`)
+   - Reduced columns to: Name, Email, Phone, Actions
+   - Removed: Company Name, Payment Terms columns
+   - Updated select query to only fetch required fields
+
+2. **Simplified Supplier Dialog** (`app/(dashboard)/admin/suppliers/supplier-dialog.tsx`)
+   - Reduced form fields to: Name (required), Email, Phone
+   - Removed: Company Name, Position, Tax ID, Address, Payment Terms, Notes
+   - Smaller dialog width (425px instead of 550px)
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/(dashboard)/admin/suppliers/page.tsx` | Simplified columns, removed unused imports |
+| `app/(dashboard)/admin/suppliers/supplier-dialog.tsx` | Reduced to 3 fields only |
+
+### Deliverables Verified
+- [x] Supplier list shows only Name, Email, Phone
+- [x] Supplier create/edit dialog has only 3 fields
+- [x] TypeScript compiles without errors
+
+---
+
+## Iteration 7.5: Simplified Item Entity
+
+**Status:** Completed
+**Date:** January 2026
+
+### What Was Done
+
+1. **Database Migrations**
+   - `017_item_categories.sql` - Add 'item' to entity_type enum, add category_id FK column to items
+   - `018_item_categories_seed.sql` - Seed default item categories (Equipment, Consumable, Uniform, Office Supplies, Electronics, Other)
+
+2. **Simplified Item Schema**
+   - Items now have only: Name (required), Category (from categories table), Photo (image upload), SKU (auto-generated)
+   - Removed from UI: Unit, WAC columns/fields, Description
+   - Category changed from enum to categories table reference (`category_id` FK)
+   - Added 'item' to `entity_type` enum allowing categories table to have item categories
+
+3. **Updated TypeScript Types** (`types/database.ts`)
+   - Added 'item' to entity_type enum: `"qmrl" | "qmhq" | "item"`
+   - Added `category_id: string | null` to items Row, Insert, Update
+   - Added category_id relationship to items Relationships
+
+4. **Item List Page Updates** (`app/(dashboard)/item/page.tsx`)
+   - Simplified columns: Photo, SKU, Name, Category, Actions
+   - Removed: Unit, WAC columns
+   - Category now fetched via join to categories table
+   - Photo column shows thumbnail or placeholder icon
+   - Category badge with dynamic color from categories table
+
+5. **Item Dialog Updates** (`app/(dashboard)/item/item-dialog.tsx`)
+   - Simplified fields: Name (required), Category (select from categories), Photo (upload)
+   - Removed: Unit, Description fields
+   - Category select populated from categories table with `entity_type='item'`
+   - Photo upload with:
+     - Click-to-upload interface with preview
+     - Max 5MB file size validation
+     - Image type validation (JPG, PNG, etc.)
+     - Remove button with proper layout containment
+     - Fixed max-height container to prevent layout breaking
+   - SKU shown as read-only for existing items (auto-generated)
+
+6. **Image Upload Layout Fix** (both dialogs)
+   - Fixed image preview breaking dialog layout when image is very wide or tall
+   - Used absolute positioning for image inside fixed-size container
+   - Added `min-w-0` to parent containers to prevent grid overflow
+   - Image uses `absolute inset-0 w-full h-full object-contain` to scale within bounds
+   - Container has fixed `h-40 w-full` dimensions that don't change with image size
+
+### Files Created
+
+**Migrations:**
+- `supabase/migrations/017_item_categories.sql`
+- `supabase/migrations/018_item_categories_seed.sql`
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `types/database.ts` | Added 'item' to entity_type, added category_id to items |
+| `app/(dashboard)/item/page.tsx` | Simplified columns, added photo, category from table |
+| `app/(dashboard)/item/item-dialog.tsx` | Simplified fields, added photo upload, category select |
+| `components/qmhq/transaction-dialog.tsx` | Fixed image upload container layout |
+
+### Default Item Categories
+
+| Name | Color | Description |
+|------|-------|-------------|
+| Equipment | #3B82F6 (blue) | Tools, machinery, and equipment |
+| Consumable | #10B981 (emerald) | Items that are used up |
+| Uniform | #8B5CF6 (purple) | Clothing and uniforms |
+| Office Supplies | #F59E0B (amber) | Stationery and office items |
+| Electronics | #EC4899 (pink) | Electronic devices and components |
+| Other | #6B7280 (gray) | Miscellaneous items |
+
+### Deliverables Verified
+- [x] Database migrations applied successfully
+- [x] Item categories seeded in categories table
+- [x] Item list shows Photo, SKU, Name, Category columns only
+- [x] Item dialog has Name, Category, Photo fields only
+- [x] Category uses categories table with dynamic colors
+- [x] Photo upload works with proper layout containment
+- [x] SKU shown as read-only for existing items
+- [x] Transaction dialog image upload doesn't break layout
+- [x] TypeScript compiles without errors
+
+---
+
 ## Next Iteration: Iteration 8 - Invoices
 
 **Dependencies:** Iteration 7 (Purchase Orders)
@@ -1688,6 +1832,9 @@ The `calculate_po_status()` function determines PO status based on:
 | v0.5.0 | Jan 2026 | 7 | Purchase Orders Module: PO creation with balance validation, line items, smart status |
 | v0.5.1 | Jan 2026 | 7.1 | Number input enhancements: +/- buttons for quantity, hidden spinners on all inputs |
 | v0.5.2 | Jan 2026 | 7.2 | DatePicker min/max validation: Expected Delivery Date cannot be earlier than PO Date |
+| v0.5.3 | Jan 2026 | 7.3 | Currency field required with no default value |
+| v0.5.4 | Jan 2026 | 7.4 | Simplified Supplier to only Name, Email, Phone |
+| v0.5.5 | Jan 2026 | 7.5 | Simplified Item: Name, Category (from table), Photo (upload), SKU (auto-generated) |
 
 ---
 

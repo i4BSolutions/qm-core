@@ -211,6 +211,7 @@ export type Database = {
       items: {
         Row: {
           category: Database["public"]["Enums"]["item_category"] | null
+          category_id: string | null
           created_at: string | null
           created_by: string | null
           default_unit: string | null
@@ -229,6 +230,7 @@ export type Database = {
         }
         Insert: {
           category?: Database["public"]["Enums"]["item_category"] | null
+          category_id?: string | null
           created_at?: string | null
           created_by?: string | null
           default_unit?: string | null
@@ -247,6 +249,7 @@ export type Database = {
         }
         Update: {
           category?: Database["public"]["Enums"]["item_category"] | null
+          category_id?: string | null
           created_at?: string | null
           created_by?: string | null
           default_unit?: string | null
@@ -264,6 +267,13 @@ export type Database = {
           wac_exchange_rate?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "items_created_by_fkey"
             columns: ["created_by"]
@@ -1102,7 +1112,7 @@ export type Database = {
       }
     }
     Enums: {
-      entity_type: "qmrl" | "qmhq"
+      entity_type: "qmrl" | "qmhq" | "item"
       item_category: "equipment" | "consumable" | "uniform" | "other"
       status_group: "to_do" | "in_progress" | "done"
       user_role:

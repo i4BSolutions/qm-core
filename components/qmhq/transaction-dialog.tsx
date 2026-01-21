@@ -398,25 +398,27 @@ export function TransactionDialog({
           </div>
 
           {/* Attachment Upload */}
-          <div className="grid gap-2">
+          <div className="grid gap-2 min-w-0">
             <Label className="text-slate-300">Attachment</Label>
             {attachmentPreview ? (
-              <div className="relative">
-                <div className="relative rounded-lg overflow-hidden border border-slate-700 bg-slate-800/30">
+              <div className="relative w-full min-w-0">
+                <div className="relative rounded-lg border border-slate-700 bg-slate-800/30 h-40 w-full overflow-hidden">
                   <img
                     src={attachmentPreview}
                     alt="Attachment preview"
-                    className="w-full h-40 object-contain"
+                    className="absolute inset-0 w-full h-full object-contain"
                   />
                   <button
                     type="button"
                     onClick={removeAttachment}
-                    className="absolute top-2 right-2 p-1.5 rounded-full bg-red-500/80 hover:bg-red-500 text-white transition-colors"
+                    className="absolute top-2 right-2 p-1.5 rounded-full bg-red-500/80 hover:bg-red-500 text-white transition-colors z-10"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <p className="text-xs text-slate-400 mt-1">{attachmentFile?.name}</p>
+                {attachmentFile && (
+                  <p className="text-xs text-slate-400 mt-1 truncate">{attachmentFile.name}</p>
+                )}
               </div>
             ) : (
               <div
