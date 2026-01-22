@@ -31,11 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
-import {
-  MOVEMENT_TYPE_CONFIG,
-  formatExchangeRate,
-  calculateEUSD,
-} from "@/lib/utils/inventory";
+import { MOVEMENT_TYPE_CONFIG } from "@/lib/utils/inventory";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
 import type {
@@ -110,8 +106,6 @@ function StockInContent() {
 
   // Common form state
   const [warehouseId, setWarehouseId] = useState("");
-  const [currency, setCurrency] = useState("MMK");
-  const [exchangeRate, setExchangeRate] = useState(1);
   const [transactionDate, setTransactionDate] = useState<Date>(new Date());
   const [notes, setNotes] = useState("");
 
@@ -193,24 +187,27 @@ function StockInContent() {
       setInvoiceLineItems(data as InvoiceLineItemWithItem[]);
 
       // Create stock in line items from invoice line items
-      const lines: StockInLineItem[] = data.map((li) => {
-        const availableQty = Math.max(
-          0,
-          (li.quantity ?? 0) - (li.received_quantity ?? 0)
-        );
-        return {
-          id: li.id,
-          invoice_line_item_id: li.id,
-          item_id: li.item_id || "",
-          item_name: li.item_name || li.item?.name || "Unknown",
-          item_sku: li.item_sku || li.item?.sku || undefined,
-          item_unit: li.item_unit || li.item?.default_unit || undefined,
-          quantity: availableQty,
-          max_quantity: availableQty,
-          unit_cost: li.unit_price ?? 0,
-          selected: availableQty > 0,
-        };
-      });
+      // Filter out lines without valid item_id (required for inventory)
+      const lines: StockInLineItem[] = data
+        .filter((li) => li.item_id) // Must have item_id for inventory
+        .map((li) => {
+          const availableQty = Math.max(
+            0,
+            (li.quantity ?? 0) - (li.received_quantity ?? 0)
+          );
+          return {
+            id: li.id,
+            invoice_line_item_id: li.id,
+            item_id: li.item_id!,
+            item_name: li.item_name || li.item?.name || "Unknown",
+            item_sku: li.item_sku || li.item?.sku || undefined,
+            item_unit: li.item_unit || li.item?.default_unit || undefined,
+            quantity: availableQty,
+            max_quantity: availableQty,
+            unit_cost: li.unit_price ?? 0,
+            selected: availableQty > 0,
+          };
+        });
 
       setStockInLines(lines);
     }
@@ -221,9 +218,11 @@ function StockInContent() {
     return invoices.find((inv) => inv.id === selectedInvoiceId);
   }, [invoices, selectedInvoiceId]);
 
-  // Selected items for invoice mode
+  // Selected items for invoice mode (must have valid item_id)
   const selectedStockInLines = useMemo(() => {
-    return stockInLines.filter((line) => line.selected && line.quantity > 0);
+    return stockInLines.filter(
+      (line) => line.selected && line.quantity > 0 && line.item_id
+    );
   }, [stockInLines]);
 
   // Selected manual item
@@ -306,16 +305,17 @@ function StockInContent() {
     try {
       const supabase = createClient();
 
-      if (sourceMode === "invoice") {
+      if (sourceMode === "invoice" && selectedInvoice) {
         // Create multiple transactions for invoice line items
+        // Use invoice's currency and exchange rate
         const transactions = selectedStockInLines.map((line) => ({
           movement_type: "inventory_in" as const,
           item_id: line.item_id,
           warehouse_id: warehouseId,
           quantity: line.quantity,
           unit_cost: line.unit_cost,
-          currency,
-          exchange_rate: exchangeRate,
+          currency: selectedInvoice.currency || "MMK",
+          exchange_rate: selectedInvoice.exchange_rate || 1,
           invoice_id: selectedInvoiceId,
           invoice_line_item_id: line.invoice_line_item_id,
           transaction_date: transactionDate.toISOString().split("T")[0],
@@ -335,7 +335,7 @@ function StockInContent() {
           description: `${transactions.length} item(s) received into inventory.`,
           variant: "success",
         });
-      } else {
+      } else if (sourceMode === "manual") {
         // Create single manual transaction
         const { error: insertError } = await supabase
           .from("inventory_transactions")
@@ -345,8 +345,6 @@ function StockInContent() {
             warehouse_id: warehouseId,
             quantity: manualQuantity,
             unit_cost: manualUnitCost,
-            currency,
-            exchange_rate: exchangeRate,
             transaction_date: transactionDate.toISOString().split("T")[0],
             notes: notes || null,
             status: "completed",
@@ -362,8 +360,12 @@ function StockInContent() {
         });
       }
 
-      // Redirect back to inventory
-      router.push("/inventory");
+      // Redirect back to appropriate page
+      if (sourceMode === "invoice" && selectedInvoiceId) {
+        router.push(`/invoice/${selectedInvoiceId}`);
+      } else {
+        router.push("/warehouse");
+      }
     } catch (err) {
       console.error("Error creating stock in:", err);
       setError(
@@ -395,7 +397,7 @@ function StockInContent() {
       {/* Header */}
       <div className="relative flex items-start justify-between animate-fade-in">
         <div className="flex items-start gap-4">
-          <Link href="/inventory">
+          <Link href="/warehouse">
             <Button
               variant="ghost"
               size="icon"
@@ -822,18 +824,18 @@ function StockInContent() {
         </div>
       )}
 
-      {/* Common: Warehouse & Cost Info */}
+      {/* Destination Warehouse */}
       <div
         className="command-panel corner-accents animate-slide-up"
         style={{ animationDelay: "150ms" }}
       >
         <div className="section-header">
           <Warehouse className="h-4 w-4 text-amber-500" />
-          <h2>Destination & Cost</h2>
+          <h2>Destination Warehouse</h2>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div className="md:col-span-2 lg:col-span-1">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
             <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
               Warehouse *
             </label>
@@ -854,39 +856,6 @@ function StockInContent() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-              Currency
-            </label>
-            <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                <SelectValue placeholder="Select currency..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="MMK">MMK</SelectItem>
-                <SelectItem value="USD">USD</SelectItem>
-                <SelectItem value="THB">THB</SelectItem>
-                <SelectItem value="CNY">CNY</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-              Exchange Rate
-            </label>
-            <Input
-              type="number"
-              min="0.0001"
-              step="0.0001"
-              value={exchangeRate}
-              onChange={(e) =>
-                setExchangeRate(parseFloat(e.target.value) || 1)
-              }
-              className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
           </div>
 
           <div>
@@ -960,14 +929,16 @@ function StockInContent() {
                   : manualQuantity * manualUnitCost
               )}
             </p>
-            <p className="text-xs text-slate-400 mt-1">{currency}</p>
+            <p className="text-xs text-slate-400 mt-1">
+              {sourceMode === "invoice" ? selectedInvoice?.currency || "MMK" : "MMK"}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Submit */}
       <div className="flex items-center justify-between pt-4 border-t border-slate-700">
-        <Link href="/inventory">
+        <Link href="/warehouse">
           <Button type="button" variant="ghost" className="text-slate-400">
             Cancel
           </Button>

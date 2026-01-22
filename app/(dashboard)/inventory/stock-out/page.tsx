@@ -296,8 +296,8 @@ export default function StockOutPage() {
         });
       }
 
-      // Redirect back to inventory
-      router.push("/inventory");
+      // Redirect back to warehouse list
+      router.push("/warehouse");
     } catch (err) {
       console.error("Error creating stock out:", err);
       setError(
@@ -329,7 +329,7 @@ export default function StockOutPage() {
       {/* Header */}
       <div className="relative flex items-start justify-between animate-fade-in">
         <div className="flex items-start gap-4">
-          <Link href="/inventory">
+          <Link href="/warehouse">
             <Button
               variant="ghost"
               size="icon"
@@ -713,7 +713,7 @@ export default function StockOutPage() {
 
       {/* Submit */}
       <div className="flex items-center justify-between pt-4 border-t border-slate-700">
-        <Link href="/inventory">
+        <Link href="/warehouse">
           <Button type="button" variant="ghost" className="text-slate-400">
             Cancel
           </Button>
