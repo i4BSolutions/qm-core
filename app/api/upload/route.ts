@@ -1,22 +1,27 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
-// Create admin client with service role key
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
+const BUCKET_NAME = "attachments";
+
+// Create admin client lazily (only when needed at runtime)
+function getSupabaseAdmin(): SupabaseClient {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Missing Supabase environment variables");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
-  }
-);
-
-const BUCKET_NAME = "attachments";
+  });
+}
 
 // Ensure bucket exists
-async function ensureBucketExists() {
+async function ensureBucketExists(supabaseAdmin: SupabaseClient) {
   const { data: buckets } = await supabaseAdmin.storage.listBuckets();
   const bucketExists = buckets?.some((b) => b.name === BUCKET_NAME);
 
@@ -62,8 +67,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get admin client at runtime
+    const supabaseAdmin = getSupabaseAdmin();
+
     // Ensure bucket exists
-    await ensureBucketExists();
+    await ensureBucketExists(supabaseAdmin);
 
     // Generate unique filename
     const fileExt = file.name.split(".").pop();
