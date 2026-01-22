@@ -37,6 +37,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { calculateAvailableQuantity } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useToast } from "@/components/ui/use-toast";
 
 // Step configuration - 3 steps now
 const STEPS = [
@@ -49,6 +50,7 @@ function InvoiceCreateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { toast } = useToast();
   const preselectedPoId = searchParams.get("po");
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -275,6 +277,13 @@ function InvoiceCreateContent() {
         .insert(lineItemsToInsert);
 
       if (lineItemsError) throw lineItemsError;
+
+      // Show success message
+      toast({
+        title: "Invoice Created",
+        description: `Invoice ${invoiceData.invoice_number} has been created successfully.`,
+        variant: "success",
+      });
 
       // Redirect to invoice detail page
       router.push(`/invoice/${invoiceData.id}`);
