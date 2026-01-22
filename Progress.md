@@ -1885,6 +1885,48 @@ The `calculate_po_status()` function determines PO status based on:
 
 ---
 
+## Iteration 7.9: Block Money Out for PO Route
+
+**Status:** Completed
+**Date:** January 2026
+
+### What Was Done
+
+1. **Database Migration** (`020_block_po_money_out.sql`)
+   - Created trigger function `validate_transaction_type_for_route()`
+   - Checks when inserting into `financial_transactions` table
+   - If parent QMHQ has `route_type = 'po'` and transaction is `money_out`, raises exception
+   - Error message: "Money Out transactions are not allowed for PO route. Use Purchase Orders to spend funds."
+
+2. **Database-Level Enforcement**
+   - Previously: Only UI level blocked Money Out for PO routes (TransactionDialog)
+   - Now: Database trigger prevents direct SQL inserts of money_out for PO routes
+   - Ensures data integrity even if bypassing the UI
+
+### Files Created
+
+**Migration:**
+- `supabase/migrations/020_block_po_money_out.sql`
+
+### Verification
+
+| Test | Expected Result |
+|------|-----------------|
+| Insert money_out for PO route via SQL | Exception raised |
+| UI Money Out button for PO route | Already disabled |
+| Insert money_in for PO route | Success |
+| Insert money_in/money_out for Expense route | Success |
+
+### Deliverables Verified
+- [x] Migration created and pushed to Supabase
+- [x] Database-level validation blocks money_out for PO routes
+- [x] UI continues to show Money Out disabled for PO route
+- [x] Money In for PO route still works
+- [x] Expense route transactions unaffected
+- [x] TypeScript compiles without errors
+
+---
+
 ## Next Iteration: Iteration 8 - Invoices
 
 **Dependencies:** Iteration 7 (Purchase Orders)
@@ -1954,6 +1996,7 @@ The `calculate_po_status()` function determines PO status based on:
 | v0.5.6 | Jan 2026 | 7.6 | Department Management: Name, Code, Department Head |
 | v0.5.7 | Jan 2026 | 7.7 | Item category inline creation (like QMRL/QMHQ) |
 | v0.5.8 | Jan 2026 | 7.8 | Entity type filters in Categories and Statuses pages |
+| v0.5.9 | Jan 2026 | 7.9 | Database trigger to block money_out for PO route QMHQ |
 
 ---
 
