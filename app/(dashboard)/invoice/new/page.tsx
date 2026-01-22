@@ -9,12 +9,13 @@ import {
   Loader2,
   FileText,
   CalendarDays,
-  DollarSign,
   Package,
   CheckCircle2,
   AlertTriangle,
   Save,
   Check,
+  Square,
+  CheckSquare,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -29,8 +30,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  InvoicePOSelector,
-  EditableInvoiceLineItemsTable,
   InvoiceSummaryPanel,
   type POForInvoice,
   type InvoiceLineItemFormData,
@@ -38,14 +37,12 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { calculateAvailableQuantity } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
-import type { PurchaseOrder, POLineItem, Supplier, Item } from "@/types/database";
 
-// Step configuration
+// Step configuration - 3 steps now
 const STEPS = [
-  { id: 1, label: "Header", icon: CalendarDays },
-  { id: 2, label: "Select PO", icon: FileText },
-  { id: 3, label: "Line Items", icon: Package },
-  { id: 4, label: "Summary", icon: CheckCircle2 },
+  { id: 1, label: "Select PO", icon: FileText },
+  { id: 2, label: "Line Items", icon: Package },
+  { id: 3, label: "Summary", icon: CheckCircle2 },
 ];
 
 function InvoiceCreateContent() {
@@ -62,62 +59,59 @@ function InvoiceCreateContent() {
   // Reference data
   const [purchaseOrders, setPurchaseOrders] = useState<POForInvoice[]>([]);
 
-  // Form state - Step 1: Header
-  const [supplierInvoiceNo, setSupplierInvoiceNo] = useState("");
+  // Form state - Step 1: PO Selection + Header
+  const [selectedPOId, setSelectedPOId] = useState<string>(preselectedPoId || "");
   const [invoiceDate, setInvoiceDate] = useState<Date>(new Date());
-  const [dueDate, setDueDate] = useState<Date | undefined>();
-  const [receivedDate, setReceivedDate] = useState<Date | undefined>();
   const [currency, setCurrency] = useState("MMK");
   const [exchangeRate, setExchangeRate] = useState(1);
   const [notes, setNotes] = useState("");
 
-  // Form state - Step 2: PO Selection
-  const [selectedPOId, setSelectedPOId] = useState<string>(preselectedPoId || "");
-  const [selectedLineItemIds, setSelectedLineItemIds] = useState<string[]>([]);
-
-  // Form state - Step 3: Line Items
+  // Form state - Step 2: Line Items (with selection, qty, unit price)
   const [lineItems, setLineItems] = useState<InvoiceLineItemFormData[]>([]);
+  const [selectedLineItemIds, setSelectedLineItemIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetchReferenceData();
   }, []);
 
-  // When PO is selected, pre-populate line items
+  // When PO is selected, populate all available line items
   useEffect(() => {
-    if (selectedPOId && selectedLineItemIds.length > 0) {
+    if (selectedPOId) {
       const selectedPO = purchaseOrders.find((po) => po.id === selectedPOId);
       if (selectedPO) {
         const newLineItems: InvoiceLineItemFormData[] = [];
 
-        selectedLineItemIds.forEach((liId) => {
-          const poLineItem = selectedPO.line_items.find((li) => li.id === liId);
-          if (!poLineItem) return;
-
+        selectedPO.line_items.forEach((poLineItem) => {
           const availableQty = calculateAvailableQuantity(
             poLineItem.quantity,
             poLineItem.invoiced_quantity ?? 0
           );
 
-          newLineItems.push({
-            id: crypto.randomUUID(),
-            po_line_item_id: poLineItem.id,
-            item_id: poLineItem.item_id,
-            item_name: poLineItem.item_name || poLineItem.item?.name || "Unknown",
-            item_sku: poLineItem.item_sku || poLineItem.item?.sku || undefined,
-            item_unit: poLineItem.item_unit || undefined,
-            quantity: availableQty, // Default to max available
-            unit_price: poLineItem.unit_price,
-            po_unit_price: poLineItem.unit_price,
-            available_quantity: availableQty,
-          });
+          if (availableQty > 0) {
+            newLineItems.push({
+              id: poLineItem.id, // Use PO line item ID as the form item ID
+              po_line_item_id: poLineItem.id,
+              item_id: poLineItem.item_id,
+              item_name: poLineItem.item_name || poLineItem.item?.name || "Unknown",
+              item_sku: poLineItem.item_sku || poLineItem.item?.sku || undefined,
+              item_unit: poLineItem.item_unit || undefined,
+              quantity: availableQty, // Default to max available
+              unit_price: poLineItem.unit_price,
+              po_unit_price: poLineItem.unit_price,
+              available_quantity: availableQty,
+            });
+          }
         });
 
         setLineItems(newLineItems);
+        // Select all by default
+        setSelectedLineItemIds(newLineItems.map((li) => li.id));
       }
     } else {
       setLineItems([]);
+      setSelectedLineItemIds([]);
     }
-  }, [selectedPOId, selectedLineItemIds, purchaseOrders]);
+  }, [selectedPOId, purchaseOrders]);
 
   const fetchReferenceData = async () => {
     setIsLoading(true);
@@ -168,36 +162,24 @@ function InvoiceCreateContent() {
     return purchaseOrders.find((po) => po.id === selectedPOId);
   }, [purchaseOrders, selectedPOId]);
 
-  // Available line items for selected PO
-  const availableLineItems = useMemo(() => {
-    if (!selectedPO) return [];
-    return selectedPO.line_items.filter(
-      (li) => (li.quantity - (li.invoiced_quantity ?? 0)) > 0
-    );
-  }, [selectedPO]);
+  // Get selected line items only
+  const selectedItems = useMemo(() => {
+    return lineItems.filter((li) => selectedLineItemIds.includes(li.id));
+  }, [lineItems, selectedLineItemIds]);
 
-  // Calculate totals
-  const invoiceTotal = useMemo(() => {
-    return lineItems.reduce((sum, li) => sum + li.quantity * li.unit_price, 0);
-  }, [lineItems]);
-
-  const invoiceTotalEusd = exchangeRate > 0 ? invoiceTotal / exchangeRate : 0;
-
-  // Validation
-  const hasQuantityErrors = lineItems.some(
+  // Validation - only check selected items
+  const hasQuantityErrors = selectedItems.some(
     (li) => li.quantity > li.available_quantity || li.quantity <= 0
   );
 
-  // Step validation
+  // Step validation - now 3 steps
   const canProceed = (step: number) => {
     switch (step) {
       case 1:
-        return currency && exchangeRate > 0;
+        return selectedPOId && currency && exchangeRate > 0;
       case 2:
-        return selectedPOId && selectedLineItemIds.length > 0;
+        return selectedLineItemIds.length > 0 && !hasQuantityErrors;
       case 3:
-        return lineItems.length > 0 && !hasQuantityErrors;
-      case 4:
         return true;
       default:
         return false;
@@ -208,7 +190,6 @@ function InvoiceCreateContent() {
   const handleSelectPO = (poId: string) => {
     if (poId !== selectedPOId) {
       setSelectedPOId(poId);
-      setSelectedLineItemIds([]);
     }
   };
 
@@ -221,15 +202,11 @@ function InvoiceCreateContent() {
   };
 
   const handleSelectAllLineItems = () => {
-    if (selectedLineItemIds.length === availableLineItems.length) {
+    if (selectedLineItemIds.length === lineItems.length) {
       setSelectedLineItemIds([]);
     } else {
-      setSelectedLineItemIds(availableLineItems.map((li) => li.id));
+      setSelectedLineItemIds(lineItems.map((li) => li.id));
     }
-  };
-
-  const handleRemoveLineItem = (id: string) => {
-    setLineItems((prev) => prev.filter((li) => li.id !== id));
   };
 
   const handleUpdateLineItem = (
@@ -243,7 +220,7 @@ function InvoiceCreateContent() {
   };
 
   const handleNext = () => {
-    if (currentStep < 4 && canProceed(currentStep)) {
+    if (currentStep < 3 && canProceed(currentStep)) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -255,7 +232,7 @@ function InvoiceCreateContent() {
   };
 
   const handleSubmit = async () => {
-    if (!user || hasQuantityErrors || lineItems.length === 0) return;
+    if (!user || hasQuantityErrors || selectedItems.length === 0) return;
 
     setIsSubmitting(true);
     setError(null);
@@ -268,10 +245,7 @@ function InvoiceCreateContent() {
         .from("invoices")
         .insert({
           po_id: selectedPOId,
-          supplier_invoice_no: supplierInvoiceNo || null,
           invoice_date: invoiceDate.toISOString().split("T")[0],
-          due_date: dueDate?.toISOString().split("T")[0] || null,
-          received_date: receivedDate?.toISOString().split("T")[0] || null,
           currency,
           exchange_rate: exchangeRate,
           notes: notes || null,
@@ -283,8 +257,8 @@ function InvoiceCreateContent() {
 
       if (invoiceError) throw invoiceError;
 
-      // Create line items
-      const lineItemsToInsert = lineItems.map((li) => ({
+      // Create line items - only selected items
+      const lineItemsToInsert = selectedItems.map((li) => ({
         invoice_id: invoiceData.id,
         po_line_item_id: li.po_line_item_id,
         item_id: li.item_id,
@@ -430,156 +404,144 @@ function InvoiceCreateContent() {
 
       {/* Step Content */}
       <div className="animate-slide-up">
-        {/* Step 1: Header */}
+        {/* Step 1: Select PO + Header */}
         {currentStep === 1 && (
-          <div className="command-panel corner-accents space-y-6">
-            <div className="section-header">
-              <CalendarDays className="h-4 w-4 text-amber-500" />
-              <h2>Invoice Header</h2>
+          <div className="space-y-6">
+            {/* PO Selection */}
+            <div className="command-panel corner-accents space-y-6">
+              <div className="section-header">
+                <FileText className="h-4 w-4 text-amber-500" />
+                <h2>Select Purchase Order</h2>
+              </div>
+
+              {purchaseOrders.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium">
+                    No Purchase Orders Available
+                  </p>
+                  <p className="text-sm">
+                    There are no open POs with items available for invoicing.
+                  </p>
+                  <Link href="/po/new" className="mt-4 inline-block">
+                    <Button variant="outline" className="border-slate-700">
+                      Create a PO
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {purchaseOrders.map((po) => {
+                    const isSelected = selectedPOId === po.id;
+                    const availableItems = po.line_items.filter(
+                      (li) => (li.quantity - (li.invoiced_quantity ?? 0)) > 0
+                    ).length;
+
+                    return (
+                      <div
+                        key={po.id}
+                        onClick={() => handleSelectPO(po.id)}
+                        className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                          isSelected
+                            ? "bg-amber-500/10 border-amber-500/50"
+                            : "bg-slate-800/50 border-slate-700 hover:border-slate-600"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                isSelected
+                                  ? "border-amber-500 bg-amber-500"
+                                  : "border-slate-500"
+                              }`}
+                            >
+                              {isSelected && (
+                                <Check className="h-3 w-3 text-white" />
+                              )}
+                            </div>
+                            <div>
+                              <code className="text-amber-400 font-semibold">
+                                {po.po_number}
+                              </code>
+                              <p className="text-sm text-slate-400">
+                                {po.supplier?.company_name || po.supplier?.name || "No supplier"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-slate-300">
+                              {availableItems} items available
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {formatCurrency(po.total_amount ?? 0)} {po.currency}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                  Supplier Invoice No
-                </label>
-                <Input
-                  value={supplierInvoiceNo}
-                  onChange={(e) => setSupplierInvoiceNo(e.target.value)}
-                  placeholder="Enter supplier invoice number..."
-                  className="bg-slate-800/50 border-slate-700"
-                />
-              </div>
+            {/* Invoice Header - Only show if PO selected */}
+            {selectedPOId && (
+              <div className="command-panel corner-accents space-y-6">
+                <div className="section-header">
+                  <CalendarDays className="h-4 w-4 text-amber-500" />
+                  <h2>Invoice Details</h2>
+                </div>
 
-              <div>
-                <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                  Invoice Date *
-                </label>
-                <DatePicker
-                  date={invoiceDate}
-                  onDateChange={(date) => date && setInvoiceDate(date)}
-                />
-              </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
+                      Invoice Date *
+                    </label>
+                    <DatePicker
+                      date={invoiceDate}
+                      onDateChange={(date) => date && setInvoiceDate(date)}
+                    />
+                  </div>
 
-              <div>
-                <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                  Due Date
-                </label>
-                <DatePicker
-                  date={dueDate}
-                  onDateChange={setDueDate}
-                  minDate={invoiceDate}
-                />
-              </div>
+                  <div>
+                    <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
+                      Currency *
+                    </label>
+                    <Select value={currency} onValueChange={setCurrency}>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                        <SelectValue placeholder="Select currency..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MMK">MMK</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="THB">THB</SelectItem>
+                        <SelectItem value="CNY">CNY</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div>
-                <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                  Received Date
-                </label>
-                <DatePicker date={receivedDate} onDateChange={setReceivedDate} />
-              </div>
+                  <div>
+                    <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
+                      Exchange Rate (to EUSD) *
+                    </label>
+                    <Input
+                      type="number"
+                      min="0.0001"
+                      step="0.0001"
+                      value={exchangeRate}
+                      onChange={(e) =>
+                        setExchangeRate(parseFloat(e.target.value) || 1)
+                      }
+                      className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+                </div>
 
-              <div>
-                <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                  Currency *
-                </label>
-                <Select value={currency} onValueChange={setCurrency}>
-                  <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                    <SelectValue placeholder="Select currency..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MMK">MMK</SelectItem>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="THB">THB</SelectItem>
-                    <SelectItem value="CNY">CNY</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                  Exchange Rate (to EUSD) *
-                </label>
-                <Input
-                  type="number"
-                  min="0.0001"
-                  step="0.0001"
-                  value={exchangeRate}
-                  onChange={(e) =>
-                    setExchangeRate(parseFloat(e.target.value) || 1)
-                  }
-                  className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-              </div>
-            </div>
-
-            <div className="p-3 rounded bg-blue-500/10 border border-blue-500/30">
-              <p className="text-sm text-blue-400">
-                <strong>Note:</strong> Invoice currency and exchange rate are
-                independent from the PO. You can use different values if the
-                actual invoice differs.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: PO Selection */}
-        {currentStep === 2 && (
-          <div className="command-panel corner-accents space-y-6">
-            <div className="section-header">
-              <FileText className="h-4 w-4 text-amber-500" />
-              <h2>Select Purchase Order</h2>
-            </div>
-
-            {purchaseOrders.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
-                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium">
-                  No Purchase Orders Available
-                </p>
-                <p className="text-sm">
-                  There are no open POs with items available for invoicing.
-                </p>
-                <Link href="/po/new" className="mt-4 inline-block">
-                  <Button variant="outline" className="border-slate-700">
-                    Create a PO
-                  </Button>
-                </Link>
-              </div>
-            ) : (
-              <InvoicePOSelector
-                purchaseOrders={purchaseOrders}
-                selectedPOId={selectedPOId}
-                selectedLineItems={selectedLineItemIds}
-                onSelectPO={handleSelectPO}
-                onToggleLineItem={handleToggleLineItem}
-                onSelectAllLineItems={handleSelectAllLineItems}
-              />
-            )}
-          </div>
-        )}
-
-        {/* Step 3: Line Items */}
-        {currentStep === 3 && (
-          <div className="command-panel corner-accents space-y-6">
-            <div className="section-header">
-              <Package className="h-4 w-4 text-amber-500" />
-              <h2>Invoice Line Items</h2>
-            </div>
-
-            <EditableInvoiceLineItemsTable
-              items={lineItems}
-              onRemoveItem={handleRemoveLineItem}
-              onUpdateItem={handleUpdateLineItem}
-              currency={currency}
-            />
-
-            {hasQuantityErrors && (
-              <div className="p-3 rounded bg-red-500/10 border border-red-500/30">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-400" />
-                  <p className="text-sm text-red-400">
-                    Some quantities exceed available amounts. Please correct before proceeding.
+                <div className="p-3 rounded bg-blue-500/10 border border-blue-500/30">
+                  <p className="text-sm text-blue-400">
+                    <strong>Note:</strong> Invoice currency and exchange rate can
+                    differ from the PO if the actual invoice values are different.
                   </p>
                 </div>
               </div>
@@ -587,8 +549,159 @@ function InvoiceCreateContent() {
           </div>
         )}
 
-        {/* Step 4: Summary */}
-        {currentStep === 4 && (
+        {/* Step 2: Line Items with Multi-select */}
+        {currentStep === 2 && (
+          <div className="command-panel corner-accents space-y-6">
+            <div className="section-header">
+              <Package className="h-4 w-4 text-amber-500" />
+              <h2>Select Line Items</h2>
+            </div>
+
+            <p className="text-sm text-slate-400">
+              Select items to include in this invoice and adjust quantities and prices as needed.
+            </p>
+
+            {/* Select All */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+              <button
+                type="button"
+                onClick={handleSelectAllLineItems}
+                className="flex items-center gap-2 text-sm text-slate-300 hover:text-amber-400 transition-colors"
+              >
+                {selectedLineItemIds.length === lineItems.length ? (
+                  <CheckSquare className="h-5 w-5 text-amber-500" />
+                ) : (
+                  <Square className="h-5 w-5" />
+                )}
+                Select All ({lineItems.length} items)
+              </button>
+              <span className="text-sm text-slate-400">
+                {selectedLineItemIds.length} of {lineItems.length} selected
+              </span>
+            </div>
+
+            {/* Line Items Table */}
+            <div className="space-y-3">
+              {lineItems.map((item) => {
+                const isSelected = selectedLineItemIds.includes(item.id);
+                const hasError = isSelected && (item.quantity > item.available_quantity || item.quantity <= 0);
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`p-4 rounded-lg border transition-all ${
+                      isSelected
+                        ? hasError
+                          ? "bg-red-500/10 border-red-500/50"
+                          : "bg-slate-800/50 border-amber-500/30"
+                        : "bg-slate-900/50 border-slate-700/50 opacity-60"
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Checkbox */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleLineItem(item.id)}
+                        className="mt-1"
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="h-5 w-5 text-amber-500" />
+                        ) : (
+                          <Square className="h-5 w-5 text-slate-500" />
+                        )}
+                      </button>
+
+                      {/* Item Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-medium text-slate-200">{item.item_name}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              {item.item_sku && (
+                                <code className="text-xs text-amber-400">{item.item_sku}</code>
+                              )}
+                              {item.item_unit && (
+                                <span className="text-xs text-slate-500">Unit: {item.item_unit}</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">
+                              Available: <span className="font-mono text-emerald-400">{item.available_quantity}</span>
+                              {" · "}PO Price: <span className="font-mono">{formatCurrency(item.po_unit_price)}</span>
+                            </p>
+                          </div>
+
+                          {/* Quantity & Price Inputs */}
+                          {isSelected && (
+                            <div className="flex items-center gap-4">
+                              <div>
+                                <label className="text-xs text-slate-500 block mb-1">Qty</label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max={item.available_quantity}
+                                  value={item.quantity}
+                                  onChange={(e) =>
+                                    handleUpdateLineItem(item.id, "quantity", parseInt(e.target.value) || 0)
+                                  }
+                                  className={`w-20 text-right font-mono bg-slate-800 border-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                    hasError ? "border-red-500" : ""
+                                  }`}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-slate-500 block mb-1">Unit Price</label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={item.unit_price}
+                                  onChange={(e) =>
+                                    handleUpdateLineItem(item.id, "unit_price", parseFloat(e.target.value) || 0)
+                                  }
+                                  className="w-28 text-right font-mono bg-slate-800 border-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-slate-500 block mb-1">Total</label>
+                                <div className="w-28 text-right font-mono text-emerald-400 py-2">
+                                  {formatCurrency(item.quantity * item.unit_price)}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Total */}
+            <div className="flex items-center justify-end pt-4 border-t border-slate-700">
+              <div className="text-right">
+                <p className="text-sm text-slate-400">Total ({selectedItems.length} items)</p>
+                <p className="text-xl font-mono font-bold text-emerald-400">
+                  {formatCurrency(selectedItems.reduce((sum, li) => sum + li.quantity * li.unit_price, 0))} {currency}
+                </p>
+              </div>
+            </div>
+
+            {hasQuantityErrors && (
+              <div className="p-3 rounded bg-red-500/10 border border-red-500/30">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-400" />
+                  <p className="text-sm text-red-400">
+                    Some quantities exceed available amounts or are invalid. Please correct before proceeding.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 3: Summary */}
+        {currentStep === 3 && (
           <div className="space-y-6">
             <div className="grid gap-6 lg:grid-cols-3">
               {/* Invoice Details */}
@@ -626,14 +739,6 @@ function InvoiceCreateContent() {
                         {invoiceDate.toLocaleDateString()}
                       </p>
                     </div>
-                    {supplierInvoiceNo && (
-                      <div>
-                        <p className="text-xs text-slate-400 uppercase tracking-wider">
-                          Supplier Ref
-                        </p>
-                        <p className="text-slate-200">{supplierInvoiceNo}</p>
-                      </div>
-                    )}
                     <div>
                       <p className="text-xs text-slate-400 uppercase tracking-wider">
                         Currency
@@ -655,7 +760,7 @@ function InvoiceCreateContent() {
                 <div className="command-panel corner-accents">
                   <div className="section-header">
                     <Package className="h-4 w-4 text-amber-500" />
-                    <h2>Line Items ({lineItems.length})</h2>
+                    <h2>Line Items ({selectedItems.length})</h2>
                   </div>
 
                   <table className="w-full">
@@ -676,7 +781,7 @@ function InvoiceCreateContent() {
                       </tr>
                     </thead>
                     <tbody>
-                      {lineItems.map((li) => (
+                      {selectedItems.map((li) => (
                         <tr
                           key={li.id}
                           className="border-b border-slate-700/50"
@@ -723,10 +828,10 @@ function InvoiceCreateContent() {
               {/* Summary Panel */}
               <div>
                 <InvoiceSummaryPanel
-                  totalAmount={invoiceTotal}
+                  totalAmount={selectedItems.reduce((sum, li) => sum + li.quantity * li.unit_price, 0)}
                   currency={currency}
                   exchangeRate={exchangeRate}
-                  itemCount={lineItems.length}
+                  itemCount={selectedItems.length}
                 />
               </div>
             </div>
@@ -757,7 +862,7 @@ function InvoiceCreateContent() {
             </Button>
           </Link>
 
-          {currentStep < 4 ? (
+          {currentStep < 3 ? (
             <Button
               type="button"
               onClick={handleNext}
@@ -771,7 +876,7 @@ function InvoiceCreateContent() {
             <Button
               type="button"
               onClick={handleSubmit}
-              disabled={isSubmitting || hasQuantityErrors || lineItems.length === 0}
+              disabled={isSubmitting || hasQuantityErrors || selectedItems.length === 0}
               className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400"
             >
               {isSubmitting ? (

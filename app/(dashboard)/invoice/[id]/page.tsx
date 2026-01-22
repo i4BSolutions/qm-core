@@ -362,11 +362,6 @@ export default function InvoiceDetailPage() {
             <p className="text-lg font-medium text-blue-400">
               {formatDate(invoice.invoice_date)}
             </p>
-            {invoice.due_date && (
-              <p className="text-xs text-slate-400 mt-1">
-                Due: {formatDate(invoice.due_date)}
-              </p>
-            )}
           </div>
         </div>
       </div>
@@ -416,7 +411,7 @@ export default function InvoiceDetailPage() {
               </div>
 
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
                       Invoice Date
@@ -425,35 +420,6 @@ export default function InvoiceDetailPage() {
                       {formatDate(invoice.invoice_date)}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
-                      Due Date
-                    </p>
-                    <p className="text-slate-200">
-                      {formatDate(invoice.due_date)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
-                      Received Date
-                    </p>
-                    <p className="text-slate-200">
-                      {formatDate(invoice.received_date)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
-                      Supplier Ref
-                    </p>
-                    <p className="text-slate-200">
-                      {invoice.supplier_invoice_no || "—"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="divider-accent" />
-
-                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
                       Currency
