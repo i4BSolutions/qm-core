@@ -2088,17 +2088,160 @@ The `calculate_po_status()` function determines PO status based on:
 
 ---
 
-## Next Iteration: Iteration 9 - Inventory Management
+## Iteration 9: Inventory Management
 
-**Dependencies:** Iteration 8 (Invoices for Stock In from Invoice)
+**Status:** Completed
+**Date:** January 2026
+
+### What Was Done
+
+1. **Database Migrations**
+   - `023_inventory_transactions.sql` - Inventory transactions table
+   - `024_inventory_wac_trigger.sql` - WAC calculation and validation triggers
+
+2. **Inventory Transactions Table**
+   - Movement types: `inventory_in`, `inventory_out`
+   - Stock out reasons: `request`, `consumption`, `damage`, `lost`, `transfer`, `adjustment`
+   - Transaction status: `pending`, `completed`, `cancelled`
+   - Cost tracking: `unit_cost`, `currency`, `exchange_rate`
+   - Generated columns: `unit_cost_eusd`, `total_cost`, `total_cost_eusd`
+   - Source references: `invoice_id`, `invoice_line_item_id`, `qmhq_id`
+   - Transfer support: `destination_warehouse_id`
+   - Snapshot fields: `item_name`, `item_sku` (preserved at transaction time)
+
+3. **Database Triggers & Functions**
+   - `update_item_wac()` - Calculates WAC on inventory_in with unit_cost
+   - `update_invoice_line_received_quantity()` - Updates received_quantity on invoice line items
+   - `validate_stock_out_quantity()` - Prevents issuing more than available stock
+   - `snapshot_inventory_transaction_item()` - Captures item details at transaction time
+
+4. **Database Views**
+   - `warehouse_inventory` - Current stock per item per warehouse
+   - `item_stock_summary` - Total stock and WAC valuation per item
+   - `get_warehouse_stock()` - Helper function for stock queries
+
+5. **Utility Functions** (`lib/utils/inventory.ts`)
+   - `MOVEMENT_TYPE_CONFIG` - Labels, colors for in/out
+   - `STOCK_OUT_REASON_CONFIG` - 6 reason configurations with colors
+   - `TRANSACTION_STATUS_CONFIG` - Status display config
+   - Helper functions: `formatStockQuantity`, `calculateWAC`, `formatWAC`, `validateStockOutQuantity`, `calculateEUSD`, `formatExchangeRate`
+
+6. **Stock In Form** (`/inventory/stock-in`)
+   - Two modes: "From Invoice" and "Manual Entry"
+   - **From Invoice mode:**
+     - Invoice selector showing all non-voided invoices
+     - Auto-populates line items from selected invoice
+     - Multi-select line items with checkboxes
+     - Quantity and unit cost editable per line
+     - Currency and exchange rate from invoice automatically
+     - Filters out items without valid item_id
+   - **Manual Entry mode:**
+     - Item selector
+     - Quantity and unit cost inputs
+   - Common fields: Warehouse selector, Transaction date, Notes
+   - Summary panel showing item count, total qty, total value
+   - Redirects to invoice detail or warehouse list on success
+
+7. **Stock Out Form** (`/inventory/stock-out`)
+   - Item selector with current stock display
+   - Shows stock by warehouse for selected item
+   - Warehouse selector (filtered to warehouses with stock)
+   - Quantity input with max validation (cannot exceed available)
+   - Reason selector with 6 options (visual cards)
+   - **Transfer mode:**
+     - Destination warehouse selector (excludes source)
+     - Creates paired transactions (out + in)
+     - Uses item WAC for transfer valuation
+   - Transaction date and notes
+   - Summary panel showing quantity out, reason badge, remaining stock
+
+8. **Warehouse Detail Page** (`/warehouse/[id]`)
+   - Header: Warehouse name, location, description
+   - KPI Cards (4 columns):
+     - Total Items (distinct items with stock > 0)
+     - Total Units (sum of current stock)
+     - Total Value (sum of stock × WAC)
+     - Total Value EUSD
+   - Tabs:
+     - **Inventory:** DataTable with SKU, Item Name, Stock, WAC, EUSD, Total Value
+     - **Stock Movement:** Transaction history with type badges, filters
+     - **History:** Placeholder for Iteration 10
+
+9. **Item Detail Page** (`/item/[id]`)
+   - Header: Item photo, name, SKU, category badge
+   - WAC Display Panel: WAC Amount, Exchange Rate, EUSD Equivalent
+   - Tabs:
+     - **Details:** Basic item info, category, timestamps
+     - **Stock by Warehouse:** Table showing current stock per warehouse
+     - **Transactions:** Transaction history with warehouse, type, quantity
+     - **History:** Placeholder for Iteration 10
+
+10. **Invoice Integration** (`/invoice/[id]`)
+    - Updated Stock Receipts tab with actual data
+    - Displays inventory transactions linked to invoice
+    - Shows warehouse, item, quantity, date for each receipt
+    - "Receive Stock" button links to `/inventory/stock-in?invoice={id}`
+
+### Business Rules Enforced
+
+| Rule | Implementation |
+|------|----------------|
+| INV-TR-01: Quantity always positive | CHECK constraint `quantity > 0` |
+| INV-TR-02: Stock out requires reason | CHECK constraint on movement_type |
+| INV-TR-03: Transfer requires destination | CHECK constraint on reason |
+| INV-TR-04: Destination != source | CHECK constraint on warehouse_id |
+| INV-TR-05: Cannot over-issue | Trigger validates stock before out |
+| INV-TR-06: WAC auto-calculation | Trigger on inventory_in with cost |
+| INV-TR-07: Invoice received_qty tracking | Trigger updates invoice line items |
+
+### Files Created
+
+**Migrations:**
+- `supabase/migrations/023_inventory_transactions.sql`
+- `supabase/migrations/024_inventory_wac_trigger.sql`
+
+**Utilities:**
+- `lib/utils/inventory.ts`
+
+**Pages:**
+- `app/(dashboard)/inventory/stock-in/page.tsx`
+- `app/(dashboard)/inventory/stock-out/page.tsx`
+- `app/(dashboard)/warehouse/[id]/page.tsx`
+- `app/(dashboard)/item/[id]/page.tsx`
+
+### Files Modified
+
+- `types/database.ts` - Added inventory transaction types
+- `app/(dashboard)/invoice/[id]/page.tsx` - Stock Receipts tab implementation
+
+### Deliverables Verified
+- [x] Database migrations created and pushed to Supabase
+- [x] Inventory transactions table with all constraints
+- [x] WAC calculation trigger working
+- [x] Stock In from Invoice auto-populates items
+- [x] Stock In Manual entry working
+- [x] Stock Out with reason selection working
+- [x] Transfer creates paired transactions
+- [x] Warehouse detail shows KPIs and inventory
+- [x] Item detail shows WAC and stock by warehouse
+- [x] Invoice Stock Receipts tab shows linked transactions
+- [x] TypeScript compiles without errors
+- [x] Build succeeds
+
+---
+
+## Next Iteration: Iteration 10 - Audit, RLS & Polish
+
+**Dependencies:** All previous iterations
 
 **Planned Tasks:**
-- Database: `inventory_transactions` table
-- Stock In form (from Invoice or Manual)
-- Stock Out form (with reason selection)
-- WAC calculation trigger
-- Warehouse detail page enhancement (inventory tab, KPIs)
-- Item detail page enhancement (stock by warehouse, WAC display)
+- Database: `audit_logs` table with triggers
+- Audit triggers for all major tables
+- History tab component (reusable timeline display)
+- RLS policies for all tables
+- Permission checks in UI (`usePermissions` hook)
+- Error handling and loading states
+- Admin management pages for Status and Category
 
 ---
 
@@ -2158,6 +2301,8 @@ The `calculate_po_status()` function determines PO status based on:
 | v0.5.9 | Jan 2026 | 7.9 | Database trigger to block money_out for PO route QMHQ |
 | v0.6.0 | Jan 2026 | 8 | Invoice Module: 3-step wizard, quantity validation, void functionality |
 | v0.6.1 | Jan 2026 | 8.1 | Invoice simplification: removed unnecessary fields, streamlined wizard |
+| v0.7.0 | Jan 2026 | 9 | Inventory Management: Stock In/Out forms, WAC calculation, warehouse/item detail pages |
+| v0.7.1 | Jan 2026 | 9.1 | Stock In fix: currency/exchange rate from invoice, improved error handling |
 
 ---
 
