@@ -17,6 +17,8 @@ import {
   Package,
   ExternalLink,
   ArrowRightLeft,
+  ArrowDownToLine,
+  Warehouse as WarehouseIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -41,7 +43,15 @@ import type {
   User as UserType,
   Item,
   InvoiceStatus,
+  InventoryTransaction,
+  Warehouse,
 } from "@/types/database";
+
+// Stock receipt type
+interface StockReceiptWithRelations extends InventoryTransaction {
+  item?: Pick<Item, "id" | "name" | "sku"> | null;
+  warehouse?: Pick<Warehouse, "id" | "name" | "location"> | null;
+}
 
 // Extended types
 interface InvoiceWithRelations extends Invoice {
@@ -65,6 +75,7 @@ export default function InvoiceDetailPage() {
 
   const [invoice, setInvoice] = useState<InvoiceWithRelations | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItemWithItem[]>([]);
+  const [stockReceipts, setStockReceipts] = useState<StockReceiptWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("details");
   const [showVoidDialog, setShowVoidDialog] = useState(false);
@@ -117,6 +128,22 @@ export default function InvoiceDetailPage() {
 
     if (lineItemsData) {
       setLineItems(lineItemsData as InvoiceLineItemWithItem[]);
+    }
+
+    // Fetch stock receipts (inventory transactions linked to this invoice)
+    const { data: stockReceiptsData } = await supabase
+      .from("inventory_transactions")
+      .select(`
+        *,
+        item:items!inventory_transactions_item_id_fkey(id, name, sku),
+        warehouse:warehouses!inventory_transactions_warehouse_id_fkey(id, name, location)
+      `)
+      .eq("invoice_id", invoiceId)
+      .eq("is_active", true)
+      .order("transaction_date", { ascending: false });
+
+    if (stockReceiptsData) {
+      setStockReceipts(stockReceiptsData as StockReceiptWithRelations[]);
     }
 
     setIsLoading(false);
@@ -390,7 +417,7 @@ export default function InvoiceDetailPage() {
             value="stock-receipts"
             className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400"
           >
-            Stock Receipts
+            Stock Receipts ({stockReceipts.length})
           </TabsTrigger>
           <TabsTrigger
             value="history"
@@ -640,23 +667,110 @@ export default function InvoiceDetailPage() {
         {/* Stock Receipts Tab */}
         <TabsContent value="stock-receipts" className="mt-6">
           <div className="command-panel corner-accents">
-            <div className="section-header">
-              <Package className="h-4 w-4 text-amber-500" />
-              <h2>Stock Receipts</h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="section-header">
+                <Package className="h-4 w-4 text-amber-500" />
+                <h2>Stock Receipts ({stockReceipts.length})</h2>
+              </div>
+              {!invoice.is_voided && (
+                <Link href={`/inventory/stock-in?invoice=${invoiceId}`}>
+                  <Button
+                    variant="outline"
+                    className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                  >
+                    <ArrowDownToLine className="mr-2 h-4 w-4" />
+                    Receive Stock
+                  </Button>
+                </Link>
+              )}
             </div>
 
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
-                <Package className="h-8 w-8 text-slate-500" />
+            {stockReceipts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+                  <Package className="h-8 w-8 text-slate-500" />
+                </div>
+                <h3 className="text-lg font-medium text-slate-300 mb-2">
+                  No Stock Received Yet
+                </h3>
+                <p className="text-sm text-slate-400 max-w-md">
+                  Use the "Receive Stock" button to record items received from
+                  this invoice.
+                </p>
               </div>
-              <h3 className="text-lg font-medium text-slate-300 mb-2">
-                Stock In Coming Soon
-              </h3>
-              <p className="text-sm text-slate-400 max-w-md">
-                Stock receipts linked to this invoice will be displayed here once
-                the Inventory module is implemented (Iteration 9).
-              </p>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                {stockReceipts.map((receipt) => (
+                  <div
+                    key={receipt.id}
+                    className="p-4 rounded-lg border border-slate-700 bg-slate-800/30"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                          <ArrowDownToLine className="h-5 w-5 text-emerald-400" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-slate-200">
+                              {receipt.item?.name || receipt.item_name || "Unknown Item"}
+                            </p>
+                            {(receipt.item?.sku || receipt.item_sku) && (
+                              <code className="text-xs text-amber-400">
+                                {receipt.item?.sku || receipt.item_sku}
+                              </code>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 mt-1 text-sm">
+                            <div className="flex items-center gap-1 text-slate-400">
+                              <WarehouseIcon className="h-3 w-3" />
+                              <Link
+                                href={`/warehouse/${receipt.warehouse?.id}`}
+                                className="hover:text-amber-400 transition-colors"
+                              >
+                                {receipt.warehouse?.name || "—"}
+                              </Link>
+                            </div>
+                            <span className="text-slate-500">
+                              {receipt.transaction_date
+                                ? new Date(receipt.transaction_date).toLocaleDateString()
+                                : "—"}
+                            </span>
+                          </div>
+                          {receipt.notes && (
+                            <p className="text-xs text-slate-500 mt-2">
+                              {receipt.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-mono text-lg font-bold text-emerald-400">
+                          +{receipt.quantity}
+                        </p>
+                        {receipt.unit_cost && (
+                          <p className="text-xs text-slate-400 mt-1">
+                            @ {formatCurrency(receipt.unit_cost)} {receipt.currency}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Summary */}
+                <div className="pt-4 border-t border-slate-700">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-slate-400">
+                      Total Received: {stockReceipts.length} transaction(s)
+                    </p>
+                    <p className="font-mono text-lg text-emerald-400">
+                      {stockReceipts.reduce((sum, r) => sum + (r.quantity || 0), 0)} units
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
 

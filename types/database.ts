@@ -1269,6 +1269,147 @@ export type Database = {
           },
         ]
       }
+      inventory_transactions: {
+        Row: {
+          id: string
+          movement_type: Database["public"]["Enums"]["movement_type"]
+          item_id: string
+          warehouse_id: string
+          quantity: number
+          unit_cost: number | null
+          currency: string | null
+          exchange_rate: number | null
+          unit_cost_eusd: number | null
+          total_cost: number | null
+          total_cost_eusd: number | null
+          reason: Database["public"]["Enums"]["stock_out_reason"] | null
+          destination_warehouse_id: string | null
+          invoice_id: string | null
+          invoice_line_item_id: string | null
+          qmhq_id: string | null
+          status: Database["public"]["Enums"]["inventory_transaction_status"] | null
+          transaction_date: string | null
+          reference_no: string | null
+          notes: string | null
+          item_name: string | null
+          item_sku: string | null
+          is_active: boolean | null
+          created_by: string | null
+          updated_by: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          movement_type: Database["public"]["Enums"]["movement_type"]
+          item_id: string
+          warehouse_id: string
+          quantity: number
+          unit_cost?: number | null
+          currency?: string | null
+          exchange_rate?: number | null
+          reason?: Database["public"]["Enums"]["stock_out_reason"] | null
+          destination_warehouse_id?: string | null
+          invoice_id?: string | null
+          invoice_line_item_id?: string | null
+          qmhq_id?: string | null
+          status?: Database["public"]["Enums"]["inventory_transaction_status"] | null
+          transaction_date?: string | null
+          reference_no?: string | null
+          notes?: string | null
+          item_name?: string | null
+          item_sku?: string | null
+          is_active?: boolean | null
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          movement_type?: Database["public"]["Enums"]["movement_type"]
+          item_id?: string
+          warehouse_id?: string
+          quantity?: number
+          unit_cost?: number | null
+          currency?: string | null
+          exchange_rate?: number | null
+          reason?: Database["public"]["Enums"]["stock_out_reason"] | null
+          destination_warehouse_id?: string | null
+          invoice_id?: string | null
+          invoice_line_item_id?: string | null
+          qmhq_id?: string | null
+          status?: Database["public"]["Enums"]["inventory_transaction_status"] | null
+          transaction_date?: string | null
+          reference_no?: string | null
+          notes?: string | null
+          item_name?: string | null
+          item_sku?: string | null
+          is_active?: boolean | null
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transactions_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transactions_destination_warehouse_id_fkey"
+            columns: ["destination_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transactions_invoice_line_item_id_fkey"
+            columns: ["invoice_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_line_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transactions_qmhq_id_fkey"
+            columns: ["qmhq_id"]
+            isOneToOne: false
+            referencedRelation: "qmhq"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transactions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1347,6 +1488,7 @@ export type Database = {
         | "lost"
         | "transfer"
         | "adjustment"
+      inventory_transaction_status: "pending" | "completed" | "cancelled"
       transaction_type: "money_in" | "money_out"
     }
     CompositeTypes: {
@@ -1486,4 +1628,8 @@ export type ApprovalStatus = Enums<"approval_status">
 export type InvoiceStatus = Enums<"invoice_status">
 export type MovementType = Enums<"movement_type">
 export type StockOutReason = Enums<"stock_out_reason">
+export type InventoryTransactionStatus = Enums<"inventory_transaction_status">
 export type TransactionType = Enums<"transaction_type">
+
+// Inventory Transaction type alias
+export type InventoryTransaction = Tables<"inventory_transactions">
