@@ -1927,19 +1927,178 @@ The `calculate_po_status()` function determines PO status based on:
 
 ---
 
-## Next Iteration: Iteration 8 - Invoices
+## Iteration 8: Invoices
 
-**Dependencies:** Iteration 7 (Purchase Orders)
+**Status:** Completed
+**Date:** January 2026
+
+### What Was Done
+
+1. **Database Migrations**
+   - `021_invoices.sql` - Invoices table
+     - Auto-generated invoice_number trigger (INV-YYYY-NNNNN format)
+     - `invoice_status` enum: draft, received, partially_received, completed, voided
+     - Void functionality: is_voided, voided_at, voided_by, void_reason
+     - Generated column for total_amount_eusd
+     - Trigger to block invoices for closed/cancelled POs
+   - `022_invoice_line_items.sql` - Invoice Line Items table
+     - Quantity validation trigger (cannot exceed available PO quantity)
+     - Snapshot item details (name, sku, unit, po_unit_price) on insert
+     - Trigger to update invoice total_amount
+     - Trigger to update po_line_items.invoiced_quantity
+     - Trigger to recalculate on invoice void
+
+2. **Database Schema**
+
+   **invoices**
+   - id (UUID), invoice_number (auto-generated), po_id (FK)
+   - invoice_date, currency, exchange_rate
+   - total_amount, total_amount_eusd (generated)
+   - status (invoice_status enum)
+   - Void fields: is_voided, voided_at, voided_by, void_reason
+   - notes, is_active, timestamps, audit fields
+
+   **invoice_line_items**
+   - id (UUID), invoice_id (FK), po_line_item_id (FK), item_id (FK)
+   - quantity, unit_price, total_price (generated)
+   - Snapshots: item_name, item_sku, item_unit, po_unit_price
+   - is_active, timestamps
+
+3. **TypeScript Types Updated** (`types/database.ts`)
+   - Added `invoices` table types (Row, Insert, Update, Relationships)
+   - Added `invoice_line_items` table types
+   - Added `Invoice` and `InvoiceLineItem` type aliases
+
+4. **Utility Functions** (`lib/utils/invoice-status.ts`)
+   - `INVOICE_STATUS_CONFIG` - Status configuration with labels, colors, icons
+   - `getInvoiceStatusHexColor()` - Get hex color for status
+   - `canVoidInvoice()`, `canEditInvoice()` - Permission helpers
+   - `calculateAvailableQuantity()` - Available qty for PO line item
+   - `formatAmount()`, `formatExchangeRate()` - Formatting helpers
+
+5. **Invoice Components** (`components/invoice/`)
+   - `invoice-status-badge.tsx` - Status badge with icon, handles voided state
+   - `invoice-card.tsx` - Card component for list view
+   - `invoice-line-items-table.tsx` - EditableInvoiceLineItemsTable and ReadonlyInvoiceLineItemsTable
+   - `invoice-po-selector.tsx` - PO selection with available quantity display
+   - `invoice-summary-panel.tsx` - Summary card showing totals and EUSD
+   - `void-invoice-dialog.tsx` - Void confirmation dialog with reason input
+   - `index.ts` - Barrel exports
+
+6. **Invoice List Page** (`/invoice`)
+   - Card/List view toggle
+   - Card View: Shows invoice number, supplier (from PO), amount (EUSD), status, voided indicator
+   - List View: Table with columns for all key fields
+   - Filters: Search by invoice#/PO#, status filter, show/hide voided toggle
+   - Pagination
+
+7. **Invoice Create Wizard** (`/invoice/new`) - 3 Steps
+   - **Step 1: Select PO**
+     - PO selection with available items count
+     - Invoice Date, Currency, Exchange Rate fields
+     - Pre-selection via query param: `/invoice/new?po={id}`
+   - **Step 2: Line Items**
+     - Multi-select table showing all available PO line items
+     - Checkboxes to select/deselect items
+     - Quantity and Unit Price editable per line
+     - Real-time validation (qty cannot exceed available)
+     - Running total display
+   - **Step 3: Summary**
+     - Review all details before submission
+     - Notes field
+     - Summary panel with totals
+   - Success toast notification on creation
+
+8. **Invoice Detail Page** (`/invoice/[id]`)
+   - Header: Invoice number badge, status badge, voided warning
+   - Supplier info displayed from linked PO
+   - Financial Summary: Total amount, EUSD, line item count, invoice date
+   - Tabs:
+     - Details: Invoice info (date, currency, exchange rate), PO info, Supplier info, Timeline
+     - Line Items: ReadonlyInvoiceLineItemsTable with PO price reference
+     - Stock Receipts: Placeholder (Iteration 9)
+     - History: Placeholder (Iteration 10)
+   - Actions: Void button (opens dialog), Edit button (draft only)
+
+9. **PO Integration** (`/po/[id]`)
+   - Updated Invoices tab to fetch and display actual invoices
+   - Shows invoice cards with status, amount, voided indicator
+   - "Create Invoice" button links to `/invoice/new?po={id}`
+   - Shows invoice count in tab label
+
+10. **Font Change**
+    - Switched from Plus Jakarta Sans + JetBrains Mono to Inter font
+    - More reliable loading (was timing out on Google Fonts)
+    - System monospace fonts for code/numbers
+
+### Business Rules Enforced
+
+| Rule | Implementation |
+|------|----------------|
+| INV-01: Qty <= Available | Database trigger + UI validation |
+| INV-02: Independent currency/rate | Separate fields from PO |
+| INV-03: PO price as reference | `po_unit_price` snapshot field |
+| INV-04: Real-time totals | Client-side calculation |
+| INV-05: Block closed PO | Database trigger |
+| INV-06: Void only, no delete | `is_voided` flag with reason |
+
+### Files Created
+
+**Migrations:**
+- `supabase/migrations/021_invoices.sql`
+- `supabase/migrations/022_invoice_line_items.sql`
+
+**Utilities:**
+- `lib/utils/invoice-status.ts`
+
+**Components:**
+- `components/invoice/invoice-status-badge.tsx`
+- `components/invoice/invoice-card.tsx`
+- `components/invoice/invoice-line-items-table.tsx`
+- `components/invoice/invoice-po-selector.tsx`
+- `components/invoice/invoice-summary-panel.tsx`
+- `components/invoice/void-invoice-dialog.tsx`
+- `components/invoice/index.ts`
+
+**Pages:**
+- `app/(dashboard)/invoice/page.tsx`
+- `app/(dashboard)/invoice/new/page.tsx`
+- `app/(dashboard)/invoice/[id]/page.tsx`
+
+### Files Modified
+
+- `types/database.ts` - Added Invoice types
+- `app/(dashboard)/po/[id]/page.tsx` - Integrated invoice display
+- `app/layout.tsx` - Changed to Inter font
+- `tailwind.config.ts` - Updated font configuration
+
+### Deliverables Verified
+- [x] Database migrations created and pushed to Supabase
+- [x] Invoice number auto-generates (INV-2026-00001)
+- [x] Quantity validation prevents over-invoicing
+- [x] Cannot create invoice for closed/cancelled PO
+- [x] Invoice list page shows Card/List views with filters
+- [x] 3-step invoice wizard working
+- [x] Invoice detail page displays all information with tabs
+- [x] PO detail shows linked invoices with Create Invoice button
+- [x] Void functionality with reason capture
+- [x] Success toast on invoice creation
+- [x] Font loading reliable with Inter
+- [x] TypeScript compiles without errors
+
+---
+
+## Next Iteration: Iteration 9 - Inventory Management
+
+**Dependencies:** Iteration 8 (Invoices for Stock In from Invoice)
 
 **Planned Tasks:**
-- Database: `invoices`, `invoice_line_items` tables
-- 4-step invoice creation wizard
-- Invoice list page with Card/List views
-- Invoice detail page
-- Quantity validation (can't invoice more than PO quantity)
-- Block invoices for closed POs
-- Void functionality (no delete)
-- Update PO smart status on invoice creation
+- Database: `inventory_transactions` table
+- Stock In form (from Invoice or Manual)
+- Stock Out form (with reason selection)
+- WAC calculation trigger
+- Warehouse detail page enhancement (inventory tab, KPIs)
+- Item detail page enhancement (stock by warehouse, WAC display)
 
 ---
 
