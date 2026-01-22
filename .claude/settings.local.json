@@ -29,7 +29,17 @@
       "Bash(taskkill:*)",
       "Bash(ping:*)",
       "Bash(test:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Iterations 5-7 - QMRL enhancements, QMHQ module, Purchase Orders\n\nIteration 5.1-5.5:\n- Request Letter No field and DatePicker component\n- InlineCreateSelect for status/category creation\n- Admin pages for statuses, categories, users\n- Performance optimizations and user invite API\n\nIteration 6:\n- QMHQ module with 3 route types \\(Item, Expense, PO\\)\n- 2-page creation flow with route-specific forms\n- Financial transactions with Money In/Out\n- Transaction dialog with image upload\n- QMHQ edit page and QMRL integration\n- Pagination for list pages\n- AuthProvider performance fix\n\nIteration 7:\n- Purchase Orders module with smart status calculation\n- PO list page with Card/List views\n- PO create page with balance validation\n- PO detail page with line items tracking\n- QMHQ Purchase Orders tab integration\n\nIteration 7.1-7.2:\n- Number input enhancements \\(+/- buttons, hidden spinners\\)\n- DatePicker min/max validation for delivery dates\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Iteration 7.4-7.5 - Simplify Supplier and Item entities\n\n7.4: Simplified Supplier\n- Reduced to only Name, Email, Phone fields\n- Updated list page and create/edit dialog\n\n7.5: Simplified Item Entity\n- Item now has: Name, Category \\(from categories table\\), Photo \\(upload\\), SKU \\(auto-generated\\)\n- Removed Unit, WAC, Description from UI\n- Added ''item'' to entity_type enum\n- Added category_id FK to items table\n- Seeded 6 default item categories \\(Equipment, Consumable, Uniform, Office Supplies, Electronics, Other\\)\n- Photo upload with absolute positioning to prevent layout breaking\n- Fixed image upload layout in transaction dialog\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Skill(vercel:deploy)",
+      "Bash(vercel --version:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(vercel --prod:*)",
+      "Bash(wc:*)"
     ]
   }
 }

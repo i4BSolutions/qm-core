@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -62,7 +62,7 @@ const routeOptions = [
   },
 ];
 
-export default function NewQMHQPage() {
+function NewQMHQContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -562,5 +562,13 @@ export default function NewQMHQPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function NewQMHQPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-amber-500" /></div>}>
+      <NewQMHQContent />
+    </Suspense>
   );
 }

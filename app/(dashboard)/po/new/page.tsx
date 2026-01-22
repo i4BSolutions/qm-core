@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -45,7 +45,7 @@ interface LineItemFormData {
 // QMHQ with balance info
 interface QMHQWithBalance extends Pick<QMHQ, "id" | "request_id" | "line_name" | "balance_in_hand" | "amount_eusd" | "total_money_in" | "total_po_committed"> {}
 
-export default function POCreatePage() {
+function POCreateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -569,5 +569,13 @@ export default function POCreatePage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function POCreatePage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-amber-500" /></div>}>
+      <POCreateContent />
+    </Suspense>
   );
 }

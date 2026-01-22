@@ -253,7 +253,7 @@ export function Sidebar() {
           <span className="status-dot status-dot-done scale-75" />
           <span className="text-xs font-mono text-emerald-400 uppercase tracking-wider">Online</span>
         </div>
-        <p className="text-xs text-slate-600 font-mono">// SINGLE SOURCE OF TRUTH</p>
+        <p className="text-xs text-slate-600 font-mono">SINGLE SOURCE OF TRUTH</p>
         {user && (
           <p className="mt-1 text-xs text-amber-500/70 font-mono uppercase">
             OPERATOR: {user.role}

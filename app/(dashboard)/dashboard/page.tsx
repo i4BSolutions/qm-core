@@ -142,7 +142,8 @@ export default function DashboardPage() {
           Operations Dashboard
         </h1>
         <p className="mt-1 text-slate-400 font-mono text-sm">
-          // REAL-TIME SYSTEM OVERVIEW
+          {/* REAL-TIME SYSTEM OVERVIEW */}
+          REAL-TIME SYSTEM OVERVIEW
         </p>
       </div>
 
