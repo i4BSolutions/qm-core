@@ -1090,6 +1090,185 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          id: string
+          invoice_number: string | null
+          po_id: string
+          supplier_invoice_no: string | null
+          invoice_date: string | null
+          due_date: string | null
+          received_date: string | null
+          currency: string | null
+          exchange_rate: number | null
+          total_amount: number | null
+          total_amount_eusd: number | null
+          status: Database["public"]["Enums"]["invoice_status"] | null
+          is_voided: boolean | null
+          voided_at: string | null
+          voided_by: string | null
+          void_reason: string | null
+          notes: string | null
+          is_active: boolean | null
+          created_at: string | null
+          updated_at: string | null
+          created_by: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          invoice_number?: string | null
+          po_id: string
+          supplier_invoice_no?: string | null
+          invoice_date?: string | null
+          due_date?: string | null
+          received_date?: string | null
+          currency?: string | null
+          exchange_rate?: number | null
+          total_amount?: number | null
+          status?: Database["public"]["Enums"]["invoice_status"] | null
+          is_voided?: boolean | null
+          voided_at?: string | null
+          voided_by?: string | null
+          void_reason?: string | null
+          notes?: string | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          invoice_number?: string | null
+          po_id?: string
+          supplier_invoice_no?: string | null
+          invoice_date?: string | null
+          due_date?: string | null
+          received_date?: string | null
+          currency?: string | null
+          exchange_rate?: number | null
+          total_amount?: number | null
+          status?: Database["public"]["Enums"]["invoice_status"] | null
+          is_voided?: boolean | null
+          voided_at?: string | null
+          voided_by?: string | null
+          void_reason?: string | null
+          notes?: string | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_line_items: {
+        Row: {
+          id: string
+          invoice_id: string
+          po_line_item_id: string
+          item_id: string | null
+          quantity: number
+          unit_price: number
+          total_price: number | null
+          item_name: string | null
+          item_sku: string | null
+          item_unit: string | null
+          po_unit_price: number | null
+          received_quantity: number | null
+          notes: string | null
+          is_active: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          po_line_item_id: string
+          item_id?: string | null
+          quantity?: number
+          unit_price?: number
+          item_name?: string | null
+          item_sku?: string | null
+          item_unit?: string | null
+          po_unit_price?: number | null
+          received_quantity?: number | null
+          notes?: string | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          invoice_id?: string
+          po_line_item_id?: string
+          item_id?: string | null
+          quantity?: number
+          unit_price?: number
+          item_name?: string | null
+          item_sku?: string | null
+          item_unit?: string | null
+          po_unit_price?: number | null
+          received_quantity?: number | null
+          notes?: string | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_po_line_item_id_fkey"
+            columns: ["po_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "po_line_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1291,6 +1470,8 @@ export type QMHQ = Tables<"qmhq">
 export type FinancialTransaction = Tables<"financial_transactions">
 export type PurchaseOrder = Tables<"purchase_orders">
 export type POLineItem = Tables<"po_line_items">
+export type Invoice = Tables<"invoices">
+export type InvoiceLineItem = Tables<"invoice_line_items">
 
 // Enum types
 export type UserRole = Enums<"user_role">

@@ -25,7 +25,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { POStatusBadge, ApprovalStatusBadge } from "@/components/po/po-status-badge";
 import { POProgressBar } from "@/components/po/po-progress-bar";
 import { ReadonlyLineItemsTable } from "@/components/po/po-line-items-table";
+import { InvoiceStatusBadge } from "@/components/invoice";
 import { formatCurrency } from "@/lib/utils";
+import { canCreateInvoice } from "@/lib/utils/po-status";
 import { calculatePOProgress, canEditPO, canCancelPO } from "@/lib/utils/po-status";
 import type {
   PurchaseOrder,
@@ -35,6 +37,8 @@ import type {
   User as UserType,
   Item,
   POStatusEnum,
+  Invoice,
+  InvoiceStatus,
 } from "@/types/database";
 
 // Extended types
@@ -49,6 +53,10 @@ interface POLineItemWithItem extends POLineItem {
   item?: Pick<Item, "id" | "name" | "sku"> | null;
 }
 
+interface InvoiceForPO extends Invoice {
+  line_items_count?: number;
+}
+
 export default function PODetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -56,6 +64,7 @@ export default function PODetailPage() {
 
   const [po, setPO] = useState<POWithRelations | null>(null);
   const [lineItems, setLineItems] = useState<POLineItemWithItem[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceForPO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("details");
   const [isCancelling, setIsCancelling] = useState(false);
@@ -104,6 +113,18 @@ export default function PODetailPage() {
 
     if (lineItemsData) {
       setLineItems(lineItemsData as POLineItemWithItem[]);
+    }
+
+    // Fetch invoices for this PO
+    const { data: invoicesData } = await supabase
+      .from("invoices")
+      .select("*")
+      .eq("po_id", poId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (invoicesData) {
+      setInvoices(invoicesData as InvoiceForPO[]);
     }
 
     setIsLoading(false);
@@ -322,7 +343,7 @@ export default function PODetailPage() {
             Line Items ({lineItems.length})
           </TabsTrigger>
           <TabsTrigger value="invoices" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
-            Invoices
+            Invoices ({invoices.length})
           </TabsTrigger>
           <TabsTrigger value="history" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
             History
@@ -520,17 +541,98 @@ export default function PODetailPage() {
             <div className="section-header">
               <FileText className="h-4 w-4 text-amber-500" />
               <h2>Invoices</h2>
+              {canCreateInvoice((po?.status || "not_started") as POStatusEnum) && (
+                <Link href={`/invoice/new?po=${poId}`} className="ml-auto">
+                  <Button size="sm" variant="outline" className="border-slate-700 text-slate-300">
+                    <FileText className="mr-2 h-4 w-4" />
+                    Create Invoice
+                  </Button>
+                </Link>
+              )}
             </div>
 
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
-                <FileText className="h-8 w-8 text-slate-500" />
+            {invoices.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+                  <FileText className="h-8 w-8 text-slate-500" />
+                </div>
+                <h3 className="text-lg font-medium text-slate-300 mb-2">No Invoices Yet</h3>
+                <p className="text-sm text-slate-400 max-w-md mb-4">
+                  No invoices have been created for this PO.
+                </p>
+                {canCreateInvoice((po?.status || "not_started") as POStatusEnum) && (
+                  <Link href={`/invoice/new?po=${poId}`}>
+                    <Button variant="outline" className="border-slate-700">
+                      <FileText className="mr-2 h-4 w-4" />
+                      Create First Invoice
+                    </Button>
+                  </Link>
+                )}
               </div>
-              <h3 className="text-lg font-medium text-slate-300 mb-2">Invoice Module Coming Soon</h3>
-              <p className="text-sm text-slate-400 max-w-md">
-                Invoices linked to this PO will be displayed here once the Invoice module is implemented (Iteration 8).
-              </p>
-            </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-700">
+                      <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Invoice#
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Supplier Ref
+                      </th>
+                      <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Amount (EUSD)
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Status
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Date
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.map((inv) => (
+                      <tr
+                        key={inv.id}
+                        className={`border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer ${
+                          inv.is_voided ? "opacity-60" : ""
+                        }`}
+                        onClick={() => router.push(`/invoice/${inv.id}`)}
+                      >
+                        <td className="py-3 px-4">
+                          <code className="text-amber-400 text-sm">
+                            {inv.invoice_number}
+                          </code>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-slate-300 text-sm">
+                            {inv.supplier_invoice_no || "—"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="font-mono text-emerald-400">
+                            {formatCurrency(inv.total_amount_eusd ?? 0)} EUSD
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <InvoiceStatusBadge
+                            status={(inv.status || "draft") as InvoiceStatus}
+                            isVoided={inv.is_voided ?? false}
+                            size="sm"
+                          />
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-slate-400 text-sm">
+                            {formatDate(inv.invoice_date)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </TabsContent>
 
