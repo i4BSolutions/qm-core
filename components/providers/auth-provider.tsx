@@ -16,8 +16,15 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Create supabase client outside component to avoid re-creation on every render
-const supabase = createClient();
+// Lazy-initialized Supabase client (only created when actually used in browser)
+let supabase: ReturnType<typeof createClient> | null = null;
+
+function getSupabase() {
+  if (!supabase) {
+    supabase = createClient();
+  }
+  return supabase;
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -30,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = useCallback(async (authUser: SupabaseUser): Promise<User | null> => {
     try {
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await getSupabase()
         .from("users")
         .select("*")
         .eq("id", authUser.id)
@@ -55,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
 
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { data: { user: authUser } } = await getSupabase().auth.getUser();
 
       if (authUser) {
         setSupabaseUser(authUser);
@@ -75,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     try {
-      await supabase.auth.signOut();
+      await getSupabase().auth.signOut();
       setUser(null);
       setSupabaseUser(null);
     } catch (err) {
@@ -93,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshUser();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange(
       async (event, session) => {
         if (event === "SIGNED_IN" && session?.user) {
           setSupabaseUser(session.user);
