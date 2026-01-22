@@ -2156,6 +2156,8 @@ The `calculate_po_status()` function determines PO status based on:
 | v0.5.7 | Jan 2026 | 7.7 | Item category inline creation (like QMRL/QMHQ) |
 | v0.5.8 | Jan 2026 | 7.8 | Entity type filters in Categories and Statuses pages |
 | v0.5.9 | Jan 2026 | 7.9 | Database trigger to block money_out for PO route QMHQ |
+| v0.6.0 | Jan 2026 | 8 | Invoice Module: 3-step wizard, quantity validation, void functionality |
+| v0.6.1 | Jan 2026 | 8.1 | Invoice simplification: removed unnecessary fields, streamlined wizard |
 
 ---
 
