@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { User } from "@/types";
@@ -31,9 +31,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Track if initial load has completed to avoid double fetching
-  const initialLoadDone = useRef(false);
 
   const fetchUserProfile = useCallback(async (authUser: SupabaseUser): Promise<User | null> => {
     try {
@@ -92,10 +89,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []); // No dependencies - supabase is now a module-level constant
 
   useEffect(() => {
-    // Only run initial load once
-    if (initialLoadDone.current) return;
-    initialLoadDone.current = true;
-
     // Initial load
     refreshUser();
 

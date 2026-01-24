@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -17,6 +17,7 @@ import {
   DollarSign,
   Boxes,
   TrendingUp,
+  AlertCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -67,94 +68,108 @@ export default function WarehouseDetailPage() {
   const [inventoryItems, setInventoryItems] = useState<WarehouseInventoryItem[]>([]);
   const [transactions, setTransactions] = useState<InventoryTransactionWithItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("inventory");
 
-  useEffect(() => {
-    if (warehouseId) {
-      fetchData();
+  const fetchData = useCallback(async () => {
+    if (!warehouseId) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+
+      // Fetch warehouse details
+      const { data: warehouseData, error: warehouseError } = await supabase
+        .from("warehouses")
+        .select("*")
+        .eq("id", warehouseId)
+        .single();
+
+      if (warehouseError) {
+        console.error("Error fetching warehouse:", warehouseError);
+        throw new Error(warehouseError.message);
+      }
+
+      setWarehouse(warehouseData as WarehouseType);
+
+      // Fetch inventory transactions to calculate current stock
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from("inventory_transactions")
+        .select(`
+          *,
+          item:items!inventory_transactions_item_id_fkey(id, name, sku, default_unit, wac_amount, wac_currency, wac_amount_eusd),
+          destination_warehouse:warehouses!inventory_transactions_destination_warehouse_id_fkey(id, name)
+        `)
+        .eq("warehouse_id", warehouseId)
+        .eq("is_active", true)
+        .eq("status", "completed")
+        .order("transaction_date", { ascending: false })
+        .order("created_at", { ascending: false });
+
+      if (transactionsError) {
+        console.error("Error fetching transactions:", transactionsError);
+        throw new Error(transactionsError.message);
+      }
+
+      if (transactionsData) {
+        setTransactions(transactionsData as InventoryTransactionWithItem[]);
+
+        // Calculate inventory from transactions
+        const inventoryMap = new Map<string, WarehouseInventoryItem>();
+
+        transactionsData.forEach((t) => {
+          const item = t.item as unknown as Item | null;
+          if (!item) return;
+
+          if (!inventoryMap.has(item.id)) {
+            inventoryMap.set(item.id, {
+              item_id: item.id,
+              item_name: item.name,
+              item_sku: item.sku,
+              item_unit: item.default_unit,
+              current_stock: 0,
+              wac_amount: item.wac_amount,
+              wac_currency: item.wac_currency,
+              wac_amount_eusd: item.wac_amount_eusd,
+              total_value: 0,
+              total_value_eusd: 0,
+            });
+          }
+
+          const inv = inventoryMap.get(item.id)!;
+          if (t.movement_type === "inventory_in") {
+            inv.current_stock += t.quantity;
+          } else if (t.movement_type === "inventory_out") {
+            inv.current_stock -= t.quantity;
+          }
+        });
+
+        // Calculate total values and filter to positive stock
+        const inventoryList = Array.from(inventoryMap.values())
+          .filter((inv) => inv.current_stock > 0)
+          .map((inv) => ({
+            ...inv,
+            total_value: inv.current_stock * (inv.wac_amount || 0),
+            total_value_eusd: inv.current_stock * (inv.wac_amount_eusd || 0),
+          }));
+
+        setInventoryItems(inventoryList);
+      }
+
+    } catch (err) {
+      console.error('Error fetching warehouse data:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load warehouse data';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   }, [warehouseId]);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    const supabase = createClient();
-
-    // Fetch warehouse details
-    const { data: warehouseData, error: warehouseError } = await supabase
-      .from("warehouses")
-      .select("*")
-      .eq("id", warehouseId)
-      .single();
-
-    if (warehouseError) {
-      console.error("Error fetching warehouse:", warehouseError);
-      setIsLoading(false);
-      return;
-    }
-
-    setWarehouse(warehouseData as WarehouseType);
-
-    // Fetch inventory transactions to calculate current stock
-    const { data: transactionsData } = await supabase
-      .from("inventory_transactions")
-      .select(`
-        *,
-        item:items!inventory_transactions_item_id_fkey(id, name, sku, default_unit, wac_amount, wac_currency, wac_amount_eusd),
-        destination_warehouse:warehouses!inventory_transactions_destination_warehouse_id_fkey(id, name)
-      `)
-      .eq("warehouse_id", warehouseId)
-      .eq("is_active", true)
-      .eq("status", "completed")
-      .order("transaction_date", { ascending: false })
-      .order("created_at", { ascending: false });
-
-    if (transactionsData) {
-      setTransactions(transactionsData as InventoryTransactionWithItem[]);
-
-      // Calculate inventory from transactions
-      const inventoryMap = new Map<string, WarehouseInventoryItem>();
-
-      transactionsData.forEach((t) => {
-        const item = t.item as unknown as Item | null;
-        if (!item) return;
-
-        if (!inventoryMap.has(item.id)) {
-          inventoryMap.set(item.id, {
-            item_id: item.id,
-            item_name: item.name,
-            item_sku: item.sku,
-            item_unit: item.default_unit,
-            current_stock: 0,
-            wac_amount: item.wac_amount,
-            wac_currency: item.wac_currency,
-            wac_amount_eusd: item.wac_amount_eusd,
-            total_value: 0,
-            total_value_eusd: 0,
-          });
-        }
-
-        const inv = inventoryMap.get(item.id)!;
-        if (t.movement_type === "inventory_in") {
-          inv.current_stock += t.quantity;
-        } else if (t.movement_type === "inventory_out") {
-          inv.current_stock -= t.quantity;
-        }
-      });
-
-      // Calculate total values and filter to positive stock
-      const inventoryList = Array.from(inventoryMap.values())
-        .filter((inv) => inv.current_stock > 0)
-        .map((inv) => ({
-          ...inv,
-          total_value: inv.current_stock * (inv.wac_amount || 0),
-          total_value_eusd: inv.current_stock * (inv.wac_amount_eusd || 0),
-        }));
-
-      setInventoryItems(inventoryList);
-    }
-
-    setIsLoading(false);
-  };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Calculate KPIs
   const kpis = useMemo(() => {
@@ -403,6 +418,22 @@ export default function WarehouseDetailPage() {
     <div className="space-y-6 relative">
       {/* Grid overlay */}
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-400" />
+            <p className="text-red-400">{error}</p>
+          </div>
+          <button
+            onClick={fetchData}
+            className="mt-2 text-sm text-red-400 underline hover:text-red-300"
+          >
+            Click to retry
+          </button>
+        </div>
+      )}
 
       {/* Header */}
       <div className="relative flex items-start justify-between animate-fade-in">

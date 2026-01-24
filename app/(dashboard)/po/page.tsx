@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Plus,
   Search,
   LayoutGrid,
   List,
   Radio,
+  AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -67,6 +68,7 @@ export default function POListPage() {
   const [pos, setPOs] = useState<POWithRelations[]>([]);
   const [suppliers, setSuppliers] = useState<Pick<Supplier, "id" | "name" | "company_name">[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
@@ -76,44 +78,49 @@ export default function POListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
-    const supabase = createClient();
+    setError(null);
 
-    const [posRes, suppliersRes] = await Promise.all([
-      supabase
-        .from("purchase_orders")
-        .select(`
-          *,
-          supplier:suppliers(id, name, company_name),
-          qmhq:qmhq!purchase_orders_qmhq_id_fkey(id, request_id, line_name)
-        `)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabase
-        .from("suppliers")
-        .select("id, name, company_name")
-        .eq("is_active", true)
-        .order("name"),
-    ]);
+    try {
+      const supabase = createClient();
 
-    if (posRes.data) {
-      // Fetch line item aggregates for each PO
-      const posWithAggregates = await Promise.all(
-        (posRes.data as POWithRelations[]).map(async (po) => {
-          const { data: lineItems } = await supabase
-            .from("po_line_items")
-            .select("quantity, invoiced_quantity, received_quantity")
-            .eq("po_id", po.id)
-            .eq("is_active", true);
+      const [posRes, suppliersRes] = await Promise.all([
+        supabase
+          .from("purchase_orders")
+          .select(`
+            *,
+            supplier:suppliers(id, name, company_name),
+            qmhq:qmhq!purchase_orders_qmhq_id_fkey(id, request_id, line_name),
+            po_line_items(quantity, invoiced_quantity, received_quantity, is_active)
+          `)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabase
+          .from("suppliers")
+          .select("id, name, company_name")
+          .eq("is_active", true)
+          .order("name"),
+      ]);
 
-          const aggregate = lineItems?.reduce(
-            (acc, item) => ({
+      // Check for errors
+      if (posRes.error) {
+        console.error('PO query error:', posRes.error);
+        throw new Error(posRes.error.message);
+      }
+      if (suppliersRes.error) {
+        console.error('Suppliers query error:', suppliersRes.error);
+        throw new Error(suppliersRes.error.message);
+      }
+
+      // Process POs with client-side aggregation (much faster than N+1 queries)
+      if (posRes.data) {
+        const posWithAggregates = (posRes.data as any[]).map((po) => {
+          const lineItems = (po.po_line_items || []).filter((item: any) => item.is_active !== false);
+
+          const aggregate = lineItems.reduce(
+            (acc: any, item: any) => ({
               total_quantity: acc.total_quantity + (item.quantity || 0),
               total_invoiced: acc.total_invoiced + (item.invoiced_quantity || 0),
               total_received: acc.total_received + (item.received_quantity || 0),
@@ -121,20 +128,32 @@ export default function POListPage() {
             { total_quantity: 0, total_invoiced: 0, total_received: 0 }
           );
 
+          // Remove the po_line_items array from the PO object (we only need the aggregate)
+          const { po_line_items, ...poData } = po;
+
           return {
-            ...po,
+            ...poData,
             line_items_aggregate: aggregate,
-          };
-        })
-      );
+          } as POWithRelations;
+        });
 
-      setPOs(posWithAggregates);
+        setPOs(posWithAggregates);
+      }
+
+      if (suppliersRes.data) setSuppliers(suppliersRes.data);
+
+    } catch (err) {
+      console.error('Error fetching PO data:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load Purchase Orders';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
+  }, []);
 
-    if (suppliersRes.data) setSuppliers(suppliersRes.data);
-
-    setIsLoading(false);
-  };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -231,6 +250,22 @@ export default function POListPage() {
     <div className="space-y-6 relative">
       {/* Subtle grid overlay */}
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-50" />
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-400" />
+            <p className="text-red-400">{error}</p>
+          </div>
+          <button
+            onClick={fetchData}
+            className="mt-2 text-sm text-red-400 underline hover:text-red-300"
+          >
+            Click to retry
+          </button>
+        </div>
+      )}
 
       {/* Page Header */}
       <div className="relative flex items-start justify-between">

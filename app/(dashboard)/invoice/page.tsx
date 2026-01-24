@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Plus,
   Search,
@@ -9,6 +9,7 @@ import {
   FileText,
   Eye,
   EyeOff,
+  AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -65,6 +66,7 @@ const statusGroups = [
 export default function InvoiceListPage() {
   const [invoices, setInvoices] = useState<InvoiceWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showVoided, setShowVoided] = useState(false);
@@ -74,35 +76,51 @@ export default function InvoiceListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  useEffect(() => {
-    fetchData();
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+
+      const { data, error: queryError } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          purchase_order:purchase_orders!invoices_po_id_fkey(
+            id,
+            po_number,
+            supplier_id,
+            supplier:suppliers(id, name, company_name)
+          )
+        `)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      // Check for errors
+      if (queryError) {
+        console.error('Invoice query error:', queryError);
+        throw new Error(queryError.message);
+      }
+
+      // Set data
+      if (data) {
+        setInvoices(data as InvoiceWithRelations[]);
+      }
+
+    } catch (err) {
+      console.error('Error fetching invoice data:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load invoices';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    const supabase = createClient();
-
-    const { data, error } = await supabase
-      .from("invoices")
-      .select(`
-        *,
-        purchase_order:purchase_orders!invoices_po_id_fkey(
-          id,
-          po_number,
-          supplier_id,
-          supplier:suppliers(id, name, company_name)
-        )
-      `)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(200);
-
-    if (data) {
-      setInvoices(data as InvoiceWithRelations[]);
-    }
-
-    setIsLoading(false);
-  };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -215,6 +233,22 @@ export default function InvoiceListPage() {
     <div className="space-y-6 relative">
       {/* Subtle grid overlay */}
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-50" />
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-400" />
+            <p className="text-red-400">{error}</p>
+          </div>
+          <button
+            onClick={fetchData}
+            className="mt-2 text-sm text-red-400 underline hover:text-red-300"
+          >
+            Click to retry
+          </button>
+        </div>
+      )}
 
       {/* Page Header */}
       <div className="relative flex items-start justify-between">

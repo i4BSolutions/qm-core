@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { Plus, Search, LayoutGrid, List, Package, Wallet, ShoppingCart, Radio, ChevronRight } from "lucide-react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { Plus, Search, LayoutGrid, List, Package, Wallet, ShoppingCart, Radio, ChevronRight, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ export default function QMHQPage() {
   const [statuses, setStatuses] = useState<StatusConfig[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [routeFilter, setRouteFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -55,50 +56,74 @@ export default function QMHQPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  useEffect(() => {
-    fetchData();
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+
+      const [qmhqRes, statusRes, categoryRes] = await Promise.all([
+        supabase
+          .from("qmhq")
+          .select(`
+            id, request_id, line_name, description, route_type,
+            status_id, category_id, assigned_to, qmrl_id,
+            amount, currency, exchange_rate, amount_eusd,
+            quantity, item_id, created_at,
+            status:status_config(id, name, color, status_group),
+            category:categories(id, name, color),
+            assigned_user:users!qmhq_assigned_to_fkey(id, full_name),
+            qmrl:qmrl!qmhq_qmrl_id_fkey(id, request_id, title)
+          `)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabase
+          .from("status_config")
+          .select("id, name, color, status_group, display_order")
+          .eq("entity_type", "qmhq")
+          .eq("is_active", true)
+          .order("display_order"),
+        supabase
+          .from("categories")
+          .select("id, name, color, display_order")
+          .eq("entity_type", "qmhq")
+          .eq("is_active", true)
+          .order("display_order"),
+      ]);
+
+      // Check for errors
+      if (qmhqRes.error) {
+        console.error('QMHQ query error:', qmhqRes.error);
+        throw new Error(qmhqRes.error.message);
+      }
+      if (statusRes.error) {
+        console.error('Status query error:', statusRes.error);
+        throw new Error(statusRes.error.message);
+      }
+      if (categoryRes.error) {
+        console.error('Category query error:', categoryRes.error);
+        throw new Error(categoryRes.error.message);
+      }
+
+      // Set data
+      if (qmhqRes.data) setQmhqs(qmhqRes.data as QMHQWithRelations[]);
+      if (statusRes.data) setStatuses(statusRes.data as StatusConfig[]);
+      if (categoryRes.data) setCategories(categoryRes.data as Category[]);
+
+    } catch (err) {
+      console.error('Error fetching QMHQ data:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load QMHQ data';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    const supabase = createClient();
-
-    const [qmhqRes, statusRes, categoryRes] = await Promise.all([
-      supabase
-        .from("qmhq")
-        .select(`
-          id, request_id, line_name, description, route_type,
-          status_id, category_id, assigned_to, qmrl_id,
-          amount, currency, exchange_rate, amount_eusd,
-          quantity, item_id, created_at,
-          status:status_config(id, name, color, status_group),
-          category:categories(id, name, color),
-          assigned_user:users!qmhq_assigned_to_fkey(id, full_name),
-          qmrl:qmrl!qmhq_qmrl_id_fkey(id, request_id, title)
-        `)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabase
-        .from("status_config")
-        .select("id, name, color, status_group, display_order")
-        .eq("entity_type", "qmhq")
-        .eq("is_active", true)
-        .order("display_order"),
-      supabase
-        .from("categories")
-        .select("id, name, color, display_order")
-        .eq("entity_type", "qmhq")
-        .eq("is_active", true)
-        .order("display_order"),
-    ]);
-
-    if (qmhqRes.data) setQmhqs(qmhqRes.data as QMHQWithRelations[]);
-    if (statusRes.data) setStatuses(statusRes.data as StatusConfig[]);
-    if (categoryRes.data) setCategories(categoryRes.data as Category[]);
-
-    setIsLoading(false);
-  };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -197,6 +222,22 @@ export default function QMHQPage() {
     <div className="space-y-6 relative">
       {/* Subtle grid overlay */}
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-50" />
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-400" />
+            <p className="text-red-400">{error}</p>
+          </div>
+          <button
+            onClick={fetchData}
+            className="mt-2 text-sm text-red-400 underline hover:text-red-300"
+          >
+            Click to retry
+          </button>
+        </div>
+      )}
 
       {/* Page Header */}
       <div className="relative flex items-start justify-between">

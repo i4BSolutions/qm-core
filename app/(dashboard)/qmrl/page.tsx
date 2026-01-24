@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Plus, Search, Calendar, User, Tag, AlertCircle, Radio, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -48,6 +48,7 @@ export default function QMRLPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<UserType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [assignedFilter, setAssignedFilter] = useState<string>("all");
@@ -56,57 +57,85 @@ export default function QMRLPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  useEffect(() => {
-    fetchData();
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+
+      // Parallel fetching for better performance
+      const [qmrlRes, statusRes, categoryRes, userRes] = await Promise.all([
+        supabase
+          .from("qmrl")
+          .select(`
+            id, request_id, title, priority, request_date, description,
+            status_id, category_id, assigned_to, requester_id, department_id,
+            created_at,
+            status:status_config(id, name, color, status_group),
+            category:categories(id, name, color),
+            assigned_user:users!qmrl_assigned_to_fkey(id, full_name),
+            requester:users!qmrl_requester_id_fkey(id, full_name),
+            department:departments(id, name)
+          `)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabase
+          .from("status_config")
+          .select("id, name, color, status_group, display_order")
+          .eq("entity_type", "qmrl")
+          .eq("is_active", true)
+          .order("display_order"),
+        supabase
+          .from("categories")
+          .select("id, name, color, display_order")
+          .eq("entity_type", "qmrl")
+          .eq("is_active", true)
+          .order("display_order"),
+        supabase
+          .from("users")
+          .select("id, full_name")
+          .eq("is_active", true)
+          .order("full_name"),
+      ]);
+
+      // Check for errors
+      if (qmrlRes.error) {
+        console.error('QMRL query error:', qmrlRes.error);
+        throw new Error(qmrlRes.error.message);
+      }
+      if (statusRes.error) {
+        console.error('Status query error:', statusRes.error);
+        throw new Error(statusRes.error.message);
+      }
+      if (categoryRes.error) {
+        console.error('Category query error:', categoryRes.error);
+        throw new Error(categoryRes.error.message);
+      }
+      if (userRes.error) {
+        console.error('User query error:', userRes.error);
+        throw new Error(userRes.error.message);
+      }
+
+      // Set data
+      if (qmrlRes.data) setQmrls(qmrlRes.data as QMRLWithRelations[]);
+      if (statusRes.data) setStatuses(statusRes.data as StatusConfig[]);
+      if (categoryRes.data) setCategories(categoryRes.data as Category[]);
+      if (userRes.data) setUsers(userRes.data as UserType[]);
+
+    } catch (err) {
+      console.error('Error fetching QMRL data:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load QMRL data';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    const supabase = createClient();
-
-    // Parallel fetching for better performance
-    const [qmrlRes, statusRes, categoryRes, userRes] = await Promise.all([
-      supabase
-        .from("qmrl")
-        .select(`
-          id, request_id, title, priority, request_date, description,
-          status_id, category_id, assigned_to, requester_id, department_id,
-          created_at,
-          status:status_config(id, name, color, status_group),
-          category:categories(id, name, color),
-          assigned_user:users!qmrl_assigned_to_fkey(id, full_name),
-          requester:users!qmrl_requester_id_fkey(id, full_name),
-          department:departments(id, name)
-        `)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabase
-        .from("status_config")
-        .select("id, name, color, status_group, display_order")
-        .eq("entity_type", "qmrl")
-        .eq("is_active", true)
-        .order("display_order"),
-      supabase
-        .from("categories")
-        .select("id, name, color, display_order")
-        .eq("entity_type", "qmrl")
-        .eq("is_active", true)
-        .order("display_order"),
-      supabase
-        .from("users")
-        .select("id, full_name")
-        .eq("is_active", true)
-        .order("full_name"),
-    ]);
-
-    if (qmrlRes.data) setQmrls(qmrlRes.data as QMRLWithRelations[]);
-    if (statusRes.data) setStatuses(statusRes.data as StatusConfig[]);
-    if (categoryRes.data) setCategories(categoryRes.data as Category[]);
-    if (userRes.data) setUsers(userRes.data as UserType[]);
-
-    setIsLoading(false);
-  };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -198,6 +227,22 @@ export default function QMRLPage() {
     <div className="space-y-6 relative">
       {/* Subtle grid overlay */}
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-50" />
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-400" />
+            <p className="text-red-400">{error}</p>
+          </div>
+          <button
+            onClick={fetchData}
+            className="mt-2 text-sm text-red-400 underline hover:text-red-300"
+          >
+            Click to retry
+          </button>
+        </div>
+      )}
 
       {/* Page Header */}
       <div className="relative flex items-start justify-between">

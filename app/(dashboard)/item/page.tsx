@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2, Package, Tag, Box, ImageIcon } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Package, Tag, Box, ImageIcon, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
@@ -25,33 +25,51 @@ interface ItemWithCategory extends Item {
 export default function ItemsPage() {
   const [items, setItems] = useState<ItemWithCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const { toast } = useToast();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
-    const supabase = createClient();
+    setError(null);
 
-    const { data } = await supabase
-      .from("items")
-      .select(`
-        id, name, sku, photo_url, category_id,
-        category_rel:categories(id, name, color)
-      `)
-      .eq("is_active", true)
-      .order("name")
-      .limit(200);
+    try {
+      const supabase = createClient();
 
-    if (data) {
-      setItems(data as ItemWithCategory[]);
+      const { data, error: queryError } = await supabase
+        .from("items")
+        .select(`
+          id, name, sku, photo_url, category_id,
+          category_rel:categories(id, name, color)
+        `)
+        .eq("is_active", true)
+        .order("name")
+        .limit(200);
+
+      // Check for errors
+      if (queryError) {
+        console.error('Items query error:', queryError);
+        throw new Error(queryError.message);
+      }
+
+      // Set data
+      if (data) {
+        setItems(data as ItemWithCategory[]);
+      }
+
+    } catch (err) {
+      console.error('Error fetching items data:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load items';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleDelete = async (id: string) => {
     const supabase = createClient();
@@ -197,6 +215,22 @@ export default function ItemsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-400" />
+            <p className="text-red-400">{error}</p>
+          </div>
+          <button
+            onClick={fetchData}
+            className="mt-2 text-sm text-red-400 underline hover:text-red-300"
+          >
+            Click to retry
+          </button>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex items-start justify-between animate-slide-up">
         <div>

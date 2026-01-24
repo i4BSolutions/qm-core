@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -19,6 +19,7 @@ import {
   ArrowRightLeft,
   ArrowDownToLine,
   Warehouse as WarehouseIcon,
+  AlertCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -77,77 +78,96 @@ export default function InvoiceDetailPage() {
   const [lineItems, setLineItems] = useState<InvoiceLineItemWithItem[]>([]);
   const [stockReceipts, setStockReceipts] = useState<StockReceiptWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("details");
   const [showVoidDialog, setShowVoidDialog] = useState(false);
   const [isVoiding, setIsVoiding] = useState(false);
 
-  useEffect(() => {
-    if (invoiceId) {
-      fetchData();
+  const fetchData = useCallback(async () => {
+    if (!invoiceId) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+
+      // Fetch invoice with relations
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          purchase_order:purchase_orders!invoices_po_id_fkey(
+            *,
+            supplier:suppliers(*)
+          ),
+          created_by_user:users!invoices_created_by_fkey(id, full_name),
+          updated_by_user:users!invoices_updated_by_fkey(id, full_name),
+          voided_by_user:users!invoices_voided_by_fkey(id, full_name)
+        `)
+        .eq("id", invoiceId)
+        .single();
+
+      if (invoiceError) {
+        console.error("Error fetching invoice:", invoiceError);
+        throw new Error(invoiceError.message);
+      }
+
+      setInvoice(invoiceData as unknown as InvoiceWithRelations);
+
+      // Fetch line items
+      const { data: lineItemsData, error: lineItemsError } = await supabase
+        .from("invoice_line_items")
+        .select(`
+          *,
+          item:items(id, name, sku)
+        `)
+        .eq("invoice_id", invoiceId)
+        .eq("is_active", true)
+        .order("created_at");
+
+      if (lineItemsError) {
+        console.error("Error fetching line items:", lineItemsError);
+        throw new Error(lineItemsError.message);
+      }
+
+      if (lineItemsData) {
+        setLineItems(lineItemsData as InvoiceLineItemWithItem[]);
+      }
+
+      // Fetch stock receipts (inventory transactions linked to this invoice)
+      const { data: stockReceiptsData, error: stockReceiptsError } = await supabase
+        .from("inventory_transactions")
+        .select(`
+          *,
+          item:items!inventory_transactions_item_id_fkey(id, name, sku),
+          warehouse:warehouses!inventory_transactions_warehouse_id_fkey(id, name, location)
+        `)
+        .eq("invoice_id", invoiceId)
+        .eq("is_active", true)
+        .order("transaction_date", { ascending: false });
+
+      if (stockReceiptsError) {
+        console.error("Error fetching stock receipts:", stockReceiptsError);
+        throw new Error(stockReceiptsError.message);
+      }
+
+      if (stockReceiptsData) {
+        setStockReceipts(stockReceiptsData as StockReceiptWithRelations[]);
+      }
+
+    } catch (err) {
+      console.error('Error fetching invoice detail data:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load invoice';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   }, [invoiceId]);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    const supabase = createClient();
-
-    // Fetch invoice with relations
-    const { data: invoiceData, error: invoiceError } = await supabase
-      .from("invoices")
-      .select(`
-        *,
-        purchase_order:purchase_orders!invoices_po_id_fkey(
-          *,
-          supplier:suppliers(*)
-        ),
-        created_by_user:users!invoices_created_by_fkey(id, full_name),
-        updated_by_user:users!invoices_updated_by_fkey(id, full_name),
-        voided_by_user:users!invoices_voided_by_fkey(id, full_name)
-      `)
-      .eq("id", invoiceId)
-      .single();
-
-    if (invoiceError) {
-      console.error("Error fetching invoice:", invoiceError);
-      setIsLoading(false);
-      return;
-    }
-
-    setInvoice(invoiceData as unknown as InvoiceWithRelations);
-
-    // Fetch line items
-    const { data: lineItemsData } = await supabase
-      .from("invoice_line_items")
-      .select(`
-        *,
-        item:items(id, name, sku)
-      `)
-      .eq("invoice_id", invoiceId)
-      .eq("is_active", true)
-      .order("created_at");
-
-    if (lineItemsData) {
-      setLineItems(lineItemsData as InvoiceLineItemWithItem[]);
-    }
-
-    // Fetch stock receipts (inventory transactions linked to this invoice)
-    const { data: stockReceiptsData } = await supabase
-      .from("inventory_transactions")
-      .select(`
-        *,
-        item:items!inventory_transactions_item_id_fkey(id, name, sku),
-        warehouse:warehouses!inventory_transactions_warehouse_id_fkey(id, name, location)
-      `)
-      .eq("invoice_id", invoiceId)
-      .eq("is_active", true)
-      .order("transaction_date", { ascending: false });
-
-    if (stockReceiptsData) {
-      setStockReceipts(stockReceiptsData as StockReceiptWithRelations[]);
-    }
-
-    setIsLoading(false);
-  };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleVoid = async (reason: string) => {
     if (!invoice || !user) return;
@@ -239,6 +259,22 @@ export default function InvoiceDetailPage() {
     <div className="space-y-6 relative">
       {/* Grid overlay */}
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-400" />
+            <p className="text-red-400">{error}</p>
+          </div>
+          <button
+            onClick={fetchData}
+            className="mt-2 text-sm text-red-400 underline hover:text-red-300"
+          >
+            Click to retry
+          </button>
+        </div>
+      )}
 
       {/* Header */}
       <div className="relative flex items-start justify-between animate-fade-in">
