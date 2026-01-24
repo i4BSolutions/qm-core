@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -73,13 +73,7 @@ export default function EditQMHQPage() {
   const [contactPersons, setContactPersons] = useState<ContactPerson[]>([]);
   const [users, setUsers] = useState<UserType[]>([]);
 
-  useEffect(() => {
-    if (qmhqId) {
-      fetchData();
-    }
-  }, [qmhqId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     const supabase = createClient();
 
@@ -145,7 +139,13 @@ export default function EditQMHQPage() {
     if (userRes.data) setUsers(userRes.data as UserType[]);
 
     setIsLoading(false);
-  };
+  }, [qmhqId, toast]);
+
+  useEffect(() => {
+    if (qmhqId) {
+      fetchData();
+    }
+  }, [qmhqId, fetchData]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));

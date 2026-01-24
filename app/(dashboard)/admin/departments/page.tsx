@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Plus, MoreHorizontal, Pencil, Trash2, Building2, Code, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export default function DepartmentsPage() {
   const [editingDepartment, setEditingDepartment] = useState<DepartmentWithHead | null>(null);
   const { toast } = useToast();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     const supabase = createClient();
 
@@ -45,11 +45,11 @@ export default function DepartmentsPage() {
       setDepartments(data as DepartmentWithHead[]);
     }
     setIsLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleDelete = async (id: string) => {
     const supabase = createClient();

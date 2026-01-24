@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Plus, MoreHorizontal, Pencil, Trash2, Warehouse, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ export default function WarehousesPage() {
   const [editingWarehouse, setEditingWarehouse] = useState<WarehouseType | null>(null);
   const { toast } = useToast();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     const supabase = createClient();
 
@@ -39,11 +39,11 @@ export default function WarehousesPage() {
       setWarehouses(data as WarehouseType[]);
     }
     setIsLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleDelete = async (id: string) => {
     const supabase = createClient();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -84,13 +84,7 @@ export default function EditQMRLPage() {
   );
   const selectedDepartment = selectedContactPerson?.departments;
 
-  useEffect(() => {
-    if (qmrlId) {
-      fetchData();
-    }
-  }, [qmrlId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     const supabase = createClient();
 
@@ -163,7 +157,13 @@ export default function EditQMRLPage() {
     if (userRes.data) setUsers(userRes.data);
 
     setIsLoading(false);
-  };
+  }, [qmrlId, toast]);
+
+  useEffect(() => {
+    if (qmrlId) {
+      fetchData();
+    }
+  }, [qmrlId, fetchData]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));

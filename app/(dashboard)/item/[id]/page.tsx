@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -71,13 +71,7 @@ export default function ItemDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("details");
 
-  useEffect(() => {
-    if (itemId) {
-      fetchData();
-    }
-  }, [itemId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     const supabase = createClient();
 
@@ -162,7 +156,13 @@ export default function ItemDetailPage() {
     }
 
     setIsLoading(false);
-  };
+  }, [itemId]);
+
+  useEffect(() => {
+    if (itemId) {
+      fetchData();
+    }
+  }, [itemId, fetchData]);
 
   // Calculate totals
   const totals = useMemo(() => {

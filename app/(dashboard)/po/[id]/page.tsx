@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -69,13 +69,7 @@ export default function PODetailPage() {
   const [activeTab, setActiveTab] = useState("details");
   const [isCancelling, setIsCancelling] = useState(false);
 
-  useEffect(() => {
-    if (poId) {
-      fetchData();
-    }
-  }, [poId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     const supabase = createClient();
 
@@ -128,7 +122,13 @@ export default function PODetailPage() {
     }
 
     setIsLoading(false);
-  };
+  }, [poId]);
+
+  useEffect(() => {
+    if (poId) {
+      fetchData();
+    }
+  }, [poId, fetchData]);
 
   const handleCancelPO = async () => {
     if (!po || !canCancelPO(po.status as POStatusEnum)) return;

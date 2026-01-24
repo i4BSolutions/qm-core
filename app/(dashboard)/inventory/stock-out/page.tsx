@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -80,21 +80,7 @@ export default function StockOutPage() {
   const [itemWarehouses, setItemWarehouses] = useState<WarehouseStock[]>([]);
   const [isLoadingStock, setIsLoadingStock] = useState(false);
 
-  useEffect(() => {
-    fetchReferenceData();
-  }, []);
-
-  // Fetch item stock when item is selected
-  useEffect(() => {
-    if (selectedItemId) {
-      fetchItemStock(selectedItemId);
-    } else {
-      setItemWarehouses([]);
-      setSelectedWarehouseId("");
-    }
-  }, [selectedItemId]);
-
-  const fetchReferenceData = async () => {
+  const fetchReferenceData = useCallback(async () => {
     setIsLoading(true);
     const supabase = createClient();
 
@@ -121,9 +107,9 @@ export default function StockOutPage() {
     }
 
     setIsLoading(false);
-  };
+  }, []);
 
-  const fetchItemStock = async (itemId: string) => {
+  const fetchItemStock = useCallback(async (itemId: string) => {
     setIsLoadingStock(true);
     const supabase = createClient();
 
@@ -185,7 +171,21 @@ export default function StockOutPage() {
     }
 
     setIsLoadingStock(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchReferenceData();
+  }, [fetchReferenceData]);
+
+  // Fetch item stock when item is selected
+  useEffect(() => {
+    if (selectedItemId) {
+      fetchItemStock(selectedItemId);
+    } else {
+      setItemWarehouses([]);
+      setSelectedWarehouseId("");
+    }
+  }, [selectedItemId, fetchItemStock]);
 
   // Selected item details
   const selectedItem = useMemo(() => {

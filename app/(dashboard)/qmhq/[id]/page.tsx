@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -90,13 +90,7 @@ export default function QMHQDetailPage() {
   const [activeTab, setActiveTab] = useState("details");
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
 
-  useEffect(() => {
-    if (qmhqId) {
-      fetchData();
-    }
-  }, [qmhqId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     const supabase = createClient();
 
@@ -182,7 +176,13 @@ export default function QMHQDetailPage() {
     }
 
     setIsLoading(false);
-  };
+  }, [qmhqId]);
+
+  useEffect(() => {
+    if (qmhqId) {
+      fetchData();
+    }
+  }, [qmhqId, fetchData]);
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return "—";

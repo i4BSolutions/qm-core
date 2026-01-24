@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Plus, MoreHorizontal, Pencil, Trash2, Radio, Layers, Filter } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,7 @@ export default function StatusesPage() {
     return statuses.filter((s) => s.entity_type === entityFilter);
   }, [statuses, entityFilter]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     const supabase = createClient();
 
@@ -60,11 +60,11 @@ export default function StatusesPage() {
       setStatuses(data as StatusConfig[]);
     }
     setIsLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleDelete = async (id: string, isDefault: boolean) => {
     if (isDefault) {

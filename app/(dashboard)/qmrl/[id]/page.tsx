@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -66,13 +66,7 @@ export default function QMRLDetailPage() {
   const [relatedQmhq, setRelatedQmhq] = useState<QMHQWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (params.id) {
-      fetchQMRL(params.id as string);
-    }
-  }, [params.id]);
-
-  const fetchQMRL = async (id: string) => {
+  const fetchQMRL = useCallback(async (id: string) => {
     setIsLoading(true);
     const supabase = createClient();
 
@@ -116,7 +110,13 @@ export default function QMRLDetailPage() {
     }
 
     setIsLoading(false);
-  };
+  }, [router]);
+
+  useEffect(() => {
+    if (params.id) {
+      fetchQMRL(params.id as string);
+    }
+  }, [params.id, fetchQMRL]);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";

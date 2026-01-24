@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useMemo } from "react";
+import { Suspense, useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -109,18 +109,7 @@ function StockInContent() {
   const [transactionDate, setTransactionDate] = useState<Date>(new Date());
   const [notes, setNotes] = useState("");
 
-  useEffect(() => {
-    fetchReferenceData();
-  }, []);
-
-  // Fetch invoice line items when invoice is selected
-  useEffect(() => {
-    if (selectedInvoiceId && sourceMode === "invoice") {
-      fetchInvoiceLineItems(selectedInvoiceId);
-    }
-  }, [selectedInvoiceId, sourceMode]);
-
-  const fetchReferenceData = async () => {
+  const fetchReferenceData = useCallback(async () => {
     setIsLoading(true);
     const supabase = createClient();
 
@@ -167,9 +156,9 @@ function StockInContent() {
     }
 
     setIsLoading(false);
-  };
+  }, []);
 
-  const fetchInvoiceLineItems = async (invoiceId: string) => {
+  const fetchInvoiceLineItems = useCallback(async (invoiceId: string) => {
     const supabase = createClient();
 
     const { data } = await supabase
@@ -211,7 +200,18 @@ function StockInContent() {
 
       setStockInLines(lines);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchReferenceData();
+  }, [fetchReferenceData]);
+
+  // Fetch invoice line items when invoice is selected
+  useEffect(() => {
+    if (selectedInvoiceId && sourceMode === "invoice") {
+      fetchInvoiceLineItems(selectedInvoiceId);
+    }
+  }, [selectedInvoiceId, sourceMode, fetchInvoiceLineItems]);
 
   // Selected invoice details
   const selectedInvoice = useMemo(() => {
