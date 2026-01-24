@@ -366,11 +366,22 @@ function StockInContent() {
       } else {
         router.push("/warehouse");
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error creating stock in:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to record stock in"
-      );
+      // Extract detailed error message
+      let errorMessage = "Failed to record stock in";
+      if (err && typeof err === "object") {
+        if ("message" in err && typeof err.message === "string") {
+          errorMessage = err.message;
+        }
+        if ("details" in err && typeof err.details === "string") {
+          errorMessage += `: ${err.details}`;
+        }
+        if ("hint" in err && typeof err.hint === "string") {
+          errorMessage += ` (${err.hint})`;
+        }
+      }
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
