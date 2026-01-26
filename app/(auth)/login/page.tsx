@@ -105,6 +105,10 @@ export default function LoginPage() {
         otpRefs.current[0]?.focus();
       } else if (data.session) {
         setMessage({ type: "success", text: "Login successful! Redirecting..." });
+        // Set session marker so AuthProvider knows this is a valid session
+        sessionStorage.setItem("qm_session_active", "1");
+        // Set initial activity timestamp
+        localStorage.setItem("qm_last_activity", Date.now().toString());
         router.push("/dashboard");
         router.refresh();
       }

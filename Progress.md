@@ -3050,3 +3050,104 @@ With Iteration 10 complete, the QM System V1 is feature-complete:
 - ✅ WAC calculation
 - ✅ Audit logging
 - ✅ Row Level Security
+
+---
+
+## Post V1.0.0 Bug Fix: Auth Provider Page Refresh Issue
+
+**Status:** Completed
+**Date:** January 2026
+
+### Problem Description
+
+After deploying V1.0.0, a critical bug was discovered where browser refresh caused authentication to fail:
+- On page refresh, user profile would show as "Guest Not signed in"
+- Dashboard and other protected pages would keep loading indefinitely
+- The issue was related to React Strict Mode double-mounting and race conditions in the auth provider
+
+### Root Cause Analysis
+
+1. **React Strict Mode Double-Mounting**: In development, React mounts components twice to help detect side effects. The original auth provider didn't handle this properly.
+
+2. **Race Condition with onAuthStateChange**: Both `init()` and the `SIGNED_IN` event handler were trying to fetch the user profile simultaneously, causing race conditions.
+
+3. **Cancelled Async Operations**: When the first mount was cleaned up, its async operations (like `getSession()` and profile fetch) would complete but the component was already unmounted, leaving the second mount without proper state.
+
+### Solution Applied
+
+Rewrote `components/providers/auth-provider.tsx` with the following approach:
+
+1. **Let init() handle initial auth state** - Directly call `getSession()` in the init function instead of relying on auth events.
+
+2. **Remove SIGNED_IN handling from onAuthStateChange** - The listener now only handles runtime events (`SIGNED_OUT`, `TOKEN_REFRESHED`), not initial session detection.
+
+3. **Use cancelled flag properly** - Each effect instance has its own `cancelled` flag to prevent stale async operations from updating state.
+
+4. **Keep fetchProfile inside useEffect** - Uses the same Supabase instance, avoiding multiple client instantiations.
+
+### Session Management Requirements
+
+The auth provider implements the following session rules:
+- **Login** → Creates session, sets `sessionStorage` marker and `localStorage` activity timestamp
+- **Browser Refresh** → Session persists (sessionStorage survives refresh within same tab)
+- **Tab Close** → sessionStorage clears, detected on next visit, redirects to login
+- **6hr Inactivity** → localStorage timestamp checked, auto-logout on timeout
+
+### Files Modified
+
+```
+components/providers/auth-provider.tsx   (complete rewrite)
+```
+
+### Key Code Changes
+
+```typescript
+// Main initialization - no ref needed, let both mounts run
+useEffect(() => {
+  const supabase = createClient();
+  let cancelled = false;
+
+  const init = async () => {
+    // Check clear conditions (tab close, timeout)
+    const { clear, reason } = shouldClearSession();
+    if (clear) { /* redirect to login */ }
+
+    // Get session directly
+    const { data: { session } } = await supabase.auth.getSession();
+    if (cancelled) return;
+
+    // Set state
+    setSupabaseUser(session.user);
+    const profile = await fetchProfile(session.user.id);
+    if (cancelled) return;
+    
+    setUser(profile);
+    setIsLoading(false);
+  };
+
+  init();
+
+  // Only handle runtime events, not SIGNED_IN
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    async (event, session) => {
+      if (event === "SIGNED_OUT") { /* clear state */ }
+      if (event === "TOKEN_REFRESHED") { /* update timestamp */ }
+      // Don't handle SIGNED_IN - init() does this
+    }
+  );
+
+  return () => {
+    cancelled = true;
+    subscription.unsubscribe();
+  };
+}, []);
+```
+
+### Deliverables Verified
+
+- [x] Login works correctly
+- [x] Browser refresh maintains session
+- [x] Tab close triggers re-login on next visit
+- [x] React Strict Mode handled properly
+- [x] No race conditions between init and auth events
+- [x] Build succeeds: `npm run build` ✓
