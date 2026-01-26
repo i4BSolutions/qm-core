@@ -2,6 +2,10 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { AuthProvider } from "@/components/providers/auth-provider";
 
+// Force dynamic rendering for all dashboard routes to prevent
+// static prerendering which fails without Supabase env vars at build time
+export const dynamic = "force-dynamic";
+
 export default function DashboardLayout({
   children,
 }: {
