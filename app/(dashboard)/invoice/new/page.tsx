@@ -74,6 +74,7 @@ function InvoiceCreateContent() {
 
   useEffect(() => {
     fetchReferenceData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // When PO is selected, populate all available line items

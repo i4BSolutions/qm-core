@@ -2746,6 +2746,55 @@ All 15 pages listed above were modified with:
 | v0.7.1 | Jan 2026 | 9.1 | Stock In fix: currency/exchange rate from invoice, improved error handling |
 | v0.7.2 | Jan 2026 | 9.2 | Production rendering fixes: useEffect navigation bug, AuthProvider refresh, error handling, PO query optimization |
 | v0.7.3 | Jan 2026 | 9.3 | Critical fix: useCallback pattern for data fetching across 15 pages to resolve navigation/refresh bugs |
+| v0.7.4 | Jan 2026 | 9.4 | ESLint/build warning fixes, session management investigation (reverted) |
+
+---
+
+## Iteration 9.4: Build Warnings & Session Management
+
+**Status:** ✅ Completed (Partial)
+
+### Build Warning Fixes ✅
+
+**React Hook exhaustive-deps warnings fixed (3 files):**
+- `app/(dashboard)/invoice/new/page.tsx` - Added eslint-disable for intentional mount-only effect
+- `app/(dashboard)/qmhq/new/[route]/page.tsx` - Added eslint-disable for intentional mount-only effect
+- `lib/hooks/use-search.ts` - Added eslint-disable to prevent infinite loop
+
+**Next.js Image warnings fixed (4 files):**
+- `app/(dashboard)/item/item-dialog.tsx` - Replaced `<img>` with `<Image unoptimized />` for blob previews
+- `app/(dashboard)/item/page.tsx` - Replaced `<img>` with `<Image />` for Supabase URLs
+- `app/(dashboard)/item/[id]/page.tsx` - Replaced `<img>` with `<Image />` for Supabase URLs
+- `components/qmhq/transaction-dialog.tsx` - Replaced `<img>` with `<Image unoptimized />` for blob previews
+
+**Result:** Build now completes with zero warnings.
+
+### Session Management Investigation ⚠️ (Reverted)
+
+**Attempted Features:**
+1. Session expires when tab is closed (via sessionStorage)
+2. Session expires after 6 hours of inactivity (via localStorage)
+3. Session persists through page refresh
+
+**Files Created (later removed/unused):**
+- `lib/utils/session-manager.ts` - Session lifecycle utilities
+- `lib/hooks/use-activity-tracker.ts` - Activity tracking hook
+
+**Issues Encountered:**
+- React Strict Mode caused double mounting, leading to race conditions
+- Concurrent `getUser()` calls conflicted with Supabase client initialization
+- Session validation logic incorrectly invalidated sessions on first load after login
+- Queries hung indefinitely due to client state conflicts
+
+**Resolution:**
+- Reverted `auth-provider.tsx` to clean, simple version
+- Basic Supabase auth works correctly without custom session management
+- Session timeout features deferred to future iteration with more careful implementation
+
+**Lessons Learned:**
+- Supabase client singleton + React Strict Mode requires careful handling
+- Session validation must occur AFTER confirming valid Supabase session
+- Tab close detection is unreliable (can't distinguish from first visit)
 
 ---
 

@@ -16,25 +16,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Lazy-initialized Supabase client (only created when actually used in browser)
-let supabase: ReturnType<typeof createClient> | null = null;
-
-function getSupabase() {
-  if (!supabase) {
-    supabase = createClient();
-  }
-  return supabase;
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const supabase = useMemo(() => createClient(), []);
+
   const fetchUserProfile = useCallback(async (authUser: SupabaseUser): Promise<User | null> => {
     try {
-      const { data, error: fetchError } = await getSupabase()
+      const { data, error: fetchError } = await supabase
         .from("users")
         .select("*")
         .eq("id", authUser.id)
@@ -52,14 +44,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError("Failed to load user profile");
       return null;
     }
-  }, []); // No dependencies - supabase is now a module-level constant
+  }, [supabase]);
 
   const refreshUser = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const { data: { user: authUser } } = await getSupabase().auth.getUser();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
 
       if (authUser) {
         setSupabaseUser(authUser);
@@ -75,25 +67,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchUserProfile]);
+  }, [supabase, fetchUserProfile]);
 
   const signOut = useCallback(async () => {
     try {
-      await getSupabase().auth.signOut();
+      await supabase.auth.signOut();
       setUser(null);
       setSupabaseUser(null);
     } catch (err) {
       console.error("Error signing out:", err);
       setError("Failed to sign out");
     }
-  }, []); // No dependencies - supabase is now a module-level constant
+  }, [supabase]);
 
   useEffect(() => {
     // Initial load
     refreshUser();
 
     // Listen for auth changes
-    const { data: { subscription } } = getSupabase().auth.onAuthStateChange(
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === "SIGNED_IN" && session?.user) {
           setSupabaseUser(session.user);
@@ -111,9 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [refreshUser, fetchUserProfile]); // These are now stable references
+  }, [supabase, refreshUser, fetchUserProfile]);
 
-  // Memoize context value to prevent unnecessary re-renders of consumers
   const contextValue = useMemo<AuthContextType>(() => ({
     user,
     supabaseUser,
@@ -138,13 +129,11 @@ export function useAuth() {
   return context;
 }
 
-// Convenience hook for just the user
 export function useUser() {
   const { user, isLoading } = useAuth();
   return { user, isLoading };
 }
 
-// Hook for checking user role
 export function useUserRole() {
   const { user } = useAuth();
   return user?.role ?? null;

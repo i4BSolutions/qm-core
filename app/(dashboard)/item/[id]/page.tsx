@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowLeft,
   Loader2,
@@ -388,12 +389,14 @@ export default function ItemDetailPage() {
           </Link>
 
           {/* Item Photo */}
-          <div className="w-16 h-16 rounded-lg overflow-hidden border border-slate-700 bg-slate-800/50 flex items-center justify-center">
+          <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-700 bg-slate-800/50 flex items-center justify-center">
             {item.photo_url ? (
-              <img
+              <Image
                 src={item.photo_url}
                 alt={item.name}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                sizes="64px"
               />
             ) : (
               <ImageIcon className="h-6 w-6 text-slate-500" />

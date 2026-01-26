@@ -152,6 +152,7 @@ export default function QMHQRouteDetailsPage() {
     }
 
     fetchRouteData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route, router, toast, config]);
 
   const fetchRouteData = async () => {

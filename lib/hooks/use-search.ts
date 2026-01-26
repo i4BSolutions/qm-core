@@ -153,6 +153,7 @@ export function useSearchWithPagination<T>(
   // Reset to first page when search changes
   useEffect(() => {
     pagination.goToPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearchTerm]);
 
   const paginatedItems = useMemo(() => {

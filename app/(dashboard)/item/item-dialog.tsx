@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
@@ -281,10 +282,12 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
               {photoPreview ? (
                 <div className="relative w-full min-w-0">
                   <div className="relative rounded-lg border border-slate-700 bg-slate-800/30 h-40 w-full overflow-hidden">
-                    <img
+                    <Image
                       src={photoPreview}
                       alt="Item preview"
-                      className="absolute inset-0 w-full h-full object-contain"
+                      fill
+                      className="object-contain"
+                      unoptimized
                     />
                     <button
                       type="button"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { Plus, MoreHorizontal, Pencil, Trash2, Package, Tag, Box, ImageIcon, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -119,12 +120,14 @@ export default function ItemsPage() {
       cell: ({ row }) => {
         const photoUrl = row.getValue("photo_url") as string | null;
         return (
-          <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-700 bg-slate-800/50 flex items-center justify-center">
+          <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-700 bg-slate-800/50 flex items-center justify-center">
             {photoUrl ? (
-              <img
+              <Image
                 src={photoUrl}
                 alt="Item"
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                sizes="40px"
               />
             ) : (
               <ImageIcon className="h-4 w-4 text-slate-500" />
