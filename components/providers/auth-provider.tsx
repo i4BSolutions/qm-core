@@ -81,17 +81,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   useEffect(() => {
-    // Initial load
-    refreshUser();
+    let isMounted = true;
 
-    // Listen for auth changes
+    // Initial load
+    const initAuth = async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+
+        if (!isMounted) return;
+
+        if (authUser) {
+          setSupabaseUser(authUser);
+          const profile = await fetchUserProfile(authUser);
+          if (isMounted) {
+            setUser(profile);
+          }
+        } else {
+          setSupabaseUser(null);
+          setUser(null);
+        }
+      } catch (err) {
+        console.error("Error initializing auth:", err);
+        if (isMounted) {
+          setError("Failed to initialize auth");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initAuth();
+
+    // Listen for auth changes (sign in/out events only, not initial)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return;
+
+        // Only handle actual sign in/out events, not TOKEN_REFRESHED or INITIAL_SESSION
         if (event === "SIGNED_IN" && session?.user) {
           setSupabaseUser(session.user);
           const profile = await fetchUserProfile(session.user);
-          setUser(profile);
-          setIsLoading(false);
+          if (isMounted) {
+            setUser(profile);
+            setIsLoading(false);
+          }
         } else if (event === "SIGNED_OUT") {
           setUser(null);
           setSupabaseUser(null);
@@ -101,9 +136,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
-  }, [supabase, refreshUser, fetchUserProfile]);
+  }, [supabase, fetchUserProfile]);
 
   const contextValue = useMemo<AuthContextType>(() => ({
     user,

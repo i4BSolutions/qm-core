@@ -22,7 +22,7 @@ BEGIN
 
   RETURN user_role;
 END;
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- Helper to check if current user owns a QMRL
 CREATE OR REPLACE FUNCTION public.owns_qmrl(qmrl_id UUID)
@@ -70,18 +70,26 @@ ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- USERS Policies
--- Admin: CRUD, Quartermaster: R, Others: -
+-- Admin: CRUD, Quartermaster: R, Others: read own
 -- ============================================
 DROP POLICY IF EXISTS users_select ON public.users;
+DROP POLICY IF EXISTS users_select_own ON public.users;
+DROP POLICY IF EXISTS users_select_admin ON public.users;
 DROP POLICY IF EXISTS users_insert ON public.users;
 DROP POLICY IF EXISTS users_update ON public.users;
+DROP POLICY IF EXISTS users_update_own ON public.users;
+DROP POLICY IF EXISTS users_update_admin ON public.users;
 DROP POLICY IF EXISTS users_delete ON public.users;
 
--- Select: Admin and Quartermaster can see all, others can see own profile
-CREATE POLICY users_select ON public.users
+-- Select own profile: Everyone can read their own row (no circular dependency)
+CREATE POLICY users_select_own ON public.users
+  FOR SELECT USING (id = auth.uid());
+
+-- Select all: Admin and Quartermaster can see all users
+-- get_user_role() is SECURITY DEFINER so it bypasses RLS
+CREATE POLICY users_select_admin ON public.users
   FOR SELECT USING (
     public.get_user_role() IN ('admin', 'quartermaster')
-    OR id = auth.uid()
   );
 
 -- Insert: Admin only
@@ -90,11 +98,14 @@ CREATE POLICY users_insert ON public.users
     public.get_user_role() = 'admin'
   );
 
--- Update: Admin can update all, others can only update own profile
-CREATE POLICY users_update ON public.users
+-- Update own profile: Users can update their own profile
+CREATE POLICY users_update_own ON public.users
+  FOR UPDATE USING (id = auth.uid());
+
+-- Update all: Admin can update anyone
+CREATE POLICY users_update_admin ON public.users
   FOR UPDATE USING (
     public.get_user_role() = 'admin'
-    OR id = auth.uid()
   );
 
 -- Delete: Admin only
