@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2, Building2, Code, User } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Building2, Code, User, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import {
   DropdownMenu,
@@ -26,6 +27,12 @@ export default function DepartmentsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<DepartmentWithHead | null>(null);
   const { toast } = useToast();
+  const { can } = usePermissions();
+
+  // Permission checks
+  const canCreate = can("create", "departments");
+  const canUpdate = can("update", "departments");
+  const canDelete = can("delete", "departments");
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -142,6 +149,13 @@ export default function DepartmentsPage() {
       id: "actions",
       cell: ({ row }) => {
         const department = row.original;
+        if (!canUpdate && !canDelete) {
+          return (
+            <span className="text-slate-500 flex items-center gap-1">
+              <Lock className="h-3 w-3" />
+            </span>
+          );
+        }
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -151,17 +165,21 @@ export default function DepartmentsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleEdit(department)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleDelete(department.id)}
-                className="text-red-400 focus:text-red-400"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
+              {canUpdate && (
+                <DropdownMenuItem onClick={() => handleEdit(department)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem
+                  onClick={() => handleDelete(department.id)}
+                  className="text-red-400 focus:text-red-400"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -189,12 +207,14 @@ export default function DepartmentsPage() {
             {departments.length} department{departments.length !== 1 ? "s" : ""} in system
           </p>
         </div>
-        <Button onClick={handleCreate} className="group relative overflow-hidden">
-          <span className="relative z-10 flex items-center gap-2">
-            <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-            Add Department
-          </span>
-        </Button>
+        {canCreate && (
+          <Button onClick={handleCreate} className="group relative overflow-hidden">
+            <span className="relative z-10 flex items-center gap-2">
+              <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+              Add Department
+            </span>
+          </Button>
+        )}
       </div>
 
       {/* Data Table */}

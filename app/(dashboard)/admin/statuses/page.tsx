@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2, Radio, Layers, Filter } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Radio, Layers, Filter, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import {
   DropdownMenu,
@@ -38,6 +39,12 @@ export default function StatusesPage() {
   const [editingStatus, setEditingStatus] = useState<StatusConfig | null>(null);
   const [entityFilter, setEntityFilter] = useState<EntityTypeFilter>("all");
   const { toast } = useToast();
+  const { can } = usePermissions();
+
+  // Permission checks
+  const canCreate = can("create", "statuses");
+  const canUpdate = can("update", "statuses");
+  const canDelete = can("delete", "statuses");
 
   // Filter statuses based on selected entity type
   const filteredStatuses = useMemo(() => {
@@ -169,27 +176,37 @@ export default function StatusesPage() {
     {
       id: "actions",
       cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleEdit(row.original)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleDelete(row.original.id, row.original.is_default || false)}
-              className="text-red-400 focus:text-red-400"
-              disabled={row.original.is_default || false}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        (canUpdate || canDelete) ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canUpdate && (
+                <DropdownMenuItem onClick={() => handleEdit(row.original)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem
+                  onClick={() => handleDelete(row.original.id, row.original.is_default || false)}
+                  className="text-red-400 focus:text-red-400"
+                  disabled={row.original.is_default || false}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <span className="text-slate-500 flex items-center gap-1">
+            <Lock className="h-3 w-3" />
+          </span>
+        )
       ),
     },
   ];
@@ -214,10 +231,12 @@ export default function StatusesPage() {
             Configure status options for QMRL and QMHQ
           </p>
         </div>
-        <Button onClick={handleCreate} className="group">
-          <Plus className="h-4 w-4 mr-2 transition-transform group-hover:rotate-90" />
-          New Status
-        </Button>
+        {canCreate && (
+          <Button onClick={handleCreate} className="group">
+            <Plus className="h-4 w-4 mr-2 transition-transform group-hover:rotate-90" />
+            New Status
+          </Button>
+        )}
       </div>
 
       {/* Filter Tabs */}

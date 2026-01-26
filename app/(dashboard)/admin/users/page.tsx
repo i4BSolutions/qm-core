@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2, Radio, Users, Shield, Mail } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Radio, Users, Shield, Mail, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import {
   DropdownMenu,
@@ -39,6 +40,12 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<UserWithDepartment | null>(null);
   const [isCreateMode, setIsCreateMode] = useState(false);
   const { toast } = useToast();
+  const { can } = usePermissions();
+
+  // Permission checks
+  const canCreate = can("create", "users");
+  const canUpdate = can("update", "users");
+  const canDelete = can("delete", "users");
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -168,26 +175,36 @@ export default function UsersPage() {
     {
       id: "actions",
       cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleEdit(row.original)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleDelete(row.original.id)}
-              className="text-red-400 focus:text-red-400"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Deactivate
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        (canUpdate || canDelete) ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canUpdate && (
+                <DropdownMenuItem onClick={() => handleEdit(row.original)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem
+                  onClick={() => handleDelete(row.original.id)}
+                  className="text-red-400 focus:text-red-400"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Deactivate
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <span className="text-slate-500 flex items-center gap-1">
+            <Lock className="h-3 w-3" />
+          </span>
+        )
       ),
     },
   ];
@@ -219,10 +236,12 @@ export default function UsersPage() {
             Manage system users and their roles
           </p>
         </div>
-        <Button onClick={handleCreate} className="group">
-          <Plus className="h-4 w-4 mr-2 transition-transform group-hover:rotate-90" />
-          New User
-        </Button>
+        {canCreate && (
+          <Button onClick={handleCreate} className="group">
+            <Plus className="h-4 w-4 mr-2 transition-transform group-hover:rotate-90" />
+            New User
+          </Button>
+        )}
       </div>
 
       {/* Stats */}

@@ -2747,6 +2747,7 @@ All 15 pages listed above were modified with:
 | v0.7.2 | Jan 2026 | 9.2 | Production rendering fixes: useEffect navigation bug, AuthProvider refresh, error handling, PO query optimization |
 | v0.7.3 | Jan 2026 | 9.3 | Critical fix: useCallback pattern for data fetching across 15 pages to resolve navigation/refresh bugs |
 | v0.7.4 | Jan 2026 | 9.4 | ESLint/build warning fixes, session management investigation (reverted) |
+| v1.0.0 | Jan 2026 | 10 | Audit Logs, RLS Policies, HistoryTab component, Permission-gated admin pages |
 
 ---
 
@@ -2848,3 +2849,204 @@ Applied comprehensive design enhancements across all iterations using the fronte
 - `@keyframes scan-line` - Scan line movement
 - `@keyframes slide-up` - Staggered card entrance
 - `@keyframes border-glow` - Priority badge border animation
+
+---
+
+## Iteration 10: Audit, RLS & Polish
+
+**Status:** ✅ Completed
+**Date:** January 2026
+
+### What Was Done
+
+#### 1. Database Migrations
+
+**`025_audit_logs.sql`** - Audit logs table:
+- `entity_type` and `entity_id` for tracking any entity
+- `action` enum: create, update, delete, status_change, assignment_change, void, approve, close, cancel
+- Field-level tracking: `field_name`, `old_value`, `new_value`
+- Full record tracking: `old_values`, `new_values` (JSONB)
+- User attribution: `changed_by`, `changed_by_name` (cached)
+- Human-readable `changes_summary`
+- Indexes for efficient querying
+
+**`026_audit_triggers.sql`** - Audit triggers:
+- Generic `create_audit_log()` trigger function
+- Smart action detection:
+  - Status changes detected automatically
+  - Assignment changes detected automatically
+  - Void actions detected for invoices/financial_transactions
+  - Soft deletes (is_active = false) logged as delete action
+- Applied to 16 tables:
+  - users, departments, status_config, categories
+  - contact_persons, suppliers, items, warehouses
+  - qmrl, qmhq, financial_transactions
+  - purchase_orders, po_line_items
+  - invoices, invoice_line_items, inventory_transactions
+
+**`027_rls_policies.sql`** - Row Level Security:
+- Helper functions:
+  - `get_user_role()` - Returns current user's role
+  - `owns_qmrl(id)` - Checks QMRL ownership
+  - `owns_qmhq(id)` - Checks QMHQ ownership (via parent QMRL)
+- RLS enabled on all major tables
+- Policies based on PRD permission matrix:
+
+| Resource | Admin | Quartermaster | Finance | Inventory | Proposal | Frontline | Requester |
+|----------|-------|---------------|---------|-----------|----------|-----------|-----------|
+| users | CRUD | R | - | - | - | - | - |
+| qmrl | CRUD | CRUD | R | R | RU | RU | CR(own) |
+| qmhq | CRUD | CRUD | RU | RU | CRUD | R | R(own) |
+| purchase_orders | CRUD | CRUD | CRUD | R | CRUD | - | - |
+| invoices | CRUD | CRUD | CRUD | RU | R | - | - |
+| items | CRUD | CRUD | R | CRUD | R | R | R |
+| warehouses | CRUD | CRUD | R | CRUD | R | - | - |
+
+#### 2. TypeScript Types
+
+**`types/database.ts`** additions:
+```typescript
+export type AuditAction =
+  | "create" | "update" | "delete"
+  | "status_change" | "assignment_change"
+  | "void" | "approve" | "close" | "cancel";
+
+export interface AuditLog {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  action: AuditAction;
+  field_name: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  changes_summary: string | null;
+  changed_by: string | null;
+  changed_by_name: string | null;
+  changed_at: string;
+  notes: string | null;
+}
+```
+
+#### 3. HistoryTab Component
+
+**`components/history/history-tab.tsx`**:
+- Timeline display with action icons:
+  - create → Plus (emerald)
+  - update → Pencil (amber)
+  - delete → Trash2 (red)
+  - status_change → ArrowRightLeft (blue)
+  - assignment_change → UserPlus (purple)
+  - void → Ban (red)
+  - approve → Check (emerald)
+  - close → Lock (slate)
+  - cancel → XCircle (red)
+- Expandable details showing old/new values
+- Relative time formatting (e.g., "5m ago", "2d ago")
+- Loading skeleton and empty state
+- Fetches last 50 audit logs for entity
+
+#### 4. HistoryTab Integration
+
+Integrated into 6 detail pages:
+- `/qmrl/[id]` - entityType: "qmrl"
+- `/qmhq/[id]` - entityType: "qmhq"
+- `/po/[id]` - entityType: "purchase_orders"
+- `/invoice/[id]` - entityType: "invoices"
+- `/warehouse/[id]` - entityType: "warehouses"
+- `/item/[id]` - entityType: "items"
+
+#### 5. Permission-Gated Admin Pages
+
+Added `usePermissions()` hook checks to 6 admin pages:
+- `/admin/users` - users resource
+- `/admin/contacts` - contact_persons resource
+- `/admin/suppliers` - suppliers resource
+- `/admin/departments` - departments resource
+- `/admin/categories` - categories resource
+- `/admin/statuses` - statuses resource
+
+**Pattern applied:**
+```tsx
+const { can } = usePermissions();
+const canCreate = can("create", "users");
+const canUpdate = can("update", "users");
+const canDelete = can("delete", "users");
+
+// Create button hidden if no permission
+{canCreate && <Button>New User</Button>}
+
+// Actions dropdown shows only permitted actions
+{canUpdate && <DropdownMenuItem>Edit</DropdownMenuItem>}
+{canDelete && <DropdownMenuItem>Delete</DropdownMenuItem>}
+
+// Lock icon shown when no permissions
+{!canUpdate && !canDelete && <Lock className="h-3 w-3" />}
+```
+
+### Files Created
+
+```
+supabase/migrations/025_audit_logs.sql
+supabase/migrations/026_audit_triggers.sql
+supabase/migrations/027_rls_policies.sql
+components/history/history-tab.tsx
+components/history/index.ts
+```
+
+### Files Modified
+
+```
+types/database.ts                           (added AuditLog types)
+app/(dashboard)/qmrl/[id]/page.tsx          (integrated HistoryTab)
+app/(dashboard)/qmhq/[id]/page.tsx          (integrated HistoryTab)
+app/(dashboard)/po/[id]/page.tsx            (integrated HistoryTab)
+app/(dashboard)/invoice/[id]/page.tsx       (integrated HistoryTab)
+app/(dashboard)/warehouse/[id]/page.tsx     (integrated HistoryTab)
+app/(dashboard)/item/[id]/page.tsx          (integrated HistoryTab)
+app/(dashboard)/admin/users/page.tsx        (added permission checks)
+app/(dashboard)/admin/contacts/page.tsx     (added permission checks)
+app/(dashboard)/admin/suppliers/page.tsx    (added permission checks)
+app/(dashboard)/admin/departments/page.tsx  (added permission checks)
+app/(dashboard)/admin/categories/page.tsx   (added permission checks)
+app/(dashboard)/admin/statuses/page.tsx     (added permission checks)
+```
+
+### Problems Encountered & Solutions
+
+| Problem | Solution |
+|---------|----------|
+| `audit_logs` table not in generated Supabase types | Used type assertion to access table until types regenerated |
+| ESLint rule `@typescript-eslint/no-explicit-any` not found | Removed eslint-disable comment, used proper type assertion instead |
+
+### Deliverables Verified
+
+- [x] Audit logs table created with proper indexes
+- [x] Audit triggers applied to 16 tables
+- [x] RLS policies enabled and configured per permission matrix
+- [x] HistoryTab component displays timeline with action icons
+- [x] HistoryTab integrated in 6 detail pages
+- [x] Permission checks added to 6 admin pages
+- [x] TypeScript compiles: `npx tsc --noEmit` ✓
+- [x] Build succeeds: `npm run build` ✓
+
+### V1.0.0 Milestone
+
+With Iteration 10 complete, the QM System V1 is feature-complete:
+
+**Core Modules:**
+- ✅ QMRL (Request Letters)
+- ✅ QMHQ (HQ Lines with 3 route types)
+- ✅ Purchase Orders
+- ✅ Invoices
+- ✅ Inventory Management
+
+**Supporting Features:**
+- ✅ Authentication (Email OTP)
+- ✅ Role-based permissions (7 roles)
+- ✅ Master data management
+- ✅ Financial tracking
+- ✅ WAC calculation
+- ✅ Audit logging
+- ✅ Row Level Security

@@ -1633,3 +1633,52 @@ export type TransactionType = Enums<"transaction_type">
 
 // Inventory Transaction type alias
 export type InventoryTransaction = Tables<"inventory_transactions">
+
+// ============================================
+// Audit Log Types
+// ============================================
+
+/**
+ * Audit action types for tracking different kinds of changes
+ */
+export type AuditAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "status_change"
+  | "assignment_change"
+  | "void"
+  | "approve"
+  | "close"
+  | "cancel";
+
+/**
+ * Audit log entry representing a single change in the system
+ */
+export interface AuditLog {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  action: AuditAction;
+  field_name: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  changes_summary: string | null;
+  changed_by: string | null;
+  changed_by_name: string | null;
+  changed_at: string;
+  notes: string | null;
+}
+
+/**
+ * Audit log with parsed change details for display
+ */
+export interface AuditLogWithDetails extends AuditLog {
+  parsedChanges?: {
+    field: string;
+    oldValue: unknown;
+    newValue: unknown;
+  }[];
+}

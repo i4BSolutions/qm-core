@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2, Building2, Users, Radio } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Building2, Users, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import {
   DropdownMenu,
@@ -28,6 +29,12 @@ export default function ContactPersonsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<ContactPersonWithDepartment | null>(null);
   const { toast } = useToast();
+  const { can } = usePermissions();
+
+  // Permission checks
+  const canCreate = can("create", "contact_persons");
+  const canUpdate = can("update", "contact_persons");
+  const canDelete = can("delete", "contact_persons");
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -159,6 +166,13 @@ export default function ContactPersonsPage() {
       id: "actions",
       cell: ({ row }) => {
         const contact = row.original;
+        if (!canUpdate && !canDelete) {
+          return (
+            <span className="text-slate-500 flex items-center gap-1">
+              <Lock className="h-3 w-3" />
+            </span>
+          );
+        }
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -168,17 +182,21 @@ export default function ContactPersonsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleEdit(contact)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleDelete(contact.id)}
-                className="text-red-400 focus:text-red-400"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
+              {canUpdate && (
+                <DropdownMenuItem onClick={() => handleEdit(contact)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem
+                  onClick={() => handleDelete(contact.id)}
+                  className="text-red-400 focus:text-red-400"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -206,12 +224,14 @@ export default function ContactPersonsPage() {
             {contacts.length} contact{contacts.length !== 1 ? "s" : ""} in system
           </p>
         </div>
-        <Button onClick={handleCreate} className="group relative overflow-hidden">
-          <span className="relative z-10 flex items-center gap-2">
-            <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-            Add Contact
-          </span>
-        </Button>
+        {canCreate && (
+          <Button onClick={handleCreate} className="group relative overflow-hidden">
+            <span className="relative z-10 flex items-center gap-2">
+              <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+              Add Contact
+            </span>
+          </Button>
+        )}
       </div>
 
       {/* Data Table */}

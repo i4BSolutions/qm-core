@@ -33,6 +33,7 @@ import {
   formatExchangeRate,
 } from "@/lib/utils/inventory";
 import type { ColumnDef } from "@tanstack/react-table";
+import { HistoryTab } from "@/components/history";
 import type {
   Item,
   Category,
@@ -717,26 +718,10 @@ export default function ItemDetailPage() {
           </div>
         </TabsContent>
 
-        {/* History Tab (placeholder) */}
+        {/* History Tab */}
         <TabsContent value="history" className="mt-6">
           <div className="command-panel corner-accents">
-            <div className="section-header">
-              <Clock className="h-4 w-4 text-amber-500" />
-              <h2>Activity History</h2>
-            </div>
-
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
-                <Clock className="h-8 w-8 text-slate-500" />
-              </div>
-              <h3 className="text-lg font-medium text-slate-300 mb-2">
-                Audit Log Coming Soon
-              </h3>
-              <p className="text-sm text-slate-400 max-w-md">
-                Activity history and audit trail will be available in Iteration
-                10.
-              </p>
-            </div>
+            <HistoryTab entityType="items" entityId={itemId} />
           </div>
         </TabsContent>
       </Tabs>

@@ -14,7 +14,6 @@ import {
   AlertCircle,
   FileText,
   History,
-  Loader2,
   Clock,
   Target,
   ExternalLink,
@@ -29,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { QMRL, QMHQ, StatusConfig, Category, Department, ContactPerson, User as UserType } from "@/types/database";
 import { formatCurrency } from "@/lib/utils";
+import { HistoryTab } from "@/components/history";
 
 interface QMRLWithRelations extends QMRL {
   status?: StatusConfig | null;
@@ -562,21 +562,7 @@ export default function QMRLDetailPage() {
         {/* History Tab */}
         <TabsContent value="history">
           <div className="command-panel corner-accents animate-slide-up">
-            <div className="section-header">
-              <History className="h-4 w-4 text-amber-500" />
-              <h3>Activity History</h3>
-            </div>
-
-            <div className="flex h-40 items-center justify-center border border-dashed border-sidebar-border rounded-lg bg-slate-900/30">
-              <div className="text-center">
-                <History className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-sm text-slate-400">No activity recorded</p>
-              </div>
-            </div>
-
-            <p className="mt-4 text-xs text-slate-400 text-center">
-              Audit logging will be implemented in Iteration 10
-            </p>
+            <HistoryTab entityType="qmrl" entityId={qmrl.id} />
           </div>
         </TabsContent>
       </Tabs>
