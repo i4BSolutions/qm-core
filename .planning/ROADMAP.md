@@ -80,17 +80,18 @@ Plans:
 **Goal**: Users can view files without leaving the application
 **Depends on**: Phase 3
 **Requirements**: FILE-09, FILE-10, FILE-13
+**Plans:** 3 plans
+
 **Success Criteria** (what must be TRUE):
   1. User can click image file to see full-size inline preview
   2. User can click PDF file to see in-app document viewer
   3. User can download all files as ZIP archive in one click
   4. Preview modal shows file metadata (name, size, upload date, uploader)
-**Plans**: TBD
 
 Plans:
-- [ ] 04-01: Build image preview with Next.js Image
-- [ ] 04-02: Build PDF preview with react-pdf
-- [ ] 04-03: Build ZIP download functionality
+- [ ] 04-01-PLAN.md — Preview modal foundation and image preview with zoom controls
+- [ ] 04-02-PLAN.md — PDF preview with react-pdf page navigation
+- [ ] 04-03-PLAN.md — Download All as ZIP functionality
 
 ### Phase 5: Management Dashboard
 **Goal**: Admin and Quartermaster roles have real-time visibility into system activity
@@ -142,10 +143,10 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 1. Critical Bug Fixes | 3/3 | Complete | 2026-01-27 |
 | 2. File Storage Foundation | 2/2 | Complete | 2026-01-27 |
 | 3. File Upload UI | 3/3 | Complete | 2026-01-28 |
-| 4. File Preview & Download | 0/3 | Not started | - |
+| 4. File Preview & Download | 0/3 | Planned | - |
 | 5. Management Dashboard | 0/3 | Not started | - |
 | 6. Status & Transaction UX | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-27*
-*Last updated: 2026-01-28 - Phase 3 complete*
+*Last updated: 2026-01-28 - Phase 4 planned*
