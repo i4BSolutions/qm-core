@@ -44,17 +44,18 @@ Plans:
 **Goal**: Secure file storage infrastructure ready for uploads
 **Depends on**: Phase 1
 **Requirements**: FILE-05, FILE-06, FILE-07, FILE-12
+**Plans:** 2 plans
+
 **Success Criteria** (what must be TRUE):
   1. File attachments table exists with RLS policies mirroring entity permissions
   2. Supabase Storage bucket configured with RLS policies on storage.objects
   3. Server-side validation enforces file type allowlist and 25MB size limit
   4. System enforces maximum 10 files per entity
   5. File deletion removes both metadata and storage object (no orphans)
-**Plans**: TBD
 
 Plans:
-- [ ] 02-01: Create file attachments table and storage bucket with RLS
-- [ ] 02-02: Build server-side upload/delete utilities with validation
+- [ ] 02-01-PLAN.md — Create file attachments table and storage bucket with RLS
+- [ ] 02-02-PLAN.md — Build server-side upload/delete utilities with validation
 
 ### Phase 3: File Upload UI
 **Goal**: Users can attach files to QMRL and QMHQ entities
@@ -137,8 +138,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Critical Bug Fixes | 3/3 | ✓ Complete | 2026-01-27 |
-| 2. File Storage Foundation | 0/2 | Ready to plan | - |
+| 1. Critical Bug Fixes | 3/3 | Complete | 2026-01-27 |
+| 2. File Storage Foundation | 0/2 | Planned | - |
 | 3. File Upload UI | 0/3 | Not started | - |
 | 4. File Preview & Download | 0/3 | Not started | - |
 | 5. Management Dashboard | 0/3 | Not started | - |
@@ -146,4 +147,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 ---
 *Roadmap created: 2026-01-27*
-*Last updated: 2026-01-27 - Phase 1 complete*
+*Last updated: 2026-01-27 - Phase 2 planned*
