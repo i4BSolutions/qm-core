@@ -589,6 +589,7 @@ export default function QMRLDetailPage() {
             <AttachmentsTab
               entityType="qmrl"
               entityId={qmrl.id}
+              entityDisplayId={qmrl.request_id}
               canEdit={true}
               onFileCountChange={setFileCount}
             />

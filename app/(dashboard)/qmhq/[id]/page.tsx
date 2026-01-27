@@ -841,6 +841,7 @@ export default function QMHQDetailPage() {
             <AttachmentsTab
               entityType="qmhq"
               entityId={qmhqId}
+              entityDisplayId={qmhq.request_id}
               canEdit={true}
               onFileCountChange={setFileCount}
             />
