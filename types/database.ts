@@ -1410,6 +1410,69 @@ export type Database = {
           },
         ]
       }
+      file_attachments: {
+        Row: {
+          id: string
+          entity_type: 'qmrl' | 'qmhq'
+          entity_id: string
+          filename: string
+          storage_path: string
+          file_size: number
+          mime_type: string
+          uploaded_by: string
+          uploaded_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          entity_type: 'qmrl' | 'qmhq'
+          entity_id: string
+          filename: string
+          storage_path: string
+          file_size: number
+          mime_type: string
+          uploaded_by: string
+          uploaded_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          entity_type?: 'qmrl' | 'qmhq'
+          entity_id?: string
+          filename?: string
+          storage_path?: string
+          file_size?: number
+          mime_type?: string
+          uploaded_by?: string
+          uploaded_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1633,6 +1696,11 @@ export type TransactionType = Enums<"transaction_type">
 
 // Inventory Transaction type alias
 export type InventoryTransaction = Tables<"inventory_transactions">
+
+// File Attachment type aliases
+export type FileAttachment = Tables<"file_attachments">
+export type FileAttachmentInsert = TablesInsert<"file_attachments">
+export type FileAttachmentUpdate = TablesUpdate<"file_attachments">
 
 // ============================================
 // Audit Log Types
