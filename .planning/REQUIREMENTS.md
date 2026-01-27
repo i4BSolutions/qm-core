@@ -98,47 +98,47 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUG-01 | TBD | Pending |
-| BUG-02 | TBD | Pending |
-| BUG-03 | TBD | Pending |
-| BUG-04 | TBD | Pending |
-| FILE-01 | TBD | Pending |
-| FILE-02 | TBD | Pending |
-| FILE-03 | TBD | Pending |
-| FILE-04 | TBD | Pending |
-| FILE-05 | TBD | Pending |
-| FILE-06 | TBD | Pending |
-| FILE-07 | TBD | Pending |
-| FILE-08 | TBD | Pending |
-| FILE-09 | TBD | Pending |
-| FILE-10 | TBD | Pending |
-| FILE-11 | TBD | Pending |
-| FILE-12 | TBD | Pending |
-| FILE-13 | TBD | Pending |
-| DASH-01 | TBD | Pending |
-| DASH-02 | TBD | Pending |
-| DASH-03 | TBD | Pending |
-| DASH-04 | TBD | Pending |
-| DASH-05 | TBD | Pending |
-| DASH-06 | TBD | Pending |
-| DASH-07 | TBD | Pending |
-| UX-01 | TBD | Pending |
-| UX-02 | TBD | Pending |
-| UX-03 | TBD | Pending |
-| UX-04 | TBD | Pending |
-| UX-05 | TBD | Pending |
-| UX-06 | TBD | Pending |
-| UX-07 | TBD | Pending |
-| UX-08 | TBD | Pending |
-| UX-09 | TBD | Pending |
-| INV-01 | TBD | Pending |
-| INV-02 | TBD | Pending |
+| BUG-01 | Phase 1 | Pending |
+| BUG-02 | Phase 1 | Pending |
+| BUG-03 | Phase 1 | Pending |
+| BUG-04 | Phase 1 | Pending |
+| INV-01 | Phase 1 | Pending |
+| INV-02 | Phase 1 | Pending |
+| FILE-05 | Phase 2 | Pending |
+| FILE-06 | Phase 2 | Pending |
+| FILE-07 | Phase 2 | Pending |
+| FILE-12 | Phase 2 | Pending |
+| FILE-01 | Phase 3 | Pending |
+| FILE-02 | Phase 3 | Pending |
+| FILE-03 | Phase 3 | Pending |
+| FILE-04 | Phase 3 | Pending |
+| FILE-08 | Phase 3 | Pending |
+| FILE-11 | Phase 3 | Pending |
+| FILE-09 | Phase 4 | Pending |
+| FILE-10 | Phase 4 | Pending |
+| FILE-13 | Phase 4 | Pending |
+| DASH-01 | Phase 5 | Pending |
+| DASH-02 | Phase 5 | Pending |
+| DASH-03 | Phase 5 | Pending |
+| DASH-04 | Phase 5 | Pending |
+| DASH-05 | Phase 5 | Pending |
+| DASH-06 | Phase 5 | Pending |
+| DASH-07 | Phase 5 | Pending |
+| UX-01 | Phase 6 | Pending |
+| UX-02 | Phase 6 | Pending |
+| UX-03 | Phase 6 | Pending |
+| UX-04 | Phase 6 | Pending |
+| UX-05 | Phase 6 | Pending |
+| UX-06 | Phase 6 | Pending |
+| UX-07 | Phase 6 | Pending |
+| UX-08 | Phase 6 | Pending |
+| UX-09 | Phase 6 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 32 total
-- Mapped to phases: 0
-- Unmapped: 32 (roadmap pending)
+- v1.1 requirements: 35 total
+- Mapped to phases: 35
+- Unmapped: 0 (100% coverage)
 
 ---
 *Requirements defined: 2025-01-27*
-*Last updated: 2025-01-27 after initial definition*
+*Last updated: 2026-01-27 after roadmap creation*
