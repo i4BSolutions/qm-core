@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Critical Bug Fixes** - Restore broken PO creation and stock-in workflows
 - [x] **Phase 2: File Storage Foundation** - Secure file upload infrastructure with RLS policies
-- [ ] **Phase 3: File Upload UI** - Drag-drop file attachments on QMRL/QMHQ forms
+- [ ] **Phase 3: File Upload UI** - Drag-drop file attachments on QMRL/QMHQ detail pages
 - [ ] **Phase 4: File Preview & Download** - Full in-app preview for images and PDFs
 - [ ] **Phase 5: Management Dashboard** - Live dashboard with status counts and activity feeds
 - [ ] **Phase 6: Status & Transaction UX** - Quick status changes and transaction editing
@@ -57,22 +57,24 @@ Plans:
 - [x] 02-02-PLAN.md — Build server-side upload/delete utilities with validation
 
 ### Phase 3: File Upload UI
-**Goal**: Users can attach files to QMRL and QMHQ entities
+**Goal**: Users can attach files to QMRL and QMHQ entities via detail pages
 **Depends on**: Phase 2
-**Requirements**: FILE-01, FILE-02, FILE-03, FILE-04, FILE-08, FILE-11
+**Requirements**: FILE-02, FILE-04, FILE-08, FILE-11
+**Plans:** 3 plans
+
 **Success Criteria** (what must be TRUE):
-  1. User can drag-drop files onto QMRL create form to upload
-  2. User can drag-drop files onto QMRL detail page to upload
-  3. User can drag-drop files onto QMHQ create form to upload
-  4. User can drag-drop files onto QMHQ detail page to upload
-  5. User sees list of uploaded files sorted by upload date with thumbnail previews
-  6. Upload progress indicators display during file transfer
-**Plans**: TBD
+  1. User can drag-drop files onto QMRL detail page to upload
+  2. User can drag-drop files onto QMHQ detail page to upload
+  3. User sees list of uploaded files sorted by upload date with thumbnail previews
+  4. Upload progress indicators display during file transfer
+
+**Note:** Per 03-CONTEXT.md, file uploads are on detail pages only, NOT create forms.
+Requirements FILE-01 and FILE-03 (create form uploads) are deferred - entities must exist first.
 
 Plans:
-- [ ] 03-01: Build file upload component with react-dropzone
-- [ ] 03-02: Integrate file upload into QMRL create/detail pages
-- [ ] 03-03: Integrate file upload into QMHQ create/detail pages
+- [ ] 03-01-PLAN.md — Build file upload components (dropzone, cards, progress, delete dialog)
+- [ ] 03-02-PLAN.md — Integrate file upload into QMRL detail page
+- [ ] 03-03-PLAN.md — Integrate file upload into QMHQ detail page
 
 ### Phase 4: File Preview & Download
 **Goal**: Users can view files without leaving the application
@@ -139,11 +141,11 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 |-------|----------------|--------|-----------|
 | 1. Critical Bug Fixes | 3/3 | Complete | 2026-01-27 |
 | 2. File Storage Foundation | 2/2 | Complete | 2026-01-27 |
-| 3. File Upload UI | 0/3 | Not started | - |
+| 3. File Upload UI | 0/3 | Planned | - |
 | 4. File Preview & Download | 0/3 | Not started | - |
 | 5. Management Dashboard | 0/3 | Not started | - |
 | 6. Status & Transaction UX | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-27*
-*Last updated: 2026-01-27 - Phase 2 complete*
+*Last updated: 2026-01-28 - Phase 3 planned*
