@@ -12,7 +12,7 @@ QM System V1.1 builds on the completed V1.0 foundation to deliver critical bug f
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Critical Bug Fixes** - Restore broken PO creation and stock-in workflows
+- [x] **Phase 1: Critical Bug Fixes** - Restore broken PO creation and stock-in workflows
 - [ ] **Phase 2: File Storage Foundation** - Secure file upload infrastructure with RLS policies
 - [ ] **Phase 3: File Upload UI** - Drag-drop file attachments on QMRL/QMHQ forms
 - [ ] **Phase 4: File Preview & Download** - Full in-app preview for images and PDFs
@@ -36,9 +36,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   6. Invoice total amount can exceed PO total amount (price flexibility)
 
 Plans:
-- [ ] 01-01-PLAN.md — Investigate and fix PO creation workflow
-- [ ] 01-02-PLAN.md — Investigate and fix stock-in functionality
-- [ ] 01-03-PLAN.md — Verify invoice creation and stock-out, confirm invoice qty validation
+- [x] 01-01-PLAN.md — Investigate and fix PO creation workflow
+- [x] 01-02-PLAN.md — Investigate and fix stock-in functionality
+- [x] 01-03-PLAN.md — Verify invoice creation and stock-out, confirm invoice qty validation
 
 ### Phase 2: File Storage Foundation
 **Goal**: Secure file storage infrastructure ready for uploads
@@ -137,8 +137,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Critical Bug Fixes | 0/3 | Ready to execute | - |
-| 2. File Storage Foundation | 0/2 | Not started | - |
+| 1. Critical Bug Fixes | 3/3 | ✓ Complete | 2026-01-27 |
+| 2. File Storage Foundation | 0/2 | Ready to plan | - |
 | 3. File Upload UI | 0/3 | Not started | - |
 | 4. File Preview & Download | 0/3 | Not started | - |
 | 5. Management Dashboard | 0/3 | Not started | - |
@@ -146,4 +146,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 ---
 *Roadmap created: 2026-01-27*
-*Last updated: 2026-01-27*
+*Last updated: 2026-01-27 - Phase 1 complete*

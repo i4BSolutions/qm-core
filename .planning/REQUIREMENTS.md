@@ -9,10 +9,10 @@ Requirements for this release. Each maps to roadmap phases.
 
 ### Bug Fixes
 
-- [ ] **BUG-01**: Fix PO creation workflow — users cannot create purchase orders
-- [ ] **BUG-02**: Fix stock-in functionality — users cannot receive inventory
-- [ ] **BUG-03**: Verify invoice creation works correctly
-- [ ] **BUG-04**: Verify stock-out functionality works correctly
+- [x] **BUG-01**: Fix PO creation workflow — users cannot create purchase orders
+- [x] **BUG-02**: Fix stock-in functionality — users cannot receive inventory
+- [x] **BUG-03**: Verify invoice creation works correctly
+- [x] **BUG-04**: Verify stock-out functionality works correctly
 
 ### File Attachments
 
@@ -54,8 +54,8 @@ Requirements for this release. Each maps to roadmap phases.
 
 ### Invoice Behavior
 
-- [ ] **INV-01**: Invoice line item quantity cannot exceed PO line item quantity
-- [ ] **INV-02**: Invoice total amount CAN exceed PO total amount (price flexibility)
+- [x] **INV-01**: Invoice line item quantity cannot exceed PO line item quantity
+- [x] **INV-02**: Invoice total amount CAN exceed PO total amount (price flexibility)
 
 ## v2 Requirements
 
@@ -98,12 +98,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUG-01 | Phase 1 | Pending |
-| BUG-02 | Phase 1 | Pending |
-| BUG-03 | Phase 1 | Pending |
-| BUG-04 | Phase 1 | Pending |
-| INV-01 | Phase 1 | Pending |
-| INV-02 | Phase 1 | Pending |
+| BUG-01 | Phase 1 | Complete |
+| BUG-02 | Phase 1 | Complete |
+| BUG-03 | Phase 1 | Complete |
+| BUG-04 | Phase 1 | Complete |
+| INV-01 | Phase 1 | Complete |
+| INV-02 | Phase 1 | Complete |
 | FILE-05 | Phase 2 | Pending |
 | FILE-06 | Phase 2 | Pending |
 | FILE-07 | Phase 2 | Pending |
@@ -141,4 +141,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2025-01-27*
-*Last updated: 2026-01-27 after roadmap creation*
+*Last updated: 2026-01-27 - Phase 1 requirements complete*
