@@ -50,8 +50,7 @@ Plans:
   1. File attachments table exists with RLS policies mirroring entity permissions
   2. Supabase Storage bucket configured with RLS policies on storage.objects
   3. Server-side validation enforces file type allowlist and 25MB size limit
-  4. System enforces maximum 10 files per entity
-  5. File deletion removes both metadata and storage object (no orphans)
+  4. File deletion removes both metadata and storage object (no orphans)
 
 Plans:
 - [ ] 02-01-PLAN.md — Create file attachments table and storage bucket with RLS
