@@ -214,7 +214,35 @@ function POCreateContent() {
       router.push(`/po/${poData.id}`);
     } catch (err) {
       console.error("Error creating PO:", err);
-      setError(err instanceof Error ? err.message : "Failed to create Purchase Order");
+
+      // Extract detailed Supabase error information for better debugging
+      let errorMessage = "Failed to create Purchase Order";
+
+      if (err && typeof err === "object") {
+        // Supabase PostgresError has: message, details, hint, code
+        const errorObj = err as any;
+
+        if ("message" in errorObj) {
+          errorMessage = String(errorObj.message);
+        }
+
+        // Append details if available (often contains trigger error specifics)
+        if ("details" in errorObj && errorObj.details) {
+          errorMessage += `\n\nDetails: ${errorObj.details}`;
+        }
+
+        // Append hint if available (database suggestions)
+        if ("hint" in errorObj && errorObj.hint) {
+          errorMessage += `\n\nHint: ${errorObj.hint}`;
+        }
+
+        // Append error code for technical debugging
+        if ("code" in errorObj && errorObj.code) {
+          errorMessage += `\n\nError Code: ${errorObj.code}`;
+        }
+      }
+
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
