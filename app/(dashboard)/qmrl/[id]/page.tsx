@@ -20,6 +20,7 @@ import {
   Package,
   Wallet,
   ShoppingCart,
+  Paperclip,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { QMRL, QMHQ, StatusConfig, Category, Department, ContactPerson, User as UserType } from "@/types/database";
 import { formatCurrency } from "@/lib/utils";
 import { HistoryTab } from "@/components/history";
+import { AttachmentsTab } from "@/components/files/attachments-tab";
 
 interface QMRLWithRelations extends QMRL {
   status?: StatusConfig | null;
@@ -65,6 +67,7 @@ export default function QMRLDetailPage() {
   const [qmrl, setQmrl] = useState<QMRLWithRelations | null>(null);
   const [relatedQmhq, setRelatedQmhq] = useState<QMHQWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fileCount, setFileCount] = useState(0);
 
   const fetchQMRL = useCallback(async (id: string) => {
     setIsLoading(true);
@@ -108,6 +111,16 @@ export default function QMRLDetailPage() {
     if (qmhqData) {
       setRelatedQmhq(qmhqData as unknown as QMHQWithRelations[]);
     }
+
+    // Fetch file count for tab badge
+    const { count: filesCount } = await supabase
+      .from("file_attachments")
+      .select("*", { count: 'exact', head: true })
+      .eq("entity_type", "qmrl")
+      .eq("entity_id", id)
+      .is("deleted_at", null);
+
+    setFileCount(filesCount ?? 0);
 
     setIsLoading(false);
   }, [router]);
@@ -270,6 +283,10 @@ export default function QMRLDetailPage() {
           <TabsTrigger value="history" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
             <History className="mr-2 h-4 w-4" />
             History
+          </TabsTrigger>
+          <TabsTrigger value="attachments" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
+            <Paperclip className="mr-2 h-4 w-4" />
+            Attachments ({fileCount})
           </TabsTrigger>
         </TabsList>
 
@@ -563,6 +580,18 @@ export default function QMRLDetailPage() {
         <TabsContent value="history">
           <div className="command-panel corner-accents animate-slide-up">
             <HistoryTab entityType="qmrl" entityId={qmrl.id} />
+          </div>
+        </TabsContent>
+
+        {/* Attachments Tab */}
+        <TabsContent value="attachments">
+          <div className="command-panel corner-accents animate-slide-up">
+            <AttachmentsTab
+              entityType="qmrl"
+              entityId={qmrl.id}
+              canEdit={true}
+              onFileCountChange={setFileCount}
+            />
           </div>
         </TabsContent>
       </Tabs>
