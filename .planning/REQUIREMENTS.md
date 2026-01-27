@@ -24,11 +24,11 @@ Requirements for this release. Each maps to roadmap phases.
 - [x] **FILE-06**: System validates file size (max 25MB per file)
 - [ ] ~~**FILE-07**: System enforces max 10 files per entity~~ — *Moved to Out of Scope (V1.1)*
 - [x] **FILE-08**: User can view list of uploaded files sorted by upload date
-- [ ] **FILE-09**: User can preview images inline
-- [ ] **FILE-10**: User can preview PDFs in-app
+- [x] **FILE-09**: User can preview images inline
+- [x] **FILE-10**: User can preview PDFs in-app
 - [x] **FILE-11**: User can see thumbnail previews in file list
 - [x] **FILE-12**: User can delete files (if has edit access to parent entity)
-- [ ] **FILE-13**: User can download all files as ZIP
+- [x] **FILE-13**: User can download all files as ZIP
 
 ### Dashboard
 
@@ -115,9 +115,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FILE-04 | Phase 3 | Pending |
 | FILE-08 | Phase 3 | Pending |
 | FILE-11 | Phase 3 | Pending |
-| FILE-09 | Phase 4 | Pending |
-| FILE-10 | Phase 4 | Pending |
-| FILE-13 | Phase 4 | Pending |
+| FILE-09 | Phase 4 | Complete |
+| FILE-10 | Phase 4 | Complete |
+| FILE-13 | Phase 4 | Complete |
 | DASH-01 | Phase 5 | Pending |
 | DASH-02 | Phase 5 | Pending |
 | DASH-03 | Phase 5 | Pending |
@@ -142,4 +142,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2025-01-27*
-*Last updated: 2026-01-27 - Phase 2 requirements complete, FILE-07 moved to Out of Scope*
+*Last updated: 2026-01-28 - Phase 4 requirements complete*
