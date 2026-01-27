@@ -25,19 +25,20 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Goal**: Users can create purchase orders and receive inventory without errors
 **Depends on**: Nothing (first phase)
 **Requirements**: BUG-01, BUG-02, BUG-03, BUG-04, INV-01, INV-02
+**Plans:** 3 plans
+
 **Success Criteria** (what must be TRUE):
   1. User can create PO from QMHQ (PO route) without system errors
   2. User can complete stock-in transaction from invoice without system errors
-  3. Invoice creation wizard completes all 4 steps successfully
+  3. Invoice creation wizard completes all 3 steps successfully
   4. Stock-out form processes transactions and updates warehouse quantities
   5. Invoice line item quantity validation enforces PO quantity limits
   6. Invoice total amount can exceed PO total amount (price flexibility)
-**Plans**: TBD
 
 Plans:
-- [ ] 01-01: Investigate and fix PO creation workflow
-- [ ] 01-02: Investigate and fix stock-in functionality
-- [ ] 01-03: Verify invoice creation and stock-out, add invoice qty validation
+- [ ] 01-01-PLAN.md — Investigate and fix PO creation workflow
+- [ ] 01-02-PLAN.md — Investigate and fix stock-in functionality
+- [ ] 01-03-PLAN.md — Verify invoice creation and stock-out, confirm invoice qty validation
 
 ### Phase 2: File Storage Foundation
 **Goal**: Secure file storage infrastructure ready for uploads
@@ -132,11 +133,11 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Critical Bug Fixes | 0/3 | Not started | - |
+| 1. Critical Bug Fixes | 0/3 | Ready to execute | - |
 | 2. File Storage Foundation | 0/2 | Not started | - |
 | 3. File Upload UI | 0/3 | Not started | - |
 | 4. File Preview & Download | 0/3 | Not started | - |
