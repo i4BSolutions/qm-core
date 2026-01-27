@@ -337,6 +337,7 @@ function StockInContent() {
         });
       } else if (sourceMode === "manual") {
         // Create single manual transaction
+        // Default currency to MMK with exchange rate 1.0 for WAC calculation
         const { error: insertError } = await supabase
           .from("inventory_transactions")
           .insert({
@@ -345,6 +346,8 @@ function StockInContent() {
             warehouse_id: warehouseId,
             quantity: manualQuantity,
             unit_cost: manualUnitCost,
+            currency: "MMK",
+            exchange_rate: 1,
             transaction_date: transactionDate.toISOString().split("T")[0],
             notes: notes || null,
             status: "completed",
