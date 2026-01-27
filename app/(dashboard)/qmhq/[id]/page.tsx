@@ -21,6 +21,7 @@ import {
   TrendingUp,
   TrendingDown,
   AlertTriangle,
+  Paperclip,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import { POStatusBadge } from "@/components/po/po-status-badge";
 import { POProgressBar } from "@/components/po/po-progress-bar";
 import { calculatePOProgress } from "@/lib/utils/po-status";
 import { HistoryTab } from "@/components/history";
+import { AttachmentsTab } from "@/components/files/attachments-tab";
 import type {
   QMHQ,
   StatusConfig,
@@ -90,6 +92,7 @@ export default function QMHQDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("details");
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+  const [fileCount, setFileCount] = useState(0);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -118,6 +121,16 @@ export default function QMHQDetailPage() {
     }
 
     setQmhq(qmhqData as unknown as QMHQWithRelations);
+
+    // Fetch file count for attachments tab badge
+    const { count: filesCount } = await supabase
+      .from("file_attachments")
+      .select("*", { count: 'exact', head: true })
+      .eq("entity_type", "qmhq")
+      .eq("entity_id", qmhqId)
+      .is("deleted_at", null);
+
+    setFileCount(filesCount ?? 0);
 
     // Fetch financial transactions for expense/po routes
     if (qmhqData && (qmhqData.route_type === "expense" || qmhqData.route_type === "po")) {
@@ -390,6 +403,10 @@ export default function QMHQDetailPage() {
           )}
           <TabsTrigger value="history" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
             History
+          </TabsTrigger>
+          <TabsTrigger value="attachments" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+            <Paperclip className="mr-2 h-4 w-4" />
+            Attachments ({fileCount})
           </TabsTrigger>
         </TabsList>
 
@@ -815,6 +832,18 @@ export default function QMHQDetailPage() {
         <TabsContent value="history" className="mt-6">
           <div className="command-panel corner-accents">
             <HistoryTab entityType="qmhq" entityId={qmhqId} />
+          </div>
+        </TabsContent>
+
+        {/* Attachments Tab */}
+        <TabsContent value="attachments" className="mt-6">
+          <div className="command-panel corner-accents">
+            <AttachmentsTab
+              entityType="qmhq"
+              entityId={qmhqId}
+              canEdit={true}
+              onFileCountChange={setFileCount}
+            />
           </div>
         </TabsContent>
       </Tabs>
