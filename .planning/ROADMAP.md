@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Critical Bug Fixes** - Restore broken PO creation and stock-in workflows
 - [x] **Phase 2: File Storage Foundation** - Secure file upload infrastructure with RLS policies
-- [ ] **Phase 3: File Upload UI** - Drag-drop file attachments on QMRL/QMHQ detail pages
+- [x] **Phase 3: File Upload UI** - Drag-drop file attachments on QMRL/QMHQ detail pages
 - [ ] **Phase 4: File Preview & Download** - Full in-app preview for images and PDFs
 - [ ] **Phase 5: Management Dashboard** - Live dashboard with status counts and activity feeds
 - [ ] **Phase 6: Status & Transaction UX** - Quick status changes and transaction editing
@@ -72,9 +72,9 @@ Plans:
 Requirements FILE-01 and FILE-03 (create form uploads) are deferred - entities must exist first.
 
 Plans:
-- [ ] 03-01-PLAN.md — Build file upload components (dropzone, cards, progress, delete dialog)
-- [ ] 03-02-PLAN.md — Integrate file upload into QMRL detail page
-- [ ] 03-03-PLAN.md — Integrate file upload into QMHQ detail page
+- [x] 03-01-PLAN.md — Build file upload components (dropzone, cards, progress, delete dialog)
+- [x] 03-02-PLAN.md — Integrate file upload into QMRL detail page
+- [x] 03-03-PLAN.md — Integrate file upload into QMHQ detail page
 
 ### Phase 4: File Preview & Download
 **Goal**: Users can view files without leaving the application
@@ -141,11 +141,11 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 |-------|----------------|--------|-----------|
 | 1. Critical Bug Fixes | 3/3 | Complete | 2026-01-27 |
 | 2. File Storage Foundation | 2/2 | Complete | 2026-01-27 |
-| 3. File Upload UI | 0/3 | Planned | - |
+| 3. File Upload UI | 3/3 | Complete | 2026-01-28 |
 | 4. File Preview & Download | 0/3 | Not started | - |
 | 5. Management Dashboard | 0/3 | Not started | - |
 | 6. Status & Transaction UX | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-27*
-*Last updated: 2026-01-28 - Phase 3 planned*
+*Last updated: 2026-01-28 - Phase 3 complete*

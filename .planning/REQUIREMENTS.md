@@ -17,17 +17,17 @@ Requirements for this release. Each maps to roadmap phases.
 ### File Attachments
 
 - [ ] **FILE-01**: User can drag-drop files to upload on QMRL create form
-- [ ] **FILE-02**: User can drag-drop files to upload on QMRL detail page
+- [x] **FILE-02**: User can drag-drop files to upload on QMRL detail page
 - [ ] **FILE-03**: User can drag-drop files to upload on QMHQ create form
-- [ ] **FILE-04**: User can drag-drop files to upload on QMHQ detail page
-- [ ] **FILE-05**: System validates file type (PDF, Word, Excel, PNG, JPG, GIF)
-- [ ] **FILE-06**: System validates file size (max 25MB per file)
+- [x] **FILE-04**: User can drag-drop files to upload on QMHQ detail page
+- [x] **FILE-05**: System validates file type (PDF, Word, Excel, PNG, JPG, GIF)
+- [x] **FILE-06**: System validates file size (max 25MB per file)
 - [ ] ~~**FILE-07**: System enforces max 10 files per entity~~ — *Moved to Out of Scope (V1.1)*
-- [ ] **FILE-08**: User can view list of uploaded files sorted by upload date
+- [x] **FILE-08**: User can view list of uploaded files sorted by upload date
 - [ ] **FILE-09**: User can preview images inline
 - [ ] **FILE-10**: User can preview PDFs in-app
-- [ ] **FILE-11**: User can see thumbnail previews in file list
-- [ ] **FILE-12**: User can delete files (if has edit access to parent entity)
+- [x] **FILE-11**: User can see thumbnail previews in file list
+- [x] **FILE-12**: User can delete files (if has edit access to parent entity)
 - [ ] **FILE-13**: User can download all files as ZIP
 
 ### Dashboard
