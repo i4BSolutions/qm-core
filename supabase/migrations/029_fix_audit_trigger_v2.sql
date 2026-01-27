@@ -1,5 +1,5 @@
 -- ============================================
--- Fix Audit Trigger: Handle tables with different schemas
+-- Fix Audit Trigger V2: Handle tables with different schemas
 -- ============================================
 -- Tables have different columns. This trigger must safely handle:
 -- - Tables without created_by (po_line_items, invoice_line_items)
@@ -292,4 +292,4 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-COMMENT ON FUNCTION public.create_audit_log IS 'Generic audit trigger - safely handles tables with different column schemas';
+COMMENT ON FUNCTION public.create_audit_log IS 'Generic audit trigger - safely handles tables with different column schemas using JSONB';
