@@ -13,7 +13,7 @@ QM System V1.1 builds on the completed V1.0 foundation to deliver critical bug f
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Critical Bug Fixes** - Restore broken PO creation and stock-in workflows
-- [ ] **Phase 2: File Storage Foundation** - Secure file upload infrastructure with RLS policies
+- [x] **Phase 2: File Storage Foundation** - Secure file upload infrastructure with RLS policies
 - [ ] **Phase 3: File Upload UI** - Drag-drop file attachments on QMRL/QMHQ forms
 - [ ] **Phase 4: File Preview & Download** - Full in-app preview for images and PDFs
 - [ ] **Phase 5: Management Dashboard** - Live dashboard with status counts and activity feeds
@@ -43,7 +43,7 @@ Plans:
 ### Phase 2: File Storage Foundation
 **Goal**: Secure file storage infrastructure ready for uploads
 **Depends on**: Phase 1
-**Requirements**: FILE-05, FILE-06, FILE-07, FILE-12
+**Requirements**: FILE-05, FILE-06, FILE-12
 **Plans:** 2 plans
 
 **Success Criteria** (what must be TRUE):
@@ -53,8 +53,8 @@ Plans:
   4. File deletion removes both metadata and storage object (no orphans)
 
 Plans:
-- [ ] 02-01-PLAN.md — Create file attachments table and storage bucket with RLS
-- [ ] 02-02-PLAN.md — Build server-side upload/delete utilities with validation
+- [x] 02-01-PLAN.md — Create file attachments table and storage bucket with RLS
+- [x] 02-02-PLAN.md — Build server-side upload/delete utilities with validation
 
 ### Phase 3: File Upload UI
 **Goal**: Users can attach files to QMRL and QMHQ entities
@@ -138,7 +138,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Critical Bug Fixes | 3/3 | Complete | 2026-01-27 |
-| 2. File Storage Foundation | 0/2 | Planned | - |
+| 2. File Storage Foundation | 2/2 | Complete | 2026-01-27 |
 | 3. File Upload UI | 0/3 | Not started | - |
 | 4. File Preview & Download | 0/3 | Not started | - |
 | 5. Management Dashboard | 0/3 | Not started | - |
@@ -146,4 +146,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 ---
 *Roadmap created: 2026-01-27*
-*Last updated: 2026-01-27 - Phase 2 planned*
+*Last updated: 2026-01-27 - Phase 2 complete*

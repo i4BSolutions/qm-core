@@ -22,7 +22,7 @@ Requirements for this release. Each maps to roadmap phases.
 - [ ] **FILE-04**: User can drag-drop files to upload on QMHQ detail page
 - [ ] **FILE-05**: System validates file type (PDF, Word, Excel, PNG, JPG, GIF)
 - [ ] **FILE-06**: System validates file size (max 25MB per file)
-- [ ] **FILE-07**: System enforces max 10 files per entity
+- [ ] ~~**FILE-07**: System enforces max 10 files per entity~~ — *Moved to Out of Scope (V1.1)*
 - [ ] **FILE-08**: User can view list of uploaded files sorted by upload date
 - [ ] **FILE-09**: User can preview images inline
 - [ ] **FILE-10**: User can preview PDFs in-app
@@ -91,6 +91,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | Bulk status updates | Single status change sufficient for V1.1 |
 | File attachments on PO/Invoice | QMRL/QMHQ scope first, extend in V2 |
 | Mobile-specific file upload | Desktop web first, responsive design handles mobile |
+| Max files per entity limit | No practical need for V1.1, users can manage own file count |
 
 ## Traceability
 
@@ -104,10 +105,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BUG-04 | Phase 1 | Complete |
 | INV-01 | Phase 1 | Complete |
 | INV-02 | Phase 1 | Complete |
-| FILE-05 | Phase 2 | Pending |
-| FILE-06 | Phase 2 | Pending |
-| FILE-07 | Phase 2 | Pending |
-| FILE-12 | Phase 2 | Pending |
+| FILE-05 | Phase 2 | Complete |
+| FILE-06 | Phase 2 | Complete |
+| FILE-07 | Out of Scope | — |
+| FILE-12 | Phase 2 | Complete |
 | FILE-01 | Phase 3 | Pending |
 | FILE-02 | Phase 3 | Pending |
 | FILE-03 | Phase 3 | Pending |
@@ -135,10 +136,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-09 | Phase 6 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 35 total
-- Mapped to phases: 35
+- v1.1 requirements: 34 total (FILE-07 moved to Out of Scope)
+- Mapped to phases: 34
 - Unmapped: 0 (100% coverage)
 
 ---
 *Requirements defined: 2025-01-27*
-*Last updated: 2026-01-27 - Phase 1 requirements complete*
+*Last updated: 2026-01-27 - Phase 2 requirements complete, FILE-07 moved to Out of Scope*
