@@ -186,6 +186,7 @@ export function useFileUpload(
       // Clear abort controller
       abortControllerRef.current = null;
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [entityType, entityId]
   );
 
