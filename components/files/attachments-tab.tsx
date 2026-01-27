@@ -5,10 +5,11 @@
  *
  * Orchestrator component that combines all file upload components
  * (dropzone, grid, progress, delete dialog) into a complete attachment workflow.
+ * Includes file preview modal for viewing attached files.
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { Paperclip } from 'lucide-react';
+import { Paperclip, FileIcon, Download } from 'lucide-react';
 import { useFileUpload } from '@/lib/hooks/use-file-upload';
 import {
   getFilesByEntity,
@@ -21,7 +22,10 @@ import { FileCard } from './file-card';
 import { FileGrid } from './file-grid';
 import { UploadProgress } from './upload-progress';
 import { DeleteFileDialog } from './delete-file-dialog';
+import { FilePreviewModal } from './file-preview-modal';
+import { ImagePreview } from './image-preview';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 
 interface AttachmentsTabProps {
@@ -40,6 +44,7 @@ interface AttachmentsTabProps {
  * - Handles drag-drop upload with progress tracking
  * - Manages delete confirmation flow
  * - Shows loading and empty states
+ * - Opens file preview modal on card click
  *
  * @param entityType - Entity type ('qmrl' or 'qmhq')
  * @param entityId - Entity UUID
@@ -69,6 +74,12 @@ export function AttachmentsTab({
   const [fileToDelete, setFileToDelete] =
     useState<FileAttachmentWithUploader | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Preview modal state
+  const [previewFile, setPreviewFile] =
+    useState<FileAttachmentWithUploader | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   // File upload hook
   const { progress, uploadFiles, cancel, clearCompleted } = useFileUpload(
@@ -222,6 +233,53 @@ export function AttachmentsTab({
   }, [fileToDelete]);
 
   /**
+   * Handle preview open - get signed URL and open modal
+   */
+  const handlePreviewOpen = useCallback(
+    async (file: FileAttachmentWithUploader) => {
+      setIsLoadingPreview(true);
+      setPreviewFile(file);
+
+      const result = await getFileUrl(file.storage_path);
+
+      if (result.success) {
+        setPreviewUrl(result.data);
+      } else {
+        // Failed to get URL, close preview and show toast
+        setPreviewFile(null);
+        toast({
+          variant: 'destructive',
+          title: 'Failed to load file',
+          description: result.error,
+        });
+      }
+
+      setIsLoadingPreview(false);
+    },
+    []
+  );
+
+  /**
+   * Handle preview close
+   */
+  const handlePreviewClose = useCallback(() => {
+    setPreviewFile(null);
+    setPreviewUrl(null);
+  }, []);
+
+  /**
+   * Handle image load error in preview
+   */
+  const handlePreviewError = useCallback(() => {
+    handlePreviewClose();
+    toast({
+      variant: 'destructive',
+      title: 'Failed to load image',
+      description: 'The image could not be displayed.',
+    });
+  }, [handlePreviewClose]);
+
+  /**
    * Warn before navigation if uploads in progress
    */
   useEffect(() => {
@@ -235,6 +293,44 @@ export function AttachmentsTab({
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [progress.isUploading]);
+
+  /**
+   * Determine what to render in the preview modal
+   */
+  const renderPreviewContent = () => {
+    if (!previewFile || !previewUrl) return null;
+
+    const isImage = previewFile.mime_type.startsWith('image/');
+
+    if (isImage) {
+      return (
+        <ImagePreview
+          url={previewUrl}
+          filename={previewFile.filename}
+          onError={handlePreviewError}
+        />
+      );
+    }
+
+    // Non-image files: show placeholder with download button
+    // PDF support will be added in Plan 02
+    return (
+      <div className="flex flex-col items-center justify-center text-center p-8">
+        <FileIcon className="h-16 w-16 text-slate-500 mb-4" />
+        <p className="text-slate-400 mb-2">Preview not available</p>
+        <p className="text-sm text-slate-500 mb-4">
+          This file type cannot be previewed in the browser.
+        </p>
+        <Button
+          onClick={() => previewUrl && window.open(previewUrl, '_blank')}
+          className="gap-2"
+        >
+          <Download className="h-4 w-4" />
+          Download File
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -275,6 +371,7 @@ export function AttachmentsTab({
               thumbnailUrl={thumbnailUrls.get(file.id)}
               canDelete={canEdit}
               onDelete={() => handleDeleteClick(file)}
+              onPreview={() => handlePreviewOpen(file)}
             />
           ))}
         </FileGrid>
@@ -296,6 +393,16 @@ export function AttachmentsTab({
         onConfirm={handleDeleteConfirm}
         isDeleting={isDeleting}
       />
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        isOpen={!!previewFile}
+        onClose={handlePreviewClose}
+        file={previewFile}
+        fileUrl={previewUrl}
+      >
+        {renderPreviewContent()}
+      </FilePreviewModal>
     </div>
   );
 }

@@ -5,6 +5,7 @@
  *
  * Displays a single file attachment with thumbnail preview or extension badge.
  * Shows file metadata and optional delete action.
+ * Clickable to open file preview.
  */
 
 import { MoreVertical, Trash2 } from 'lucide-react';
@@ -22,6 +23,7 @@ interface FileCardProps {
   file: FileAttachmentWithUploader;
   thumbnailUrl?: string;
   onDelete?: () => void;
+  onPreview?: () => void;
   canDelete?: boolean;
 }
 
@@ -45,11 +47,13 @@ const EXTENSION_COLORS: Record<string, { bg: string; text: string }> = {
  * - Thumbnail preview for images
  * - Colored extension badges for documents
  * - File metadata (name, size, date, uploader)
+ * - Click to open file preview
  * - Optional delete action via context menu
  *
  * @param file - The file attachment to display
  * @param thumbnailUrl - Optional thumbnail URL for images
  * @param onDelete - Callback when delete is clicked
+ * @param onPreview - Callback when card is clicked to open preview
  * @param canDelete - Whether to show delete option
  *
  * @example
@@ -57,6 +61,7 @@ const EXTENSION_COLORS: Record<string, { bg: string; text: string }> = {
  *   file={fileAttachment}
  *   thumbnailUrl={signedUrl}
  *   onDelete={() => handleDelete(fileAttachment.id)}
+ *   onPreview={() => handlePreview(fileAttachment)}
  *   canDelete={true}
  * />
  */
@@ -64,6 +69,7 @@ export function FileCard({
   file,
   thumbnailUrl,
   onDelete,
+  onPreview,
   canDelete,
 }: FileCardProps) {
   const extension = getFileExtension(file.filename);
@@ -84,8 +90,42 @@ export function FileCard({
     });
   };
 
+  /**
+   * Handle card click - opens preview
+   */
+  const handleCardClick = () => {
+    if (onPreview) {
+      onPreview();
+    }
+  };
+
+  /**
+   * Handle dropdown click - prevent card click propagation
+   */
+  const handleDropdownClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   return (
-    <div className="group relative rounded-lg border border-slate-700 bg-slate-800/50 overflow-hidden hover:border-slate-600 transition-colors">
+    <div
+      className={cn(
+        'group relative rounded-lg border border-slate-700 bg-slate-800/50 overflow-hidden hover:border-slate-600 transition-colors',
+        onPreview && 'cursor-pointer'
+      )}
+      onClick={handleCardClick}
+      role={onPreview ? 'button' : undefined}
+      tabIndex={onPreview ? 0 : undefined}
+      onKeyDown={
+        onPreview
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleCardClick();
+              }
+            }
+          : undefined
+      }
+    >
       {/* Thumbnail / Extension Badge Area */}
       <div className="h-24 flex items-center justify-center bg-slate-900/50">
         {isImage && thumbnailUrl ? (
@@ -127,7 +167,10 @@ export function FileCard({
 
       {/* Action Menu */}
       {canDelete && onDelete && (
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={handleDropdownClick}
+        >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="p-1 rounded bg-slate-800/80 hover:bg-slate-700 border border-slate-600">
@@ -136,7 +179,10 @@ export function FileCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={onDelete}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
                 className="text-red-400 focus:text-red-400 cursor-pointer"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
