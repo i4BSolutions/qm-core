@@ -1,304 +1,344 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-01-26
+**Analysis Date:** 2026-01-27
 
 ## Naming Patterns
 
 **Files:**
-- UI components: `kebab-case.tsx` (e.g., `inline-create-select.tsx`, `contact-dialog.tsx`)
-- Utilities/hooks: `kebab-case.ts` (e.g., `use-permissions.ts`, `po-status.ts`)
-- Pages: `page.tsx` in route directory (e.g., `/app/(dashboard)/admin/categories/page.tsx`)
-- Dialogs: `component-dialog.tsx` (e.g., `category-dialog.tsx`, `supplier-dialog.tsx`)
-- Tables: `component-table.tsx` or `component-line-items-table.tsx`
-- Index files: `index.ts` for barrel exports (e.g., `/components/invoice/index.ts`, `/lib/hooks/index.ts`)
+- Components: PascalCase (e.g., `Button.tsx`, `AuthProvider.tsx`)
+- Pages: kebab-case for routes, PascalCase for component exports (e.g., `/qmrl/[id]/edit/page.tsx`)
+- Utilities: camelCase (e.g., `id-generator.ts`, `po-status.ts`, `invoice-status.ts`)
+- Hooks: `use` prefix with camelCase (e.g., `usePermissions.ts`, `useSearch.ts`)
+- Types: PascalCase for types and interfaces (e.g., `AuthContextType`, `QMRLWithRelations`)
 
 **Functions:**
-- camelCase for all functions (e.g., `calculateEUSD`, `handleCreate`, `fetchData`, `canEditPO`)
-- Prefix utility functions with action verbs: `format*`, `calculate*`, `get*`, `is*`, `can*`, `has*`
-- Hook functions: `use*` convention (e.g., `usePermissions`, `useSearch`, `useDebouncedValue`)
-- Event handlers: `handle*` prefix (e.g., `handleCreate`, `handleDelete`, `handleEdit`, `handleSelect`)
+- camelCase for all functions and methods
+- Utility functions fully documented with JSDoc comments
+- Callback functions prefixed with `handle` or `on` when in event context (e.g., `handlePageSizeChange`, `onValueChange`)
+- Helper functions that calculate values use `calculate` prefix (e.g., `calculatePOProgress`, `calculateEUSD`)
 
 **Variables:**
-- camelCase for all variables and constants
-- Component props interfaces: PascalCase suffix with `Props` (e.g., `InlineCreateSelectProps`, `BadgeProps`)
-- State variables: descriptive camelCase (e.g., `isLoading`, `isSubmitting`, `isCreating`, `dialogOpen`)
-- Boolean variables: `is*`, `has*`, `can*` prefixes (e.g., `isOpen`, `hasNextPage`, `canEdit`)
+- camelCase for regular variables and state
+- UPPER_SNAKE_CASE for constants (e.g., `SESSION_TIMEOUT_MS`, `ACTIVITY_KEY`, `SESSION_KEY`)
+- Prefixed state names for clarity: use full descriptive names (e.g., `isLoading`, `searchQuery`, `categoryFilter`)
 
 **Types:**
-- PascalCase for all type/interface names (e.g., `Category`, `StatusConfig`, `FinancialAmount`)
-- Enum types: PascalCase (e.g., `UserRole`, `StatusGroup`, `EntityType`, `POStatusEnum`)
-- Interface naming: descriptive PascalCase, typically no suffix (e.g., `BaseOption`, `ApiResponse`)
-- Props interfaces: `ComponentNameProps` suffix (e.g., `DialogProps`, `TableProps`)
+- PascalCase for type names
+- Union types use descriptive names with `Type` suffix (e.g., `PermissionAction`, `PermissionResource`, `EntityPrefix`)
+- Extended types use `With` prefix for joined relations (e.g., `QMRLWithRelations`)
 
 ## Code Style
 
 **Formatting:**
-- Prettier 3.3.3 with configuration in `.prettierrc`
-- 2-space indentation
-- 100 character print width
-- Trailing commas: ES5 (consistent in arrays/objects)
-- Quotes: double quotes (`"`) preferred
-- Semicolons: required (semi: true)
-- Tailwind CSS class sorting: enabled via `prettier-plugin-tailwindcss`
-
-**Prettier Configuration:**
-```json
-{
-  "semi": true,
-  "singleQuote": false,
-  "tabWidth": 2,
-  "trailingComma": "es5",
-  "printWidth": 100,
-  "plugins": ["prettier-plugin-tailwindcss"]
-}
-```
+- Prettier with custom config: `C:\Users\User\Documents\qm-core\.prettierrc`
+- Print width: 100 characters
+- Tab width: 2 spaces
+- Trailing commas: ES5 style (objects/arrays in code, not function params)
+- Quotes: Double quotes for strings
+- Semicolons: Always present
+- Tailwind CSS class ordering: Tailwind plugin sorts classes automatically
 
 **Linting:**
-- ESLint 8.57.1 with Next.js core web vitals configuration
-- Config: `.eslintrc.json`
-- Rule overrides:
+- ESLint with Next.js core config
+- Config: `C:\Users\User\Documents\qm-core\.eslintrc.json`
+- Extends: `next/core-web-vitals` and `prettier`
+- Custom rules disabled:
   - `react/no-unescaped-entities`: off
   - `@next/next/no-page-custom-font`: off
-- ESLint integration with Prettier to prevent conflicts
+- Run with: `npm run lint` or `npm run lint:fix`
 
-**TypeScript:**
-- Strict mode enabled: `"strict": true`
-- Path aliases configured in `tsconfig.json`:
-  - `@/*` → Root directory
-  - `@/components/*` → `./components/*`
-  - `@/lib/*` → `./lib/*`
-  - `@/types/*` → `./types/*`
-  - `@/app/*` → `./app/*`
-- No implicit any
-- Module resolution: bundler
+**Strict TypeScript:**
+- All files use TypeScript strict mode
+- Type annotations required for function parameters and return types
+- No `any` types without explicit justification
+- Database types generated from Supabase schema in `C:\Users\User\Documents\qm-core\types\database.ts`
 
 ## Import Organization
 
 **Order:**
-1. React/Next.js imports
-2. Third-party library imports (Lucide icons, Radix UI, etc.)
-3. Internal component imports
-4. Internal utility/hook imports
-5. Type imports (typically last with `import type`)
+1. React and framework imports (`react`, `next/*`)
+2. Radix UI and external libraries (`@radix-ui/*`, `lucide-react`, `clsx`, etc.)
+3. Internal absolute imports using path aliases (`@/lib/*`, `@/components/*`, `@/types/*`)
+4. Type-only imports at the end with `import type`
 
-**Example Import Pattern:**
+**Pattern:**
 ```typescript
-"use client";
-
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import Link from "next/link";
+import { Plus, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
-import { useToast } from "@/components/ui/use-toast";
-import { cn } from "@/lib/utils";
-import type { ColumnDef } from "@tanstack/react-table";
-import type { Category } from "@/types/database";
+import { Input } from "@/components/ui/input";
+import type { QMRL, StatusConfig } from "@/types/database";
 ```
 
 **Path Aliases:**
-- Always use path aliases with `@/` prefix, never relative paths like `../../`
-- Import from barrels: `import { Button } from "@/components/ui/button"` or grouped from index
-- Type imports use `import type` keyword to ensure tree-shaking
+- `@/*`: Root directory
+- `@/components/*`: `./components/*`
+- `@/lib/*`: `./lib/*`
+- `@/types/*`: `./types/*`
+- `@/app/*`: `./app/*`
+
+All relative imports use absolute aliases for clarity.
 
 ## Error Handling
 
-**Patterns:**
-- Try-catch blocks for async database operations
-- Error type checking: `error: any` in catch blocks due to Supabase SDK
-- Destructure errors: Check `error.message` or error object properties
-- User feedback: Show errors via toast notifications with title and description
-- Throw database errors after logging: `if (error) throw error;`
-
-**Example Error Handling Pattern:**
+**Pattern - Supabase Queries:**
 ```typescript
-try {
-  const { data, error } = await supabase.from("table").insert({...}).select();
-  if (error) throw error;
-  // Success path
-} catch (error: any) {
-  toast({
-    title: "Error",
-    description: error.message || "Failed to perform action",
-    variant: "destructive",
-  });
-  // Optional: console.error("Action failed:", error);
+const { data, error } = await supabase
+  .from("table")
+  .select("*")
+  .single();
+
+if (error) {
+  console.error('Query error:', error.message);
+  throw new Error(error.message);
 }
+// Use data
 ```
 
-**Console Usage:**
-- Avoid console.log in production code
-- Use console.error for debugging async errors in try-catch blocks
-- Prefixed with context: `console.error("Error fetching user profile:", fetchError)`
+**Pattern - Async/Await:**
+```typescript
+const fetchData = useCallback(async () => {
+  try {
+    const result = await someAsyncCall();
+    setData(result);
+  } catch (err) {
+    console.error('Error fetching:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    setError(message);
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
+```
+
+**Pattern - Auth Provider:**
+- Silent error handling for storage operations: `try {...} catch {}`
+- Session management errors logged but don't crash the app
+- Specific error messages for user-facing errors
+- Debug logging throughout auth flow (can be filtered with "Auth:" prefix)
+
+**Pattern - UI Error Display:**
+```typescript
+{error && (
+  <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
+    <div className="flex items-center gap-2">
+      <AlertCircle className="h-5 w-5 text-red-400" />
+      <p className="text-red-400">{error}</p>
+    </div>
+    <button onClick={fetchData} className="...">
+      Click to retry
+    </button>
+  </div>
+)}
+```
+
+**Error Context:**
+- Server operations use try/catch with specific error messages
+- Client operations propagate errors to state for UI display
+- Console.error logs always include context (e.g., "Auth: Profile error")
+- User-facing errors are human-readable, never raw error codes
 
 ## Logging
 
-**Framework:** console methods (native JavaScript)
+**Framework:** `console` (native browser/Node APIs)
 
 **Patterns:**
-- Minimal logging in components
-- Console.error used for debugging async operation failures
-- Error logging in auth provider and async functions
-- Pattern: `console.error("Context: message", errorObject)`
+- Info logs prefixed with module name: `console.log("Auth: Init starting...")`
+- Error logs with context: `console.error('QMRL query error:', error)`
+- No logging in production (handled by environment)
+- Auth provider uses verbose logging with prefixes for debugging race conditions
+- Query errors logged before throwing: `console.error('Error:', err); throw new Error(...)`
+
+**Log Levels:**
+- `console.log()`: Debug info, flow tracking
+- `console.error()`: Exceptions, query failures, state issues
+- No `console.warn()` observed in codebase
+- Debug prefix format: `"Module: Context message"` (e.g., `"Auth: Clearing session: timeout"`)
 
 ## Comments
 
 **When to Comment:**
-- JSDoc/TSDoc for public functions, hooks, and utilities
-- Inline comments for non-obvious business logic
-- Comment complex calculation logic (e.g., WAC calculations, EUSD conversions)
-- Avoid obvious comments like `// Set state`
+- JSDoc blocks for public functions and utilities (always)
+- Complex logic requiring explanation (inline comments)
+- Workarounds and temporary fixes marked with context
+- Configuration objects with unclear purposes
+- NOT for obvious code (e.g., `// increment counter` is unnecessary)
 
 **JSDoc/TSDoc Pattern:**
 ```typescript
 /**
- * Format a number with currency suffix (e.g., "1,234.56 MMK")
+ * Generate a formatted ID for an entity
+ *
+ * @param prefix - The entity prefix (QMRL, QMHQ, PO, INV)
+ * @param sequence - The sequence number
+ * @param year - Optional year (defaults to current year)
+ * @returns Formatted ID string
+ *
+ * @example
+ * generateId("QMRL", 1) // "QMRL-2025-00001"
  */
-export function formatAmount(
-  amount: number,
-  currency: string = "MMK",
-  decimals: number = 2
+export function generateId(
+  prefix: EntityPrefix,
+  sequence: number,
+  year?: number
 ): string {
-  return formatCurrency(amount, decimals) + ` ${currency}`;
-}
+```
 
-/**
- * Calculate EUSD from amount and exchange rate
- */
-export function calculateEUSD(amount: number, exchangeRate: number): number {
-  if (exchangeRate <= 0) return 0;
-  return Math.round((amount / exchangeRate) * 100) / 100;
-}
+**Inline Comments:**
+```typescript
+// Force dynamic rendering for all dashboard routes to prevent
+// static prerendering which fails without Supabase env vars at build time
+export const dynamic = "force-dynamic";
+```
+
+**Configuration Documentation:**
+```typescript
+// Session timeout: 6 hours
+const SESSION_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 ```
 
 ## Function Design
 
 **Size:**
-- Keep functions under 50 lines when possible
-- Extract complex logic into separate utility functions
-- Dialogs and pages may exceed 100 lines due to form handling
+- Utility functions: 10-30 lines typical
+- Component logic: 20-50 lines before extracting hooks/helpers
+- Pages: can be longer (100+ lines) due to JSX and layout needs
+- Example: `calculatePOProgress` is ~15 lines, `fetchData` callback is ~35 lines
 
 **Parameters:**
-- Use object parameters for functions with 3+ parameters
-- Typed explicitly, avoid any unless necessary
+- Single object parameter for functions with 3+ parameters
+- Optional parameters use `?` modifier
+- Default values in parameter declaration: `year?: number` or `padding: number = 5`
+- Typed parameters always use specific types, not `any`
 
 **Return Values:**
-- Explicit return types on all functions (except obvious inferred ones)
-- Use tuple types for multiple return values
-- Return objects for multiple related values
+- Explicitly typed return types always specified
+- Functions returning multiple values use object return (not tuple)
+- Example: `{ invoicedPercent: number; receivedPercent: number }`
+- Nullish values return `null` not `undefined` for consistency
 
-**Example Function Patterns:**
-```typescript
-// Simple utility
-export function truncate(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength - 3) + "...";
-}
-
-// Hook with multiple returns
-export function useSearch(initialValue: string = "", delay: number = 300) {
-  const [searchTerm, setSearchTerm] = useState(initialValue);
-  return {
-    searchTerm,
-    handleSearch,
-    clearSearch,
-    isSearching,
-  };
-}
-
-// Status calculation with early returns
-export function canEditPO(status: POStatusEnum): boolean {
-  return status !== "closed" && status !== "cancelled";
-}
-```
+**Callbacks:**
+- useCallback for memoized callbacks in pages and providers
+- Dependencies array always included for useCallback
+- Named callbacks: `const handleSubmit = useCallback(async () => {...}, [])`
 
 ## Module Design
 
 **Exports:**
-- Named exports preferred: `export function name() {}`
-- Default exports only for pages: `export default function Page() {}`
-- Type exports with `export type` keyword
+- Named exports preferred over default exports
+- Barrel exports in `index.ts` files for convenience imports
+- Example: `C:\Users\User\Documents\qm-core\lib\hooks\index.ts` exports all hooks
+
+**Example Barrel Pattern:**
+```typescript
+export {
+  usePermissions,
+  hasPermission,
+  getPermissions,
+  canAccessRoute,
+  roleNavigation,
+  type PermissionAction,
+  type PermissionResource,
+} from "./use-permissions";
+```
+
+**File Organization:**
+- UI components in `C:\Users\User\Documents\qm-core\components\ui\*`
+- Business logic utilities in `C:\Users\User\Documents\qm-core\lib\utils\*`
+- Custom hooks in `C:\Users\User\Documents\qm-core\lib\hooks\*`
+- Type definitions in `C:\Users\User\Documents\qm-core\types\*`
+- Pages and layouts follow Next.js App Router structure
 
 **Barrel Files:**
-- `/lib/hooks/index.ts`: Re-exports all hooks from subdirectory
-- `/components/layout/index.ts`: Re-exports layout components
-- `/components/invoice/index.ts`: Re-exports invoice-related components
-- Pattern: `export * from "./module-name"`
-
-**Barrel Export Example from `/lib/hooks/index.ts`:**
-```typescript
-export * from "./use-permissions";
-export * from "./use-search";
-```
+- `index.ts` files group related exports
+- Enables cleaner imports: `import { usePermissions } from "@/lib/hooks"` instead of `from "@/lib/hooks/use-permissions"`
+- Export both implementations and types
 
 ## Component Patterns
 
-**Client vs. Server Components:**
-- Use `"use client"` directive at top for interactive components
-- Pages use server components by default
-- Hooks and state require client component wrapper
-- Auth context providers are client components
+**Functional Components:**
+- All components are functional (no class components)
+- Server components by default in Next.js App Router
+- Client components marked with `"use client"` directive at top
 
-**Component Structure:**
-- Props interface at top
-- Main component function (exported)
-- Styled with Tailwind CSS
-- Lucide React for icons
+**Component Props:**
+- Interface extends appropriate HTML attributes
+- Example: `extends React.ButtonHTMLAttributes<HTMLButtonElement>`
+- Custom props added to interface
 
-**Dialog Pattern:**
+**Ref Forwarding:**
+- Components using refs use `React.forwardRef<ElementType, PropsType>`
+- Display name always set: `Component.displayName = "ComponentName"`
+
+**Example:**
 ```typescript
-"use client";
-
-interface DialogProps {
-  open: boolean;
-  onClose: (refresh?: boolean) => void;
-  item: ItemType | null;
-}
-
-export function ItemDialog({ open, onClose, item }: DialogProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-
-  const handleSubmit = async () => {
-    // Logic
-  };
-
-  return <Dialog>...</Dialog>;
-}
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button";
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+Button.displayName = "Button";
 ```
 
-## Configuration Constants
+## State Management
 
-**Constants:**
-- Define locally in files or in utility modules
-- Exported as constants for reuse
-- Example: `colorPresets`, `entityTypeLabels`, `PO_STATUS_CONFIG`
+**Hooks:**
+- useState for local component state
+- useCallback for memoized functions
+- useMemo for expensive calculations
+- useEffect for side effects with proper cleanup
+- useContext for auth and permissions context
 
-**Status/Config Objects:**
-- Exported as readonly records: `export const CONFIG: Record<Type, Config> = {...}`
-- Used for display labels, colors, icons
-- Centralized in utils for consistency
-
-## String Literals
-
-**Avoid Magic Strings:**
-- Create typed objects for string constants
-- Example: `entityTypeLabels` record maps types to display strings
-- Database table names inlined in queries (expected pattern)
-
-## Type Safety
-
-**Usage:**
-- Explicit return types on all functions
-- Props interfaces required for all components
-- Database types from generated `@/types/database`
-- Generic types for reusable components like `InlineCreateSelect<T extends BaseOption>`
-
-**Type Imports:**
+**Pattern - Filtering with Memoization:**
 ```typescript
-import type { Category, Department, User } from "@/types/database";
+const filteredQmrls = useMemo(() => {
+  return qmrls.filter((qmrl) => {
+    // filter logic
+  });
+}, [qmrls, searchQuery, categoryFilter, assignedFilter]);
+```
+
+**Pattern - Data Fetching:**
+- useCallback for fetch function
+- useEffect calls fetch function on mount
+- Dependencies managed carefully: `useEffect(() => { fetchData(); }, [fetchData])`
+
+## Styling
+
+**Tailwind CSS:**
+- Utility-first approach, no custom CSS files for components
+- Dark theme (slate palette): slate-50 through slate-950
+- Accent color: amber for highlights and interactive states
+- Spacing and sizing via Tailwind scale (px-3, py-2, etc.)
+
+**Color Pattern:**
+- Text: slate-200 (light), slate-300, slate-400 (muted), slate-500 (very muted)
+- Backgrounds: slate-900 (dark), slate-800, slate-700
+- Accents: amber-500, amber-600 (primary), with `/10` and `/30` opacity variants
+- Borders: slate-700 base, with `/50` and `/30` opacity variants
+- Status colors from config objects: PO_STATUS_CONFIG, APPROVAL_STATUS_CONFIG
+
+**Example Status Colors:**
+```typescript
+const colorMap: Record<POStatusEnum, string> = {
+  not_started: "#94a3b8",    // slate-400
+  partially_invoiced: "#f59e0b", // amber-500
+  awaiting_delivery: "#3b82f6",  // blue-500
+  partially_received: "#a855f7", // purple-500
+  closed: "#10b981",         // emerald-500
+  cancelled: "#ef4444",      // red-500
+};
 ```
 
 ---
 
-*Convention analysis: 2026-01-26*
+*Convention analysis: 2026-01-27*

@@ -1,304 +1,362 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-01-26
+**Analysis Date:** 2026-01-27
 
 ## Directory Layout
 
 ```
-project-root/
-├── app/                          # Next.js 14 App Router
-│   ├── (auth)/                   # Public auth routes (layout group)
+qm-core/
+├── app/                        # Next.js App Router
+│   ├── (auth)/
 │   │   ├── layout.tsx
-│   │   └── login/page.tsx        # Login page
-│   ├── (dashboard)/              # Protected routes (layout group)
-│   │   ├── layout.tsx            # Dashboard shell with Sidebar + Header
-│   │   ├── admin/                # Admin management pages
+│   │   └── login/
+│   │       └── page.tsx        # Login form
+│   ├── (dashboard)/            # Protected routes with sidebar layout
+│   │   ├── layout.tsx          # Dashboard shell with AuthProvider
+│   │   ├── dashboard/
+│   │   │   └── page.tsx
+│   │   ├── admin/              # Admin management pages
+│   │   │   ├── users/
 │   │   │   ├── categories/
-│   │   │   ├── contacts/
-│   │   │   ├── departments/
 │   │   │   ├── statuses/
+│   │   │   ├── contacts/
 │   │   │   ├── suppliers/
-│   │   │   └── users/
-│   │   ├── dashboard/page.tsx    # Main dashboard
-│   │   ├── inventory/            # Inventory management
-│   │   │   ├── page.tsx          # Inventory dashboard
-│   │   │   ├── stock-in/page.tsx
-│   │   │   └── stock-out/page.tsx
-│   │   ├── invoice/              # Invoice management
-│   │   ├── item/                 # Item/Product management
-│   │   ├── po/                   # Purchase Order module
-│   │   ├── qmhq/                 # QMHQ (HQ Requests) module
-│   │   ├── qmrl/                 # QMRL (Request Letters) module
-│   │   └── warehouse/            # Warehouse management
-│   ├── api/                      # API routes (backend endpoints)
+│   │   │   └── departments/
+│   │   ├── qmrl/               # QMRL (Request Letter) module
+│   │   │   ├── page.tsx        # List view
+│   │   │   ├── new/
+│   │   │   │   └── page.tsx    # Create form
+│   │   │   └── [id]/
+│   │   │       ├── page.tsx    # Detail with tabs
+│   │   │       └── edit/
+│   │   │           └── page.tsx
+│   │   ├── qmhq/               # QMHQ (Head Quarter) module
+│   │   │   ├── page.tsx        # List (card/table view)
+│   │   │   ├── new/
+│   │   │   │   ├── page.tsx    # Step 1: Select route type
+│   │   │   │   └── [route]/
+│   │   │   │       └── page.tsx # Step 2: Route-specific form
+│   │   │   └── [id]/
+│   │   │       ├── page.tsx    # Detail with tabs
+│   │   │       └── edit/
+│   │   ├── po/                 # Purchase Orders module
+│   │   │   ├── page.tsx        # List (card/table)
+│   │   │   ├── new/
+│   │   │   │   └── page.tsx    # Create form
+│   │   │   └── [id]/
+│   │   │       └── page.tsx    # Detail with tabs
+│   │   ├── invoice/            # Invoices module
+│   │   │   ├── page.tsx        # List (card/table)
+│   │   │   ├── new/
+│   │   │   │   └── page.tsx    # 4-step creation wizard
+│   │   │   └── [id]/
+│   │   │       └── page.tsx    # Detail with tabs
+│   │   ├── inventory/          # Inventory module
+│   │   │   ├── page.tsx        # Dashboard with KPIs
+│   │   │   ├── stock-in/
+│   │   │   │   └── page.tsx    # Stock in form
+│   │   │   └── stock-out/
+│   │   │       └── page.tsx    # Stock out form
+│   │   ├── warehouse/          # Warehouses module
+│   │   │   ├── page.tsx        # List with inline create
+│   │   │   └── [id]/
+│   │   │       └── page.tsx    # Detail with inventory tab
+│   │   └── item/               # Items module
+│   │       ├── page.tsx        # List with inline create
+│   │       └── [id]/
+│   │           └── page.tsx    # Detail with WAC, transactions
+│   ├── api/                    # API routes (server-side)
 │   │   ├── admin/
-│   │   │   └── invite-user/route.ts
-│   │   ├── auth/
-│   │   │   └── callback/route.ts
-│   │   └── upload/route.ts
-│   ├── auth/callback/route.ts    # Auth callback handler
-│   ├── layout.tsx                # Root layout (fonts, metadata, Toaster)
-│   ├── page.tsx                  # Root page (redirect to /login or /dashboard)
-│   └── globals.css               # Tailwind styles
-├── components/                   # Reusable React components
-│   ├── forms/
-│   │   └── inline-create-select.tsx  # Reusable select with [+] inline create
-│   ├── invoice/                      # Invoice-specific components
+│   │   │   └── invite-user/
+│   │   │       └── route.ts
+│   │   └── upload/
+│   │       └── route.ts
+│   ├── auth/
+│   │   └── callback/
+│   │       └── route.ts        # Magic link callback
+│   ├── layout.tsx              # Root layout
+│   ├── page.tsx                # Index redirect
+│   └── globals.css
+│
+├── components/                 # React components
+│   ├── ui/                     # Base UI primitives
+│   │   ├── button.tsx
+│   │   ├── input.tsx
+│   │   ├── select.tsx
+│   │   ├── label.tsx
+│   │   ├── card.tsx
+│   │   ├── badge.tsx
+│   │   ├── table.tsx
+│   │   ├── tabs.tsx
+│   │   ├── dialog.tsx
+│   │   ├── date-picker.tsx
+│   │   ├── textarea.tsx
+│   │   ├── skeleton.tsx
+│   │   ├── pagination.tsx
+│   │   ├── separator.tsx
+│   │   ├── dropdown-menu.tsx
+│   │   ├── popover.tsx
+│   │   ├── calendar.tsx
+│   │   ├── toast.tsx
+│   │   ├── toaster.tsx
+│   │   └── use-toast.tsx
+│   ├── layout/                 # Layout components
+│   │   ├── sidebar.tsx         # Navigation sidebar
+│   │   └── header.tsx          # Top header
+│   ├── tables/                 # Data table components
+│   │   └── data-table.tsx      # TanStack Table wrapper
+│   ├── forms/                  # Form components
+│   │   └── inline-create-select.tsx # Create status/category inline
+│   ├── providers/              # Context providers
+│   │   └── auth-provider.tsx   # User auth state
+│   ├── history/                # History/audit components
+│   │   └── history-tab.tsx     # Audit log timeline display
+│   ├── invoice/                # Invoice-specific components
 │   │   ├── invoice-card.tsx
 │   │   ├── invoice-line-items-table.tsx
 │   │   ├── invoice-po-selector.tsx
 │   │   ├── invoice-status-badge.tsx
 │   │   ├── invoice-summary-panel.tsx
 │   │   └── void-invoice-dialog.tsx
-│   ├── layout/                       # Shell layout components
-│   │   ├── header.tsx
-│   │   ├── sidebar.tsx
-│   │   └── index.ts
-│   ├── po/                           # PO-specific components
-│   │   ├── po-balance-panel.tsx
+│   ├── po/                     # PO-specific components
 │   │   ├── po-card.tsx
 │   │   ├── po-line-items-table.tsx
+│   │   ├── po-status-badge.tsx
 │   │   ├── po-progress-bar.tsx
-│   │   └── po-status-badge.tsx
-│   ├── providers/
-│   │   └── auth-provider.tsx         # Auth context provider
-│   ├── qmhq/
-│   │   └── transaction-dialog.tsx
-│   ├── tables/
-│   │   └── data-table.tsx            # Generic data table component
-│   └── ui/                           # Base UI primitives (Radix-based)
-│       ├── badge.tsx
-│       ├── button.tsx
-│       ├── calendar.tsx
-│       ├── card.tsx
-│       ├── date-picker.tsx
-│       ├── dialog.tsx
-│       ├── dropdown-menu.tsx
-│       ├── input.tsx
-│       ├── label.tsx
-│       ├── pagination.tsx
-│       ├── popover.tsx
-│       ├── select.tsx
-│       ├── separator.tsx
-│       ├── skeleton.tsx
-│       ├── table.tsx
-│       ├── tabs.tsx
-│       ├── textarea.tsx
-│       ├── toast.tsx
-│       ├── toaster.tsx
-│       ├── use-toast.tsx
-│       ├── index.ts
-│       └── [others...]
-├── lib/                          # Business logic and utilities
-│   ├── hooks/
-│   │   ├── use-permissions.ts    # Permission checking hook
-│   │   ├── use-search.ts         # Debounced search hook
-│   │   └── index.ts
-│   ├── supabase/
-│   │   ├── client.ts             # Browser Supabase client (singleton)
-│   │   ├── server.ts             # Server-side Supabase client
-│   │   └── middleware.ts         # Auth middleware for session refresh
-│   └── utils/
-│       ├── id-generator.ts       # QMRL-YYYY-NNNNN ID generation
-│       ├── inventory.ts          # Inventory calculation utilities
-│       ├── invoice-status.ts     # Invoice status helpers
-│       ├── po-status.ts          # PO status calculation
-│       ├── search.ts             # Text search helpers
-│       ├── index.ts
-│       └── [cn utility from clsx/tailwind-merge]
-├── types/
-│   ├── database.ts               # Auto-generated from Supabase schema
-│   └── index.ts                  # Re-exports + common types
-├── supabase/                     # Supabase migrations and config
-│   └── migrations/               # SQL migration files
-│       ├── 001_departments.sql
-│       ├── 002_users.sql
-│       ├── ... (up to 019_rls_policies.sql)
-├── public/                       # Static assets
-├── .env.local                    # Environment variables (local)
-├── .env.local.example            # Environment template
-├── middleware.ts                 # Next.js middleware for auth
-├── next.config.mjs               # Next.js configuration
-├── tailwind.config.ts            # Tailwind CSS config
-├── tsconfig.json                 # TypeScript config
-├── package.json                  # Dependencies
-└── .prettierrc                   # Prettier config
+│   │   └── po-balance-panel.tsx
+│   └── qmhq/                   # QMHQ-specific components
+│       └── transaction-dialog.tsx
+│
+├── lib/                        # Utility functions and hooks
+│   ├── supabase/               # Supabase client instances
+│   │   ├── client.ts           # Browser client (singleton)
+│   │   ├── server.ts           # Server client (per-request)
+│   │   └── middleware.ts       # Session update function
+│   ├── hooks/                  # Custom React hooks
+│   │   ├── index.ts
+│   │   ├── use-permissions.ts  # Permission checking with matrix
+│   │   └── use-search.ts       # Debounced search
+│   ├── utils/                  # Utility functions
+│   │   ├── index.ts            # cn(), formatCurrency(), etc.
+│   │   ├── id-generator.ts     # Generate QMRL-YYYY-NNNNN format IDs
+│   │   ├── po-status.ts        # PO status calculation & display
+│   │   ├── invoice-status.ts   # Invoice status calculations
+│   │   ├── inventory.ts        # Inventory helpers
+│   │   └── search.ts           # Text search utilities
+│   └── validations/            # Zod schemas (not yet created)
+│
+├── types/                      # TypeScript types
+│   ├── index.ts                # Re-exports, API types
+│   └── database.ts             # Supabase generated types
+│
+├── supabase/                   # Database and functions
+│   ├── migrations/             # SQL migrations (001-027)
+│   │   ├── 001_departments.sql
+│   │   ├── 002_users.sql
+│   │   ├── 003_status_config.sql
+│   │   ├── 004_categories.sql
+│   │   ├── 005-008_master_data.sql
+│   │   ├── 009_qmrl.sql
+│   │   ├── 011_qmhq.sql
+│   │   ├── 015_purchase_orders.sql
+│   │   ├── 021_invoices.sql
+│   │   ├── 023_inventory_transactions.sql
+│   │   ├── 025_audit_logs.sql
+│   │   ├── 026_audit_triggers.sql
+│   │   └── 027_rls_policies.sql
+│   └── functions/              # Edge Functions (if any)
+│
+├── .planning/                  # GSD planning documents
+│   └── codebase/
+│       ├── ARCHITECTURE.md
+│       ├── STRUCTURE.md
+│       ├── CONVENTIONS.md
+│       └── TESTING.md
+│
+├── middleware.ts               # Next.js middleware (auth)
+├── next.config.mjs
+├── tsconfig.json               # Path aliases: @/*, @/components/*, @/lib/*, etc.
+├── tailwind.config.ts          # Dark theme configuration
+├── package.json
+├── CLAUDE.md                   # Project guidelines
+└── PRD.md                      # Product requirements
 ```
 
 ## Directory Purposes
 
-**`app/(auth)`:**
-- Purpose: Public authentication routes
-- Contains: Login page, auth callback
-- Key files: `login/page.tsx`
+**app/:**
+- Next.js App Router directory
+- All routes defined here
+- Server Components by default, marked with `"use client"` where interactivity needed
+- Organized by feature (qmrl/, qmhq/, po/, etc.)
 
-**`app/(dashboard)`:**
-- Purpose: Protected authenticated routes
-- Contains: All business logic pages (QMRL, QMHQ, PO, Invoice, Inventory)
-- Layout: Wrapped with Sidebar, Header, AuthProvider
+**app/(auth):**
+- Public routes for login
+- No sidebar layout
+- Auth callback route handles magic link processing
 
-**`app/api`:**
-- Purpose: Backend API routes (serverless functions)
-- Contains: User invitation, auth callback, file upload
-- Key files: `admin/invite-user/route.ts`, `auth/callback/route.ts`
+**app/(dashboard):**
+- Protected routes (checked by middleware)
+- All wrapped by dashboard layout with sidebar + header
+- Uses `AuthProvider` for user context
+- Force dynamic rendering to prevent static prerendering issues
 
-**`components/ui`:**
-- Purpose: Base UI components built with Radix UI
-- Contains: Button, Input, Select, Dialog, Tabs, Badge, etc.
-- Pattern: Unstyled Radix primitives styled with Tailwind
+**components/ui/:**
+- Headless, reusable UI primitives
+- Built on Radix UI foundations
+- Styled with Tailwind CSS
+- Use class-variance-authority for variants
 
-**`components/layout`:**
-- Purpose: Shell layout components
-- Contains: Sidebar (navigation), Header (user menu, breadcrumbs)
-- Uses: Permission checking to show role-based nav items
+**components/[feature]/:**
+- Feature-specific components (invoice/, po/, qmhq/)
+- Cards, tables, dialogs, badges specific to that module
+- Composed from UI primitives
 
-**`components/[feature]`:**
-- Purpose: Feature-specific components (invoice, po, qmhq, forms)
-- Pattern: Co-locate related components together
-- Examples: `invoice-card.tsx`, `po-progress-bar.tsx`, `inline-create-select.tsx`
+**lib/supabase/:**
+- Supabase client configuration
+- Two instances: browser (singleton) and server (per-request)
+- Middleware for session token refresh
 
-**`lib/supabase`:**
-- Purpose: Supabase client initialization
-- Pattern: Singleton clients to avoid recreating connections
-- Middleware: Handles auth session refresh on every request
+**lib/hooks/:**
+- Custom React hooks
+- `usePermissions()` for RBAC checks
+- `useSearch()` for debounced search
+- All must be client components (`"use client"`)
 
-**`lib/hooks`:**
-- Purpose: Reusable React hooks
-- Key hooks: `usePermissions()` for access control, `useSearch()` for debounced search
+**lib/utils/:**
+- Pure functions (no state, no side effects)
+- `id-generator.ts`: Generate QMRL-YYYY-NNNNN style IDs
+- `po-status.ts`: Status calculation and display configs
+- `invoice-status.ts`: Invoice status helpers
+- `search.ts`: Text search logic
 
-**`lib/utils`:**
-- Purpose: Pure utility functions
-- Examples: PO status calculation, ID generation, search filtering
+**types/:**
+- `database.ts`: Generated from Supabase schema, defines all tables/enums
+- `index.ts`: Re-exports commonly used types, adds API response types
+- Import from `@/types` not `@/types/database`
 
-**`types`:**
-- Purpose: TypeScript type definitions
-- database.ts: Auto-generated from Supabase schema
-- index.ts: Re-exports + application-wide types (FinancialAmount, AuditFields)
+**supabase/migrations/:**
+- Numbered SQL files (001, 002, etc.)
+- Run in sequence during `supabase db reset`
+- Contains: table definitions, triggers, functions, RLS policies, seed data
+- 27 migrations from init through Iteration 10 (Audit, RLS, Polish)
 
 ## Key File Locations
 
 **Entry Points:**
-- `app/layout.tsx` - Root layout, fonts, metadata
-- `app/page.tsx` - Root page redirect
-- `app/(dashboard)/layout.tsx` - Dashboard shell with auth check
-- `middleware.ts` - Auth session middleware
+- `app/page.tsx`: Root index, redirects to login/dashboard
+- `app/(auth)/login/page.tsx`: Login form
+- `app/auth/callback/route.ts`: Magic link handler
+- `app/(dashboard)/layout.tsx`: Dashboard shell entry point
 
 **Configuration:**
-- `next.config.mjs` - Next.js build config
-- `tailwind.config.ts` - Design tokens, animations
-- `tsconfig.json` - Path aliases (`@/*` → `./`)
-- `.env.local` - Supabase URL, keys
+- `tsconfig.json`: Path aliases (@/*, @/components/*, etc.)
+- `tailwind.config.ts`: Dark theme, design tokens
+- `middleware.ts`: Auth middleware, session refresh
+- `.env.local.example`: Required environment variables
 
 **Core Logic:**
-- `lib/supabase/client.ts` - Browser Supabase client
-- `lib/supabase/server.ts` - Server Supabase client
-- `lib/supabase/middleware.ts` - Auth middleware
-- `lib/hooks/use-permissions.ts` - Permission matrix + access control
-- `lib/utils/po-status.ts` - PO status calculation
+- `lib/hooks/use-permissions.ts`: Permission matrix, role-based checks
+- `lib/utils/po-status.ts`: Smart PO status calculation
+- `lib/supabase/client.ts`: Browser client singleton
+- `lib/supabase/server.ts`: Server client per-request instance
+- `components/providers/auth-provider.tsx`: User context with session timeout
 
-**Testing & Examples:**
-- None currently (testing framework not yet implemented)
+**Testing (if implemented):**
+- Typically `*.test.ts` or `*.spec.ts` files co-located with tested code
+- Not yet configured (no jest.config.js found)
 
 ## Naming Conventions
 
 **Files:**
-- Page components: `page.tsx` (Next.js convention)
-- Components: `kebab-case.tsx` (e.g., `invoice-card.tsx`)
-- Hooks: `use-[name].ts` (e.g., `use-permissions.ts`)
-- Utils: `kebab-case.ts` (e.g., `po-status.ts`)
-- Styles: Tailwind classes (no separate CSS files)
-- Types: `database.ts`, `index.ts` in types folder
+- Page routes: `page.tsx` (no dashes for routes, handled by Next.js)
+- Components: PascalCase (e.g., `InlineCreateSelect.tsx`, `DataTable.tsx`)
+- Utilities: kebab-case (e.g., `po-status.ts`, `id-generator.ts`)
+- Hooks: `use-` prefix, kebab-case (e.g., `use-permissions.ts`)
+- API routes: kebab-case with `.ts` extension (e.g., `invite-user/route.ts`)
 
 **Directories:**
-- Feature folders: lowercase (e.g., `qmrl`, `inventory`)
-- Component categories: lowercase (e.g., `ui`, `forms`, `layout`)
-- Grouped routes: parentheses (e.g., `(auth)`, `(dashboard)`)
+- Feature modules: kebab-case (e.g., `/stock-in`, `/invoice`, `/po`)
+- Grouped routes: parentheses for layout grouping (e.g., `(auth)`, `(dashboard)`)
+- Config: lowercase (e.g., `/lib/supabase`, `/lib/hooks`, `/lib/utils`)
 
-**Component Names:**
-- PascalCase in code, same as export name
-- Examples: `<InlineCreateSelect />`, `<DataTable />`, `<Sidebar />`
+**TypeScript:**
+- Types: PascalCase (e.g., `User`, `QMRL`, `QMRLWithRelations`)
+- Enums: PascalCase (e.g., `UserRole`, `POStatusEnum`)
+- Constants: UPPER_SNAKE_CASE (e.g., `SESSION_TIMEOUT_MS`, `ACTIVITY_KEY`)
+- Functions: camelCase (e.g., `hasPermission()`, `calculatePOProgress()`)
+- React components: PascalCase (e.g., `function QMRLPage() {}`)
+- Props interfaces: `ComponentNameProps` (e.g., `DataTableProps<TData>`)
 
-**Variables & Functions:**
-- camelCase for variables and functions
-- Examples: `fetchReferenceData()`, `selectedContactPerson`, `formData`
-- Constants: SCREAMING_SNAKE_CASE (e.g., `PO_STATUS_CONFIG`)
+**CSS:**
+- Tailwind classes only (no custom CSS files except globals)
+- Utility class patterns: `px-4 py-2`, `text-slate-400`, `bg-slate-500/10`
+- Dark theme prefix: all styles already dark-mode compatible
 
 ## Where to Add New Code
 
-**New Feature (e.g., new module like QMRL):**
-- Primary code: `app/(dashboard)/[feature]/` (create directory)
-  - Create `page.tsx` for list
-  - Create `new/page.tsx` for create form
-  - Create `[id]/page.tsx` for detail
-  - Create `[id]/edit/page.tsx` for edit
-- Components: `components/[feature]/` if multi-file components needed
-- Utilities: `lib/utils/[feature].ts` for calculations or helpers
-- Tests: Create `__tests__` folder in feature directory (future)
+**New Feature (e.g., new module like "Reports"):**
+- Create directory: `app/(dashboard)/reports/`
+- Add routes: `page.tsx` (list), `new/page.tsx` (create), `[id]/page.tsx` (detail)
+- Add components: `components/reports/` for report-specific cards/tables
+- Add database tables: `supabase/migrations/0XX_reports.sql`
+- Add types: Update `types/database.ts` with generated types
+- Add permissions: Update `lib/hooks/use-permissions.ts` permission matrix
+- Add RLS: Add policies in `supabase/migrations/027_rls_policies.sql` or new migration
 
-**New UI Component:**
-- Location: `components/ui/[component].tsx`
-- Pattern: Follow Radix UI + Tailwind pattern from existing components
-- Must export component and include TypeScript types
-- Add to `components/ui/index.ts` for easy imports
-
-**New Reusable Component:**
-- Location: `components/[category]/[name].tsx`
-- Category examples: `forms/`, `tables/`, `invoice/`, `po/`
-- Must be standalone and accept props for configuration
-- Co-locate related components in same directory
-
-**New Hook:**
-- Location: `lib/hooks/use-[name].ts`
-- Pattern: Export named hook function
-- Add to `lib/hooks/index.ts`
-- Should be pure logic (no direct Supabase calls unless data-fetching hook)
+**New Component/Module:**
+- If reusable UI primitive → `components/ui/`
+- If feature-specific → `components/[feature-name]/`
+- If layout → `components/layout/`
+- If provider/context → `components/providers/`
+- If table/form → `components/tables/` or `components/forms/`
 
 **New Utility Function:**
-- Location: `lib/utils/[name].ts`
-- Pattern: Pure functions, no side effects
-- Examples: Calculations, formatters, validators
-- Add to `lib/utils/index.ts` if commonly used
+- General utility → `lib/utils/index.ts`
+- Feature-specific calculation → `lib/utils/[feature-name].ts` (e.g., `po-status.ts`)
+- Search/filter → `lib/utils/search.ts`
+- ID generation → `lib/utils/id-generator.ts`
 
-**New Database Schema:**
-- Location: `supabase/migrations/NNN_[name].sql`
-- Pattern: Sequential numbering (001, 002, etc.)
-- Must include: id (uuid), created_at, updated_at, is_active fields
-- Run: `npx supabase db push`
+**New Custom Hook:**
+- General → `lib/hooks/index.ts`
+- Permission-related → `lib/hooks/use-permissions.ts`
+- Search-related → `lib/hooks/use-search.ts`
+- New feature hooks → `lib/hooks/use-[feature].ts`
 
-**New Page:**
-- Location: `app/(dashboard)/[route]/page.tsx`
-- If part of existing feature: `app/(dashboard)/[feature]/[subroute]/page.tsx`
-- Always a client component (`"use client"`) for interactivity
-- Pattern: Fetch data in useEffect, render UI, handle forms
+**New Database Table:**
+- Create migration: `supabase/migrations/0XX_[feature].sql`
+- Include: table creation, indexes, audit fields, soft delete flag
+- Add types: Run `npx supabase gen types` to update `types/database.ts`
+- Add RLS: Add policies in migrations or 027_rls_policies.sql
 
 ## Special Directories
 
-**`/public`:**
-- Purpose: Static assets
-- Generated: No
+**app/api/:**
+- Backend API routes (server-side only)
+- Use server client for auth validation
+- Check permissions before executing
+- Typically for admin operations requiring service role key
+- Pattern: Verify current user role, execute operation, return response with error handling
+
+**supabase/migrations/:**
+- Generated: No, manually created
+- Committed: Yes, tracked in git
+- Runs sequentially during `supabase db reset`
+- Must never modify migration files after deployment
+- New changes → create new migration file
+
+**types/:**
+- Generated: `database.ts` generated from schema, check into git
 - Committed: Yes
-- Access: Via `/[filename]` in URLs
+- Regenerate with: `npx supabase gen types typescript --project-id YOUR_ID > types/database.ts`
+- Manually edit `index.ts` to re-export and add custom types
 
-**`/.next`:**
-- Purpose: Build output
-- Generated: Yes (by `npm run build`)
-- Committed: No (in `.gitignore`)
-
-**`/node_modules`:**
-- Purpose: Dependencies
-- Generated: Yes (by `npm install`)
-- Committed: No (in `.gitignore`)
-
-**`/supabase`:**
-- Purpose: Supabase config and migrations
-- Generated: Migrations generated by `npx supabase migration new`
-- Committed: Yes
-
-**`/.planning/codebase`:**
-- Purpose: GSD codebase mapping documents
-- Generated: By GSD mapping command
-- Committed: Yes
+**.planning/codebase/:**
+- Generated: No, created by GSD mapping commands
+- Committed: Yes, checked into git
+- Purpose: Architecture documentation for Claude agents
+- Contains: ARCHITECTURE.md, STRUCTURE.md, CONVENTIONS.md, TESTING.md, CONCERNS.md
 
 ---
 
-*Structure analysis: 2026-01-26*
+*Structure analysis: 2026-01-27*

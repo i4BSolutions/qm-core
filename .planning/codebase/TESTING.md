@@ -1,598 +1,416 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-01-26
+**Analysis Date:** 2026-01-27
 
 ## Test Framework
 
-**Runner:**
-- Not configured/not used
+**Status:** No test infrastructure currently implemented
 
-**Assertion Library:**
-- Not configured/not used
+**Testing Gap:** The project has NOT established a test framework yet. This is a significant gap for quality assurance. The codebase is production-ready (Iteration 10 complete) but lacks test coverage.
 
-**Run Commands:**
+**Recommended Setup:**
+- Framework: Vitest or Jest (both work with Next.js)
+- Runner: Vitest recommended for speed with Next.js App Router
+- Assertion library: Vitest built-in or Chai
+- UI testing: Playwright or Testing Library for component/E2E tests
+- Mocking: Vitest's `vi` or Jest mocks
+
+**Run Commands (to implement):**
 ```bash
-npm run test              # Not configured
-npm run test:watch       # Not configured
-npm run test:coverage    # Not configured
+npm run test              # Run all tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # Coverage report
 ```
 
-## Current State
+## Test File Organization
 
-**No formal test infrastructure exists** in this codebase. There are:
-- No test files in `/app`, `/components`, or `/lib` directories
-- No Jest or Vitest configuration
-- No test scripts in `package.json`
-- No test dependencies installed
+**Recommended Location:**
+- Co-located pattern: `[component].test.tsx` next to component file
+- Alternative: `__tests__/` directory at same level
 
-Only development dependencies related to code quality are configured:
-- ESLint (linting)
-- Prettier (formatting)
-- TypeScript (type checking)
+**Recommended Naming:**
+- Unit tests: `[module].test.ts` or `[module].spec.ts`
+- Component tests: `[Component].test.tsx`
+- Integration tests: `[feature].integration.test.ts`
+- E2E tests: Separate `/e2e` directory with `.spec.ts` files
 
-## Recommended Testing Approach
-
-While no tests currently exist, this section describes the **recommended testing strategy** for implementing tests in this Next.js 14 application.
-
-### Test File Organization
-
-**Location Pattern:**
-- Co-located with source files
-- `.test.ts` or `.test.tsx` suffix
-
-**Directory Structure:**
+**Example Structure (to implement):**
 ```
-/lib
-  /hooks
-    use-permissions.ts
-    use-permissions.test.ts
-  /utils
-    po-status.ts
-    po-status.test.ts
-
 /components
   /ui
     button.tsx
-    button.test.tsx
-  /forms
-    inline-create-select.tsx
-    inline-create-select.test.tsx
+    button.test.tsx         # Co-located test
+    input.tsx
+    input.test.tsx
+  /providers
+    auth-provider.tsx
+    auth-provider.test.tsx
+
+/lib
+  /utils
+    __tests__/
+      id-generator.test.ts
+      po-status.test.ts
+      invoice-status.test.ts
 ```
 
-**Test File Naming:**
-- Unit test file: `component.test.tsx` or `utility.test.ts`
-- Integration test file: `feature.integration.test.tsx`
+## Test Structure
 
-### Recommended Framework
-
-**Suggested Stack:**
-- **Test Runner:** Vitest (faster, better TypeScript support)
-- **Testing Library:** React Testing Library (for components)
-- **Utilities:** @testing-library/user-event, @testing-library/jest-dom
-
-**Why Vitest:**
-- Faster than Jest for Next.js 14
-- Better TypeScript support
-- ESM-compatible with Next.js
-- Simpler configuration
-
-### Unit Test Patterns
-
-**Utility Functions:**
+**Recommended Suite Organization (based on codebase patterns):**
 
 ```typescript
-// lib/utils/index.ts
+// Example: lib/utils/id-generator.test.ts
 import { describe, it, expect } from "vitest";
-import { calculateEUSD, formatCurrency, formatAmount } from "./index";
+import { generateId, parseId, isValidId, formatSequence } from "./id-generator";
 
-describe("Currency utilities", () => {
-  describe("calculateEUSD", () => {
-    it("calculates EUSD correctly from amount and exchange rate", () => {
-      expect(calculateEUSD(1000, 2500)).toBe(0.4);
+describe("ID Generator", () => {
+  describe("generateId", () => {
+    it("should generate formatted ID with current year", () => {
+      const id = generateId("QMRL", 1);
+      expect(id).toMatch(/^QMRL-\d{4}-00001$/);
     });
 
-    it("returns 0 for zero or negative exchange rate", () => {
-      expect(calculateEUSD(1000, 0)).toBe(0);
-      expect(calculateEUSD(1000, -1)).toBe(0);
+    it("should generate formatted ID with specific year", () => {
+      const id = generateId("PO", 123, 2024);
+      expect(id).toBe("PO-2024-00123");
     });
 
-    it("handles floating point precision", () => {
-      expect(calculateEUSD(3999.99, 2500)).toBe(1.6);
-    });
-  });
-
-  describe("formatCurrency", () => {
-    it("formats number with thousand separators", () => {
-      expect(formatCurrency(1234.56)).toBe("1,234.56");
-    });
-
-    it("respects decimal places parameter", () => {
-      expect(formatCurrency(1234.5, 2)).toBe("1,234.50");
-      expect(formatCurrency(1234.567, 4)).toBe("1,234.5670");
-    });
-  });
-});
-```
-
-**Hooks:**
-
-```typescript
-// lib/hooks/use-permissions.test.ts
-import { describe, it, expect, beforeEach } from "vitest";
-import { hasPermission, getPermissions, canAccessRoute } from "./use-permissions";
-
-describe("Permission utilities", () => {
-  describe("hasPermission", () => {
-    it("returns true for admin with any action on any resource", () => {
-      expect(hasPermission("admin", "create", "qmrl")).toBe(true);
-      expect(hasPermission("admin", "delete", "invoices")).toBe(true);
-    });
-
-    it("respects role-based permissions", () => {
-      expect(hasPermission("finance", "read", "invoices")).toBe(true);
-      expect(hasPermission("finance", "create", "invoices")).toBe(true);
-      expect(hasPermission("requester", "read", "invoices")).toBe(false);
-    });
-
-    it("returns false for null role", () => {
-      expect(hasPermission(null, "create", "qmrl")).toBe(false);
+    it("should pad sequence number to 5 digits", () => {
+      const id = generateId("INV", 5);
+      expect(id).toMatch(/-00005$/);
     });
   });
 
-  describe("canAccessRoute", () => {
-    it("allows requester to access /qmrl routes", () => {
-      expect(canAccessRoute("requester", "/qmrl")).toBe(true);
-      expect(canAccessRoute("requester", "/qmrl/new")).toBe(true);
+  describe("parseId", () => {
+    it("should parse valid ID string", () => {
+      const parsed = parseId("QMRL-2025-00001");
+      expect(parsed).toEqual({
+        prefix: "QMRL",
+        year: 2025,
+        sequence: 1,
+      });
     });
 
-    it("prevents requester from accessing /invoice routes", () => {
-      expect(canAccessRoute("requester", "/invoice")).toBe(false);
+    it("should return null for invalid format", () => {
+      expect(parseId("INVALID-FORMAT")).toBeNull();
+    });
+  });
+
+  describe("isValidId", () => {
+    it("should validate correct format", () => {
+      expect(isValidId("QMRL-2025-00001")).toBe(true);
     });
 
-    it("returns false for null role", () => {
-      expect(canAccessRoute(null, "/dashboard")).toBe(false);
+    it("should check prefix when specified", () => {
+      expect(isValidId("QMRL-2025-00001", "QMRL")).toBe(true);
+      expect(isValidId("QMRL-2025-00001", "PO")).toBe(false);
     });
   });
 });
 ```
 
-**Status Utilities:**
+**Patterns:**
+- Use `describe()` to group related tests
+- Use nested `describe()` for organization by function/feature
+- Clear test names: `should [expected behavior] [when condition]`
+- Arrange-Act-Assert pattern implied by test name
+- One assertion per test typically (or related assertions)
 
+## Mocking
+
+**Framework:** Vitest's `vi` mock utilities (when implemented)
+
+**Patterns to Implement:**
+
+**Pattern 1 - Mock Supabase Client:**
 ```typescript
-// lib/utils/po-status.test.ts
-import { describe, it, expect } from "vitest";
-import {
-  calculatePOProgress,
-  canEditPO,
-  canCreateInvoice,
-  getStatusHexColor,
-} from "./po-status";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { createClient } from "@/lib/supabase/client";
 
-describe("PO Status utilities", () => {
-  describe("calculatePOProgress", () => {
-    it("calculates progress percentages correctly", () => {
-      const result = calculatePOProgress(100, 50, 30);
-      expect(result.invoicedPercent).toBe(50);
-      expect(result.receivedPercent).toBe(30);
-    });
+vi.mock("@/lib/supabase/client");
 
-    it("caps at 100 percent", () => {
-      const result = calculatePOProgress(100, 150, 200);
-      expect(result.invoicedPercent).toBe(100);
-      expect(result.receivedPercent).toBe(100);
-    });
-
-    it("returns 0 for zero total", () => {
-      const result = calculatePOProgress(0, 0, 0);
-      expect(result.invoicedPercent).toBe(0);
-      expect(result.receivedPercent).toBe(0);
-    });
-  });
-
-  describe("canEditPO", () => {
-    it("allows editing of not_started POs", () => {
-      expect(canEditPO("not_started")).toBe(true);
-    });
-
-    it("prevents editing of closed POs", () => {
-      expect(canEditPO("closed")).toBe(false);
-    });
-
-    it("prevents editing of cancelled POs", () => {
-      expect(canEditPO("cancelled")).toBe(false);
-    });
-  });
-
-  describe("canCreateInvoice", () => {
-    it("allows invoice creation for non-closed, non-cancelled, non-awaiting status", () => {
-      expect(canCreateInvoice("not_started")).toBe(true);
-      expect(canCreateInvoice("partially_invoiced")).toBe(true);
-    });
-
-    it("prevents invoice creation for awaiting_delivery", () => {
-      expect(canCreateInvoice("awaiting_delivery")).toBe(false);
-    });
-  });
-});
-```
-
-### Component Test Patterns
-
-**UI Component:**
-
-```typescript
-// components/ui/badge.test.tsx
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { Badge } from "./badge";
-
-describe("Badge", () => {
-  it("renders with default variant", () => {
-    render(<Badge>Test Badge</Badge>);
-    expect(screen.getByText("Test Badge")).toBeInTheDocument();
-  });
-
-  it("applies variant class", () => {
-    const { container } = render(<Badge variant="destructive">Error</Badge>);
-    const badge = container.querySelector("div");
-    expect(badge).toHaveClass("bg-red-600");
-  });
-
-  it("supports custom className", () => {
-    const { container } = render(
-      <Badge className="custom-class">Custom</Badge>
-    );
-    const badge = container.querySelector("div");
-    expect(badge).toHaveClass("custom-class");
-  });
-});
-```
-
-**Form Component with State:**
-
-```typescript
-// components/forms/inline-create-select.test.tsx
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { InlineCreateSelect } from "./inline-create-select";
-
-describe("InlineCreateSelect", () => {
-  const mockOptions = [
-    { id: "1", name: "Option 1", color: "#3B82F6" },
-    { id: "2", name: "Option 2", color: "#10B981" },
-  ];
-
-  const defaultProps = {
-    value: "",
-    onValueChange: vi.fn(),
-    options: mockOptions,
-    onOptionsChange: vi.fn(),
-    entityType: "qmrl" as const,
-    createType: "category" as const,
-  };
-
-  it("renders with placeholder text", () => {
-    render(<InlineCreateSelect {...defaultProps} placeholder="Select..." />);
-    expect(screen.getByText("Select...")).toBeInTheDocument();
-  });
-
-  it("displays selected option", () => {
-    render(<InlineCreateSelect {...defaultProps} value="1" />);
-    expect(screen.getByText("Option 1")).toBeInTheDocument();
-  });
-
-  it("opens popover on button click", async () => {
-    render(<InlineCreateSelect {...defaultProps} />);
-    const trigger = screen.getByRole("button");
-    fireEvent.click(trigger);
-
-    await waitFor(() => {
-      expect(screen.getByText("Option 1")).toBeInTheDocument();
-    });
-  });
-
-  it("calls onValueChange when option selected", async () => {
-    const onValueChange = vi.fn();
-    render(
-      <InlineCreateSelect
-        {...defaultProps}
-        onValueChange={onValueChange}
-      />
-    );
-
-    const trigger = screen.getByRole("button");
-    fireEvent.click(trigger);
-
-    await waitFor(() => {
-      const option = screen.getByText("Option 1");
-      fireEvent.click(option);
-    });
-
-    expect(onValueChange).toHaveBeenCalledWith("1");
-  });
-
-  it("shows creation form when [+] clicked", async () => {
-    render(<InlineCreateSelect {...defaultProps} />);
-    const createButton = screen.getByTitle(/Create new/);
-    fireEvent.click(createButton);
-
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/Enter category name/)).toBeInTheDocument();
-    });
-  });
-});
-```
-
-### Integration Test Patterns
-
-**Page with Data Loading:**
-
-```typescript
-// app/(dashboard)/admin/categories/page.test.tsx
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import CategoriesPage from "./page";
-
-// Mock Supabase client
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: vi.fn(() => ({
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          order: vi.fn(() => ({
-            then: vi.fn(),
-          })),
-        })),
-      })),
-    })),
-  })),
-}));
-
-describe("Categories Page", () => {
+describe("Supabase operations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("renders page title", async () => {
-    render(<CategoriesPage />);
-    expect(screen.getByText("Category Management")).toBeInTheDocument();
-  });
+  it("should fetch data on success", async () => {
+    const mockData = [{ id: "1", name: "Test" }];
+    vi.mocked(createClient).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: mockData, error: null }),
+        }),
+      }),
+    } as any);
 
-  it("loads and displays categories", async () => {
-    render(<CategoriesPage />);
-
-    await waitFor(() => {
-      // Component should render after data loads
-      expect(screen.queryByText(/Category Management/)).toBeInTheDocument();
-    });
-  });
-});
-```
-
-### Error Testing Patterns
-
-**Async Error Handling:**
-
-```typescript
-// Test error handling in components
-it("shows error toast on failed submission", async () => {
-  const mockError = new Error("Failed to create category");
-  vi.mocked(createClient).mockReturnValueOnce({
-    from: vi.fn(() => ({
-      insert: vi.fn(() => ({
-        select: vi.fn(() => ({
-          single: vi.fn().mockRejectedValueOnce(mockError),
-        })),
-      })),
-    })),
-  });
-
-  render(<CategoryDialog open={true} onClose={vi.fn()} category={null} />);
-
-  // Fill form and submit
-  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Test" } });
-  fireEvent.click(screen.getByText("Create"));
-
-  await waitFor(() => {
-    expect(screen.getByText(/Failed to create category/)).toBeInTheDocument();
+    // Test code using mocked client
   });
 });
 ```
 
-### Fixture and Factory Patterns
-
-**Test Fixtures:**
-
+**Pattern 2 - Mock React Hooks:**
 ```typescript
-// tests/fixtures/categories.ts
-import type { Category } from "@/types/database";
+import { describe, it, expect, vi } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import { usePermissions } from "@/lib/hooks";
 
-export const mockCategory: Category = {
-  id: "cat-1",
-  name: "Operations",
-  entity_type: "qmrl",
-  color: "#3B82F6",
-  display_order: 1,
-  description: "Test category",
-  is_active: true,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
+vi.mock("@/components/providers/auth-provider", () => ({
+  useUserRole: () => "admin",
+}));
+
+describe("usePermissions", () => {
+  it("should check admin permissions", () => {
+    const { result } = renderHook(() => usePermissions());
+    expect(result.current.can("create", "qmrl")).toBe(true);
+  });
+});
+```
+
+**Pattern 3 - Mock Context:**
+```typescript
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// In test
+const mockAuthValue = {
+  user: { id: "123", role: "admin" },
+  isLoading: false,
+  error: null,
+  signOut: vi.fn(),
+  refreshUser: vi.fn(),
 };
 
-export const createMockCategory = (overrides: Partial<Category> = {}): Category => ({
-  ...mockCategory,
+// Wrap component in provider with mock value
+```
+
+**What to Mock:**
+- External API calls (Supabase)
+- Authentication/Context providers
+- Date/time functions (for deterministic tests)
+- Browser APIs (localStorage, sessionStorage)
+- Expensive computations
+
+**What NOT to Mock:**
+- Utility functions (id-generator, formatters)
+- Status/permission configuration objects
+- Type conversions and helpers
+- Component rendering logic (test real components)
+
+## Fixtures and Factories
+
+**Test Data Pattern (to implement):**
+
+```typescript
+// lib/utils/__tests__/fixtures/qmrl.fixtures.ts
+import type { QMRL, StatusConfig } from "@/types/database";
+
+export const createMockQMRL = (overrides?: Partial<QMRL>): QMRL => ({
+  id: "uuid-1",
+  request_id: "QMRL-2025-00001",
+  title: "Test Request",
+  description: "Test description",
+  priority: "medium",
+  status_id: "status-1",
+  category_id: "category-1",
+  assigned_to: "user-1",
+  requester_id: "user-2",
+  department_id: "dept-1",
+  is_active: true,
+  created_at: "2025-01-27T00:00:00Z",
+  updated_at: "2025-01-27T00:00:00Z",
+  created_by: "user-1",
+  updated_by: "user-1",
+  request_date: "2025-01-27",
+  notes: null,
+  ...overrides,
+});
+
+export const createMockStatusConfig = (overrides?: Partial<StatusConfig>): StatusConfig => ({
+  id: "status-1",
+  entity_type: "qmrl",
+  status_group: "to_do",
+  name: "Draft",
+  color: "#9CA3AF",
+  display_order: 1,
+  is_default: true,
+  is_active: true,
+  created_at: "2025-01-01T00:00:00Z",
+  updated_at: "2025-01-01T00:00:00Z",
   ...overrides,
 });
 ```
 
-**Factory Pattern:**
-
+**Usage in Tests:**
 ```typescript
-// tests/factories/po.ts
-import type { PurchaseOrder } from "@/types/database";
+it("should display draft status", () => {
+  const qmrl = createMockQMRL({ status_id: "draft" });
+  const status = createMockStatusConfig({ name: "Draft" });
 
-export function createMockPO(
-  overrides: Partial<PurchaseOrder> = {}
-): PurchaseOrder {
-  return {
-    id: "po-1",
-    po_number: "PO-2025-00001",
-    status: "not_started",
-    total_amount: 10000,
-    currency: "MMK",
-    exchange_rate: 2500,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    ...overrides,
-  };
-}
+  // Use in test
+});
+
+it("should handle different priorities", () => {
+  ["low", "medium", "high", "critical"].forEach((priority) => {
+    const qmrl = createMockQMRL({ priority: priority as any });
+    // Test with each priority
+  });
+});
 ```
+
+**Location:**
+- `lib/utils/__tests__/fixtures/` for data fixtures
+- `lib/utils/__tests__/factories/` for factory functions
+- Shared fixtures available to all test suites
 
 ## Coverage
 
-**Requirements:** None currently enforced
+**Current Status:** 0% - No test infrastructure
 
-**Recommended Target:**
-- Utilities: 100% coverage
-- Hooks: 90%+ coverage
-- Components: 80%+ coverage (focus on logic, less on rendering)
-- Pages: Integration test coverage
+**Recommended Target:** 70%+ for business logic, 50%+ for UI components
 
-**View Coverage:**
+**Critical Areas to Test (Priority Order):**
+1. ID generation (`lib/utils/id-generator.ts`) - 100% coverage required
+2. Status calculations (`lib/utils/po-status.ts`, `lib/utils/invoice-status.ts`)
+3. Financial calculations (`lib/utils/index.ts` - EUSD, formatting)
+4. Permission checks (`lib/hooks/use-permissions.ts`)
+5. Auth provider state management (`components/providers/auth-provider.tsx`)
+6. Form validation and submission flows
+
+**View Coverage (to implement):**
 ```bash
-# After Vitest setup
 npm run test:coverage
+# Generates coverage report in ./coverage directory
 ```
 
 ## Test Types
 
 **Unit Tests:**
 - Scope: Individual functions and utilities
-- Approach: Test input/output with various scenarios
-- Examples: `calculateEUSD`, `formatCurrency`, `hasPermission`, `canEditPO`
-- Dependencies mocked
+- Examples to implement:
+  - `id-generator.test.ts`: All ID format variations
+  - `po-status.test.ts`: All status calculation scenarios
+  - `utils/index.test.ts`: All formatters (currency, EUSD, dates)
+  - `use-permissions.test.ts`: Permission matrix checks
+- Approach: Pure function testing, no mocks except external APIs
 
-**Integration Tests:**
-- Scope: Component with internal state and external calls
-- Approach: Test user interactions leading to data changes
-- Examples: Form submission with Supabase, dialog open/close flows
-- Database calls mocked, but state management intact
+**Integration Tests (to implement):**
+- Scope: Multiple functions working together
+- Examples:
+  - PO creation with status calculation
+  - Invoice validation with available quantity checks
+  - Auth flow: login → fetch profile → set user
+  - QMRL filtering with multiple criteria
+- Approach: Mock Supabase, real utility functions
+- Location: `__tests__/integration/`
 
-**E2E Tests:**
-- Framework: Not configured (Cypress or Playwright recommended)
-- Scope: Full user workflows across pages
-- Not implemented in current codebase
+**E2E Tests (to implement):**
+- Scope: Full user workflows
+- Framework: Playwright or Cypress
+- Examples:
+  - Create QMRL → Edit → Change Status
+  - Create PO → Add Invoice → Check Progress
+  - Login → Navigate Dashboard → Create Item
+- Location: `/e2e/` directory
+- Run with: `npm run test:e2e`
 
-## Common Testing Patterns
+## Common Patterns
 
-**Async Testing:**
-
+**Async Testing Pattern:**
 ```typescript
-// Test async function with await
-it("fetches data successfully", async () => {
-  const result = await fetchData();
-  expect(result).toBeDefined();
-});
+it("should fetch data and set loading state", async () => {
+  const { result } = renderHook(() => useData());
 
-// Test with waitFor for state updates
-await waitFor(() => {
-  expect(screen.getByText("Loaded")).toBeInTheDocument();
-});
+  expect(result.current.isLoading).toBe(true);
 
-// Test promise rejection
-it("handles fetch error", async () => {
-  vi.mocked(fetchData).mockRejectedValueOnce(new Error("Network error"));
-  // Test error handling
+  await waitFor(() => {
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  expect(result.current.data).toBeDefined();
 });
 ```
 
-**Error Testing:**
-
+**Error Testing Pattern:**
 ```typescript
-// Test error scenarios
-describe("error handling", () => {
-  it("throws on invalid input", () => {
-    expect(() => calculateEUSD(100, 0)).not.toThrow(); // Returns 0 instead
+it("should handle fetch error", async () => {
+  vi.mocked(supabase.from).mockReturnValue({
+    select: vi.fn().mockResolvedValue({
+      data: null,
+      error: new Error("Network error"),
+    }),
+  } as any);
+
+  const { result } = renderHook(() => useData());
+
+  await waitFor(() => {
+    expect(result.current.error).toBe("Network error");
   });
+});
+```
 
-  it("handles null gracefully", () => {
-    expect(getPermissions(null, "qmrl")).toEqual([]);
-  });
+**Component Snapshot Testing (use sparingly):**
+```typescript
+it("should render button with correct styles", () => {
+  const { container } = render(
+    <Button variant="default" size="lg">
+      Click me
+    </Button>
+  );
 
-  it("shows user-friendly error message", async () => {
-    render(<Form />);
-    fireEvent.click(screen.getByText("Submit"));
+  expect(container.firstChild).toMatchSnapshot();
+});
+```
 
-    await waitFor(() => {
-      expect(screen.getByText(/Failed to submit/)).toBeInTheDocument();
+**Testing Permissions (to implement):**
+```typescript
+describe("Permission checks", () => {
+  const permissionTests = [
+    { role: "admin", resource: "users", action: "delete", expected: true },
+    { role: "requester", resource: "users", action: "delete", expected: false },
+    { role: "finance", resource: "invoices", action: "create", expected: true },
+  ];
+
+  permissionTests.forEach(({ role, resource, action, expected }) => {
+    it(`should ${expected ? "allow" : "deny"} ${role} to ${action} ${resource}`, () => {
+      expect(hasPermission(role as UserRole, action as PermissionAction, resource as PermissionResource))
+        .toBe(expected);
     });
   });
 });
 ```
 
-**Form Testing:**
+## Implementation Checklist
 
-```typescript
-// Test form submission
-it("submits form with correct data", async () => {
-  const user = userEvent.setup();
-  const onSubmit = vi.fn();
+**Phase 1: Setup (1-2 days)**
+- [ ] Install Vitest, @testing-library/react, @testing-library/jest-dom
+- [ ] Create vitest.config.ts with Next.js configuration
+- [ ] Add npm scripts: test, test:watch, test:coverage
+- [ ] Create test fixtures structure
 
-  render(<CategoryForm onSubmit={onSubmit} />);
+**Phase 2: Core Utilities (2-3 days)**
+- [ ] Unit tests for `lib/utils/id-generator.ts` - 100% coverage
+- [ ] Unit tests for `lib/utils/po-status.ts` - status calculations
+- [ ] Unit tests for `lib/utils/invoice-status.ts`
+- [ ] Unit tests for `lib/utils/index.ts` - formatters and calculations
 
-  await user.type(screen.getByLabelText("Name"), "New Category");
-  await user.click(screen.getByText("Create"));
+**Phase 3: Business Logic (3-5 days)**
+- [ ] Tests for `lib/hooks/use-permissions.ts`
+- [ ] Tests for `lib/utils/search.ts`
+- [ ] Integration tests for permission-based queries
+- [ ] Tests for status and category management
 
-  expect(onSubmit).toHaveBeenCalledWith({
-    name: "New Category",
-    color: expect.any(String),
-  });
-});
-```
+**Phase 4: Components & Auth (5-7 days)**
+- [ ] Tests for auth provider state management
+- [ ] Component tests for UI primitives (Button, Input, Select)
+- [ ] Tests for form components
+- [ ] E2E tests for critical user flows
 
-## Mocking Strategy
-
-**Framework:** Vitest mocking utilities
-
-**What to Mock:**
-- External API calls (Supabase client)
-- Toast notifications
-- Router navigation
-- Date/time functions for consistency
-
-**What NOT to Mock:**
-- React hooks (useState, useEffect)
-- Utility functions from same file
-- Component rendering logic
-- User interaction handlers
-
-**Example Mocking Pattern:**
-
-```typescript
-import { vi } from "vitest";
-import { createClient } from "@/lib/supabase/client";
-
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: vi.fn(() => ({
-    from: vi.fn((table) => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          order: vi.fn(() => Promise.resolve({ data: [], error: null })),
-        })),
-      })),
-      update: vi.fn(() => ({
-        eq: vi.fn(() => Promise.resolve({ error: null })),
-      })),
-      insert: vi.fn(() => ({
-        select: vi.fn(() => ({
-          single: vi.fn(() => Promise.resolve({ data: {}, error: null })),
-        })),
-      })),
-    })),
-  })),
-}));
-```
+**Phase 5: Coverage Goals (ongoing)**
+- [ ] Achieve 80%+ coverage on utilities
+- [ ] Achieve 60%+ coverage on hooks
+- [ ] Achieve 50%+ coverage on components
+- [ ] Document coverage baseline and maintain
 
 ---
 
-*Testing analysis: 2026-01-26*
+*Testing analysis: 2026-01-27*
