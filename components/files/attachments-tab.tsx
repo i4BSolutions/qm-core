@@ -24,6 +24,7 @@ import { UploadProgress } from './upload-progress';
 import { DeleteFileDialog } from './delete-file-dialog';
 import { FilePreviewModal } from './file-preview-modal';
 import { ImagePreview } from './image-preview';
+import { DownloadAllButton } from './download-all-button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
@@ -31,6 +32,7 @@ import { toast } from '@/components/ui/use-toast';
 interface AttachmentsTabProps {
   entityType: 'qmrl' | 'qmhq';
   entityId: string;
+  entityDisplayId: string; // Display ID for ZIP naming (e.g., "QMRL-2025-00001")
   canEdit?: boolean;
   onFileCountChange?: (count: number) => void;
 }
@@ -48,6 +50,7 @@ interface AttachmentsTabProps {
  *
  * @param entityType - Entity type ('qmrl' or 'qmhq')
  * @param entityId - Entity UUID
+ * @param entityDisplayId - Display ID for ZIP naming (e.g., "QMRL-2025-00001")
  * @param canEdit - Whether user can upload/delete files (default: true)
  * @param onFileCountChange - Callback when file count changes (for tab badge)
  *
@@ -55,6 +58,7 @@ interface AttachmentsTabProps {
  * <AttachmentsTab
  *   entityType="qmrl"
  *   entityId={qmrl.id}
+ *   entityDisplayId={qmrl.request_id}
  *   canEdit={hasEditPermission}
  *   onFileCountChange={setFileCount}
  * />
@@ -62,6 +66,7 @@ interface AttachmentsTabProps {
 export function AttachmentsTab({
   entityType,
   entityId,
+  entityDisplayId,
   canEdit = true,
   onFileCountChange,
 }: AttachmentsTabProps) {
@@ -334,10 +339,13 @@ export function AttachmentsTab({
 
   return (
     <div className="space-y-6">
-      {/* Header with file count */}
-      <div className="section-header">
-        <Paperclip className="h-4 w-4 text-amber-500" />
-        <h3>Attachments ({files.length})</h3>
+      {/* Header with file count and download all button */}
+      <div className="flex items-center justify-between">
+        <div className="section-header">
+          <Paperclip className="h-4 w-4 text-amber-500" />
+          <h3>Attachments ({files.length})</h3>
+        </div>
+        <DownloadAllButton files={files} entityId={entityDisplayId} />
       </div>
 
       {/* Upload Progress (only show when uploading) */}
