@@ -5,11 +5,12 @@
  *
  * Orchestrator component that combines all file upload components
  * (dropzone, grid, progress, delete dialog) into a complete attachment workflow.
- * Includes file preview modal for viewing attached files.
+ * Includes file preview modal for viewing attached files (images and PDFs).
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { Paperclip, FileIcon, Download } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { Paperclip, FileIcon, Download, Loader2 } from 'lucide-react';
 import { useFileUpload } from '@/lib/hooks/use-file-upload';
 import {
   getFilesByEntity,
@@ -29,6 +30,48 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 
+/**
+ * PDF Preview Skeleton - shown while dynamically loading PDFPreview component
+ */
+function PDFPreviewSkeleton() {
+  return (
+    <div className="w-full h-full flex flex-col">
+      {/* Toolbar skeleton */}
+      <div className="flex items-center justify-between gap-4 p-2 border-b border-slate-800 bg-slate-900/90">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-8 w-8" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-7 w-16" />
+          <Skeleton className="h-8 w-8" />
+        </div>
+      </div>
+      {/* PDF page skeleton */}
+      <div className="flex-1 flex items-center justify-center bg-slate-950 p-4">
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-8 w-8 animate-spin text-amber-500 mb-2" />
+          <span className="text-sm text-slate-400">Loading PDF viewer...</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Dynamically import PDFPreview with SSR disabled.
+ * CRITICAL: PDF.js worker crashes during SSR, so we must load client-side only.
+ */
+const PDFPreview = dynamic(
+  () => import('./pdf-preview').then((mod) => ({ default: mod.PDFPreview })),
+  {
+    ssr: false,
+    loading: () => <PDFPreviewSkeleton />,
+  }
+);
+
 interface AttachmentsTabProps {
   entityType: 'qmrl' | 'qmhq';
   entityId: string;
@@ -46,7 +89,7 @@ interface AttachmentsTabProps {
  * - Handles drag-drop upload with progress tracking
  * - Manages delete confirmation flow
  * - Shows loading and empty states
- * - Opens file preview modal on card click
+ * - Opens file preview modal on card click (images and PDFs)
  *
  * @param entityType - Entity type ('qmrl' or 'qmhq')
  * @param entityId - Entity UUID
@@ -285,6 +328,38 @@ export function AttachmentsTab({
   }, [handlePreviewClose]);
 
   /**
+   * Handle PDF load error in preview
+   */
+  const handlePdfError = useCallback(() => {
+    handlePreviewClose();
+    toast({
+      variant: 'destructive',
+      title: 'Failed to load PDF',
+      description: 'The PDF could not be displayed.',
+    });
+  }, [handlePreviewClose]);
+
+  /**
+   * Handle PDF password required
+   */
+  const handlePdfPasswordRequired = useCallback(() => {
+    handlePreviewClose();
+    toast({
+      title: 'PDF is password protected',
+      description: 'Download the file to view it with a PDF reader.',
+      action: previewUrl ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => window.open(previewUrl, '_blank')}
+        >
+          Download
+        </Button>
+      ) : undefined,
+    });
+  }, [handlePreviewClose, previewUrl]);
+
+  /**
    * Warn before navigation if uploads in progress
    */
   useEffect(() => {
@@ -306,6 +381,7 @@ export function AttachmentsTab({
     if (!previewFile || !previewUrl) return null;
 
     const isImage = previewFile.mime_type.startsWith('image/');
+    const isPdf = previewFile.mime_type === 'application/pdf';
 
     if (isImage) {
       return (
@@ -317,8 +393,18 @@ export function AttachmentsTab({
       );
     }
 
-    // Non-image files: show placeholder with download button
-    // PDF support will be added in Plan 02
+    if (isPdf) {
+      return (
+        <PDFPreview
+          url={previewUrl}
+          onError={handlePdfError}
+          onPasswordRequired={handlePdfPasswordRequired}
+          onDownload={() => window.open(previewUrl, '_blank')}
+        />
+      );
+    }
+
+    // Non-previewable files: show placeholder with download button
     return (
       <div className="flex flex-col items-center justify-center text-center p-8">
         <FileIcon className="h-16 w-16 text-slate-500 mb-4" />
