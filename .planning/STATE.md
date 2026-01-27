@@ -5,37 +5,38 @@
 See: .planning/PROJECT.md (updated 2026-01-27)
 
 **Core value:** Users can reliably create purchase orders and receive inventory, with full visibility into request status and attached documentation.
-**Current focus:** Phase 2 - File Storage Foundation
+**Current focus:** Phase 3 - Enhanced UI/UX (ready to begin)
 
 ## Current Position
 
-Phase: 2 of 6 (File Storage Foundation)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-27 - Completed 02-01-PLAN.md (file storage infrastructure)
+Phase: 2 of 6 (File Storage Foundation) - COMPLETE
+Plan: 2 of 2 in phase (phase complete)
+Status: Phase complete, ready for Phase 3
+Last activity: 2026-01-27 - Completed 02-02-PLAN.md (file validation and server actions)
 
-Progress: [██░░░░░░░░] 24% (4/17 plans completed)
+Progress: [███░░░░░░░] 29% (5/17 plans completed)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 26 min
-- Total execution time: 1.7 hours
+- Total plans completed: 5
+- Average duration: 23 min
+- Total execution time: 1.9 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-critical-bug-fixes | 3/3 | 1h 32m | 31min |
-| 02-file-storage-foundation | 1/2 | 9min | 9min |
+| 02-file-storage-foundation | 2/2 | 17min | 8.5min |
 
 **Recent Trend:**
 - 01-01 (PO creation): 32 min
 - 01-02 (Stock-in): 45 min
 - 01-03 (Verification): 15 min
 - 02-01 (File storage infrastructure): 9 min
-- Trend: Database-only plans execute faster than UI-involving plans
+- 02-02 (File validation/actions): 8 min
+- Trend: Backend-only plans execute faster than UI-involving plans
 
 ## Accumulated Context
 
@@ -57,6 +58,8 @@ Recent decisions affecting current work:
 - Polymorphic entity reference for files (02-01): entity_type + entity_id instead of separate FK columns
 - 30-day grace period for soft-deleted files (02-01): Allows recovery if parent entity restored
 - Batch processing (100 files) in cleanup Edge Function (02-01): Avoids Storage API limits
+- Extension-only validation (02-02): Trust file extensions without MIME magic byte verification
+- Exclude Deno Edge Functions from tsconfig (02-02): Separate TS config for Deno runtime
 
 ### Pending Todos
 
@@ -69,15 +72,16 @@ None yet.
 - ✅ Stock-in failure (01-02): Fixed by adding currency/exchange_rate defaults for manual mode
 - ✅ Invoice and stock-out verification (01-03): All workflows verified working
 
-**Phase 2 In Progress:**
+**Phase 2 Complete:**
 - ✅ File storage infrastructure (02-01): Database schema, storage bucket, RLS, Edge Function complete
+- ✅ File validation/actions (02-02): Validation utilities, server actions, TypeScript types complete
 - Docker not available for local testing - migrations verified via syntax review
 
 ## Session Continuity
 
-Last session: 2026-01-27 16:20:00Z
-Stopped at: Completed 02-01-PLAN.md (file storage infrastructure)
-Resume file: None - ready for 02-02
+Last session: 2026-01-27 16:35:00Z
+Stopped at: Completed 02-02-PLAN.md (file validation and server actions)
+Resume file: None - Phase 2 complete, ready for Phase 3
 
 ---
 *State initialized: 2026-01-27*
