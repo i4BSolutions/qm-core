@@ -97,6 +97,8 @@ Plans:
 **Goal**: Admin and Quartermaster roles have real-time visibility into system activity
 **Depends on**: Phase 1 (independent of file features)
 **Requirements**: DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, DASH-06, DASH-07
+**Plans:** 3 plans
+
 **Success Criteria** (what must be TRUE):
   1. Admin and Quartermaster see live dashboard when visiting /dashboard
   2. Non-management roles redirect to their primary workflow page
@@ -105,12 +107,11 @@ Plans:
   5. Dashboard shows low stock alerts for items below 10 units
   6. Dashboard shows 5 most recent audit log entries
   7. Dashboard shows recent stock movements (in/out transactions)
-**Plans**: TBD
 
 Plans:
-- [ ] 05-01: Build dashboard data queries with aggregations
-- [ ] 05-02: Build dashboard UI with KPI cards and activity feed
-- [ ] 05-03: Implement role-based routing and access control
+- [ ] 05-01-PLAN.md — Create dashboard RPC functions, server action, and polling hook
+- [ ] 05-02-PLAN.md — Build dashboard UI components (status bar, KPI cards, alerts, timelines)
+- [ ] 05-03-PLAN.md — Integrate components with role-based routing and auto-refresh
 
 ### Phase 6: Status & Transaction UX
 **Goal**: Users can make quick updates without full edit forms
@@ -144,9 +145,9 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 2. File Storage Foundation | 2/2 | Complete | 2026-01-27 |
 | 3. File Upload UI | 3/3 | Complete | 2026-01-28 |
 | 4. File Preview & Download | 3/3 | Complete | 2026-01-28 |
-| 5. Management Dashboard | 0/3 | Not started | - |
+| 5. Management Dashboard | 0/3 | Planned | - |
 | 6. Status & Transaction UX | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-27*
-*Last updated: 2026-01-28 - Phase 4 complete*
+*Last updated: 2026-01-28 - Phase 5 planned*
