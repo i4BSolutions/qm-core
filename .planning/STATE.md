@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** v1.2 Inventory & Financial Accuracy
+**Current focus:** Phase 7 - UX Polish
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-01-28 — Milestone v1.2 started
+Phase: 7 of 12 (UX Polish)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-01-29 — v1.2 roadmap created
 
-Progress: v1.2 INITIALIZING
+Progress: [████████░░░░░░░░░░░░] 50% (v1.1 complete: 6/12 phases)
 
 ## Milestone History
 
@@ -48,21 +48,25 @@ Progress: v1.2 INITIALIZING
 ### Decisions
 
 See PROJECT.md Key Decisions table for full log.
+Recent decisions affecting v1.2:
+- View-only transaction modal — Audit integrity over editability
+- Global low stock threshold (10 units) — Simpler than per-item config
+- Amount locked after transaction creation — Audit integrity
 
 ### Pending Todos
 
-None — milestone complete.
+None yet.
 
 ### Blockers/Concerns
 
-None — all issues resolved in v1.1.
+None — v1.2 roadmap complete with 100% requirement coverage.
 
 ## Session Continuity
 
-Last session: 2026-01-28
-Stopped at: v1.2 milestone definition
-Resume: Continue with requirements/roadmap definition
+Last session: 2026-01-29
+Stopped at: v1.2 roadmap created, ready for Phase 7 planning
+Resume: Run `/gsd:plan-phase 7` to begin UX Polish phase
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-01-28 — v1.2 started*
+*Last updated: 2026-01-29 — v1.2 roadmap created*

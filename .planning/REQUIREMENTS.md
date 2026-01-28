@@ -86,31 +86,39 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UX-01 | — | Pending |
-| UX-02 | — | Pending |
-| UX-03 | — | Pending |
-| INVD-01 | — | Pending |
-| INVD-02 | — | Pending |
-| INVD-03 | — | Pending |
-| INVD-04 | — | Pending |
-| INVD-05 | — | Pending |
-| INVD-06 | — | Pending |
-| WHSE-01 | — | Pending |
-| WHSE-02 | — | Pending |
-| STCK-01 | — | Pending |
-| STCK-02 | — | Pending |
-| STCK-03 | — | Pending |
-| STCK-04 | — | Pending |
-| VOID-01 | — | Pending |
-| VOID-02 | — | Pending |
-| VOID-03 | — | Pending |
-| VOID-04 | — | Pending |
+| UX-01 | Phase 7 | Pending |
+| UX-02 | Phase 7 | Pending |
+| UX-03 | Phase 7 | Pending |
+| INVD-01 | Phase 10 | Pending |
+| INVD-02 | Phase 10 | Pending |
+| INVD-03 | Phase 10 | Pending |
+| INVD-04 | Phase 10 | Pending |
+| INVD-05 | Phase 10 | Pending |
+| INVD-06 | Phase 10 | Pending |
+| WHSE-01 | Phase 11 | Pending |
+| WHSE-02 | Phase 11 | Pending |
+| STCK-01 | Phase 9 | Pending |
+| STCK-02 | Phase 9 | Pending |
+| STCK-03 | Phase 9 | Pending |
+| STCK-04 | Phase 9 | Pending |
+| VOID-01 | Phase 12 | Pending |
+| VOID-02 | Phase 12 | Pending |
+| VOID-03 | Phase 12 | Pending |
+| VOID-04 | Phase 12 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 19 total
-- Mapped to phases: 0
-- Unmapped: 19
+- Mapped to phases: 19
+- Unmapped: 0
+
+**Phase Distribution:**
+- Phase 7 (UX Polish): 3 requirements
+- Phase 8 (Database Foundation): 0 direct requirements (enables STCK-04, VOID-01-04)
+- Phase 9 (Manual Stock-In Enhancement): 4 requirements
+- Phase 10 (Inventory Dashboard): 6 requirements
+- Phase 11 (Warehouse Detail Enhancement): 2 requirements
+- Phase 12 (Invoice Void Cascade): 4 requirements
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-01-28 after initial definition*
+*Last updated: 2026-01-29 — v1.2 roadmap created with 100% coverage*
