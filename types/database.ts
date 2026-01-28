@@ -1473,6 +1473,65 @@ export type Database = {
           }
         ]
       }
+      audit_logs: {
+        Row: {
+          id: string
+          entity_type: string
+          entity_id: string
+          action: Database["public"]["Enums"]["audit_action"]
+          field_name: string | null
+          old_value: string | null
+          new_value: string | null
+          old_values: Record<string, unknown> | null
+          new_values: Record<string, unknown> | null
+          changes_summary: string | null
+          changed_by: string | null
+          changed_by_name: string | null
+          changed_at: string
+          notes: string | null
+        }
+        Insert: {
+          id?: string
+          entity_type: string
+          entity_id: string
+          action: Database["public"]["Enums"]["audit_action"]
+          field_name?: string | null
+          old_value?: string | null
+          new_value?: string | null
+          old_values?: Record<string, unknown> | null
+          new_values?: Record<string, unknown> | null
+          changes_summary?: string | null
+          changed_by?: string | null
+          changed_by_name?: string | null
+          changed_at?: string
+          notes?: string | null
+        }
+        Update: {
+          id?: string
+          entity_type?: string
+          entity_id?: string
+          action?: Database["public"]["Enums"]["audit_action"]
+          field_name?: string | null
+          old_value?: string | null
+          new_value?: string | null
+          old_values?: Record<string, unknown> | null
+          new_values?: Record<string, unknown> | null
+          changes_summary?: string | null
+          changed_by?: string | null
+          changed_by_name?: string | null
+          changed_at?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1505,6 +1564,32 @@ export type Database = {
       has_role: {
         Args: { required_role: Database["public"]["Enums"]["user_role"] }
         Returns: boolean
+      }
+      get_qmrl_status_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          status_group: string
+          count: number
+        }[]
+      }
+      get_qmhq_status_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          status_group: string
+          count: number
+        }[]
+      }
+      get_low_stock_alerts: {
+        Args: { threshold?: number }
+        Returns: {
+          item_id: string
+          item_name: string
+          item_sku: string
+          warehouse_id: string
+          warehouse_name: string
+          current_stock: number
+          severity: string
+        }[]
       }
     }
     Enums: {
@@ -1553,6 +1638,16 @@ export type Database = {
         | "adjustment"
       inventory_transaction_status: "pending" | "completed" | "cancelled"
       transaction_type: "money_in" | "money_out"
+      audit_action:
+        | "create"
+        | "update"
+        | "delete"
+        | "status_change"
+        | "assignment_change"
+        | "void"
+        | "approve"
+        | "close"
+        | "cancel"
     }
     CompositeTypes: {
       [_ in never]: never
