@@ -1,0 +1,234 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useAuth } from "@/components/providers/auth-provider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { StatusChangeDialog } from "./status-change-dialog";
+import { useToast } from "@/components/ui/use-toast";
+import { Loader2 } from "lucide-react";
+import type { StatusConfig } from "@/types/database";
+
+interface ClickableStatusBadgeProps {
+  status: StatusConfig;
+  entityType: "qmrl" | "qmhq";
+  entityId: string;
+  onStatusChange?: () => void;
+  isClickable?: boolean;
+}
+
+export function ClickableStatusBadge({
+  status,
+  entityType,
+  entityId,
+  onStatusChange,
+  isClickable = true,
+}: ClickableStatusBadgeProps) {
+  const { can } = usePermissions();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [statuses, setStatuses] = useState<StatusConfig[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<StatusConfig | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const canUpdate = can("update", entityType);
+
+  // Fetch all statuses for this entity type
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("status_config")
+        .select("*")
+        .eq("entity_type", entityType)
+        .eq("is_active", true)
+        .order("display_order", { ascending: true });
+
+      if (data) {
+        setStatuses(data as StatusConfig[]);
+      }
+    };
+
+    if (isOpen) {
+      fetchStatuses();
+    }
+  }, [entityType, isOpen]);
+
+  const handleStatusSelect = (statusId: string) => {
+    if (statusId === status.id) {
+      setIsOpen(false);
+      return;
+    }
+
+    const newStatus = statuses.find((s) => s.id === statusId);
+    if (newStatus) {
+      setSelectedStatus(newStatus);
+      setIsDialogOpen(true);
+      setIsOpen(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!selectedStatus || !user || isUpdating) return;
+
+    setIsUpdating(true);
+
+    try {
+      const supabase = createClient();
+      const tableName = entityType === "qmrl" ? "qmrl" : "qmhq";
+
+      const { error } = await supabase
+        .from(tableName)
+        .update({
+          status_id: selectedStatus.id,
+          updated_at: new Date().toISOString(),
+          updated_by: user.id,
+        })
+        .eq("id", entityId);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Status Updated",
+        description: `Status changed to ${selectedStatus.name}`,
+        variant: "default",
+      });
+
+      setIsDialogOpen(false);
+      setSelectedStatus(null);
+
+      // Trigger callback to refetch data
+      if (onStatusChange) {
+        onStatusChange();
+      }
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update status. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // If user cannot update or isClickable is false, render non-clickable badge
+  if (!canUpdate || !isClickable) {
+    return (
+      <Badge
+        variant="outline"
+        className="font-mono uppercase tracking-wider text-xs"
+        style={{
+          borderColor: status.color || undefined,
+          color: status.color || undefined,
+          backgroundColor: `${status.color}15` || "transparent",
+        }}
+      >
+        {status.name}
+      </Badge>
+    );
+  }
+
+  // Group statuses by status_group
+  const groupedStatuses = statuses.reduce((acc, s) => {
+    const group = s.status_group;
+    if (!acc[group]) {
+      acc[group] = [];
+    }
+    acc[group].push(s);
+    return acc;
+  }, {} as Record<string, StatusConfig[]>);
+
+  const groupLabels: Record<string, string> = {
+    to_do: "To Do",
+    in_progress: "In Progress",
+    done: "Done",
+  };
+
+  return (
+    <>
+      <Select value={status.id} onValueChange={handleStatusSelect} open={isOpen} onOpenChange={setIsOpen}>
+        <SelectTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={isUpdating}
+            className="h-auto px-0 hover:bg-transparent group"
+          >
+            <Badge
+              variant="outline"
+              className="font-mono uppercase tracking-wider text-xs cursor-pointer transition-all group-hover:scale-105 group-hover:shadow-md"
+              style={{
+                borderColor: status.color || undefined,
+                color: status.color || undefined,
+                backgroundColor: `${status.color}15` || "transparent",
+              }}
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  {status.name}
+                </>
+              ) : (
+                status.name
+              )}
+            </Badge>
+          </Button>
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(groupedStatuses).map(([group, groupStatuses]) => (
+            <SelectGroup key={group}>
+              <SelectLabel className="text-amber-400 uppercase text-xs">
+                {groupLabels[group] || group}
+              </SelectLabel>
+              {groupStatuses.map((s) => (
+                <SelectItem
+                  key={s.id}
+                  value={s.id}
+                  disabled={s.id === status.id}
+                  className={s.id === status.id ? "opacity-50" : ""}
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: s.color || "#64748b" }}
+                    />
+                    <span>{s.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {selectedStatus && (
+        <StatusChangeDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          currentStatus={status}
+          newStatus={selectedStatus}
+          entityType={entityType}
+          entityId={entityId}
+          onConfirm={handleConfirm}
+        />
+      )}
+    </>
+  );
+}
