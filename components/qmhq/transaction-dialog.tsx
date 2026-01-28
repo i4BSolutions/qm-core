@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
+import { DatePicker } from "@/components/ui/date-picker";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -67,10 +68,8 @@ export function TransactionDialog({
   const [transactionType, setTransactionType] = useState<"money_in" | "money_out">("money_in");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("MMK");
-  const [exchangeRate, setExchangeRate] = useState("1");
-  const [transactionDate, setTransactionDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [exchangeRate, setExchangeRate] = useState("");
+  const [transactionDate, setTransactionDate] = useState<Date>(new Date());
   const [notes, setNotes] = useState("");
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
@@ -87,8 +86,8 @@ export function TransactionDialog({
     setTransactionType("money_in");
     setAmount("");
     setCurrency("MMK");
-    setExchangeRate("1");
-    setTransactionDate(new Date().toISOString().split("T")[0]);
+    setExchangeRate("");
+    setTransactionDate(new Date());
     setNotes("");
     setAttachmentFile(null);
     setAttachmentPreview(null);
@@ -193,7 +192,7 @@ export function TransactionDialog({
         amount: parseFloat(amount),
         currency: currency,
         exchange_rate: parseFloat(exchangeRate),
-        transaction_date: transactionDate,
+        transaction_date: transactionDate.toISOString().split("T")[0],
         notes: notes || null,
         attachment_url: attachmentUrl,
         created_by: userId,
@@ -321,6 +320,11 @@ export function TransactionDialog({
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e" || e.key === "E") {
+                    e.preventDefault();
+                  }
+                }}
                 placeholder="0.00"
                 className="bg-slate-800/50 border-slate-700 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
@@ -353,6 +357,11 @@ export function TransactionDialog({
                 step="0.0001"
                 value={exchangeRate}
                 onChange={(e) => setExchangeRate(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e" || e.key === "E") {
+                    e.preventDefault();
+                  }
+                }}
                 placeholder="1.0000"
                 className="bg-slate-800/50 border-slate-700 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
@@ -386,15 +395,12 @@ export function TransactionDialog({
 
           {/* Transaction Date */}
           <div className="grid gap-2">
-            <Label htmlFor="transaction_date" className="text-slate-300">
+            <Label className="text-slate-300">
               Transaction Date
             </Label>
-            <Input
-              id="transaction_date"
-              type="date"
-              value={transactionDate}
-              onChange={(e) => setTransactionDate(e.target.value)}
-              className="bg-slate-800/50 border-slate-700 text-slate-200"
+            <DatePicker
+              date={transactionDate}
+              onDateChange={(date) => date && setTransactionDate(date)}
             />
           </div>
 
