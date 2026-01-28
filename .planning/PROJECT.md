@@ -59,6 +59,8 @@ Users can reliably create purchase orders, receive inventory, and track request 
 <!-- v1.2 Inventory & Financial Accuracy -->
 
 - [ ] Transaction date picker consistency (money in/out matches DD/MM/YYYY style)
+- [ ] Number input fields use empty placeholders (fix default value interference)
+- [ ] Number input validation (prevent negative values and zero)
 - [ ] Warehouse detail page with per-item WAC display
 - [ ] Stock in/out dashboard with transaction counts and values
 - [ ] Inventory Dashboard warehouse filter
