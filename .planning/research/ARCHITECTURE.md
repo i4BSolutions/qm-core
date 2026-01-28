@@ -1,1216 +1,193 @@
-# Architecture Patterns for V1.1 Feature Integration
+# Architecture Patterns for v1.2 Inventory Enhancements
 
-**Project:** QM System V1.1 Enhancement
-**Researched:** 2026-01-27
-**Context:** Integrating file storage, dashboard data, and UX improvements into existing Next.js + Supabase architecture
+**Domain:** QM System Inventory Management (v1.2 milestone)
+**Researched:** 2026-01-28
+**Context:** Subsequent milestone enhancing existing Next.js 14 + Supabase architecture
+
+---
 
 ## Executive Summary
 
-This research addresses how to integrate four new feature categories into an existing Next.js 14+ application with Supabase backend: (1) file attachments with RLS-based access control, (2) live dashboard with aggregated data, (3) quick status changes with audit logging, and (4) file metadata storage design. The existing architecture already includes comprehensive RLS policies, database triggers for audit logging, and a well-established pattern for entity management. The recommended approach leverages existing patterns while introducing minimal new architectural components.
+v1.2 adds inventory dashboard, WAC display enhancements, and invoice void cascade recalculation to an existing architecture that already includes:
+- Database triggers for WAC calculation
+- RPC functions for dashboard aggregations
+- Server Actions with parallel fetching
+- Client-side state management in components
 
-**Key Recommendations:**
-- **File Storage:** Separate metadata table with RLS policies mirroring existing entity permissions
-- **Dashboard Data:** On-demand queries with materialized views for aggregations (NOT real-time subscriptions)
-- **Status Changes:** Server Actions with existing audit trigger system (no new logging layer needed)
-- **Metadata Storage:** Separate table over JSON fields for queryability and referential integrity
+**Key architectural decisions:**
+1. **Extend existing RPC pattern** for inventory analytics (proven pattern from management dashboard)
+2. **Add cascade triggers** for invoice void → PO status → WAC recalculation
+3. **Use client-side calculation** for warehouse detail KPIs (existing pattern)
+4. **Server Actions for mutations** with optimistic UI updates
 
-## Recommended Architecture
+**Integration complexity:** MEDIUM
+- Builds on proven patterns (dashboard RPC, WAC triggers)
+- New cascade logic requires careful trigger ordering
+- Manual stock-in needs WAC trigger enhancement (not replacement)
 
-### High-Level System Architecture
+---
 
+## Integration Points with Existing Architecture
+
+### 1. Database Layer Extensions
+
+#### Existing Foundation
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        Next.js 14 App Router                         │
-│  ┌────────────────┐  ┌──────────────┐  ┌─────────────────────┐    │
-│  │ Client         │  │ Server       │  │ Server Components   │    │
-│  │ Components     │──│ Actions      │──│ (Data Fetching)     │    │
-│  │ (Interactive)  │  │ (Mutations)  │  │                     │    │
-│  └────────────────┘  └──────────────┘  └─────────────────────┘    │
-│         │                   │                      │                │
-└─────────┼───────────────────┼──────────────────────┼────────────────┘
-          │                   │                      │
-          ▼                   ▼                      ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Supabase Platform                            │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────────┐   │
-│  │  Storage    │  │  Database   │  │  Auth                    │   │
-│  │  (Buckets)  │  │  (Postgres) │  │  (Row Level Security)    │   │
-│  └─────────────┘  └─────────────┘  └──────────────────────────┘   │
-│         │                │                       │                  │
-│         │      ┌─────────▼──────────┐           │                  │
-│         │      │  Audit System      │◄──────────┘                  │
-│         │      │  - audit_logs      │                              │
-│         │      │  - Triggers (26)   │                              │
-│         │      └────────────────────┘                              │
-│         │                                                           │
-│  ┌──────▼────────────────────────────────────────────────────┐    │
-│  │  File Metadata Table (NEW)                                │    │
-│  │  - entity_type, entity_id                                 │    │
-│  │  - storage_path, file_name, file_size                     │    │
-│  │  - uploaded_by (FK to users)                              │    │
-│  │  - RLS policies mirror entity access                      │    │
-│  └───────────────────────────────────────────────────────────┘    │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────┐    │
-│  │  Dashboard Views (NEW - Materialized)                      │    │
-│  │  - qmrl_status_counts (refreshed on-demand)               │    │
-│  │  - qmhq_status_counts                                      │    │
-│  │  - low_stock_items                                         │    │
-│  │  - recent_activity (last 5 audit logs)                    │    │
-│  └───────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────┘
+- WAC trigger: update_item_wac() (migration 024)
+- Dashboard RPCs: get_qmrl_status_counts(), get_qmhq_status_counts(), get_low_stock_alerts() (migration 033)
+- Audit triggers: create_audit_log() (migration 026)
+- Views: warehouse_inventory, item_stock_summary (migration 024)
 ```
 
-## Component Boundaries and Responsibilities
-
-### 1. File Storage System
-
-#### Components
-
-| Component | Responsibility | Layer |
-|-----------|---------------|-------|
-| **Storage Bucket** | Stores actual file bytes | Supabase Storage |
-| **file_attachments Table** | Stores file metadata, entity relationships | Database |
-| **RLS Policies on file_attachments** | Control who can insert/select/delete metadata | Database |
-| **RLS Policies on storage.objects** | Control who can upload/download/delete files | Supabase Storage |
-| **FileUploadForm Client Component** | Handle file selection, validation | Next.js Client |
-| **uploadFileAction Server Action** | Coordinate upload (metadata + storage) | Next.js Server |
-| **FileList Client Component** | Display files with preview/delete actions | Next.js Client |
-| **deleteFileAction Server Action** | Coordinate deletion (storage + metadata) | Next.js Server |
-
-#### Data Flow: File Upload
-
-```
-1. User selects file in FileUploadForm (client component)
-   │
-   ▼
-2. Client validates: file size (≤25MB), file type (PDF, Word, Excel, Images)
-   │
-   ▼
-3. Client calls uploadFileAction(formData) server action
-   │
-   ▼
-4. Server Action:
-   a. Validates user permissions (can edit entity?)
-   b. Generates unique file path: {entity_type}/{entity_id}/{timestamp}_{filename}
-   c. Uploads to Supabase Storage: supabase.storage.from('attachments').upload()
-   d. Inserts metadata row in file_attachments table
-   e. Audit log auto-created via trigger
-   │
-   ▼
-5. Server returns success + file metadata to client
-   │
-   ▼
-6. Client revalidates page to show new file in list
-```
-
-**Key Decision: Two-Phase Upload**
-- Upload to Storage FIRST, then insert metadata
-- If metadata insert fails, delete from storage (cleanup)
-- If storage upload fails, no metadata created (atomic)
-
-#### Data Flow: File Download/Preview
-
-```
-1. User clicks file in FileList component
-   │
-   ▼
-2. Client checks file type:
-   - Image (PNG, JPG, GIF) → Display in-app modal with img tag
-   - PDF → Display in iframe or object tag
-   - Others → Trigger download
-   │
-   ▼
-3. Client calls getFileUrl server action
-   │
-   ▼
-4. Server Action:
-   a. Validates user can access entity (via RLS)
-   b. Generates signed URL: supabase.storage.from('attachments').createSignedUrl(path, 60)
-   c. Returns URL with 60-second expiration
-   │
-   ▼
-5. Client uses signed URL in img/iframe or downloads
-```
-
-**Why Signed URLs:**
-- Storage bucket is private
-- RLS policies on storage.objects check file_attachments ownership
-- Signed URLs provide temporary access without exposing storage key
-
-#### Database Schema: file_attachments Table
-
+#### New Additions (v1.2)
 ```sql
-CREATE TABLE file_attachments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- New RPC: get_inventory_dashboard_stats()
+-- Purpose: Aggregate inventory metrics for dashboard
+-- Returns: {
+--   total_items, total_units, total_value_mmk, total_value_eusd,
+--   warehouses: [{id, name, item_count, unit_count, value_mmk, value_eusd}],
+--   top_items_by_value: [{item_id, name, sku, value_eusd, stock}],
+--   movement_summary: {last_30_days: {in_count, out_count, in_value, out_value}}
+-- }
 
-  -- Entity relationship (polymorphic)
-  entity_type TEXT NOT NULL CHECK (entity_type IN ('qmrl', 'qmhq')),
-  entity_id UUID NOT NULL,
+-- New trigger: cascade_invoice_void_recalculation()
+-- Purpose: Recalculate PO status, quantities, and WAC when invoice voided
+-- Cascade sequence:
+--   1. Mark invoice_line_items as voided (via invoice.is_voided)
+--   2. Decrement po_line_items.invoiced_quantity
+--   3. Recalculate PO status (not_started | partially_invoiced | etc.)
+--   4. If inventory_in exists for voided invoice → cancel transactions
+--   5. Recalculate item WAC (via existing update_item_wac logic)
 
-  -- File metadata
-  file_name TEXT NOT NULL,
-  file_size BIGINT NOT NULL, -- bytes
-  file_type TEXT NOT NULL, -- MIME type
-  storage_path TEXT NOT NULL UNIQUE, -- Path in storage bucket
-
-  -- Access control
-  uploaded_by UUID REFERENCES users(id) NOT NULL,
-
-  -- Soft delete
-  is_active BOOLEAN DEFAULT true,
-
-  -- Audit fields
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id),
-  updated_by UUID REFERENCES users(id)
-);
-
--- Indexes
-CREATE INDEX idx_file_attachments_entity ON file_attachments(entity_type, entity_id);
-CREATE INDEX idx_file_attachments_uploaded_by ON file_attachments(uploaded_by);
-CREATE INDEX idx_file_attachments_created_at ON file_attachments(created_at DESC);
+-- Enhanced trigger: update_item_wac() modification
+-- New: Handle manual stock-in with different currency
+-- Change: Accept unit_cost in ANY currency, convert to item's WAC currency
+-- Formula: WAC = (existing_value_in_wac_currency + new_value_converted) / total_qty
 ```
 
-#### RLS Policies: file_attachments
+#### Integration Strategy
+- **Extend, don't replace**: WAC trigger gets new currency conversion logic
+- **Reuse existing views**: `warehouse_inventory` already has WAC, just query it
+- **New RPC follows existing pattern**: Same SECURITY DEFINER + GRANT pattern as dashboard RPCs
 
-**Pattern: Mirror Entity Permissions**
+### 2. Data Flow Patterns
 
-File access should follow the same rules as the entity it's attached to.
+#### Pattern A: Dashboard Aggregation (EXISTING + ENHANCED)
 
-```sql
--- SELECT: Can view files if can view entity
-CREATE POLICY file_attachments_select ON file_attachments
-  FOR SELECT USING (
-    CASE entity_type
-      WHEN 'qmrl' THEN EXISTS (
-        SELECT 1 FROM qmrl
-        WHERE id = entity_id
-        AND (
-          -- Admin/Quartermaster see all
-          get_user_role() IN ('admin', 'quartermaster', 'finance', 'inventory', 'proposal', 'frontline')
-          -- Requester sees own
-          OR (get_user_role() = 'requester' AND requester_id = auth.uid())
-        )
-      )
-      WHEN 'qmhq' THEN EXISTS (
-        SELECT 1 FROM qmhq
-        WHERE id = entity_id
-        AND (
-          -- Same as qmhq RLS policy
-          get_user_role() IN ('admin', 'quartermaster', 'finance', 'inventory', 'proposal', 'frontline')
-          OR (get_user_role() = 'requester' AND owns_qmhq(id))
-        )
-      )
-    END
-  );
-
--- INSERT: Can upload files if can edit entity
-CREATE POLICY file_attachments_insert ON file_attachments
-  FOR INSERT WITH CHECK (
-    CASE entity_type
-      WHEN 'qmrl' THEN EXISTS (
-        SELECT 1 FROM qmrl
-        WHERE id = entity_id
-        AND (
-          get_user_role() IN ('admin', 'quartermaster', 'proposal', 'frontline')
-          OR (get_user_role() = 'requester' AND requester_id = auth.uid())
-        )
-      )
-      WHEN 'qmhq' THEN EXISTS (
-        SELECT 1 FROM qmhq
-        WHERE id = entity_id
-        AND get_user_role() IN ('admin', 'quartermaster', 'proposal', 'finance', 'inventory')
-      )
-    END
-  );
-
--- DELETE: Can delete own files OR admin/quartermaster can delete any
-CREATE POLICY file_attachments_delete ON file_attachments
-  FOR DELETE USING (
-    uploaded_by = auth.uid()
-    OR get_user_role() IN ('admin', 'quartermaster')
-  );
-```
-
-#### RLS Policies: storage.objects
-
-**Pattern: Check file_attachments Ownership**
-
-```sql
--- Upload: Must have insert permission on file_attachments
-CREATE POLICY storage_upload ON storage.objects
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    bucket_id = 'attachments'
-    AND (
-      -- Check that user can create attachment for this path
-      -- Path format: {entity_type}/{entity_id}/{filename}
-      -- This is validated in server action before upload
-      true -- Rely on server action validation
-    )
-  );
-
--- Download: Must have select permission on file_attachments
-CREATE POLICY storage_download ON storage.objects
-  FOR SELECT TO authenticated
-  USING (
-    bucket_id = 'attachments'
-    AND EXISTS (
-      SELECT 1 FROM file_attachments
-      WHERE storage_path = name
-      AND is_active = true
-      -- RLS on file_attachments will filter based on entity access
-    )
-  );
-
--- Delete: Must have delete permission on file_attachments
-CREATE POLICY storage_delete ON storage.objects
-  FOR DELETE TO authenticated
-  USING (
-    bucket_id = 'attachments'
-    AND EXISTS (
-      SELECT 1 FROM file_attachments
-      WHERE storage_path = name
-      AND (
-        uploaded_by = auth.uid()
-        OR get_user_role() IN ('admin', 'quartermaster')
-      )
-    )
-  );
-```
-
-**Important:** Supabase Storage RLS policies are checked AFTER metadata is persisted. The server action pattern (validate → upload → insert metadata) ensures proper authorization.
-
-#### File Size and Type Validation
-
-**Client-Side (Immediate Feedback):**
+**Existing Pattern (Management Dashboard):**
 ```typescript
-// In FileUploadForm component
-const ALLOWED_TYPES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'image/png',
-  'image/jpeg',
-  'image/gif',
-];
+// lib/actions/dashboard.ts
+export async function getDashboardData() {
+  const supabase = await createClient();
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+  // Parallel RPC calls (no waterfall)
+  const qmrlStatsPromise = supabase.rpc('get_qmrl_status_counts');
+  const qmhqStatsPromise = supabase.rpc('get_qmhq_status_counts');
+  const lowStockPromise = supabase.rpc('get_low_stock_alerts', { threshold: 10 });
 
-function validateFile(file: File): { valid: boolean; error?: string } {
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return { valid: false, error: 'File type not allowed' };
-  }
-  if (file.size > MAX_FILE_SIZE) {
-    return { valid: false, error: 'File size exceeds 25MB limit' };
-  }
-  return { valid: true };
+  const [qmrlStats, qmhqStats, lowStock] = await Promise.all([...]);
+
+  return { qmrlStats, qmhqStats, lowStockAlerts };
 }
 ```
 
-**Server-Side (Security Boundary):**
+**New Pattern (Inventory Dashboard):**
 ```typescript
-// In uploadFileAction server action
-async function uploadFileAction(formData: FormData) {
-  const file = formData.get('file') as File;
+// lib/actions/inventory.ts (NEW FILE)
+export async function getInventoryDashboardData() {
+  const supabase = await createClient();
 
-  // Re-validate on server
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    throw new Error('Invalid file type');
-  }
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error('File too large');
-  }
+  // NEW RPC for aggregated inventory stats
+  const inventoryStatsPromise = supabase.rpc('get_inventory_dashboard_stats');
 
-  // Proceed with upload...
+  // Existing queries for recent movements (parallel)
+  const recentMovementsPromise = supabase
+    .from('inventory_transactions')
+    .select('*, item:items(name, sku), warehouse:warehouses(name)')
+    .eq('status', 'completed')
+    .order('transaction_date', { ascending: false })
+    .limit(10);
+
+  const [inventoryStats, recentMovements] = await Promise.all([...]);
+
+  return { stats: inventoryStats.data, recentMovements: recentMovements.data };
 }
 ```
 
-**File Count Limit:**
+**Why this pattern:**
+- Proven performance in existing management dashboard
+- Single RPC call avoids N+1 queries for aggregations
+- Parallel fetching prevents waterfall
+- Server Action keeps data fetching server-side (no client credentials exposure)
+
+#### Pattern B: Warehouse Detail with Client-Side KPIs (EXISTING)
+
+**Existing Pattern:**
+```typescript
+// app/(dashboard)/warehouse/[id]/page.tsx (EXISTING)
+const [inventoryItems, setInventoryItems] = useState<WarehouseInventoryItem[]>([]);
+
+// Fetch transactions, calculate inventory client-side
+const inventoryMap = new Map();
+transactionsData.forEach((t) => {
+  if (t.movement_type === "inventory_in") inv.current_stock += t.quantity;
+  else if (t.movement_type === "inventory_out") inv.current_stock -= t.quantity;
+});
+
+// Calculate KPIs from calculated inventory
+const kpis = useMemo(() => {
+  const totalItems = inventoryItems.length;
+  const totalUnits = inventoryItems.reduce((sum, item) => sum + item.current_stock, 0);
+  const totalValue = inventoryItems.reduce((sum, item) => sum + item.total_value, 0);
+  return { totalItems, totalUnits, totalValue, totalValueEusd };
+}, [inventoryItems]);
+```
+
+**No Change Required:**
+- Existing warehouse detail page already calculates KPIs client-side
+- Already uses `useMemo` for performance
+- Already displays WAC from item.wac_amount
+- v1.2 does NOT modify this pattern
+
+**Why this pattern:**
+- KPIs are derived from fetched data (no separate query needed)
+- Client-side calculation is fast for single-warehouse scope
+- WAC already comes from database (calculated by triggers)
+
+#### Pattern C: Invoice Void Cascade (NEW)
+
+**Implementation:**
 ```sql
--- Add constraint to file_attachments table
-ALTER TABLE file_attachments
-ADD CONSTRAINT check_file_count_per_entity
-CHECK (
-  (SELECT COUNT(*)
-   FROM file_attachments
-   WHERE entity_type = NEW.entity_type
-   AND entity_id = NEW.entity_id
-   AND is_active = true) <= 10
-);
-```
-
-**Note:** Constraint may impact performance. Consider checking count in server action instead.
-
-### 2. Dashboard Data System
-
-#### Components
-
-| Component | Responsibility | Layer |
-|-----------|---------------|-------|
-| **DashboardPage Server Component** | Fetch all dashboard data on page load | Next.js Server |
-| **Dashboard Utility Functions** | Query database for counts/aggregates | Next.js Server |
-| **Materialized Views (Optional)** | Cache expensive aggregations | Database |
-| **Status Count Aggregates** | COUNT qmrl/qmhq by status_group | Database Query |
-| **Recent Activity Query** | Fetch last 5 audit_logs with entity names | Database Query |
-| **Low Stock Query** | Items with total inventory < 10 units | Database Query |
-
-#### Data Flow: Dashboard Load
-
-```
-1. User navigates to /dashboard
-   │
-   ▼
-2. DashboardPage Server Component renders
-   │
-   ▼
-3. Server Component calls dashboard utility functions in parallel:
-   - getQMRLStatusCounts()
-   - getQMHQStatusCounts()
-   - getRecentActivity()
-   - getLowStockItems()
-   │
-   ▼
-4. Each function queries database:
-   - Direct queries on qmrl/qmhq/audit_logs tables
-   - OR queries on materialized views (if implemented)
-   │
-   ▼
-5. Server Component renders with data (no client-side loading state)
-   │
-   ▼
-6. Page fully rendered on server, sent to client
-```
-
-**Key Decision: On-Demand Queries (NOT Real-Time Subscriptions)**
-
-**Rationale:**
-- Dashboard is only viewed by Admin/Quartermaster roles (small audience)
-- Data changes are infrequent (not a live chat or collaborative editor)
-- Real-time subscriptions add complexity: connection management, memory overhead, WebSocket connections
-- Each subscription creates a persistent connection → resource intensive for dashboard with 6-8 queries
-- Polling at 6s intervals (mentioned in research) is still more overhead than on-demand
-- Next.js Server Components already provide fast server-side rendering
-- User can manually refresh if they want latest data (F5)
-
-**When to Use Real-Time (NOT for this dashboard):**
-- High-frequency updates (multiple times per second)
-- Collaborative editing (multiple users updating same data)
-- Critical notifications (must appear immediately without refresh)
-
-**Performance Optimization: Materialized Views (Optional)**
-
-If dashboard becomes slow (> 2 seconds load time), create materialized views:
-
-```sql
--- Materialized view for QMRL status counts
-CREATE MATERIALIZED VIEW mv_qmrl_status_counts AS
-SELECT
-  sc.status_group,
-  COUNT(*) as count
-FROM qmrl q
-JOIN status_config sc ON q.status_id = sc.id
-WHERE q.is_active = true AND sc.entity_type = 'qmrl'
-GROUP BY sc.status_group;
-
--- Refresh function (called after qmrl updates)
-CREATE OR REPLACE FUNCTION refresh_qmrl_status_counts()
+-- Trigger on invoices table: AFTER UPDATE
+CREATE OR REPLACE FUNCTION cascade_invoice_void_recalculation()
 RETURNS TRIGGER AS $$
 BEGIN
-  REFRESH MATERIALIZED VIEW CONCURRENTLY mv_qmrl_status_counts;
-  RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
+  -- Only process when invoice is voided
+  IF NEW.is_voided = true AND OLD.is_voided = false THEN
+
+    -- Step 1: Decrement po_line_items.invoiced_quantity
+    UPDATE po_line_items pli
+    SET invoiced_quantity = GREATEST(invoiced_quantity - ili.quantity, 0),
+        updated_at = NOW()
+    FROM invoice_line_items ili
+    WHERE ili.invoice_id = NEW.id
+      AND pli.id = ili.po_line_item_id;
+
+    -- Step 2: Cancel related inventory_in transactions
+    UPDATE inventory_transactions
+    SET status = 'cancelled',
+        updated_at = NOW()
+    WHERE invoice_id = NEW.id
+      AND movement_type = 'inventory_in'
+      AND status = 'completed';
+
+    -- Step 3: Recalculate PO status (triggers existing PO status calculation)
+    -- This happens automatically via existing calculate_po_status() trigger
+
+    -- Step 4: Recalculate WAC for affected items
+    -- This happens automatically via existing handle_inventory_transaction_status_change() trigger
+    -- which runs when inventory_transactions.status changes to 'cancelled'
 
--- Trigger to refresh after qmrl changes
-CREATE TRIGGER trg_refresh_qmrl_status_counts
-AFTER INSERT OR UPDATE OR DELETE ON qmrl
-FOR EACH STATEMENT
-EXECUTE FUNCTION refresh_qmrl_status_counts();
-```
-
-**Trade-off:**
-- **Pros:** Faster dashboard queries (pre-computed aggregates)
-- **Cons:** Adds trigger overhead on every qmrl change, more database complexity
-
-**Recommendation:** Start with direct queries. Add materialized views only if dashboard load time exceeds 2 seconds.
-
-#### Dashboard Query Patterns
-
-**QMRL Status Counts:**
-```sql
--- Query: Count QMRL by status group
-SELECT
-  sc.status_group,
-  COUNT(*) as count
-FROM qmrl q
-JOIN status_config sc ON q.status_id = sc.id
-WHERE q.is_active = true
-  AND sc.entity_type = 'qmrl'
-GROUP BY sc.status_group;
-
--- Returns: { to_do: 12, in_progress: 8, done: 45 }
-```
-
-**QMHQ Status Counts:**
-```sql
--- Same pattern as QMRL
-SELECT
-  sc.status_group,
-  COUNT(*) as count
-FROM qmhq q
-JOIN status_config sc ON q.status_id = sc.id
-WHERE q.is_active = true
-  AND sc.entity_type = 'qmhq'
-GROUP BY sc.status_group;
-```
-
-**Recent Activity:**
-```sql
--- Query: Last 5 audit logs with entity details
-SELECT
-  al.id,
-  al.entity_type,
-  al.entity_id,
-  al.action,
-  al.changes_summary,
-  al.changed_by_name,
-  al.changed_at,
-  -- Get entity title based on type
-  CASE al.entity_type
-    WHEN 'qmrl' THEN (SELECT title FROM qmrl WHERE id = al.entity_id)
-    WHEN 'qmhq' THEN (SELECT line_name FROM qmhq WHERE id = al.entity_id)
-    WHEN 'purchase_orders' THEN (SELECT po_number FROM purchase_orders WHERE id = al.entity_id)
-    WHEN 'invoices' THEN (SELECT invoice_number FROM invoices WHERE id = al.entity_id)
-  END as entity_title
-FROM audit_logs al
-WHERE al.entity_type IN ('qmrl', 'qmhq', 'purchase_orders', 'invoices')
-ORDER BY al.changed_at DESC
-LIMIT 5;
-```
-
-**Low Stock Items:**
-```sql
--- Query: Items with total inventory < 10 units
-SELECT
-  i.id,
-  i.name,
-  i.item_code,
-  SUM(
-    CASE it.direction
-      WHEN 'in' THEN it.quantity
-      WHEN 'out' THEN -it.quantity
-    END
-  ) as total_quantity
-FROM items i
-LEFT JOIN inventory_transactions it ON i.id = it.item_id
-WHERE i.is_active = true
-GROUP BY i.id, i.name, i.item_code
-HAVING SUM(
-  CASE it.direction
-    WHEN 'in' THEN it.quantity
-    WHEN 'out' THEN -it.quantity
-    ELSE 0
-  END
-) < 10
-ORDER BY total_quantity ASC;
-```
-
-**Performance Note:** Low stock query aggregates inventory transactions. Consider adding a `current_stock` field to items table, updated via trigger on inventory_transactions, to avoid aggregation on every dashboard load.
-
-#### Dashboard Utility Functions
-
-**Location:** `/lib/utils/dashboard.ts`
-
-```typescript
-// Server-side utility functions
-import { createClient } from '@/lib/supabase/server';
-
-export async function getQMRLStatusCounts() {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('qmrl')
-    .select('status_id, status_config(status_group)')
-    .eq('is_active', true);
-
-  // Group by status_group
-  const counts = { to_do: 0, in_progress: 0, done: 0 };
-  data?.forEach(item => {
-    counts[item.status_config.status_group]++;
-  });
-  return counts;
-}
-
-export async function getRecentActivity() {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('audit_logs')
-    .select('*')
-    .in('entity_type', ['qmrl', 'qmhq', 'purchase_orders', 'invoices'])
-    .order('changed_at', { ascending: false })
-    .limit(5);
-
-  // Fetch entity titles separately (Supabase doesn't support CASE in select)
-  // This is acceptable for 5 records
-  const withTitles = await Promise.all(
-    data?.map(async (log) => {
-      let title = '';
-      if (log.entity_type === 'qmrl') {
-        const { data: qmrl } = await supabase
-          .from('qmrl')
-          .select('title')
-          .eq('id', log.entity_id)
-          .single();
-        title = qmrl?.title || '';
-      }
-      // Repeat for other entity types...
-      return { ...log, entity_title: title };
-    }) || []
-  );
-
-  return withTitles;
-}
-
-// Similar functions for other dashboard widgets...
-```
-
-#### Refresh Mechanism
-
-**User-Initiated Refresh:**
-- User presses F5 to reload page (natural browser behavior)
-- No "Refresh" button needed initially
-
-**Automatic Background Refresh (Future Enhancement):**
-- If needed, use Next.js `revalidatePath()` in Server Actions that modify data
-- Example: After creating QMRL, call `revalidatePath('/dashboard')`
-- Next time dashboard is visited, it fetches fresh data
-
-**Not Recommended:**
-- Client-side polling (setInterval) → unnecessary overhead
-- Real-time subscriptions → too complex for this use case
-
-### 3. Quick Status Change System
-
-#### Components
-
-| Component | Responsibility | Layer |
-|-----------|---------------|-------|
-| **StatusBadge Client Component** | Clickable badge that opens status picker | Next.js Client |
-| **StatusPicker Client Component** | Dropdown/modal with status options | Next.js Client |
-| **updateStatusAction Server Action** | Update status_id in database | Next.js Server |
-| **Existing Audit Trigger** | Auto-logs status change to audit_logs | Database |
-
-#### Data Flow: Quick Status Change
-
-```
-1. User clicks status badge on QMRL/QMHQ card
-   │
-   ▼
-2. StatusPicker modal/dropdown opens with status options
-   │
-   ▼
-3. User selects new status
-   │
-   ▼
-4. Client calls updateStatusAction(entityType, entityId, newStatusId)
-   │
-   ▼
-5. Server Action:
-   a. Validates user permissions (can update entity?)
-   b. Updates status_id in qmrl/qmhq table
-   c. Audit trigger fires automatically (see migration 026)
-   d. Audit log created with action='status_change'
-   │
-   ▼
-6. Server returns success
-   │
-   ▼
-7. Client revalidates page/row to show new status
-```
-
-**Key Decision: Use Existing Audit System (No New Logging Layer)**
-
-The existing audit trigger (migration 026) already handles status changes:
-
-```sql
--- From migration 026_audit_triggers.sql (lines 107-138)
-IF TG_TABLE_NAME IN ('qmrl', 'qmhq', 'purchase_orders', 'invoices') THEN
-  IF OLD.status_id IS DISTINCT FROM NEW.status_id THEN
-    audit_action := 'status_change';
-
-    -- Get status names for summary
-    DECLARE
-      old_status_name TEXT;
-      new_status_name TEXT;
-    BEGIN
-      SELECT name INTO old_status_name FROM public.status_config WHERE id = OLD.status_id;
-      SELECT name INTO new_status_name FROM public.status_config WHERE id = NEW.status_id;
-
-      summary := 'Status changed from "' || COALESCE(old_status_name, 'None') ||
-                 '" to "' || COALESCE(new_status_name, 'None') || '"';
-    END;
-
-    INSERT INTO public.audit_logs (
-      entity_type, entity_id, action,
-      field_name, old_value, new_value,
-      changes_summary,
-      changed_by, changed_by_name, changed_at
-    ) VALUES (
-      TG_TABLE_NAME, NEW.id, audit_action,
-      'status_id', OLD.status_id::TEXT, NEW.status_id::TEXT,
-      summary,
-      audit_user_id, audit_user_name, NOW()
-    );
-  END IF;
-END IF;
-```
-
-**What This Means:**
-- Server Action just updates `status_id` field
-- Trigger detects the change and creates audit log automatically
-- No need to manually call audit logging in Server Action
-- Audit log includes status names (not just IDs) for human readability
-
-#### Server Action Implementation
-
-**Location:** `/app/actions/status.ts`
-
-```typescript
-'use server';
-
-import { createClient } from '@/lib/supabase/server';
-import { revalidatePath } from 'next/cache';
-
-export async function updateStatusAction(
-  entityType: 'qmrl' | 'qmhq',
-  entityId: string,
-  newStatusId: string
-) {
-  const supabase = createClient();
-
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('Not authenticated');
-  }
-
-  // Update status (RLS policy will check permissions)
-  const { error } = await supabase
-    .from(entityType)
-    .update({
-      status_id: newStatusId,
-      updated_by: user.id,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', entityId);
-
-  if (error) {
-    if (error.code === '42501') { // RLS policy violation
-      throw new Error('You do not have permission to update this status');
-    }
-    throw new Error(error.message);
-  }
-
-  // Revalidate the page to show updated status
-  revalidatePath(`/${entityType}`);
-  revalidatePath(`/${entityType}/${entityId}`);
-
-  return { success: true };
-}
-```
-
-**Permission Validation:**
-- RLS policies (migration 027) already enforce who can update qmrl/qmhq
-- If user lacks permission, Postgres returns 42501 error
-- Server Action catches this and returns user-friendly error
-
-**No Explicit Audit Logging:**
-- Audit trigger fires automatically on UPDATE
-- Server Action doesn't need to call any audit logging functions
-
-#### Status Badge Component
-
-**Location:** `/components/ui/status-badge.tsx`
-
-```typescript
-'use client';
-
-import { useState } from 'react';
-import { Check } from 'lucide-react';
-import { updateStatusAction } from '@/app/actions/status';
-
-interface StatusBadgeProps {
-  entityType: 'qmrl' | 'qmhq';
-  entityId: string;
-  currentStatusId: string;
-  currentStatusName: string;
-  currentStatusColor: string;
-  availableStatuses: Array<{
-    id: string;
-    name: string;
-    color: string;
-    status_group: string;
-  }>;
-  editable?: boolean; // Only show dropdown if user can edit
-}
-
-export function StatusBadge({
-  entityType,
-  entityId,
-  currentStatusId,
-  currentStatusName,
-  currentStatusColor,
-  availableStatuses,
-  editable = false,
-}: StatusBadgeProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-
-  async function handleStatusChange(newStatusId: string) {
-    setIsUpdating(true);
-    try {
-      await updateStatusAction(entityType, entityId, newStatusId);
-      setIsOpen(false);
-      // Page will refresh automatically via revalidatePath
-    } catch (error) {
-      alert(error.message);
-    } finally {
-      setIsUpdating(false);
-    }
-  }
-
-  if (!editable) {
-    // Read-only badge
-    return (
-      <span
-        className="px-3 py-1 rounded-full text-sm font-medium"
-        style={{ backgroundColor: currentStatusColor, color: '#fff' }}
-      >
-        {currentStatusName}
-      </span>
-    );
-  }
-
-  // Editable badge with dropdown
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="px-3 py-1 rounded-full text-sm font-medium hover:opacity-80 transition"
-        style={{ backgroundColor: currentStatusColor, color: '#fff' }}
-      >
-        {currentStatusName}
-      </button>
-
-      {isOpen && (
-        <div className="absolute z-10 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200">
-          {availableStatuses.map((status) => (
-            <button
-              key={status.id}
-              onClick={() => handleStatusChange(status.id)}
-              disabled={isUpdating || status.id === currentStatusId}
-              className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
-            >
-              <span>{status.name}</span>
-              {status.id === currentStatusId && <Check className="h-4 w-4" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-```
-
-**Editable Prop Logic:**
-- Server Component determines if user can edit (based on role + ownership)
-- Passes `editable` prop to StatusBadge
-- If false, renders static badge (no click handler)
-
-### 4. File Metadata Storage Design
-
-#### Decision: Separate Table (Not JSON Field)
-
-**Rationale:**
-
-| Criterion | Separate Table | JSON Field |
-|-----------|---------------|------------|
-| **Queryability** | Can filter/search by file_name, file_size, uploaded_by | Must parse JSON in WHERE clause (slow) |
-| **Referential Integrity** | FK to users(id) enforced by database | No enforcement, data can become inconsistent |
-| **Indexing** | Can index individual columns (entity_id, uploaded_by) | Cannot index inside JSON (Postgres JSONB indexes are limited) |
-| **Schema Evolution** | Add columns with ALTER TABLE | Must parse entire JSON, modify, serialize back |
-| **Type Safety** | PostgreSQL enforces column types | JSON allows any structure (error-prone) |
-| **Join Performance** | Native JOIN on uploaded_by → users | Must extract from JSON before joining |
-| **Audit Integration** | Audit triggers see individual field changes | Audit sees entire JSON blob changed |
-| **RLS Policies** | Can check columns directly in policy expressions | Must extract from JSON in policies (complex) |
-
-**Conclusion:** Separate table is superior for this use case.
-
-**When JSON Fields Are Appropriate:**
-- Truly schemaless data (e.g., custom metadata fields per file type)
-- Data that's never queried (only stored and retrieved as blob)
-- Highly variable structure that changes frequently
-
-**For File Attachments:**
-- File name, size, type, uploaded_by are ALWAYS present
-- Need to query by entity_id (show all files for QMRL)
-- Need to filter by uploaded_by (show my uploads)
-- Need referential integrity with users table
-
-**Hybrid Approach (Optional):**
-If additional metadata is needed later (e.g., image dimensions, PDF page count), add a `metadata JSONB` column to file_attachments table for truly variable data.
-
-```sql
-ALTER TABLE file_attachments
-ADD COLUMN metadata JSONB DEFAULT '{}';
-
--- Example metadata for images
-{
-  "width": 1920,
-  "height": 1080,
-  "format": "PNG"
-}
-
--- Example metadata for PDFs
-{
-  "pages": 12,
-  "hasAnnotations": true
-}
-```
-
-## Component Integration Map
-
-### How New Components Connect to Existing Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Existing System                              │
-│  ┌────────────────┐  ┌──────────────┐  ┌─────────────────────┐    │
-│  │ QMRL/QMHQ      │  │ Users        │  │ Audit System        │    │
-│  │ Entities       │  │ + RLS        │  │ (26 triggers)       │    │
-│  └────────────────┘  └──────────────┘  └─────────────────────┘    │
-│         │                   │                      │                │
-│         │                   │                      │                │
-│         ▼                   ▼                      ▼                │
-│  ┌─────────────────────────────────────────────────────────┐       │
-│  │              New V1.1 Components                         │       │
-│  │                                                          │       │
-│  │  1. file_attachments table                              │       │
-│  │     - FKs to qmrl/qmhq (entity_id)                      │       │
-│  │     - FK to users (uploaded_by)                         │       │
-│  │     - RLS mirrors entity permissions                    │       │
-│  │     - Audit trigger auto-applies                        │       │
-│  │                                                          │       │
-│  │  2. Dashboard queries                                   │       │
-│  │     - JOINs qmrl + status_config                        │       │
-│  │     - JOINs qmhq + status_config                        │       │
-│  │     - Queries audit_logs (no new table)                 │       │
-│  │     - Aggregates inventory_transactions                 │       │
-│  │                                                          │       │
-│  │  3. Status change Server Actions                        │       │
-│  │     - UPDATEs qmrl.status_id / qmhq.status_id           │       │
-│  │     - Triggers existing audit system                    │       │
-│  │     - No new audit logging code                         │       │
-│  │                                                          │       │
-│  └─────────────────────────────────────────────────────────┘       │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-**Key Integration Points:**
-
-1. **File Attachments → Entities**
-   - Polymorphic relationship via `entity_type` + `entity_id`
-   - RLS policies use EXISTS subqueries to check entity access
-   - No changes to qmrl/qmhq tables
-
-2. **File Attachments → Users**
-   - FK `uploaded_by` references users(id)
-   - RLS policies allow deletion by uploader or admin
-   - Audit logs capture file operations via existing triggers
-
-3. **Dashboard → Multiple Tables**
-   - Server Component queries 4 different data sources
-   - No new tables (uses qmrl, qmhq, audit_logs, inventory_transactions)
-   - Materialized views are optional optimization
-
-4. **Status Changes → Audit System**
-   - Server Action updates single field (status_id)
-   - Existing audit trigger (lines 107-138 in migration 026) handles logging
-   - No new code in audit system
-
-## Build Order and Dependencies
-
-### Phase 1: File Storage Foundation (Days 1-2)
-
-**Deliverables:**
-1. Create `file_attachments` table migration
-2. Create RLS policies for `file_attachments`
-3. Create Supabase Storage bucket `attachments` (private)
-4. Create RLS policies for `storage.objects`
-5. Write utility functions for file operations (`/lib/utils/files.ts`)
-
-**Dependencies:** None (independent of other V1.1 features)
-
-**Testing:** Upload/download/delete files manually via SQL and Supabase Dashboard
-
----
-
-### Phase 2: File Upload UI (Days 3-4)
-
-**Deliverables:**
-1. Create `uploadFileAction` Server Action
-2. Create `FileUploadForm` client component
-3. Create `getFileUrl` Server Action (for signed URLs)
-4. Integrate upload form into QMRL create/detail pages
-5. Integrate upload form into QMHQ create/detail pages
-
-**Dependencies:** Phase 1 (file_attachments table + storage bucket)
-
-**Testing:** Upload files from QMRL/QMHQ forms, verify metadata in database
-
----
-
-### Phase 3: File Display and Management (Days 5-6)
-
-**Deliverables:**
-1. Create `FileList` client component
-2. Create `FilePreview` component (modal with image/PDF preview)
-3. Create `deleteFileAction` Server Action
-4. Display files on QMRL detail page
-5. Display files on QMHQ detail page
-
-**Dependencies:** Phase 2 (upload actions)
-
-**Testing:** View, preview, and delete files from entity detail pages
-
----
-
-### Phase 4: Dashboard Data Queries (Day 7)
-
-**Deliverables:**
-1. Create dashboard utility functions (`/lib/utils/dashboard.ts`)
-   - `getQMRLStatusCounts()`
-   - `getQMHQStatusCounts()`
-   - `getRecentActivity()`
-   - `getLowStockItems()`
-2. Write unit tests for utility functions
-
-**Dependencies:** None (queries existing tables)
-
-**Testing:** Run functions in Node REPL, verify correct counts
-
----
-
-### Phase 5: Dashboard UI (Day 8)
-
-**Deliverables:**
-1. Update `/app/(dashboard)/dashboard/page.tsx`
-2. Replace placeholder data with real queries
-3. Add loading states (Suspense boundaries)
-4. Style stat cards with real data
-
-**Dependencies:** Phase 4 (dashboard utility functions)
-
-**Testing:** Navigate to dashboard, verify correct counts, check loading states
-
----
-
-### Phase 6: Quick Status Change (Day 9)
-
-**Deliverables:**
-1. Create `updateStatusAction` Server Action
-2. Create `StatusBadge` client component with dropdown
-3. Integrate StatusBadge into QMRL list/detail pages
-4. Integrate StatusBadge into QMHQ list/detail pages
-5. Add permission checks (editable prop based on user role)
-
-**Dependencies:** None (uses existing audit system)
-
-**Testing:** Change status from badge, verify audit log created, check permissions
-
----
-
-### Phase 7: Transaction Detail Modal (Day 10)
-
-**Deliverables:**
-1. Create `TransactionDetailModal` component
-2. Create `updateTransactionAction` Server Action (date + notes only)
-3. Add "View Details" button to transaction tables
-4. Implement edit functionality (date/notes editable, amount locked)
-
-**Dependencies:** None (uses existing financial_transactions table)
-
-**Testing:** Edit transaction date/notes, verify amount cannot be changed
-
----
-
-### Phase 8: Integration Testing and Bug Fixes (Days 11-12)
-
-**Deliverables:**
-1. Test all features end-to-end
-2. Fix PO creation workflow (existing bug)
-3. Fix stock-in functionality (existing bug)
-4. Verify invoice creation works
-5. Verify stock-out functionality
-6. Test RLS policies with different user roles
-
-**Dependencies:** All previous phases
-
-**Testing:** Full regression testing with different user roles
-
----
-
-## Critical Path Analysis
-
-**Longest Path:** File Storage (Phases 1-3) = 6 days
-
-**Parallel Tracks:**
-- Dashboard (Phases 4-5) can run parallel to File Display (Phase 3)
-- Status Change (Phase 6) can run parallel to Dashboard UI (Phase 5)
-- Transaction Modal (Phase 7) is independent
-
-**Optimal Schedule:**
-```
-Days 1-2:  Phase 1 (File Storage Foundation)
-Days 3-4:  Phase 2 (File Upload UI)
-Days 5-6:  Phase 3 (File Display) + Phase 4 (Dashboard Queries) [parallel]
-Days 7-8:  Phase 5 (Dashboard UI) + Phase 6 (Status Change) [parallel]
-Day 9:     Phase 7 (Transaction Modal)
-Days 10-12: Phase 8 (Integration Testing)
-```
-
-**Total Duration:** 12 days (with parallelization)
-
-## Performance Considerations
-
-### File Storage Performance
-
-**Bottlenecks:**
-- Large file uploads (25MB) over slow connections
-- Multiple file uploads simultaneously
-
-**Optimizations:**
-1. **Client-side compression** for images before upload (optional)
-2. **Upload progress indicators** to show status
-3. **Chunk uploads** for files > 10MB (Supabase supports multipart upload)
-4. **Lazy load file list** (paginate if > 10 files)
-
-**Monitoring:**
-- Track average upload time in server action
-- Alert if > 10 seconds for files < 5MB
-
-### Dashboard Performance
-
-**Bottlenecks:**
-- Aggregation queries (COUNT, SUM) on large tables
-- Multiple sequential queries (4 separate fetches)
-
-**Optimizations:**
-1. **Parallel queries** using Promise.all() (already recommended)
-2. **Indexes** on frequently queried columns:
-   - `qmrl(status_id, is_active)`
-   - `qmhq(status_id, is_active)`
-   - `audit_logs(changed_at DESC)`
-3. **Materialized views** if queries exceed 2 seconds (future optimization)
-4. **Connection pooling** (already enabled in Supabase)
-
-**Monitoring:**
-- Track dashboard load time
-- Target: < 1 second for initial render
-- Alert if > 2 seconds
-
-**PostgreSQL 17 Benefits (2026):**
-- Incremental VACUUM reduces bloat
-- Parallel query execution for aggregations
-- Bi-directional indexes improve ORDER BY performance
-
-### Status Change Performance
-
-**Bottlenecks:**
-- Audit trigger execution time (inserts to audit_logs)
-- Revalidation of multiple pages
-
-**Optimizations:**
-1. **Audit trigger is already optimized** (SECURITY DEFINER, simple INSERT)
-2. **Revalidate only necessary paths** (not entire site)
-3. **Optimistic UI updates** (show new status immediately, rollback on error)
-
-**Monitoring:**
-- Track server action response time
-- Target: < 500ms
-- Alert if > 1 second
-
-## Security Considerations
-
-### File Storage Security
-
-**Threats:**
-1. **Malicious file uploads** (viruses, malware)
-2. **Unauthorized file access** (viewing other users' files)
-3. **File type spoofing** (renaming .exe to .pdf)
-4. **Storage exhaustion** (uploading many large files)
-
-**Mitigations:**
-1. **File type validation:** Check MIME type on server (not just extension)
-2. **File size limits:** 25MB per file, 10 files per entity
-3. **Virus scanning:** Not in V1.1 scope (consider Supabase Edge Function integration later)
-4. **RLS policies:** Enforce entity-level access control
-5. **Signed URLs:** Time-limited access (60 seconds) for downloads
-6. **Storage quotas:** Monitor total storage usage per organization
-
-**Additional Hardening:**
-- Reject files with double extensions (e.g., `file.pdf.exe`)
-- Sanitize file names (remove special characters)
-- Store files with UUIDs, not user-provided names
-
-### Dashboard Security
-
-**Threats:**
-1. **Unauthorized access** (non-admin viewing dashboard)
-2. **Data leakage** (seeing other users' activity)
-
-**Mitigations:**
-1. **Role check in page component:**
-   ```typescript
-   // In DashboardPage
-   const user = await getUser();
-   if (!['admin', 'quartermaster'].includes(user.role)) {
-     redirect('/qmrl'); // Redirect to main page
-   }
-   ```
-2. **RLS policies:** Audit logs already filtered by user permissions
-3. **Server Components:** Data never sent to client (no client-side filtering)
-
-### Status Change Security
-
-**Threats:**
-1. **Unauthorized status changes** (requester changing status to "Completed")
-2. **Status manipulation** (skipping approval steps)
-
-**Mitigations:**
-1. **RLS policies:** Enforce update permissions (already in place)
-2. **Server Actions:** All updates go through server (no direct client queries)
-3. **Audit logs:** Every status change is logged with user name
-4. **Status transitions:** Consider adding validation (e.g., can only go from Draft → Pending, not Draft → Completed)
-
-**Future Enhancement: Status Transition Rules**
-```sql
--- Add constraint to enforce status transitions
-CREATE OR REPLACE FUNCTION validate_status_transition()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Example: Draft can only go to Pending Review or Rejected
-  IF OLD.status_id = (SELECT id FROM status_config WHERE name = 'Draft' AND entity_type = TG_TABLE_NAME)
-     AND NEW.status_id NOT IN (
-       SELECT id FROM status_config
-       WHERE name IN ('Pending Review', 'Rejected')
-       AND entity_type = TG_TABLE_NAME
-     ) THEN
-    RAISE EXCEPTION 'Invalid status transition from Draft';
   END IF;
 
   RETURN NEW;
@@ -1218,232 +195,548 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
-## Anti-Patterns to Avoid
+**Cascade Sequence:**
+```
+User voids invoice (UI → Server Action → Supabase UPDATE)
+  ↓
+[1] cascade_invoice_void_recalculation() fires
+  ↓ Updates po_line_items.invoiced_quantity
+  ↓ Cancels inventory_transactions
+  ↓
+[2] handle_inventory_transaction_status_change() fires (EXISTING TRIGGER)
+  ↓ Recalculates item WAC (from remaining completed transactions)
+  ↓
+[3] calculate_po_status() fires (EXISTING TRIGGER - assumed from codebase patterns)
+  ↓ Recalculates PO status based on new invoiced_quantity
+  ↓
+[4] create_audit_log() fires (EXISTING TRIGGER)
+  ↓ Logs void action to audit_logs
+```
 
-### File Storage Anti-Patterns
+**Why this pattern:**
+- Leverages existing trigger infrastructure
+- Database ensures consistency (transaction-safe)
+- Single UPDATE triggers entire cascade
+- Reuses existing WAC recalculation logic (no duplication)
 
-**❌ Storing File Bytes in Database**
-- **Why Bad:** PostgreSQL BYTEA columns are slower than object storage
-- **Why Bad:** Increases database backup size dramatically
-- **Why Bad:** No CDN caching for file delivery
-- **Do Instead:** Use Supabase Storage (S3-compatible object storage)
+#### Pattern D: Manual Stock-In with Currency Handling (ENHANCED)
 
-**❌ Public Storage Bucket with Client-Side Access Control**
-- **Why Bad:** Files are accessible to anyone with URL
-- **Why Bad:** RLS policies are bypassed
-- **Do Instead:** Private bucket + RLS policies + signed URLs
+**Current WAC Trigger Limitation:**
+```sql
+-- EXISTING: Assumes unit_cost is in item's WAC currency
+UPDATE items
+SET wac_amount = new_wac,
+    wac_currency = NEW.currency,  -- Overwrites currency (PROBLEM if different)
+    wac_exchange_rate = NEW.exchange_rate
+WHERE id = NEW.item_id;
+```
 
-**❌ Storing Multiple Files in Single JSON Column**
-- **Why Bad:** Cannot query individual files
-- **Why Bad:** Must download entire JSON to check if file exists
-- **Do Instead:** Separate row per file in file_attachments table
+**Enhanced WAC Trigger:**
+```sql
+CREATE OR REPLACE FUNCTION update_item_wac()
+RETURNS TRIGGER AS $$
+DECLARE
+  current_wac DECIMAL(15,2);
+  current_qty DECIMAL(15,2);
+  current_wac_currency TEXT;
+  current_wac_rate DECIMAL(10,4);
+  new_value_in_wac_currency DECIMAL(15,2);
+  existing_value DECIMAL(15,2);
+  new_wac DECIMAL(15,2);
+BEGIN
+  -- Get current item WAC and currency
+  SELECT wac_amount, wac_currency, wac_exchange_rate, [current_qty_calc]
+  INTO current_wac, current_wac_currency, current_wac_rate, current_qty
+  FROM items WHERE id = NEW.item_id;
 
-**❌ Using File Name as Primary Key**
-- **Why Bad:** File names are not unique (different entities can have same file name)
-- **Why Bad:** Renaming file breaks references
-- **Do Instead:** UUID primary key, file_name as separate column
+  -- Convert new stock-in value to item's WAC currency
+  IF NEW.currency = current_wac_currency THEN
+    new_value_in_wac_currency := NEW.quantity * NEW.unit_cost;
+  ELSE
+    -- Convert: new_currency → USD → wac_currency
+    new_value_in_wac_currency := (NEW.quantity * NEW.unit_cost / NEW.exchange_rate) * current_wac_rate;
+  END IF;
 
-### Dashboard Anti-Patterns
+  -- Calculate new WAC in item's currency
+  existing_value := current_qty * current_wac;
+  new_wac := (existing_value + new_value_in_wac_currency) / (current_qty + NEW.quantity);
 
-**❌ Client-Side Data Fetching with Loading States**
-- **Why Bad:** Introduces waterfall requests (layout → dashboard → data)
-- **Why Bad:** Data fetching logic in client components (harder to test)
-- **Why Bad:** More client-side JavaScript = slower initial render
-- **Do Instead:** Server Components fetch data before rendering
+  -- Update item (currency stays consistent)
+  UPDATE items
+  SET wac_amount = new_wac,
+      -- wac_currency unchanged (maintains consistency)
+      updated_at = NOW()
+  WHERE id = NEW.item_id;
 
-**❌ Real-Time Subscriptions for Dashboard Aggregates**
-- **Why Bad:** Persistent WebSocket connections for infrequent updates
-- **Why Bad:** Adds connection management complexity
-- **Why Bad:** Each subscription = memory overhead
-- **Do Instead:** On-demand queries with manual refresh (F5)
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
 
-**❌ Polling Every 5 Seconds**
-- **Why Bad:** Unnecessary database load
-- **Why Bad:** Battery drain on mobile devices
-- **Why Bad:** Doesn't scale (10 dashboard viewers = 120 queries/min)
-- **Do Instead:** On-demand queries triggered by user action
+**Why this pattern:**
+- WAC currency consistency: Item keeps single WAC currency (doesn't flip-flop)
+- Cross-currency conversion: Manual stock-in in THB converts to item's MMK WAC
+- Formula preservation: Still uses weighted average, just converts values first
 
-**❌ N+1 Queries in Dashboard**
-- **Example:** Fetch activity logs, then fetch entity name for each log (5 logs = 6 queries)
-- **Why Bad:** Multiple round-trips to database
-- **Do Instead:** Single query with JOINs or Promise.all() for parallel fetches
+### 3. Component Architecture
 
-**❌ Fetching Full Rows When Only Counts Needed**
-- **Example:** `SELECT * FROM qmrl` then count in JavaScript
-- **Why Bad:** Transfers unnecessary data over network
-- **Why Bad:** Wastes database I/O
-- **Do Instead:** `SELECT COUNT(*) FROM qmrl WHERE ...`
+#### New Components (v1.2)
 
-### Status Change Anti-Patterns
+```
+app/(dashboard)/inventory/
+  page.tsx                    # Inventory Dashboard (NEW - enhanced from placeholder)
+    ├─ Uses: getInventoryDashboardData() Server Action
+    ├─ Displays: KPI cards, warehouse breakdown, top items, recent movements
+    └─ Pattern: Same as management dashboard (KPI cards + tables)
 
-**❌ Dual Audit Logging (Trigger + Manual)**
-- **Why Bad:** Creates duplicate audit records
-- **Why Bad:** Manual logging can be inconsistent
-- **Do Instead:** Let existing audit trigger handle all logging
+components/inventory/
+  inventory-stats-cards.tsx   # KPI cards component (NEW)
+  warehouse-breakdown-chart.tsx # Chart component (NEW - if charts added later)
+  top-items-table.tsx         # Top items by value table (NEW)
+```
 
-**❌ Client-Side Status Updates**
-- **Why Bad:** Bypasses RLS policies if using service key
-- **Why Bad:** Harder to validate permissions
-- **Do Instead:** Server Actions that UPDATE database, letting RLS enforce rules
+#### Modified Components (v1.2)
 
-**❌ Revalidating Entire Site After Status Change**
-- **Example:** `revalidatePath('/')`
-- **Why Bad:** Clears cache for all pages, not just affected entity
-- **Why Bad:** Slower page loads for unrelated pages
-- **Do Instead:** `revalidatePath('/qmrl')` and `revalidatePath(`/qmrl/${id}`)`
+```
+app/(dashboard)/warehouse/[id]/page.tsx
+  # NO CHANGES - already has WAC display via warehouse_inventory view
+  # Existing KPI cards already show total_value_eusd
 
-**❌ Optimistic Updates Without Rollback**
-- **Example:** Show new status immediately, ignore server errors
-- **Why Bad:** UI shows incorrect state if update fails
-- **Do Instead:** Show loading state, update UI only after server confirms
+app/(dashboard)/inventory/stock-in/page.tsx
+  # MINOR ENHANCEMENT - add currency selector for manual stock-in
+  # Existing: Only shows invoice-based stock-in
+  # New: Add manual entry form with currency/exchange rate fields
+```
 
-## Migration Path from Existing System
+### 4. Server Actions Pattern
 
-### What Already Exists
+**New Server Action:**
+```typescript
+// lib/actions/inventory.ts (NEW FILE)
+'use server';
 
-The existing system (V1.0) provides:
-- ✅ RLS policies on all entities (migration 027)
-- ✅ Audit triggers on all entities (migration 026)
-- ✅ User authentication and role-based permissions
-- ✅ QMRL and QMHQ entities with status_config relationships
-- ✅ Audit logs table with comprehensive tracking
-- ✅ Server Components and Server Actions patterns
-- ✅ Supabase client utilities (browser and server)
+import { createClient } from '@/lib/supabase/server';
 
-### What Needs to Be Added
+export async function getInventoryDashboardData() {
+  // Pattern: Same as getDashboardData() in lib/actions/dashboard.ts
+  // Parallel RPC + query fetching
+}
 
-**Database Layer:**
-1. `file_attachments` table (new table)
-2. RLS policies for `file_attachments` (new policies)
-3. Supabase Storage bucket `attachments` (new bucket)
-4. RLS policies for `storage.objects` (new policies)
-5. Audit trigger for `file_attachments` (applies existing trigger to new table)
+export async function voidInvoice(invoiceId: string, reason: string) {
+  const supabase = await createClient();
 
-**Application Layer:**
-6. File upload/download Server Actions
-7. File management UI components
-8. Dashboard utility functions (queries only)
-9. Status change Server Action
-10. StatusBadge client component
-11. Transaction detail modal
+  // Single UPDATE triggers cascade
+  const { error } = await supabase
+    .from('invoices')
+    .update({
+      is_voided: true,
+      voided_at: new Date().toISOString(),
+      voided_by: (await supabase.auth.getUser()).data.user?.id,
+      void_reason: reason,
+    })
+    .eq('id', invoiceId);
 
-**No Changes Required:**
-- ❌ No modifications to existing tables (qmrl, qmhq, users, audit_logs)
-- ❌ No modifications to existing RLS policies
-- ❌ No modifications to existing audit triggers
-- ❌ No modifications to Supabase client setup
+  if (error) throw error;
 
-### Backward Compatibility
+  // Cascade happens automatically in database
+  // Returns success, UI refetches data
+}
+```
 
-**V1.0 Features Remain Unchanged:**
-- Creating/editing QMRL and QMHQ works identically
-- Audit history still visible on all entities
-- User permissions unchanged
-- Existing Server Actions and pages unaffected
+**Why Server Actions:**
+- Keeps database credentials server-side
+- Matches existing pattern (dashboard.ts, files.ts)
+- Simple API for client components
+- Automatic revalidation with Next.js cache
 
-**New Features Are Additive:**
-- File attachments are optional (entities without files work fine)
-- Dashboard is new page (doesn't replace existing pages)
-- Quick status change is alternative to edit form (edit form still works)
-- Transaction modal is enhancement (existing transaction view still works)
+---
 
-### Rollback Plan
+## Component Boundaries and Responsibilities
 
-If V1.1 features need to be rolled back:
+### Database Layer
+**Responsibilities:**
+- WAC calculation (triggers)
+- PO status calculation (triggers)
+- Invoice void cascade (triggers)
+- Inventory aggregation (RPC functions)
+- Audit logging (triggers)
 
-1. **Remove file upload UI:** Delete file upload components from pages
-2. **Keep file_attachments table:** Files already uploaded remain accessible
-3. **Disable dashboard:** Remove route or add role redirect
-4. **Disable quick status change:** Remove StatusBadge, use edit form only
-5. **Database migrations:** Keep all migrations (no data loss)
+**Inputs:** SQL commands from Supabase client
+**Outputs:** Query results, trigger side effects
+**Dependencies:** PostgreSQL 14+, existing migrations 001-033
 
-**Critical:** Do NOT drop `file_attachments` table if files were uploaded. Mark feature as deprecated, remove UI, but preserve data.
+### Server Action Layer
+**Responsibilities:**
+- Parallel data fetching (avoid waterfalls)
+- Server-side Supabase client management
+- Data transformation for UI
+- Mutation operations (void invoice, stock-in)
+
+**Inputs:** Function calls from client components
+**Outputs:** Typed data objects, mutation results
+**Dependencies:** Supabase server client, Next.js Server Actions
+
+### Presentation Layer
+**Responsibilities:**
+- Display aggregated data (KPI cards, tables, charts)
+- User interactions (filter, search, void invoice)
+- Client-side state (loading, error, pagination)
+- Optimistic updates (loading states during mutations)
+
+**Inputs:** Server Action responses
+**Outputs:** Rendered UI, user interactions
+**Dependencies:** React 18+, Server Actions, UI components
+
+---
+
+## Data Flow Diagrams
+
+### Flow 1: Inventory Dashboard Load
+
+```
+User navigates to /inventory
+  ↓
+[Server Component] page.tsx
+  ↓ Calls getInventoryDashboardData()
+  ↓
+[Server Action] lib/actions/inventory.ts
+  ↓ Promise.all([
+  ↓   supabase.rpc('get_inventory_dashboard_stats'),
+  ↓   supabase.from('inventory_transactions').select(...)
+  ↓ ])
+  ↓
+[Database] Executes RPC function
+  ↓ Aggregates from items, warehouses, inventory_transactions
+  ↓ Joins with WAC values from items.wac_amount
+  ↓
+[Server Action] Returns typed data
+  ↓
+[Server Component] Renders with data
+  ↓ Passes to client components (KPI cards, tables)
+  ↓
+[Client Components] Display + handle interactivity
+```
+
+**Performance:** Single RPC call avoids N+1, parallel fetching prevents waterfall
+
+### Flow 2: Invoice Void Cascade
+
+```
+User clicks "Void Invoice" button
+  ↓
+[Client Component] Invoice detail page
+  ↓ Calls voidInvoice(invoiceId, reason) Server Action
+  ↓
+[Server Action] lib/actions/inventory.ts
+  ↓ supabase.from('invoices').update({ is_voided: true, ... })
+  ↓
+[Database Trigger] cascade_invoice_void_recalculation()
+  ↓ [Step 1] UPDATE po_line_items (decrement invoiced_quantity)
+  ↓ [Step 2] UPDATE inventory_transactions (cancel related stock-ins)
+  ↓
+[Database Trigger] handle_inventory_transaction_status_change() (EXISTING)
+  ↓ Detects cancelled inventory_in transactions
+  ↓ Recalculates item WAC from remaining completed transactions
+  ↓
+[Database Trigger] calculate_po_status() (ASSUMED EXISTING)
+  ↓ Recalculates PO status based on new invoiced_quantity
+  ↓
+[Database Trigger] create_audit_log() (EXISTING)
+  ↓ Logs void action
+  ↓
+[Server Action] Returns success
+  ↓
+[Client Component] Refetches invoice detail
+  ↓ Shows updated status, audit log entry
+```
+
+**Consistency:** All updates happen in single database transaction
+
+### Flow 3: Manual Stock-In with Currency
+
+```
+User submits manual stock-in form (THB currency, item's WAC is MMK)
+  ↓
+[Client Component] stock-in/page.tsx
+  ↓ Calls createManualStockIn(...) Server Action
+  ↓
+[Server Action] lib/actions/inventory.ts
+  ↓ supabase.from('inventory_transactions').insert({
+  ↓   movement_type: 'inventory_in',
+  ↓   unit_cost: 100,      # THB
+  ↓   currency: 'THB',
+  ↓   exchange_rate: 0.029, # THB to USD
+  ↓   ...
+  ↓ })
+  ↓
+[Database Trigger] update_item_wac() (ENHANCED)
+  ↓ Fetches item's current WAC currency (MMK)
+  ↓ Converts new value: (100 THB / 0.029) * 2100 = 7,241,379 MMK
+  ↓ Calculates new WAC in MMK
+  ↓ Updates item.wac_amount (in MMK)
+  ↓
+[Server Action] Returns success
+  ↓
+[Client Component] Shows success toast, refetches inventory
+```
+
+**Currency Handling:** Cross-currency conversion maintains WAC consistency
+
+---
+
+## Technology Stack Alignment
+
+### Database (PostgreSQL via Supabase)
+**Existing:**
+- Triggers: WAC calculation, audit logging, status updates
+- Views: warehouse_inventory, item_stock_summary
+- RPC functions: Dashboard aggregations
+
+**New (v1.2):**
+- Trigger: cascade_invoice_void_recalculation
+- Enhanced trigger: update_item_wac (currency conversion)
+- RPC function: get_inventory_dashboard_stats
+
+**Confidence:** HIGH - Extends proven patterns
+
+### Backend (Supabase + Next.js Server Actions)
+**Existing:**
+- Server Actions: getDashboardData(), file operations
+- Pattern: Parallel fetching with Promise.all
+
+**New (v1.2):**
+- Server Action: getInventoryDashboardData()
+- Server Action: voidInvoice()
+- Server Action: createManualStockIn() (enhanced)
+
+**Confidence:** HIGH - Same pattern as existing actions
+
+### Frontend (Next.js 14 Server Components + React 18)
+**Existing:**
+- Dashboard pattern: KPI cards + tables
+- Warehouse detail pattern: Client-side KPI calculation
+
+**New (v1.2):**
+- Inventory dashboard: Same as management dashboard
+- Stock-in form: Enhanced with currency selector
+
+**Confidence:** HIGH - Reuses existing components and patterns
+
+---
+
+## Build Order and Dependencies
+
+### Phase 1: Database Foundation (No dependencies)
+**Tasks:**
+1. Create RPC function: `get_inventory_dashboard_stats()`
+2. Enhance trigger: `update_item_wac()` with currency conversion logic
+3. Create trigger: `cascade_invoice_void_recalculation()`
+
+**Testing:**
+- Unit test RPC function with sample data
+- Test WAC trigger with cross-currency stock-in
+- Test cascade trigger with voided invoice
+
+**Why first:** Database changes are foundation, must be deployed before app changes
+
+### Phase 2: Server Actions (Depends: Phase 1)
+**Tasks:**
+1. Create `lib/actions/inventory.ts`
+2. Implement `getInventoryDashboardData()`
+3. Implement `voidInvoice()`
+4. Enhance `createManualStockIn()` with currency fields
+
+**Testing:**
+- Server Action returns correct data structure
+- voidInvoice triggers cascade correctly
+- Manual stock-in with different currency calculates WAC
+
+**Why second:** Actions use new RPC/triggers, needed for UI
+
+### Phase 3: UI Components (Depends: Phase 2)
+**Tasks:**
+1. Build `app/(dashboard)/inventory/page.tsx` (dashboard)
+2. Create `components/inventory/inventory-stats-cards.tsx`
+3. Create `components/inventory/top-items-table.tsx`
+4. Enhance `app/(dashboard)/inventory/stock-in/page.tsx` with currency selector
+5. Add void button to invoice detail page
+
+**Testing:**
+- Dashboard displays correct KPIs
+- Stock-in form accepts currency selection
+- Void button triggers cascade, refetches data
+
+**Why third:** UI consumes Server Actions, built last
+
+### Phase 4: Integration Testing (Depends: Phase 1-3)
+**Tasks:**
+1. End-to-end test: Void invoice → verify PO status + WAC recalculation
+2. End-to-end test: Manual stock-in THB → verify WAC in MMK
+3. Performance test: Dashboard load time with 1000+ inventory items
+4. Cross-browser test: Dashboard renders correctly
+
+**Why last:** Validates entire flow across all layers
+
+---
+
+## Architectural Constraints and Trade-offs
+
+### Constraint 1: Single WAC Currency per Item
+**Decision:** Each item maintains WAC in one consistent currency
+**Rationale:** Simplifies accounting, prevents currency flip-flopping
+**Trade-off:** Manual stock-in requires currency conversion (adds complexity to trigger)
+**Mitigation:** Conversion logic isolated in trigger, tested thoroughly
+
+### Constraint 2: Cascade Triggers for Void
+**Decision:** Use database triggers instead of application logic
+**Rationale:** Ensures consistency, handles edge cases (concurrent updates)
+**Trade-off:** Harder to debug than application code
+**Mitigation:** Comprehensive logging in triggers, audit trail captures all changes
+
+### Constraint 3: Client-Side KPI Calculation for Warehouse Detail
+**Decision:** Keep existing pattern (calculate from fetched transactions)
+**Rationale:** Avoids additional query, fast for single-warehouse scope
+**Trade-off:** Won't scale if warehouse has 10,000+ items
+**Mitigation:** Warehouse detail page is scoped to single warehouse (limited data), pagination if needed later
+
+### Constraint 4: RPC for Dashboard Aggregation
+**Decision:** Use single RPC function for inventory stats
+**Rationale:** Proven pattern from management dashboard, avoids N+1
+**Trade-off:** Less flexible than client-side aggregation
+**Mitigation:** RPC parameters allow filtering (e.g., by warehouse_id), extendable with new RPCs if needed
+
+---
+
+## Integration Risk Assessment
+
+| Integration Point | Risk Level | Mitigation |
+|-------------------|------------|------------|
+| **WAC trigger enhancement** | MEDIUM | Thorough testing with multiple currencies, fallback to existing logic if conversion fails |
+| **Cascade trigger ordering** | HIGH | Document trigger execution order, test with concurrent invoice voids |
+| **RPC performance** | LOW | RPC aggregates server-side (fast), add indexes on join columns if slow |
+| **Manual stock-in UI** | LOW | Reuses existing form pattern, just adds currency fields |
+| **Invoice void UI** | LOW | Follows existing mutation pattern (Server Action + refetch) |
+
+**Highest Risk: Cascade Trigger Ordering**
+- **Issue:** If triggers fire in wrong order, WAC or PO status may be incorrect
+- **Mitigation:**
+  1. Use `AFTER UPDATE` trigger on invoices (fires after row committed)
+  2. Existing triggers on inventory_transactions and po_line_items fire automatically
+  3. Add integration test that voids invoice, checks all downstream updates
+  4. Document expected trigger sequence in migration comments
+
+---
+
+## Performance Considerations
+
+### Dashboard Load Performance
+**Current Baseline:** Management dashboard loads in ~300ms (RPC + parallel queries)
+**Expected v1.2:** Inventory dashboard should match (~300-400ms)
+
+**Optimization:**
+- Single RPC call for aggregations (not multiple queries)
+- Indexes on inventory_transactions (warehouse_id, item_id, transaction_date)
+- Parallel fetching (RPC + recent movements query)
+
+**Scalability:**
+- RPC aggregates in database (efficient at any scale)
+- Recent movements limited to 10 records (constant time)
+- Warehouse breakdown limited by warehouse count (typically < 20)
+
+### Invoice Void Cascade Performance
+**Expected:** < 200ms for typical invoice (5-10 line items)
+
+**Optimization:**
+- Single UPDATE triggers cascade (not multiple API calls)
+- Batch updates in trigger (UPDATE FROM join, not loop)
+- Indexes on foreign keys (po_line_item_id, invoice_id)
+
+**Scalability:**
+- Performance degrades linearly with line item count
+- Large invoices (100+ line items) may take 1-2 seconds (acceptable for rare operation)
+
+### WAC Recalculation Performance
+**Current:** < 50ms for item with < 100 transactions
+**Expected v1.2:** Same (currency conversion adds negligible overhead)
+
+**Optimization:**
+- Recalculation only on inventory_in (not every transaction)
+- Aggregates from completed transactions only (filtered in query)
+
+---
+
+## Testing Strategy per Layer
+
+### Database Layer Tests
+**Unit Tests (SQL):**
+- RPC function returns correct structure and values
+- WAC trigger handles cross-currency conversion correctly
+- Cascade trigger updates all related tables
+
+**Integration Tests (SQL):**
+- Void invoice → verify po_line_items, inventory_transactions, items.wac_amount all updated
+- Manual stock-in THB → verify item WAC recalculated in MMK
+
+### Server Action Tests
+**Unit Tests (TypeScript):**
+- getInventoryDashboardData returns typed data
+- voidInvoice calls Supabase with correct parameters
+
+**Integration Tests (TypeScript):**
+- Call Server Action → verify database state changes
+- Error handling: Supabase error → thrown exception
+
+### UI Component Tests
+**Unit Tests (React Testing Library):**
+- Inventory dashboard renders KPI cards
+- Stock-in form submits with currency fields
+
+**Integration Tests (Playwright/Cypress):**
+- Load inventory dashboard → verify KPIs displayed
+- Submit manual stock-in → verify success toast
+- Void invoice → verify refetched data shows voided status
+
+---
+
+## Sources and References
+
+### PostgreSQL Trigger Patterns
+- [PostgreSQL Trigger Definition Documentation](https://www.postgresql.org/docs/current/trigger-definition.html)
+- [PostgreSQL CREATE TRIGGER Documentation](https://www.postgresql.org/docs/current/sql-createtrigger.html)
+- [Optimizing PostgreSQL Trigger Execution - DEV Community](https://dev.to/bhanufyi/optimizing-postgresql-trigger-execution-balancing-precision-with-control-ibh)
+
+### Next.js Dashboard Patterns
+- [Next.js Data Fetching Patterns and Best Practices](https://nextjs.org/docs/14/app/building-your-application/data-fetching/patterns)
+- [Next.js Server and Client Components](https://nextjs.org/docs/app/getting-started/server-and-client-components)
+- [Next.js SaaS Dashboard Development: Scalability & Best Practices](https://www.ksolves.com/blog/next-js/best-practices-for-saas-dashboards)
+
+### Inventory Management Architecture
+- [Building an Inventory Management App with Next.js - Medium](https://medium.com/@hackable-projects/building-an-inventory-management-app-with-next-js-react-and-firebase-e9647a61eb82)
+- [Build an Inventory Management System Using NextJS - GeeksforGeeks](https://www.geeksforgeeks.org/reactjs/build-an-inventory-management-system-using-nextjs/)
+
+### Existing Codebase (HIGH Confidence)
+- `supabase/migrations/024_inventory_wac_trigger.sql` - WAC calculation trigger
+- `supabase/migrations/033_dashboard_functions.sql` - RPC aggregation pattern
+- `lib/actions/dashboard.ts` - Parallel fetching pattern
+- `app/(dashboard)/warehouse/[id]/page.tsx` - Client-side KPI calculation pattern
+
+---
 
 ## Confidence Assessment
 
-| Aspect | Confidence Level | Rationale |
-|--------|------------------|-----------|
-| **File Storage Architecture** | HIGH | Supabase Storage RLS patterns are well-documented; separate metadata table is industry standard |
-| **Dashboard Query Patterns** | HIGH | Direct queries over real-time subscriptions is appropriate for infrequent updates; PostgreSQL aggregations are well-optimized |
-| **Audit Integration** | HIGH | Existing audit trigger system (migration 026) explicitly handles status changes; no new logging needed |
-| **Metadata Storage Design** | HIGH | Separate table over JSON is best practice for queryable, relational data |
-| **Build Order** | MEDIUM | Dependencies identified correctly, but integration testing may reveal unexpected interactions |
-| **Performance Estimates** | MEDIUM | Based on research and existing system knowledge, but actual performance depends on data volume |
-| **Security Mitigations** | MEDIUM | RLS policies and Server Actions provide strong security, but virus scanning not in scope |
+| Area | Confidence | Rationale |
+|------|------------|-----------|
+| **RPC Pattern** | HIGH | Proven in management dashboard, same approach |
+| **WAC Enhancement** | MEDIUM | Currency conversion adds complexity, needs thorough testing |
+| **Cascade Triggers** | MEDIUM | Pattern is standard, but ordering requires careful testing |
+| **Server Actions** | HIGH | Follows existing pattern exactly (dashboard.ts) |
+| **UI Components** | HIGH | Reuses existing dashboard component structure |
 
-**Areas Needing Validation:**
-- Dashboard query performance with real data volumes (may need materialized views)
-- File upload time with 25MB files over typical network conditions
-- Storage quota limits and monitoring strategy
+**Overall Confidence: MEDIUM-HIGH**
+- High confidence in patterns (all proven in existing codebase)
+- Medium confidence in cascade logic (new complexity, needs validation)
+- Thorough testing will raise confidence to HIGH
 
-## Gaps and Open Questions
+---
 
-### Technical Gaps
-
-1. **Virus Scanning:** Should uploaded files be scanned for malware?
-   - **Recommendation:** Out of scope for V1.1; consider Supabase Edge Function integration in V2.0
-   - **Mitigation:** File type validation reduces risk of executable uploads
-
-2. **Storage Quota Management:** How to prevent storage exhaustion?
-   - **Recommendation:** Monitor total storage usage via Supabase Dashboard
-   - **Future Enhancement:** Add org-level storage quota enforcement
-
-3. **File Versioning:** Should file edits create new versions or replace existing?
-   - **Current:** Replacement (delete old, upload new)
-   - **Future Enhancement:** Version history with `version_of` FK in file_attachments
-
-4. **Image Optimization:** Should images be compressed/resized on upload?
-   - **Recommendation:** Not in V1.1 scope
-   - **Future Enhancement:** Edge Function to generate thumbnails
-
-### Dashboard Gaps
-
-1. **Refresh Strategy:** When should dashboard data be refreshed?
-   - **Current:** Manual refresh (F5)
-   - **Future Enhancement:** revalidatePath() in relevant Server Actions
-
-2. **Materialized Views:** When to implement?
-   - **Current:** Direct queries
-   - **Trigger:** If dashboard load time > 2 seconds
-
-3. **Dashboard Customization:** Can users configure visible widgets?
-   - **Current:** Fixed widget set for all Admin/Quartermaster users
-   - **Future Enhancement:** User preferences table
-
-### Status Change Gaps
-
-1. **Status Transition Rules:** Should certain transitions be blocked?
-   - **Current:** Any status → any status (if user has permissions)
-   - **Future Enhancement:** Status FSM with allowed transitions
-
-2. **Bulk Status Changes:** Can user change status of multiple entities at once?
-   - **Current:** One at a time
-   - **Future Enhancement:** Checkbox selection + bulk action
-
-## Sources
-
-### Supabase Storage & RLS
-- [Storage Access Control | Supabase Docs](https://supabase.com/docs/guides/storage/security/access-control)
-- [Storage Helper Functions | Supabase Docs](https://supabase.com/docs/guides/storage/schema/helper-functions)
-
-### Real-Time vs Polling
-- [Using Realtime with Next.js | Supabase Docs](https://supabase.com/docs/guides/realtime/realtime-with-nextjs)
-- [Best Practices for Supabase | Leanware](https://www.leanware.co/insights/supabase-best-practices)
-- [Subscribing to Database Changes | Supabase Docs](https://supabase.com/docs/guides/realtime/subscribing-to-database-changes)
-
-### File Upload Patterns
-- [Signed URL file uploads with NextJs and Supabase | Medium](https://medium.com/@olliedoesdev/signed-url-file-uploads-with-nextjs-and-supabase-74ba91b65fe0)
-- [Complete Guide to File Uploads with Next.js and Supabase Storage](https://supalaunch.com/blog/file-upload-nextjs-supabase)
-
-### Audit Logging
-- [Database Design for Audit Logging | Vertabelo](https://vertabelo.com/blog/database-design-for-audit-logging/)
-- [Database Audit Logging - The Practical Guide | Bytebase](https://www.bytebase.com/blog/database-audit-logging/)
-
-### Dashboard Performance
-- [Postgres for Analytics Workloads: Capabilities and Performance Tips](https://www.epsio.io/blog/postgres-for-analytics-workloads-capabilities-and-performance-tips)
-- [Optimizing Database Performance with Materialized Views](https://support.boldbi.com/kb/article/14344/optimizing-database-performance-with-materialized-views-and-pre-aggregated-tables)
-- [PostgreSQL Just Got Its Biggest Upgrade | Medium](https://medium.com/@DevBoostLab/postgresql-17-performance-upgrade-2026-f4222e71f577)
-
-### Metadata Storage Design
-- [Building a scalable document management system | InfoWorld](https://www.infoworld.com/article/4092063/building-a-scalable-document-management-system-lessons-from-separating-metadata-and-content.html)
-- [Store JSON Documents - SQL Server | Microsoft Learn](https://learn.microsoft.com/en-us/sql/relational-databases/json/store-json-documents-in-sql-tables?view=sql-server-ver16)
+*Architecture Research Complete: 2026-01-28*
