@@ -56,9 +56,14 @@ Users can reliably create purchase orders, receive inventory, and track request 
 
 ### Active
 
-<!-- Next milestone scope — TBD -->
+<!-- v1.2 Inventory & Financial Accuracy -->
 
-(Run `/gsd:new-milestone` to define next goals)
+- [ ] Transaction date picker consistency (money in/out matches DD/MM/YYYY style)
+- [ ] Warehouse detail page with per-item WAC display
+- [ ] Stock in/out dashboard with transaction counts and values
+- [ ] Inventory Dashboard warehouse filter
+- [ ] Manual stock-in with currency and exchange rate (factors into WAC)
+- [ ] Invoice void triggers full PO recalculation (status, quantities, financials)
 
 ### Out of Scope
 
@@ -103,4 +108,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - **Audit**: All status/financial changes must be logged
 
 ---
-*Last updated: 2026-01-28 after v1.1 milestone*
+*Last updated: 2026-01-28 after v1.2 milestone started*

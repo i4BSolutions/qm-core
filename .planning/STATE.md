@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** v1.1 milestone complete — ready for next milestone
+**Current focus:** v1.2 Inventory & Financial Accuracy
 
 ## Current Position
 
-Phase: N/A — milestone complete
-Plan: N/A
-Status: Ready for next milestone
-Last activity: 2026-01-28 — v1.1 milestone archived and tagged
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-01-28 — Milestone v1.2 started
 
-Progress: v1.1 SHIPPED (6 phases, 17 plans)
+Progress: v1.2 INITIALIZING
 
 ## Milestone History
 
@@ -60,9 +60,9 @@ None — all issues resolved in v1.1.
 ## Session Continuity
 
 Last session: 2026-01-28
-Stopped at: v1.1 milestone archived
-Resume: Run `/gsd:new-milestone` to start next milestone
+Stopped at: v1.2 milestone definition
+Resume: Continue with requirements/roadmap definition
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-01-28 — v1.1 complete*
+*Last updated: 2026-01-28 — v1.2 started*
