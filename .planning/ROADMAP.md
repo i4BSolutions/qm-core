@@ -49,10 +49,11 @@
   1. Transaction date picker (money in/out) displays DD/MM/YYYY format matching system standard
   2. Number input fields allow direct typing without default value interference
   3. Number input fields reject negative values and zero where inappropriate
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: [TBD during planning]
+- [ ] 07-01-PLAN.md — Calendar dropdowns and transaction dialog fixes
+- [ ] 07-02-PLAN.md — Propagate number input fixes to PO, Invoice, Stock forms
 
 #### Phase 8: Database Foundation
 **Goal**: Database layer supports currency-aware WAC calculation and invoice void cascades
@@ -139,7 +140,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12
 | 4. File Attachment System | v1.1 | 3/3 | Complete | 2026-01-28 |
 | 5. Management Dashboard | v1.1 | 3/3 | Complete | 2026-01-28 |
 | 6. Status & Transaction UX | v1.1 | 3/3 | Complete | 2026-01-28 |
-| 7. UX Polish | v1.2 | 0/0 | Not started | - |
+| 7. UX Polish | v1.2 | 0/2 | Planned | - |
 | 8. Database Foundation | v1.2 | 0/0 | Not started | - |
 | 9. Manual Stock-In Enhancement | v1.2 | 0/0 | Not started | - |
 | 10. Inventory Dashboard | v1.2 | 0/0 | Not started | - |
