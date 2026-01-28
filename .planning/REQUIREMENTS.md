@@ -42,15 +42,15 @@ Requirements for this release. Each maps to roadmap phases.
 
 ### UX Improvements
 
-- [ ] **UX-01**: User can click status badge on QMRL detail to change status via dropdown
-- [ ] **UX-02**: User can click status badge on QMHQ detail to change status via dropdown
-- [ ] **UX-03**: Quick status changes are logged in audit history
-- [ ] **UX-04**: User can click transaction row to open detail modal
-- [ ] **UX-05**: Transaction modal shows full transaction details
-- [ ] **UX-06**: User can edit transaction date in modal
-- [ ] **UX-07**: User can edit transaction notes in modal
-- [ ] **UX-08**: Transaction amount/exchange rate are read-only (audit integrity)
-- [ ] **UX-09**: Money in/out date picker matches QMRL/QMHQ/PO date picker design
+- [x] **UX-01**: User can click status badge on QMRL detail to change status via dropdown
+- [x] **UX-02**: User can click status badge on QMHQ detail to change status via dropdown
+- [x] **UX-03**: Quick status changes are logged in audit history
+- [x] **UX-04**: User can click transaction row to open detail modal
+- [x] **UX-05**: Transaction modal shows full transaction details
+- [ ] ~~**UX-06**: User can edit transaction date in modal~~ — *Moved to Out of Scope (V1.1)*
+- [ ] ~~**UX-07**: User can edit transaction notes in modal~~ — *Moved to Out of Scope (V1.1)*
+- [x] **UX-08**: Transaction amount/exchange rate are read-only (audit integrity)
+- [x] **UX-09**: Money in/out date picker matches QMRL/QMHQ/PO date picker design
 
 ### Invoice Behavior
 
@@ -88,6 +88,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | Real-time dashboard updates | Polling sufficient for low-frequency updates, adds complexity |
 | Per-item stock thresholds | Global default (10 units) sufficient for V1.1 |
 | Transaction amount editing | Locked for audit integrity by design |
+| Transaction date/notes editing | View-only modal for audit integrity by design |
 | Bulk status updates | Single status change sufficient for V1.1 |
 | File attachments on PO/Invoice | QMRL/QMHQ scope first, extend in V2 |
 | Mobile-specific file upload | Desktop web first, responsive design handles mobile |
@@ -125,15 +126,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DASH-05 | Phase 5 | Complete |
 | DASH-06 | Phase 5 | Complete |
 | DASH-07 | Phase 5 | Complete |
-| UX-01 | Phase 6 | Pending |
-| UX-02 | Phase 6 | Pending |
-| UX-03 | Phase 6 | Pending |
-| UX-04 | Phase 6 | Pending |
-| UX-05 | Phase 6 | Pending |
-| UX-06 | Phase 6 | Pending |
-| UX-07 | Phase 6 | Pending |
-| UX-08 | Phase 6 | Pending |
-| UX-09 | Phase 6 | Pending |
+| UX-01 | Phase 6 | Complete |
+| UX-02 | Phase 6 | Complete |
+| UX-03 | Phase 6 | Complete |
+| UX-04 | Phase 6 | Complete |
+| UX-05 | Phase 6 | Complete |
+| UX-06 | Out of Scope | — |
+| UX-07 | Out of Scope | — |
+| UX-08 | Phase 6 | Complete |
+| UX-09 | Phase 6 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 34 total (FILE-07 moved to Out of Scope)
@@ -142,4 +143,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2025-01-27*
-*Last updated: 2026-01-28 - Phase 5 requirements complete*
+*Last updated: 2026-01-28 - Phase 6 requirements complete, milestone complete*

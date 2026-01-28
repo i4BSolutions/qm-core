@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: File Upload UI** - Drag-drop file attachments on QMRL/QMHQ detail pages
 - [x] **Phase 4: File Preview & Download** - Full in-app preview for images and PDFs
 - [x] **Phase 5: Management Dashboard** - Live dashboard with status counts and activity feeds
-- [ ] **Phase 6: Status & Transaction UX** - Quick status changes and transaction viewing
+- [x] **Phase 6: Status & Transaction UX** - Quick status changes and transaction viewing
 
 ## Phase Details
 
@@ -131,9 +131,9 @@ Plans:
 **Note:** Per 06-CONTEXT.md, transaction editing (UX-06, UX-07) is OUT OF SCOPE. Transactions are view-only for audit integrity.
 
 Plans:
-- [ ] 06-01-PLAN.md — Build quick status change component with dropdown and confirmation dialog
-- [ ] 06-02-PLAN.md — Build view-only transaction detail modal
-- [ ] 06-03-PLAN.md — Standardize date picker UI across all forms
+- [x] 06-01-PLAN.md — Build quick status change component with dropdown and confirmation dialog
+- [x] 06-02-PLAN.md — Build view-only transaction detail modal
+- [x] 06-03-PLAN.md — Standardize date picker UI across all forms
 
 ## Progress
 
@@ -147,8 +147,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. File Upload UI | 3/3 | Complete | 2026-01-28 |
 | 4. File Preview & Download | 3/3 | Complete | 2026-01-28 |
 | 5. Management Dashboard | 3/3 | Complete | 2026-01-28 |
-| 6. Status & Transaction UX | 0/3 | Planned | - |
+| 6. Status & Transaction UX | 3/3 | Complete | 2026-01-28 |
 
 ---
 *Roadmap created: 2026-01-27*
-*Last updated: 2026-01-28 - Phase 6 planned*
+*Last updated: 2026-01-28 - Phase 6 complete, milestone complete*
