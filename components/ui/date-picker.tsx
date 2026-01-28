@@ -58,7 +58,7 @@ export function DatePicker({
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
-          {date ? format(date, "PPP") : <span>{placeholder}</span>}
+          {date ? format(date, "dd/MM/yyyy") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0 bg-slate-900 border-slate-700" align="start">
@@ -69,6 +69,16 @@ export function DatePicker({
           disabled={disabledDays}
           initialFocus
         />
+        <div className="border-t border-slate-700 p-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-amber-400 hover:text-amber-300 hover:bg-slate-800"
+            onClick={() => onDateChange(new Date())}
+          >
+            Today
+          </Button>
+        </div>
       </PopoverContent>
     </Popover>
   );
