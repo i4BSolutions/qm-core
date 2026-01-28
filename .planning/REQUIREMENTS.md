@@ -9,9 +9,9 @@ Requirements for Inventory & Financial Accuracy milestone.
 
 ### UX Consistency
 
-- [ ] **UX-01**: Transaction date picker (money in/out) displays DD/MM/YYYY format matching system standard
-- [ ] **UX-02**: Number input fields (amount, exchange rate, quantity) use empty placeholder instead of default values, allowing direct typing
-- [ ] **UX-03**: Number input fields validate to prevent negative values and zero where inappropriate (amounts, quantities, exchange rates)
+- [x] **UX-01**: Transaction date picker (money in/out) displays DD/MM/YYYY format matching system standard
+- [x] **UX-02**: Number input fields (amount, exchange rate, quantity) use empty placeholder instead of default values, allowing direct typing
+- [x] **UX-03**: Number input fields validate to prevent negative values and zero where inappropriate (amounts, quantities, exchange rates)
 
 ### Inventory Dashboard
 
@@ -86,9 +86,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UX-01 | Phase 7 | Pending |
-| UX-02 | Phase 7 | Pending |
-| UX-03 | Phase 7 | Pending |
+| UX-01 | Phase 7 | Complete |
+| UX-02 | Phase 7 | Complete |
+| UX-03 | Phase 7 | Complete |
 | INVD-01 | Phase 10 | Pending |
 | INVD-02 | Phase 10 | Pending |
 | INVD-03 | Phase 10 | Pending |
