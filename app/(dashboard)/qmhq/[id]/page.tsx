@@ -30,11 +30,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { TransactionDialog } from "@/components/qmhq/transaction-dialog";
+import { TransactionViewModal } from "@/components/qmhq/transaction-view-modal";
 import { POStatusBadge } from "@/components/po/po-status-badge";
 import { POProgressBar } from "@/components/po/po-progress-bar";
 import { calculatePOProgress } from "@/lib/utils/po-status";
 import { HistoryTab } from "@/components/history";
 import { AttachmentsTab } from "@/components/files/attachments-tab";
+import { ClickableStatusBadge } from "@/components/status/clickable-status-badge";
 import type {
   QMHQ,
   StatusConfig,
@@ -93,6 +95,8 @@ export default function QMHQDetailPage() {
   const [activeTab, setActiveTab] = useState("details");
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
   const [fileCount, setFileCount] = useState(0);
+  const [viewingTransaction, setViewingTransaction] = useState<FinancialTransactionWithUser | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -282,16 +286,12 @@ export default function QMHQDetailPage() {
                 </span>
               </div>
               {qmhq.status && (
-                <Badge
-                  variant="outline"
-                  className="text-xs font-mono uppercase tracking-wider"
-                  style={{
-                    borderColor: qmhq.status.color || undefined,
-                    color: qmhq.status.color || undefined,
-                  }}
-                >
-                  {qmhq.status.name}
-                </Badge>
+                <ClickableStatusBadge
+                  status={qmhq.status}
+                  entityType="qmhq"
+                  entityId={qmhq.id}
+                  onStatusChange={fetchData}
+                />
               )}
             </div>
 
@@ -441,15 +441,12 @@ export default function QMHQDetailPage() {
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Status</p>
                     {qmhq.status ? (
-                      <Badge
-                        variant="outline"
-                        style={{
-                          borderColor: qmhq.status.color || undefined,
-                          color: qmhq.status.color || undefined,
-                        }}
-                      >
-                        {qmhq.status.name}
-                      </Badge>
+                      <ClickableStatusBadge
+                        status={qmhq.status}
+                        entityType="qmhq"
+                        entityId={qmhq.id}
+                        onStatusChange={fetchData}
+                      />
                     ) : (
                       <span className="text-slate-500">—</span>
                     )}
@@ -695,17 +692,30 @@ export default function QMHQDetailPage() {
                             <p className="text-sm text-slate-400 mt-1">{tx.notes || "No notes"}</p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className={`text-lg font-mono font-bold ${
-                            tx.transaction_type === "money_in"
-                              ? "text-emerald-400"
-                              : "text-amber-400"
-                          }`}>
-                            {tx.transaction_type === "money_in" ? "+" : "-"}{formatCurrency(tx.amount_eusd ?? 0)} EUSD
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {formatCurrency(tx.amount ?? 0)} {tx.currency}
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className={`text-lg font-mono font-bold ${
+                              tx.transaction_type === "money_in"
+                                ? "text-emerald-400"
+                                : "text-amber-400"
+                            }`}>
+                              {tx.transaction_type === "money_in" ? "+" : "-"}{formatCurrency(tx.amount_eusd ?? 0)} EUSD
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {formatCurrency(tx.amount ?? 0)} {tx.currency}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setViewingTransaction(tx);
+                              setIsViewModalOpen(true);
+                            }}
+                            className="text-slate-400 hover:text-slate-200"
+                          >
+                            View
+                          </Button>
                         </div>
                       </div>
                       <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
@@ -860,6 +870,13 @@ export default function QMHQDetailPage() {
           onSuccess={fetchData}
         />
       )}
+
+      {/* Transaction View Modal */}
+      <TransactionViewModal
+        transaction={viewingTransaction}
+        open={isViewModalOpen}
+        onOpenChange={setIsViewModalOpen}
+      />
     </div>
   );
 }
