@@ -32,13 +32,13 @@ Requirements for this release. Each maps to roadmap phases.
 
 ### Dashboard
 
-- [ ] **DASH-01**: Admin/Quartermaster sees live dashboard on /dashboard
-- [ ] **DASH-02**: Other roles redirected to their primary page from /dashboard
-- [ ] **DASH-03**: Dashboard shows QMRL counts by status group (to_do, in_progress, done)
-- [ ] **DASH-04**: Dashboard shows QMHQ counts by status group
-- [ ] **DASH-05**: Dashboard shows low stock alerts (items below 10 units)
-- [ ] **DASH-06**: Dashboard shows recent activity feed (5 most recent actions)
-- [ ] **DASH-07**: Dashboard shows recent stock movements
+- [x] **DASH-01**: Admin/Quartermaster sees live dashboard on /dashboard
+- [x] **DASH-02**: Other roles redirected to their primary page from /dashboard
+- [x] **DASH-03**: Dashboard shows QMRL counts by status group (to_do, in_progress, done)
+- [x] **DASH-04**: Dashboard shows QMHQ counts by status group
+- [x] **DASH-05**: Dashboard shows low stock alerts (items below 10 units)
+- [x] **DASH-06**: Dashboard shows recent activity feed (5 most recent actions)
+- [x] **DASH-07**: Dashboard shows recent stock movements
 
 ### UX Improvements
 
@@ -118,13 +118,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FILE-09 | Phase 4 | Complete |
 | FILE-10 | Phase 4 | Complete |
 | FILE-13 | Phase 4 | Complete |
-| DASH-01 | Phase 5 | Pending |
-| DASH-02 | Phase 5 | Pending |
-| DASH-03 | Phase 5 | Pending |
-| DASH-04 | Phase 5 | Pending |
-| DASH-05 | Phase 5 | Pending |
-| DASH-06 | Phase 5 | Pending |
-| DASH-07 | Phase 5 | Pending |
+| DASH-01 | Phase 5 | Complete |
+| DASH-02 | Phase 5 | Complete |
+| DASH-03 | Phase 5 | Complete |
+| DASH-04 | Phase 5 | Complete |
+| DASH-05 | Phase 5 | Complete |
+| DASH-06 | Phase 5 | Complete |
+| DASH-07 | Phase 5 | Complete |
 | UX-01 | Phase 6 | Pending |
 | UX-02 | Phase 6 | Pending |
 | UX-03 | Phase 6 | Pending |
@@ -142,4 +142,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2025-01-27*
-*Last updated: 2026-01-28 - Phase 4 requirements complete*
+*Last updated: 2026-01-28 - Phase 5 requirements complete*

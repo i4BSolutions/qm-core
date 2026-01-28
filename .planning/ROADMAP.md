@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: File Storage Foundation** - Secure file upload infrastructure with RLS policies
 - [x] **Phase 3: File Upload UI** - Drag-drop file attachments on QMRL/QMHQ detail pages
 - [x] **Phase 4: File Preview & Download** - Full in-app preview for images and PDFs
-- [ ] **Phase 5: Management Dashboard** - Live dashboard with status counts and activity feeds
+- [x] **Phase 5: Management Dashboard** - Live dashboard with status counts and activity feeds
 - [ ] **Phase 6: Status & Transaction UX** - Quick status changes and transaction editing
 
 ## Phase Details
@@ -109,9 +109,9 @@ Plans:
   7. Dashboard shows recent stock movements (in/out transactions)
 
 Plans:
-- [ ] 05-01-PLAN.md — Create dashboard RPC functions, server action, and polling hook
-- [ ] 05-02-PLAN.md — Build dashboard UI components (status bar, KPI cards, alerts, timelines)
-- [ ] 05-03-PLAN.md — Integrate components with role-based routing and auto-refresh
+- [x] 05-01-PLAN.md — Create dashboard RPC functions, server action, and polling hook
+- [x] 05-02-PLAN.md — Build dashboard UI components (status bar, KPI cards, alerts, timelines)
+- [x] 05-03-PLAN.md — Integrate components with role-based routing and auto-refresh
 
 ### Phase 6: Status & Transaction UX
 **Goal**: Users can make quick updates without full edit forms
@@ -145,9 +145,9 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 2. File Storage Foundation | 2/2 | Complete | 2026-01-27 |
 | 3. File Upload UI | 3/3 | Complete | 2026-01-28 |
 | 4. File Preview & Download | 3/3 | Complete | 2026-01-28 |
-| 5. Management Dashboard | 0/3 | Planned | - |
+| 5. Management Dashboard | 3/3 | Complete | 2026-01-28 |
 | 6. Status & Transaction UX | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-27*
-*Last updated: 2026-01-28 - Phase 5 planned*
+*Last updated: 2026-01-28 - Phase 5 complete*
