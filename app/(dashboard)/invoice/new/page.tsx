@@ -65,7 +65,7 @@ function InvoiceCreateContent() {
   const [selectedPOId, setSelectedPOId] = useState<string>(preselectedPoId || "");
   const [invoiceDate, setInvoiceDate] = useState<Date>(new Date());
   const [currency, setCurrency] = useState("MMK");
-  const [exchangeRate, setExchangeRate] = useState(1);
+  const [exchangeRate, setExchangeRate] = useState<string>("");
   const [notes, setNotes] = useState("");
 
   // Form state - Step 2: Line Items (with selection, qty, unit price)
@@ -179,7 +179,7 @@ function InvoiceCreateContent() {
   const canProceed = (step: number) => {
     switch (step) {
       case 1:
-        return selectedPOId && currency && exchangeRate > 0;
+        return selectedPOId && currency && (parseFloat(exchangeRate) || 1) > 0;
       case 2:
         return selectedLineItemIds.length > 0 && !hasQuantityErrors;
       case 3:
@@ -250,7 +250,7 @@ function InvoiceCreateContent() {
           po_id: selectedPOId,
           invoice_date: invoiceDate.toISOString().split("T")[0],
           currency,
-          exchange_rate: exchangeRate,
+          exchange_rate: parseFloat(exchangeRate) || 1,
           notes: notes || null,
           status: "draft",
           created_by: user.id,
@@ -540,9 +540,13 @@ function InvoiceCreateContent() {
                       min="0.0001"
                       step="0.0001"
                       value={exchangeRate}
-                      onChange={(e) =>
-                        setExchangeRate(parseFloat(e.target.value) || 1)
-                      }
+                      onChange={(e) => setExchangeRate(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "-" || e.key === "e" || e.key === "E") {
+                          e.preventDefault();
+                        }
+                      }}
+                      placeholder="1.0000"
                       className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </div>
@@ -760,7 +764,7 @@ function InvoiceCreateContent() {
                         Exchange Rate
                       </p>
                       <p className="text-slate-200 font-mono">
-                        {exchangeRate.toFixed(4)}
+                        {(parseFloat(exchangeRate) || 1).toFixed(4)}
                       </p>
                     </div>
                   </div>
@@ -840,7 +844,7 @@ function InvoiceCreateContent() {
                 <InvoiceSummaryPanel
                   totalAmount={selectedItems.reduce((sum, li) => sum + li.quantity * li.unit_price, 0)}
                   currency={currency}
-                  exchangeRate={exchangeRate}
+                  exchangeRate={parseFloat(exchangeRate) || 1}
                   itemCount={selectedItems.length}
                 />
               </div>

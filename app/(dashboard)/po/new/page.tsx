@@ -67,7 +67,7 @@ function POCreateContent() {
   const [poDate, setPoDate] = useState<Date>(new Date());
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<Date | undefined>();
   const [currency, setCurrency] = useState("");
-  const [exchangeRate, setExchangeRate] = useState(1);
+  const [exchangeRate, setExchangeRate] = useState<string>("");
   const [contactPersonName, setContactPersonName] = useState("");
   const [signPersonName, setSignPersonName] = useState("");
   const [authorizedSignerName, setAuthorizedSignerName] = useState("");
@@ -120,7 +120,8 @@ function POCreateContent() {
 
   // Calculate PO total from line items
   const poTotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
-  const poTotalEusd = exchangeRate > 0 ? poTotal / exchangeRate : 0;
+  const rate = parseFloat(exchangeRate) || 1;
+  const poTotalEusd = rate > 0 ? poTotal / rate : 0;
 
   // Get selected QMHQ info
   const selectedQmhq = qmhqs.find((q) => q.id === selectedQmhqId);
@@ -177,7 +178,7 @@ function POCreateContent() {
           po_date: poDate.toISOString().split("T")[0],
           expected_delivery_date: expectedDeliveryDate?.toISOString().split("T")[0] || null,
           currency,
-          exchange_rate: exchangeRate,
+          exchange_rate: parseFloat(exchangeRate) || 1,
           contact_person_name: contactPersonName || null,
           sign_person_name: signPersonName || null,
           authorized_signer_name: authorizedSignerName || null,
@@ -453,7 +454,13 @@ function POCreateContent() {
                 min="0.0001"
                 step="0.0001"
                 value={exchangeRate}
-                onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 1)}
+                onChange={(e) => setExchangeRate(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e" || e.key === "E") {
+                    e.preventDefault();
+                  }
+                }}
+                placeholder="1.0000"
                 className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
