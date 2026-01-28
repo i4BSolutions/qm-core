@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 7 of 12 (UX Polish)
-Plan: 2 of TBD in current phase
-Status: In progress
-Last activity: 2026-01-29 — Completed 07-02-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-29 — Completed 07-01-PLAN.md
 
-Progress: [████████░░░░░░░░░░░░] 53% (v1.2 in progress: 2 plans complete)
+Progress: [████████░░░░░░░░░░░░] 58% (v1.2 in progress: Phase 7 complete)
 
 ## Milestone History
 
@@ -53,6 +53,7 @@ Recent decisions affecting v1.2:
 - Global low stock threshold (10 units) — Simpler than per-item config
 - Amount locked after transaction creation — Audit integrity
 - String state for number inputs — Allows empty placeholder display
+- Calendar dropdown-buttons layout — Both dropdowns and arrows for flexibility
 
 ### Pending Todos
 
@@ -65,9 +66,9 @@ None — v1.2 roadmap complete with 100% requirement coverage.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 07-02-PLAN.md (Number Input UX Propagation)
-Resume: Continue with next plan in Phase 7
+Stopped at: Completed Phase 7 (UX Polish) - all 2 plans complete
+Resume: Run `/gsd:plan-phase 8` to begin Inventory Insight phase
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-01-29 — Completed 07-02-PLAN.md*
+*Last updated: 2026-01-29 — Completed 07-01-PLAN.md, Phase 7 complete*
