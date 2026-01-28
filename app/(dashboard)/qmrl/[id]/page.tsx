@@ -31,6 +31,7 @@ import type { QMRL, QMHQ, StatusConfig, Category, Department, ContactPerson, Use
 import { formatCurrency } from "@/lib/utils";
 import { HistoryTab } from "@/components/history";
 import { AttachmentsTab } from "@/components/files/attachments-tab";
+import { ClickableStatusBadge } from "@/components/status/clickable-status-badge";
 
 interface QMRLWithRelations extends QMRL {
   status?: StatusConfig | null;
@@ -204,17 +205,12 @@ export default function QMRLDetailPage() {
                 </span>
               )}
               {qmrl.status && (
-                <Badge
-                  variant="outline"
-                  className="font-mono uppercase tracking-wider text-xs"
-                  style={{
-                    borderColor: qmrl.status.color || undefined,
-                    color: qmrl.status.color || undefined,
-                    backgroundColor: `${qmrl.status.color}15` || "transparent",
-                  }}
-                >
-                  {qmrl.status.name}
-                </Badge>
+                <ClickableStatusBadge
+                  status={qmrl.status}
+                  entityType="qmrl"
+                  entityId={qmrl.id}
+                  onStatusChange={() => fetchQMRL(params.id as string)}
+                />
               )}
             </div>
 
@@ -418,16 +414,12 @@ export default function QMRLDetailPage() {
                     <div>
                       <p className="data-label mb-1">Current Status</p>
                       {qmrl.status ? (
-                        <Badge
-                          variant="outline"
-                          className="font-mono uppercase tracking-wider"
-                          style={{
-                            borderColor: qmrl.status.color || undefined,
-                            color: qmrl.status.color || undefined,
-                          }}
-                        >
-                          {qmrl.status.name}
-                        </Badge>
+                        <ClickableStatusBadge
+                          status={qmrl.status}
+                          entityType="qmrl"
+                          entityId={qmrl.id}
+                          onStatusChange={() => fetchQMRL(params.id as string)}
+                        />
                       ) : (
                         <p className="data-value">—</p>
                       )}
