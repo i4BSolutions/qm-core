@@ -1,113 +1,106 @@
-# QM System - V1.1 Enhancement
+# QM System
 
 ## What This Is
 
-An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. This milestone focuses on bug fixes for critical workflows (PO creation, stock-in), adding file attachment capabilities, building a live dashboard for management, and improving UX for status changes and transaction viewing.
+An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation.
 
 ## Core Value
 
-Users can reliably create purchase orders and receive inventory, with full visibility into request status and attached documentation.
+Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
+
+## Current State (v1.1 Shipped)
+
+**Tech Stack:**
+- Next.js 14+ with App Router, TypeScript strict mode
+- Supabase for auth, database, and file storage
+- Tailwind CSS with dark theme support
+- ~31,689 lines of TypeScript
+- 33 database migrations with RLS policies
+
+**Shipped Features:**
+- Email OTP authentication with 7-role RBAC
+- QMRL/QMHQ with Notion-style status system
+- Purchase orders with smart status calculation
+- Invoice creation with quantity validation
+- Inventory stock-in/out with WAC valuation
+- File attachments with drag-drop upload, preview, and ZIP download
+- Live management dashboard with KPIs and alerts
+- Quick status changes via clickable badges
+- Complete audit logging
 
 ## Requirements
 
 ### Validated
 
-<!-- Existing functionality from V1.0 -->
+<!-- V1.0 Features -->
+- ✓ Email OTP authentication with role-based access — v1.0
+- ✓ QMRL creation with Notion-style status system — v1.0
+- ✓ QMHQ with three routes (Item, Expense, PO) — v1.0
+- ✓ Invoice creation with 4-step wizard — v1.0
+- ✓ Inventory transactions (stock-in/out) — v1.0
+- ✓ WAC valuation for inventory items — v1.0
+- ✓ Audit logging with history tabs — v1.0
+- ✓ Card/List view toggle for QMHQ, PO, Invoice — v1.0
 
-- ✓ Email OTP authentication with role-based access — existing
-- ✓ QMRL creation with Notion-style status system — existing
-- ✓ QMHQ with three routes (Item, Expense, PO) — existing
-- ✓ Invoice creation with 4-step wizard — existing
-- ✓ Inventory transactions (stock-in/out) — existing
-- ✓ WAC valuation for inventory items — existing
-- ✓ Audit logging with history tabs — existing
-- ✓ Card/List view toggle for QMHQ, PO, Invoice — existing
+<!-- V1.1 Features -->
+- ✓ PO creation workflow fixed — v1.1
+- ✓ Stock-in functionality fixed — v1.1
+- ✓ Invoice quantity validation (cannot exceed PO qty) — v1.1
+- ✓ File attachments on QMRL/QMHQ detail pages — v1.1
+- ✓ In-app image and PDF preview — v1.1
+- ✓ Download all files as ZIP — v1.1
+- ✓ Live management dashboard with status KPIs — v1.1
+- ✓ Low stock alerts (items below 10 units) — v1.1
+- ✓ Quick status change via badge click — v1.1
+- ✓ DD/MM/YYYY date picker standardization — v1.1
 
 ### Active
 
-<!-- Current scope for V1.1 -->
+<!-- Next milestone scope — TBD -->
 
-**Bug Fixes:**
-- [ ] Fix PO creation workflow (cannot create PO)
-- [ ] Fix stock-in functionality (cannot receive inventory)
-- [ ] Verify invoice creation works correctly
-- [ ] Verify stock-out functionality works correctly
-
-**File Attachments:**
-- [ ] Add file upload to QMRL create form
-- [ ] Add file upload to QMRL detail page
-- [ ] Add file upload to QMHQ create form
-- [ ] Add file upload to QMHQ detail page
-- [ ] Display uploaded files sorted by upload date
-- [ ] Full in-app preview for images and PDFs
-- [ ] File deletion by users with edit access
-
-**Dashboard:**
-- [ ] Live dashboard for Admin/Quartermaster roles
-- [ ] QMRL counts by status group (to_do, in_progress, done)
-- [ ] QMHQ counts by status group
-- [ ] Recent activity feed (5 most recent)
-- [ ] Low stock warnings (items below 10 units)
-- [ ] Recent stock movements display
-- [ ] Redirect other roles to their primary page
-
-**UX Improvements:**
-- [ ] Quick status change via badge click (QMRL)
-- [ ] Quick status change via badge click (QMHQ)
-- [ ] Status changes logged in audit history
-- [ ] Transaction detail modal with view/edit
-- [ ] Transaction date and notes editable (amount locked for audit integrity)
-- [ ] Date picker UI consistency for money in/out forms
-
-**Invoice Behavior:**
-- [ ] Invoice line item qty cannot exceed PO line item qty
-- [ ] Invoice total amount CAN exceed PO total amount (price flexibility)
+(Run `/gsd:new-milestone` to define next goals)
 
 ### Out of Scope
 
-- Real-time notifications — complexity, defer to V2
-- Batch file uploads via drag-drop zone — single file picker sufficient for now
-- Custom low stock thresholds per item — global default (10 units) for V1.1
-- Transaction amount editing — locked for audit integrity by design
-- Dashboard for non-management roles — redirect to their main pages instead
+- Real-time WebSocket dashboard updates — polling sufficient
+- Per-item low stock thresholds — global default (10) works
+- Transaction editing after creation — audit integrity
+- File attachments on PO/Invoice — QMRL/QMHQ scope first
+- Create form file uploads — entity must exist first
 
 ## Context
 
-**Existing Codebase:**
-- Next.js 14+ with App Router, TypeScript strict mode
-- Supabase for auth, database, and now file storage
-- Tailwind CSS with dark theme support
-- 30+ database migrations, RLS policies in place
-- Complete RBAC permission system
+**Milestones:**
+- v1.0 MVP — Foundation (pre-existing)
+- v1.1 Enhancement — Bug fixes, files, dashboard, UX (shipped 2026-01-28)
 
-**Known Issues:**
-- PO creation fails (needs investigation)
-- Stock-in not working (needs investigation)
-- Dashboard currently shows dummy/placeholder data
-
-**File Storage:**
-- Use Supabase Storage buckets
-- Max file size: 25 MB
-- Max files per entity: 10
-- Allowed types: PDF, Word (.doc, .docx), Excel (.xls, .xlsx), Images (PNG, JPG, GIF)
-
-## Constraints
-
-- **Storage**: Supabase Storage — already integrated, no additional infrastructure
-- **File Size**: 25 MB max — Supabase free tier limit consideration
-- **Compatibility**: Must work with existing RLS policies and audit system
-- **UX**: Quick status change must still trigger audit logging
+**Technical Patterns Established:**
+- Enhanced Supabase error extraction for PostgresError
+- Safe JSONB column access in audit triggers
+- Polymorphic file attachments (entity_type + entity_id)
+- Storage RLS policies mirroring entity permissions
+- Cascade soft-delete with 30-day grace period
+- RPC functions for dashboard aggregations
+- useInterval hook with ref-based stale closure prevention
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Supabase Storage for files | Already using Supabase, no new infrastructure | — Pending |
-| Global low stock threshold (10 units) | Simpler than per-item config, sufficient for V1.1 | — Pending |
-| Amount locked after transaction creation | Audit integrity, prevents financial tampering | — Pending |
-| Full preview for all file types | Better UX than download-only | — Pending |
-| Dashboard for Admin/Quartermaster only | Other roles have specific workflows, redirect them | — Pending |
-| Quick status via badge click | Minimal UI change, intuitive interaction | — Pending |
+| Supabase Storage for files | Already using Supabase, no new infrastructure | ✓ Good |
+| Global low stock threshold (10 units) | Simpler than per-item config | ✓ Good |
+| Amount locked after transaction creation | Audit integrity | ✓ Good |
+| Full preview for all file types | Better UX than download-only | ✓ Good |
+| Dashboard for Admin/Quartermaster only | Other roles have specific workflows | ✓ Good |
+| Quick status via badge click | Minimal UI change, intuitive | ✓ Good |
+| View-only transaction modal | Audit integrity over editability | ✓ Good |
+| Detail page uploads only | Entity must exist to attach files | ✓ Good |
+
+## Constraints
+
+- **Storage**: Supabase Storage with 25MB file limit
+- **Compatibility**: Must work with existing RLS and audit system
+- **Audit**: All status/financial changes must be logged
 
 ---
-*Last updated: 2025-01-27 after initialization*
+*Last updated: 2026-01-28 after v1.1 milestone*
