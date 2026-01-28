@@ -101,8 +101,8 @@ function StockInContent() {
 
   // Manual mode state
   const [manualItemId, setManualItemId] = useState("");
-  const [manualQuantity, setManualQuantity] = useState<number>(1);
-  const [manualUnitCost, setManualUnitCost] = useState<number>(0);
+  const [manualQuantity, setManualQuantity] = useState<string>("");
+  const [manualUnitCost, setManualUnitCost] = useState<string>("");
 
   // Common form state
   const [warehouseId, setWarehouseId] = useState("");
@@ -241,11 +241,13 @@ function StockInContent() {
         )
       );
     } else {
+      const qty = parseFloat(manualQuantity) || 0;
+      const cost = parseFloat(manualUnitCost) || 0;
       return (
         !warehouseId ||
         !manualItemId ||
-        manualQuantity <= 0 ||
-        manualUnitCost <= 0
+        qty <= 0 ||
+        cost <= 0
       );
     }
   }, [
@@ -338,14 +340,16 @@ function StockInContent() {
       } else if (sourceMode === "manual") {
         // Create single manual transaction
         // Default currency to MMK with exchange rate 1.0 for WAC calculation
+        const qty = parseFloat(manualQuantity) || 0;
+        const cost = parseFloat(manualUnitCost) || 0;
         const { error: insertError } = await supabase
           .from("inventory_transactions")
           .insert({
             movement_type: "inventory_in",
             item_id: manualItemId,
             warehouse_id: warehouseId,
-            quantity: manualQuantity,
-            unit_cost: manualUnitCost,
+            quantity: qty,
+            unit_cost: cost,
             currency: "MMK",
             exchange_rate: 1,
             transaction_date: transactionDate.toISOString().split("T")[0],
@@ -358,7 +362,7 @@ function StockInContent() {
 
         toast({
           title: "Stock In Recorded",
-          description: `${manualQuantity} ${selectedManualItem?.default_unit || "units"} of ${selectedManualItem?.name} received.`,
+          description: `${qty} ${selectedManualItem?.default_unit || "units"} of ${selectedManualItem?.name} received.`,
           variant: "success",
         });
       }
@@ -800,10 +804,15 @@ function StockInContent() {
               <Input
                 type="number"
                 min="1"
+                step="1"
                 value={manualQuantity}
-                onChange={(e) =>
-                  setManualQuantity(parseInt(e.target.value) || 0)
-                }
+                onChange={(e) => setManualQuantity(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e" || e.key === "E") {
+                    e.preventDefault();
+                  }
+                }}
+                placeholder="1"
                 className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               {selectedManualItem?.default_unit && (
@@ -822,15 +831,19 @@ function StockInContent() {
                 min="0"
                 step="0.01"
                 value={manualUnitCost}
-                onChange={(e) =>
-                  setManualUnitCost(parseFloat(e.target.value) || 0)
-                }
+                onChange={(e) => setManualUnitCost(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e" || e.key === "E") {
+                    e.preventDefault();
+                  }
+                }}
+                placeholder="0.00"
                 className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <p className="text-xs text-slate-500 mt-1">
                 Total:{" "}
                 <span className="font-mono text-emerald-400">
-                  {formatCurrency(manualQuantity * manualUnitCost)}
+                  {formatCurrency((parseFloat(manualQuantity) || 0) * (parseFloat(manualUnitCost) || 0))}
                 </span>
               </p>
             </div>
@@ -925,7 +938,7 @@ function StockInContent() {
                     (sum, line) => sum + line.quantity,
                     0
                   )
-                : manualQuantity}
+                : parseFloat(manualQuantity) || 0}
             </p>
           </div>
 
@@ -940,7 +953,7 @@ function StockInContent() {
                       (sum, line) => sum + line.quantity * line.unit_cost,
                       0
                     )
-                  : manualQuantity * manualUnitCost
+                  : (parseFloat(manualQuantity) || 0) * (parseFloat(manualUnitCost) || 0)
               )}
             </p>
             <p className="text-xs text-slate-400 mt-1">

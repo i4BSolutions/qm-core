@@ -70,7 +70,7 @@ export default function StockOutPage() {
   // Form state
   const [selectedItemId, setSelectedItemId] = useState("");
   const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
-  const [quantity, setQuantity] = useState<number>(1);
+  const [quantity, setQuantity] = useState<string>("");
   const [reason, setReason] = useState<StockOutReason>("consumption");
   const [destinationWarehouseId, setDestinationWarehouseId] = useState("");
   const [transactionDate, setTransactionDate] = useState<Date>(new Date());
@@ -214,12 +214,16 @@ export default function StockOutPage() {
     return warehouses.filter((wh) => wh.id !== selectedWarehouseId);
   }, [warehouses, selectedWarehouseId]);
 
+  // Parsed quantity for validation and submit
+  const parsedQuantity = parseFloat(quantity) || 0;
+
   // Validation
   const hasErrors = useMemo(() => {
+    const qty = parseFloat(quantity) || 0;
     if (!selectedItemId) return true;
     if (!selectedWarehouseId) return true;
-    if (quantity <= 0) return true;
-    if (quantity > availableStock) return true;
+    if (qty <= 0) return true;
+    if (qty > availableStock) return true;
     if (reason === "transfer" && !destinationWarehouseId) return true;
     return false;
   }, [
@@ -242,13 +246,14 @@ export default function StockOutPage() {
       const supabase = createClient();
 
       // Create stock out transaction
+      const qty = parseFloat(quantity) || 0;
       const { error: insertError } = await supabase
         .from("inventory_transactions")
         .insert({
           movement_type: "inventory_out",
           item_id: selectedItemId,
           warehouse_id: selectedWarehouseId,
-          quantity,
+          quantity: qty,
           reason,
           destination_warehouse_id:
             reason === "transfer" ? destinationWarehouseId : null,
@@ -271,7 +276,7 @@ export default function StockOutPage() {
             movement_type: "inventory_in",
             item_id: selectedItemId,
             warehouse_id: destinationWarehouseId,
-            quantity,
+            quantity: qty,
             unit_cost: item?.wac_amount ?? null,
             currency: item?.wac_currency ?? "MMK",
             exchange_rate: 1,
@@ -285,13 +290,13 @@ export default function StockOutPage() {
 
         toast({
           title: "Stock Transfer Completed",
-          description: `${quantity} ${selectedItem?.default_unit || "units"} transferred to destination warehouse.`,
+          description: `${qty} ${selectedItem?.default_unit || "units"} transferred to destination warehouse.`,
           variant: "success",
         });
       } else {
         toast({
           title: "Stock Out Recorded",
-          description: `${quantity} ${selectedItem?.default_unit || "units"} of ${selectedItem?.name} issued.`,
+          description: `${qty} ${selectedItem?.default_unit || "units"} of ${selectedItem?.name} issued.`,
           variant: "success",
         });
       }
@@ -527,10 +532,17 @@ export default function StockOutPage() {
                 type="number"
                 min="1"
                 max={availableStock}
+                step="1"
                 value={quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
+                onChange={(e) => setQuantity(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e" || e.key === "E") {
+                    e.preventDefault();
+                  }
+                }}
+                placeholder="1"
                 className={`bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                  quantity > availableStock ? "border-red-500" : ""
+                  parsedQuantity > availableStock ? "border-red-500" : ""
                 }`}
               />
               <p className="text-xs text-slate-500 mt-1">
@@ -538,7 +550,7 @@ export default function StockOutPage() {
                 <span className="font-mono text-emerald-400">
                   {availableStock}
                 </span>
-                {quantity > availableStock && (
+                {parsedQuantity > availableStock && (
                   <span className="text-red-400 ml-2">Exceeds available!</span>
                 )}
               </p>
@@ -680,7 +692,7 @@ export default function StockOutPage() {
                 Quantity Out
               </p>
               <p className="text-2xl font-mono font-bold text-red-400">
-                {quantity}
+                {parsedQuantity}
               </p>
             </div>
 
@@ -704,7 +716,7 @@ export default function StockOutPage() {
                 Remaining Stock
               </p>
               <p className="text-2xl font-mono font-bold text-amber-400">
-                {Math.max(0, availableStock - quantity)}
+                {Math.max(0, availableStock - parsedQuantity)}
               </p>
             </div>
           </div>
