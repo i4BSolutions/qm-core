@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/client";
 import { usePermissions } from "@/lib/hooks/use-permissions";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -164,32 +163,28 @@ export function ClickableStatusBadge({
   return (
     <>
       <Select value={status.id} onValueChange={handleStatusSelect} open={isOpen} onOpenChange={setIsOpen}>
-        <SelectTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={isUpdating}
-            className="h-auto px-0 hover:bg-transparent group"
+        <SelectTrigger
+          disabled={isUpdating}
+          className="h-auto w-auto border-0 bg-transparent px-0 hover:bg-transparent focus:ring-0 focus:ring-offset-0 [&>svg]:hidden"
+        >
+          <Badge
+            variant="outline"
+            className="font-mono uppercase tracking-wider text-xs cursor-pointer transition-all hover:scale-105 hover:shadow-md"
+            style={{
+              borderColor: status.color || undefined,
+              color: status.color || undefined,
+              backgroundColor: `${status.color}15` || "transparent",
+            }}
           >
-            <Badge
-              variant="outline"
-              className="font-mono uppercase tracking-wider text-xs cursor-pointer transition-all group-hover:scale-105 group-hover:shadow-md"
-              style={{
-                borderColor: status.color || undefined,
-                color: status.color || undefined,
-                backgroundColor: `${status.color}15` || "transparent",
-              }}
-            >
-              {isUpdating ? (
-                <>
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  {status.name}
-                </>
-              ) : (
-                status.name
-              )}
-            </Badge>
-          </Button>
+            {isUpdating ? (
+              <span className="flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {status.name}
+              </span>
+            ) : (
+              status.name
+            )}
+          </Badge>
         </SelectTrigger>
         <SelectContent>
           {Object.entries(groupedStatuses).map(([group, groupStatuses]) => (
