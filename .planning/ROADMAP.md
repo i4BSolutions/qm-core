@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: File Upload UI** - Drag-drop file attachments on QMRL/QMHQ detail pages
 - [x] **Phase 4: File Preview & Download** - Full in-app preview for images and PDFs
 - [x] **Phase 5: Management Dashboard** - Live dashboard with status counts and activity feeds
-- [ ] **Phase 6: Status & Transaction UX** - Quick status changes and transaction editing
+- [ ] **Phase 6: Status & Transaction UX** - Quick status changes and transaction viewing
 
 ## Phase Details
 
@@ -116,23 +116,24 @@ Plans:
 ### Phase 6: Status & Transaction UX
 **Goal**: Users can make quick updates without full edit forms
 **Depends on**: Phase 5
-**Requirements**: UX-01, UX-02, UX-03, UX-04, UX-05, UX-06, UX-07, UX-08, UX-09
+**Requirements**: UX-01, UX-02, UX-03, UX-04, UX-05, UX-08, UX-09
+**Plans:** 3 plans
+
 **Success Criteria** (what must be TRUE):
   1. User can click QMRL status badge to change status via dropdown
   2. User can click QMHQ status badge to change status via dropdown
   3. Status changes appear in audit history with user and timestamp
-  4. User can click transaction row to open detail modal
+  4. User can click View button on transaction row to open detail modal
   5. Transaction modal displays full transaction data in read-only view
-  6. User can edit transaction date in modal
-  7. User can edit transaction notes in modal
-  8. Transaction amount and exchange rate remain read-only (audit integrity)
-  9. Money in/out date picker design matches QMRL/QMHQ/PO forms
-**Plans**: TBD
+  6. Transaction amount and exchange rate remain read-only (audit integrity)
+  7. Date picker UI matches DD/MM/YYYY format across all forms
+
+**Note:** Per 06-CONTEXT.md, transaction editing (UX-06, UX-07) is OUT OF SCOPE. Transactions are view-only for audit integrity.
 
 Plans:
-- [ ] 06-01: Build quick status change component with dropdown
-- [ ] 06-02: Build transaction detail modal with edit mode
-- [ ] 06-03: Standardize date picker UI across all forms
+- [ ] 06-01-PLAN.md — Build quick status change component with dropdown and confirmation dialog
+- [ ] 06-02-PLAN.md — Build view-only transaction detail modal
+- [ ] 06-03-PLAN.md — Standardize date picker UI across all forms
 
 ## Progress
 
@@ -146,8 +147,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. File Upload UI | 3/3 | Complete | 2026-01-28 |
 | 4. File Preview & Download | 3/3 | Complete | 2026-01-28 |
 | 5. Management Dashboard | 3/3 | Complete | 2026-01-28 |
-| 6. Status & Transaction UX | 0/3 | Not started | - |
+| 6. Status & Transaction UX | 0/3 | Planned | - |
 
 ---
 *Roadmap created: 2026-01-27*
-*Last updated: 2026-01-28 - Phase 5 complete*
+*Last updated: 2026-01-28 - Phase 6 planned*
