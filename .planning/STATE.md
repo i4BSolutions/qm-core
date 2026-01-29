@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Phase 7.1 - Attachment & Item Route Fixes (INSERTED)
+**Current focus:** Phase 8 - Database Foundation
 
 ## Current Position
 
-Phase: 7.1 of 12 (Attachment & Item Route Fixes)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-01-29 — Completed 07.1-03-PLAN.md (Multi-Item Selection UI)
+Phase: 8 of 12 (Database Foundation)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-30 — Completed 08-01-PLAN.md (Currency Constraints & Security Hardening)
 
-Progress: [████████░░░░░░░░░░░░] 60% (v1.2 in progress: Phases 7, 7.1 complete; Phase 8 next)
+Progress: [█████████░░░░░░░░░░░] 62% (v1.2 in progress: Phases 7, 7.1, 8-01 complete)
 
 ## Milestone History
 
@@ -61,6 +61,9 @@ Recent decisions affecting v1.2:
 - Attachment delete admin-only — Only admin and quartermaster roles can delete attachments, matching RLS policy
 - No unit price in item route form — Unit price comes from WAC at stock-out time
 - Per-item warehouse selection is optional — User can specify preferred warehouse or leave empty
+- Currency codes limited to USD, MMK, CNY, THB — Regional operational requirements
+- USD exchange rate must equal 1.0 — Reference currency for EUSD calculations
+- SECURITY DEFINER search_path hardening — pg_catalog, public to prevent privilege escalation
 
 ### Roadmap Evolution
 
@@ -80,10 +83,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-29
-Stopped at: Completed 07.1-03-PLAN.md (Multi-Item Selection UI)
-Resume: Phase 7.1 verified complete. Ready for Phase 8 planning.
+Last session: 2026-01-30
+Stopped at: Completed 08-01-PLAN.md (Currency Constraints & Security Hardening)
+Resume: Plan 08-01 complete. Ready for 08-02 execution.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-01-29 — Phase 7.1 complete (3/3 plans)*
+*Last updated: 2026-01-30 — Plan 08-01 complete (1/2 plans in Phase 8)*
