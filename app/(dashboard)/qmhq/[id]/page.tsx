@@ -88,6 +88,8 @@ export default function QMHQDetailPage() {
   const { user } = useAuth();
   const qmhqId = params.id as string;
 
+  const canEditAttachments = user?.role === 'admin' || user?.role === 'quartermaster';
+
   const [qmhq, setQmhq] = useState<QMHQWithRelations | null>(null);
   const [transactions, setTransactions] = useState<FinancialTransactionWithUser[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<POWithRelations[]>([]);
@@ -852,7 +854,7 @@ export default function QMHQDetailPage() {
               entityType="qmhq"
               entityId={qmhqId}
               entityDisplayId={qmhq.request_id}
-              canEdit={true}
+              canEdit={canEditAttachments}
               onFileCountChange={setFileCount}
             />
           </div>

@@ -32,6 +32,7 @@ import { formatCurrency } from "@/lib/utils";
 import { HistoryTab } from "@/components/history";
 import { AttachmentsTab } from "@/components/files/attachments-tab";
 import { ClickableStatusBadge } from "@/components/status/clickable-status-badge";
+import { useAuth } from "@/components/providers/auth-provider";
 
 interface QMRLWithRelations extends QMRL {
   status?: StatusConfig | null;
@@ -65,10 +66,13 @@ const priorityConfig: Record<string, { class: string; label: string; icon: strin
 export default function QMRLDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const [qmrl, setQmrl] = useState<QMRLWithRelations | null>(null);
   const [relatedQmhq, setRelatedQmhq] = useState<QMHQWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fileCount, setFileCount] = useState(0);
+
+  const canEditAttachments = user?.role === 'admin' || user?.role === 'quartermaster';
 
   const fetchQMRL = useCallback(async (id: string) => {
     setIsLoading(true);
@@ -582,7 +586,7 @@ export default function QMRLDetailPage() {
               entityType="qmrl"
               entityId={qmrl.id}
               entityDisplayId={qmrl.request_id}
-              canEdit={true}
+              canEdit={canEditAttachments}
               onFileCountChange={setFileCount}
             />
           </div>
