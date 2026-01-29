@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 7.1 of 12 (Attachment & Item Route Fixes)
-Plan: 1 of 4 in current phase
-Status: In progress
-Last activity: 2026-01-29 — Completed 07.1-01-PLAN.md (Attachment & Calendar UX Fixes)
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-01-29 — Completed 07.1-03-PLAN.md (Multi-Item Selection UI)
 
-Progress: [████████░░░░░░░░░░░░] 58% (v1.2 in progress: Phase 7 complete, 7.1 plan 1 complete)
+Progress: [████████░░░░░░░░░░░░] 60% (v1.2 in progress: Phase 7 and 7.1 complete)
 
 ## Milestone History
 
@@ -59,6 +59,8 @@ Recent decisions affecting v1.2:
 - Per-item warehouse selection in junction table — Flexible sourcing for multi-item QMHQ
 - Legacy qmhq.item_id preserved — Backward compatibility with existing single-item records
 - Attachment delete admin-only — Only admin and quartermaster roles can delete attachments, matching RLS policy
+- No unit price in item route form — Unit price comes from WAC at stock-out time
+- Per-item warehouse selection is optional — User can specify preferred warehouse or leave empty
 
 ### Roadmap Evolution
 
@@ -74,14 +76,14 @@ None yet.
 
 ### Blockers/Concerns
 
-None — v1.2 roadmap complete with 100% requirement coverage.
+**Future Enhancement:** Auto stock-out trigger currently handles only legacy single-item QMHQ. Multi-item trigger enhancement needed for future phase to loop through qmhq_items table.
 
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 07.1-01-PLAN.md
-Resume: Execute 07.1-02-PLAN.md (Auto Stock-Out & Multi-Item QMHQ) or next plan in phase
+Stopped at: Completed 07.1-03-PLAN.md (Multi-Item Selection UI)
+Resume: Phase 7.1 complete. Ready for Phase 8 or next priority.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-01-29 — Phase 7.1 inserted for urgent fixes*
+*Last updated: 2026-01-29 — Phase 7.1 complete (3/3 plans)*
