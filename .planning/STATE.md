@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 7.1 of 12 (Attachment & Item Route Fixes)
-Plan: 2 of 4 in current phase
+Plan: 1 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-29 — Completed 07.1-02-PLAN.md (Auto Stock-Out & Multi-Item QMHQ)
+Last activity: 2026-01-29 — Completed 07.1-01-PLAN.md (Attachment & Calendar UX Fixes)
 
-Progress: [████████░░░░░░░░░░░░] 59% (v1.2 in progress: Phase 7 complete, 7.1 plans 1-2 complete)
+Progress: [████████░░░░░░░░░░░░] 58% (v1.2 in progress: Phase 7 complete, 7.1 plan 1 complete)
 
 ## Milestone History
 
@@ -53,11 +53,12 @@ Recent decisions affecting v1.2:
 - Global low stock threshold (10 units) — Simpler than per-item config
 - Amount locked after transaction creation — Audit integrity
 - String state for number inputs — Allows empty placeholder display
-- Calendar dropdown-buttons layout — Both dropdowns and arrows for flexibility
+- Calendar buttons-only layout — Simplified to arrows-only navigation per user feedback
 - Trigger uses SECURITY DEFINER for system transactions — Bypass RLS for auto-generated inventory
 - Idempotency check prevents duplicate stock-outs — Status can toggle, prevent duplicate transactions
 - Per-item warehouse selection in junction table — Flexible sourcing for multi-item QMHQ
 - Legacy qmhq.item_id preserved — Backward compatibility with existing single-item records
+- Attachment delete admin-only — Only admin and quartermaster roles can delete attachments, matching RLS policy
 
 ### Roadmap Evolution
 
@@ -78,8 +79,8 @@ None — v1.2 roadmap complete with 100% requirement coverage.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 07.1-02-PLAN.md
-Resume: Execute 07.1-03-PLAN.md (Item Route Frontend) or next plan in phase
+Stopped at: Completed 07.1-01-PLAN.md
+Resume: Execute 07.1-02-PLAN.md (Auto Stock-Out & Multi-Item QMHQ) or next plan in phase
 
 ---
 *State initialized: 2026-01-27*
