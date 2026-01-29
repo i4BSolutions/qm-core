@@ -1773,6 +1773,23 @@ export type POLineItem = Tables<"po_line_items">
 export type Invoice = Tables<"invoices">
 export type InvoiceLineItem = Tables<"invoice_line_items">
 
+// QMHQ Items junction table (for multi-item requests)
+export interface QMHQItem {
+  id: string;
+  qmhq_id: string;
+  item_id: string;
+  quantity: number;
+  warehouse_id: string | null;
+  created_at: string;
+  created_by: string | null;
+}
+
+// Extended type with relations for display
+export interface QMHQItemWithRelations extends QMHQItem {
+  item?: Item | null;
+  warehouse?: Warehouse | null;
+}
+
 // Enum types
 export type UserRole = Enums<"user_role">
 export type StatusGroup = Enums<"status_group">
