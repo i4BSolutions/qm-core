@@ -14,7 +14,7 @@ Plan: 3 of 3 in current phase
 Status: Phase complete
 Last activity: 2026-01-29 — Completed 07.1-03-PLAN.md (Multi-Item Selection UI)
 
-Progress: [████████░░░░░░░░░░░░] 60% (v1.2 in progress: Phase 7 and 7.1 complete)
+Progress: [████████░░░░░░░░░░░░] 60% (v1.2 in progress: Phases 7, 7.1 complete; Phase 8 next)
 
 ## Milestone History
 
@@ -82,7 +82,7 @@ None yet.
 
 Last session: 2026-01-29
 Stopped at: Completed 07.1-03-PLAN.md (Multi-Item Selection UI)
-Resume: Phase 7.1 complete. Ready for Phase 8 or next priority.
+Resume: Phase 7.1 verified complete. Ready for Phase 8 planning.
 
 ---
 *State initialized: 2026-01-27*

@@ -67,9 +67,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 07.1-01-PLAN.md — Fix attachment permissions and simplify date picker
-- [ ] 07.1-02-PLAN.md — Database: auto stock-out trigger and multi-item schema
-- [ ] 07.1-03-PLAN.md — Multi-item UI for QMHQ item route
+- [x] 07.1-01-PLAN.md — Fix attachment permissions and simplify date picker
+- [x] 07.1-02-PLAN.md — Database: auto stock-out trigger and multi-item schema
+- [x] 07.1-03-PLAN.md — Multi-item UI for QMHQ item route
 
 #### Phase 8: Database Foundation
 **Goal**: Database layer supports currency-aware WAC calculation and invoice void cascades
@@ -157,7 +157,7 @@ Phases execute in numeric order: 7 → 7.1 → 8 → 9 → 10 → 11 → 12
 | 5. Management Dashboard | v1.1 | 3/3 | Complete | 2026-01-28 |
 | 6. Status & Transaction UX | v1.1 | 3/3 | Complete | 2026-01-28 |
 | 7. UX Polish | v1.2 | 2/2 | Complete | 2026-01-29 |
-| 7.1 Attachment & Item Route Fixes | v1.2 | 0/3 | Not started | - |
+| 7.1 Attachment & Item Route Fixes | v1.2 | 3/3 | Complete | 2026-01-29 |
 | 8. Database Foundation | v1.2 | 0/0 | Not started | - |
 | 9. Manual Stock-In Enhancement | v1.2 | 0/0 | Not started | - |
 | 10. Inventory Dashboard | v1.2 | 0/0 | Not started | - |
