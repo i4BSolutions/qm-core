@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Phase 8 - Database Foundation
+**Current focus:** Phase 8 - Database Foundation (Complete)
 
 ## Current Position
 
 Phase: 8 of 12 (Database Foundation)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-30 — Completed 08-01-PLAN.md (Currency Constraints & Security Hardening)
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-30 — Completed 08-02-PLAN.md (Invoice Void Cascade)
 
-Progress: [█████████░░░░░░░░░░░] 62% (v1.2 in progress: Phases 7, 7.1, 8-01 complete)
+Progress: [█████████░░░░░░░░░░░] 65% (v1.2 in progress: Phases 7, 7.1, 8 complete)
 
 ## Milestone History
 
@@ -64,6 +64,8 @@ Recent decisions affecting v1.2:
 - Currency codes limited to USD, MMK, CNY, THB — Regional operational requirements
 - USD exchange rate must equal 1.0 — Reference currency for EUSD calculations
 - SECURITY DEFINER search_path hardening — pg_catalog, public to prevent privilege escalation
+- Trigger ordering via alphabetical prefix — aa_ fires first (block), zz_ fires last (audit)
+- Balance in Hand unchanged on void — PO commitment preserved, only invoiced qty changes
 
 ### Roadmap Evolution
 
@@ -84,9 +86,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 08-01-PLAN.md (Currency Constraints & Security Hardening)
-Resume: Plan 08-01 complete. Ready for 08-02 execution.
+Stopped at: Completed 08-02-PLAN.md (Invoice Void Cascade)
+Resume: Phase 8 complete. Ready for Phase 9 planning.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-01-30 — Plan 08-01 complete (1/2 plans in Phase 8)*
+*Last updated: 2026-01-30 — Phase 8 complete (2/2 plans)*
