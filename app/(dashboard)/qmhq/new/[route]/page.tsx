@@ -509,14 +509,14 @@ export default function QMHQRouteDetailsPage() {
                     <div className="col-span-6 sm:col-span-3 space-y-1">
                       <Label className="data-label text-xs">Warehouse</Label>
                       <Select
-                        value={selectedItem.warehouse_id}
-                        onValueChange={(value) => handleUpdateItem(selectedItem.id, 'warehouse_id', value)}
+                        value={selectedItem.warehouse_id || "__none__"}
+                        onValueChange={(value) => handleUpdateItem(selectedItem.id, 'warehouse_id', value === "__none__" ? '' : value)}
                       >
                         <SelectTrigger className="bg-slate-800/50 border-slate-700">
                           <SelectValue placeholder="Optional" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Any warehouse</SelectItem>
+                          <SelectItem value="__none__">Any warehouse</SelectItem>
                           {warehouses.map((wh) => (
                             <SelectItem key={wh.id} value={wh.id}>
                               {wh.name}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -56,8 +56,12 @@ interface WarehouseStock {
 
 export default function StockOutPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Get QMHQ ID from query params (when coming from QMHQ detail page)
+  const qmhqId = searchParams.get("qmhq");
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,12 +70,13 @@ export default function StockOutPage() {
   // Reference data
   const [items, setItems] = useState<ItemWithStock[]>([]);
   const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
+  const [qmhqInfo, setQmhqInfo] = useState<{ request_id: string; line_name: string } | null>(null);
 
   // Form state
   const [selectedItemId, setSelectedItemId] = useState("");
   const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
   const [quantity, setQuantity] = useState<string>("");
-  const [reason, setReason] = useState<StockOutReason>("consumption");
+  const [reason, setReason] = useState<StockOutReason>(qmhqId ? "request" : "consumption");
   const [destinationWarehouseId, setDestinationWarehouseId] = useState("");
   const [transactionDate, setTransactionDate] = useState<Date>(new Date());
   const [notes, setNotes] = useState("");
@@ -106,8 +111,21 @@ export default function StockOutPage() {
       setWarehouses(warehousesData as WarehouseType[]);
     }
 
+    // Fetch QMHQ info if coming from QMHQ detail page
+    if (qmhqId) {
+      const { data: qmhqData } = await supabase
+        .from("qmhq")
+        .select("request_id, line_name")
+        .eq("id", qmhqId)
+        .single();
+
+      if (qmhqData) {
+        setQmhqInfo(qmhqData);
+      }
+    }
+
     setIsLoading(false);
-  }, []);
+  }, [qmhqId]);
 
   const fetchItemStock = useCallback(async (itemId: string) => {
     setIsLoadingStock(true);
@@ -255,6 +273,7 @@ export default function StockOutPage() {
           warehouse_id: selectedWarehouseId,
           quantity: qty,
           reason,
+          qmhq_id: qmhqId || null,
           destination_warehouse_id:
             reason === "transfer" ? destinationWarehouseId : null,
           transaction_date: transactionDate.toISOString().split("T")[0],
@@ -301,8 +320,12 @@ export default function StockOutPage() {
         });
       }
 
-      // Redirect back to warehouse list
-      router.push("/warehouse");
+      // Redirect back to QMHQ or warehouse list
+      if (qmhqId) {
+        router.push(`/qmhq/${qmhqId}`);
+      } else {
+        router.push("/warehouse");
+      }
     } catch (err) {
       console.error("Error creating stock out:", err);
       setError(
@@ -334,7 +357,7 @@ export default function StockOutPage() {
       {/* Header */}
       <div className="relative flex items-start justify-between animate-fade-in">
         <div className="flex items-start gap-4">
-          <Link href="/warehouse">
+          <Link href={qmhqId ? `/qmhq/${qmhqId}` : "/warehouse"}>
             <Button
               variant="ghost"
               size="icon"
@@ -354,7 +377,14 @@ export default function StockOutPage() {
               Issue Stock
             </h1>
             <p className="text-sm text-slate-400 mt-1">
-              Record inventory issued from warehouse
+              {qmhqInfo ? (
+                <>
+                  For request: <code className="text-amber-400">{qmhqInfo.request_id}</code>
+                  <span className="ml-2">{qmhqInfo.line_name}</span>
+                </>
+              ) : (
+                "Record inventory issued from warehouse"
+              )}
             </p>
           </div>
         </div>
@@ -725,7 +755,7 @@ export default function StockOutPage() {
 
       {/* Submit */}
       <div className="flex items-center justify-between pt-4 border-t border-slate-700">
-        <Link href="/warehouse">
+        <Link href={qmhqId ? `/qmhq/${qmhqId}` : "/warehouse"}>
           <Button type="button" variant="ghost" className="text-slate-400">
             Cancel
           </Button>

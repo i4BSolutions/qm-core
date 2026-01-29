@@ -22,6 +22,8 @@ import {
   TrendingDown,
   AlertTriangle,
   Paperclip,
+  ArrowUpFromLine,
+  CheckCircle2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -51,6 +53,7 @@ import type {
   POStatusEnum,
   QMHQItem,
   Warehouse,
+  InventoryTransaction,
 } from "@/types/database";
 
 // Extended types
@@ -82,6 +85,11 @@ type QMHQItemWithRelations = QMHQItem & {
   warehouse?: { id: string; name: string } | null;
 };
 
+interface StockOutTransaction extends InventoryTransaction {
+  item?: { id: string; name: string; sku: string | null } | null;
+  warehouse?: { id: string; name: string } | null;
+}
+
 // Route type configuration
 const routeConfig: Record<string, { icon: typeof Package; label: string; color: string; bgColor: string }> = {
   item: { icon: Package, label: "Item", color: "text-blue-400", bgColor: "bg-blue-500/10 border-blue-500/20" },
@@ -101,6 +109,7 @@ export default function QMHQDetailPage() {
   const [qmhqItems, setQmhqItems] = useState<QMHQItemWithRelations[]>([]);
   const [transactions, setTransactions] = useState<FinancialTransactionWithUser[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<POWithRelations[]>([]);
+  const [stockOutTransactions, setStockOutTransactions] = useState<StockOutTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("details");
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
@@ -178,6 +187,23 @@ export default function QMHQDetailPage() {
             warehouse: legacyWarehouse,
           }]);
         }
+      }
+
+      // Fetch stock-out transactions for this QMHQ
+      const { data: stockOutData } = await supabase
+        .from('inventory_transactions')
+        .select(`
+          *,
+          item:items(id, name, sku),
+          warehouse:warehouses(id, name)
+        `)
+        .eq('qmhq_id', qmhqData.id)
+        .eq('movement_type', 'inventory_out')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (stockOutData) {
+        setStockOutTransactions(stockOutData as unknown as StockOutTransaction[]);
       }
     }
 
@@ -446,6 +472,12 @@ export default function QMHQDetailPage() {
           <TabsTrigger value="details" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
             Details
           </TabsTrigger>
+          {qmhq.route_type === "item" && (
+            <TabsTrigger value="stock-out" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+              <ArrowUpFromLine className="mr-2 h-4 w-4" />
+              Stock Out ({stockOutTransactions.length})
+            </TabsTrigger>
+          )}
           {(qmhq.route_type === "expense" || qmhq.route_type === "po") && (
             <TabsTrigger value="transactions" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
               Transactions ({transactions.length})
@@ -676,6 +708,133 @@ export default function QMHQDetailPage() {
             </div>
           </div>
         </TabsContent>
+
+        {/* Stock Out Tab */}
+        {qmhq.route_type === "item" && (
+          <TabsContent value="stock-out" className="mt-6">
+            <div className="command-panel corner-accents">
+              <div className="flex items-center justify-between mb-6">
+                <div className="section-header mb-0">
+                  <ArrowUpFromLine className="h-4 w-4 text-red-400" />
+                  <h2>Stock Out Transactions</h2>
+                </div>
+                <Link href={`/inventory/stock-out?qmhq=${qmhqId}`}>
+                  <Button
+                    className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Issue Items
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Items Summary */}
+              <div className="mb-6 p-4 rounded-lg bg-slate-800/30 border border-slate-700">
+                <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">Requested Items Summary</p>
+                <div className="space-y-2">
+                  {qmhqItems.map((item) => {
+                    const issuedQty = stockOutTransactions
+                      .filter(t => t.item_id === item.item_id)
+                      .reduce((sum, t) => sum + (t.quantity || 0), 0);
+                    const pendingQty = Math.max(0, item.quantity - issuedQty);
+                    const isFullyIssued = pendingQty === 0;
+
+                    return (
+                      <div key={item.id} className="flex items-center justify-between p-2 rounded bg-slate-800/50">
+                        <div className="flex items-center gap-3">
+                          {isFullyIssued ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                          ) : (
+                            <Package className="h-4 w-4 text-slate-400" />
+                          )}
+                          <div>
+                            <span className="text-slate-200">{item.item?.name || 'Unknown'}</span>
+                            {item.item?.sku && (
+                              <code className="text-amber-400 text-xs ml-2">{item.item.sku}</code>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="text-slate-400">
+                            Requested: <span className="font-mono text-blue-400">{item.quantity}</span>
+                          </span>
+                          <span className="text-slate-400">
+                            Issued: <span className="font-mono text-emerald-400">{issuedQty}</span>
+                          </span>
+                          {!isFullyIssued && (
+                            <span className="text-slate-400">
+                              Pending: <span className="font-mono text-amber-400">{pendingQty}</span>
+                            </span>
+                          )}
+                          {isFullyIssued && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
+                              Complete
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {stockOutTransactions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+                    <ArrowUpFromLine className="h-8 w-8 text-slate-500" />
+                  </div>
+                  <h3 className="text-lg font-medium text-slate-300 mb-2">No Items Issued Yet</h3>
+                  <p className="text-sm text-slate-400 max-w-md mb-4">
+                    Items will be automatically issued when this request is marked as fulfilled,
+                    or you can manually issue items using the button above.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {stockOutTransactions.map((tx) => (
+                    <div
+                      key={tx.id}
+                      className="p-4 rounded-lg border bg-red-500/5 border-red-500/20"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-red-500/20">
+                            <ArrowUpFromLine className="h-5 w-5 text-red-400" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-200 font-medium">
+                                {tx.item?.name || 'Unknown Item'}
+                              </span>
+                              {tx.item?.sku && (
+                                <code className="text-xs text-amber-400">{tx.item.sku}</code>
+                              )}
+                            </div>
+                            <p className="text-sm text-slate-400">
+                              From: {tx.warehouse?.name || 'Unknown Warehouse'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-mono font-bold text-red-400">
+                            -{tx.quantity}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {tx.reason === 'request' ? 'Request Fulfillment' : tx.reason}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
+                        <span>{new Date(tx.transaction_date || tx.created_at || '').toLocaleDateString()}</span>
+                        {tx.notes && <span className="truncate max-w-[200px]">{tx.notes}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        )}
 
         {/* Transactions Tab */}
         {(qmhq.route_type === "expense" || qmhq.route_type === "po") && (
