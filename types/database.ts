@@ -1473,6 +1473,65 @@ export type Database = {
           }
         ]
       }
+      qmhq_items: {
+        Row: {
+          id: string
+          qmhq_id: string
+          item_id: string
+          quantity: number
+          warehouse_id: string | null
+          created_at: string | null
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          qmhq_id: string
+          item_id: string
+          quantity: number
+          warehouse_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          qmhq_id?: string
+          item_id?: string
+          quantity?: number
+          warehouse_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qmhq_items_qmhq_id_fkey"
+            columns: ["qmhq_id"]
+            isOneToOne: false
+            referencedRelation: "qmhq"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qmhq_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qmhq_items_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qmhq_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           id: string

@@ -14,6 +14,7 @@ import {
   Calculator,
   AlertTriangle,
   Info,
+  Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,13 @@ type DraftData = {
   route_type: string;
 };
 
+type SelectedItem = {
+  id: string;  // Client-side key (crypto.randomUUID())
+  item_id: string;
+  quantity: string;  // String for controlled input
+  warehouse_id: string;
+};
+
 export default function QMHQRouteDetailsPage() {
   const router = useRouter();
   const params = useParams();
@@ -74,8 +82,10 @@ export default function QMHQRouteDetailsPage() {
 
   // Item route state
   const [items, setItems] = useState<Item[]>([]);
-  const [selectedItemId, setSelectedItemId] = useState("");
-  const [quantity, setQuantity] = useState("");
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([
+    { id: crypto.randomUUID(), item_id: '', quantity: '', warehouse_id: '' }
+  ]);
+  const [warehouses, setWarehouses] = useState<{id: string; name: string}[]>([]);
 
   // Expense/PO route state
   const [amount, setAmount] = useState("");
@@ -135,9 +145,8 @@ export default function QMHQRouteDetailsPage() {
         const routeData = JSON.parse(savedRouteData);
         if (routeData.route === route) {
           // Restore item route data
-          if (route === "item") {
-            setSelectedItemId(routeData.selectedItemId || "");
-            setQuantity(routeData.quantity || "");
+          if (route === "item" && routeData.selectedItems) {
+            setSelectedItems(routeData.selectedItems);
           }
           // Restore expense/po route data
           if (route === "expense" || route === "po") {
@@ -160,17 +169,42 @@ export default function QMHQRouteDetailsPage() {
     const supabase = createClient();
 
     if (route === "item") {
-      const { data: itemsData } = await supabase
-        .from("items")
-        .select("id, name, sku, default_unit, description")
-        .eq("is_active", true)
-        .order("name")
-        .limit(200);
-
-      if (itemsData) setItems(itemsData as Item[]);
+      const [itemsRes, warehousesRes] = await Promise.all([
+        supabase
+          .from("items")
+          .select("id, name, sku, default_unit, description")
+          .eq("is_active", true)
+          .order("name")
+          .limit(200),
+        supabase
+          .from("warehouses")
+          .select("id, name")
+          .eq("is_active", true)
+          .order("name")
+      ]);
+      if (itemsRes.data) setItems(itemsRes.data as Item[]);
+      if (warehousesRes.data) setWarehouses(warehousesRes.data);
     }
 
     setIsLoading(false);
+  };
+
+  const handleAddItem = () => {
+    setSelectedItems([
+      ...selectedItems,
+      { id: crypto.randomUUID(), item_id: '', quantity: '', warehouse_id: '' }
+    ]);
+  };
+
+  const handleRemoveItem = (id: string) => {
+    if (selectedItems.length === 1) return; // Keep at least one
+    setSelectedItems(selectedItems.filter(item => item.id !== id));
+  };
+
+  const handleUpdateItem = (id: string, field: keyof Omit<SelectedItem, 'id'>, value: string) => {
+    setSelectedItems(selectedItems.map(item =>
+      item.id === id ? { ...item, [field]: value } : item
+    ));
   };
 
   const handleSubmit = async () => {
@@ -185,18 +219,14 @@ export default function QMHQRouteDetailsPage() {
 
     // Validation based on route
     if (route === "item") {
-      if (!selectedItemId) {
+      // Validate at least one item with quantity
+      const validItems = selectedItems.filter(
+        item => item.item_id && parseFloat(item.quantity) > 0
+      );
+      if (validItems.length === 0) {
         toast({
           title: "Validation Error",
-          description: "Please select an item.",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (!quantity || parseFloat(quantity) <= 0) {
-        toast({
-          title: "Validation Error",
-          description: "Please enter a valid quantity.",
+          description: "Please add at least one item with quantity.",
           variant: "destructive",
         });
         return;
@@ -225,61 +255,105 @@ export default function QMHQRouteDetailsPage() {
     setIsSubmitting(true);
     const supabase = createClient();
 
-    // Build insert data with proper typing
-    const baseData = {
-      line_name: draftData.line_name,
-      description: draftData.description || null,
-      notes: draftData.notes || null,
-      qmrl_id: draftData.qmrl_id,
-      category_id: draftData.category_id || null,
-      status_id: draftData.status_id || null,
-      contact_person_id: draftData.contact_person_id || null,
-      assigned_to: draftData.assigned_to || null,
-      route_type: route as "item" | "expense" | "po",
-      created_by: user.id,
-    };
+    try {
+      // Build base data
+      const baseData = {
+        line_name: draftData.line_name,
+        description: draftData.description || null,
+        notes: draftData.notes || null,
+        qmrl_id: draftData.qmrl_id,
+        category_id: draftData.category_id || null,
+        status_id: draftData.status_id || null,
+        contact_person_id: draftData.contact_person_id || null,
+        assigned_to: draftData.assigned_to || null,
+        route_type: route as "item" | "expense" | "po",
+        created_by: user.id,
+      };
 
-    // Add route-specific fields
-    const insertData = route === "item"
-      ? {
-          ...baseData,
-          item_id: selectedItemId,
-          quantity: parseFloat(quantity),
-        }
-      : {
-          ...baseData,
-          amount: parseFloat(amount),
-          currency: currency,
-          exchange_rate: parseFloat(exchangeRate),
-        };
+      if (route === "item") {
+        // Create QMHQ without legacy item fields
+        const { data: qmhqData, error: qmhqError } = await supabase
+          .from("qmhq")
+          .insert({
+            ...baseData,
+            // Legacy fields set to null for multi-item
+            item_id: null,
+            quantity: null,
+            warehouse_id: null,
+          })
+          .select()
+          .single();
 
-    const { data, error } = await supabase
-      .from("qmhq")
-      .insert(insertData)
-      .select()
-      .single();
+        if (qmhqError) throw qmhqError;
 
-    if (error) {
+        // Insert items into junction table
+        const validItems = selectedItems.filter(
+          item => item.item_id && parseFloat(item.quantity) > 0
+        );
+
+        const { error: itemsError } = await supabase
+          .from("qmhq_items")
+          .insert(
+            validItems.map(item => ({
+              qmhq_id: qmhqData.id,
+              item_id: item.item_id,
+              quantity: parseFloat(item.quantity),
+              warehouse_id: item.warehouse_id || null,
+              created_by: user.id,
+            }))
+          );
+
+        if (itemsError) throw itemsError;
+
+        // Clear draft and redirect
+        sessionStorage.removeItem("qmhq_draft");
+        sessionStorage.removeItem("qmhq_route_data");
+
+        toast({
+          title: "Success",
+          description: "QMHQ line created successfully.",
+          variant: "success",
+        });
+
+        router.push(`/qmhq/${qmhqData.id}`);
+        return;
+      }
+
+      // Expense/PO routes (existing logic)
+      const insertData = {
+        ...baseData,
+        amount: parseFloat(amount),
+        currency: currency,
+        exchange_rate: parseFloat(exchangeRate),
+      };
+
+      const { data, error } = await supabase
+        .from("qmhq")
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Clear all draft data
+      sessionStorage.removeItem("qmhq_draft");
+      sessionStorage.removeItem("qmhq_route_data");
+
+      toast({
+        title: "Success",
+        description: "QMHQ line created successfully.",
+        variant: "success",
+      });
+
+      router.push(`/qmhq/${data.id}`);
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to create QMHQ line.",
+        description: error instanceof Error ? error.message : "Failed to create QMHQ line.",
         variant: "destructive",
       });
       setIsSubmitting(false);
-      return;
     }
-
-    // Clear all draft data
-    sessionStorage.removeItem("qmhq_draft");
-    sessionStorage.removeItem("qmhq_route_data");
-
-    toast({
-      title: "Success",
-      description: "QMHQ line created successfully.",
-      variant: "success",
-    });
-
-    router.push(`/qmhq/${data.id}`);
   };
 
   const handleBack = () => {
@@ -287,8 +361,7 @@ export default function QMHQRouteDetailsPage() {
     const routeData = {
       route,
       // Item route data
-      selectedItemId,
-      quantity,
+      selectedItems,
       // Expense/PO route data
       amount,
       currency,
@@ -385,74 +458,100 @@ export default function QMHQRouteDetailsPage() {
                 <h2>Item Selection</h2>
               </div>
 
-              <div className="space-y-5">
-                <div className="grid gap-2">
-                  <Label htmlFor="item" className="data-label">
-                    Item <span className="text-red-400">*</span>
-                  </Label>
-                  <Select value={selectedItemId} onValueChange={setSelectedItemId}>
-                    <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                      <SelectValue placeholder="Select item from catalog" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {items.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          <div className="flex items-center gap-2">
-                            {item.sku && (
-                              <code className="text-amber-400 text-xs">{item.sku}</code>
-                            )}
-                            <span className="text-slate-200">{item.name}</span>
-                            {item.default_unit && (
-                              <span className="text-slate-400 text-xs">({item.default_unit})</span>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-4">
+                {selectedItems.map((selectedItem, index) => (
+                  <div key={selectedItem.id} className="grid grid-cols-12 gap-3 p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
+                    {/* Item Number */}
+                    <div className="col-span-12 sm:col-span-1 flex items-center">
+                      <span className="text-xs font-mono text-slate-500 uppercase">#{index + 1}</span>
+                    </div>
 
-                <div className="grid gap-2 max-w-xs">
-                  <Label htmlFor="quantity" className="data-label">
-                    Quantity <span className="text-red-400">*</span>
-                  </Label>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setQuantity(String(Math.max(1, (parseInt(quantity) || 1) - 1)))}
-                      disabled={(parseInt(quantity) || 1) <= 1}
-                      className="h-10 w-10 border-slate-700 hover:bg-slate-700"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={quantity}
-                      onChange={(e) => setQuantity(String(Math.max(1, Math.floor(parseInt(e.target.value) || 1))))}
-                      placeholder="1"
-                      className="w-20 text-center bg-slate-800/50 border-slate-700 focus:border-blue-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setQuantity(String((parseInt(quantity) || 0) + 1))}
-                      className="h-10 w-10 border-slate-700 hover:bg-slate-700"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
+                    {/* Item Select */}
+                    <div className="col-span-12 sm:col-span-5 space-y-1">
+                      <Label className="data-label text-xs">Item</Label>
+                      <Select
+                        value={selectedItem.item_id}
+                        onValueChange={(value) => handleUpdateItem(selectedItem.id, 'item_id', value)}
+                      >
+                        <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                          <SelectValue placeholder="Select item" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {items.map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              <div className="flex items-center gap-2">
+                                {item.sku && (
+                                  <code className="text-amber-400 text-xs">{item.sku}</code>
+                                )}
+                                <span className="text-slate-200">{item.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Quantity */}
+                    <div className="col-span-6 sm:col-span-2 space-y-1">
+                      <Label className="data-label text-xs">Qty</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={selectedItem.quantity}
+                        onChange={(e) => handleUpdateItem(selectedItem.id, 'quantity', e.target.value)}
+                        placeholder="0"
+                        className="bg-slate-800/50 border-slate-700 focus:border-blue-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
+
+                    {/* Warehouse (Optional) */}
+                    <div className="col-span-6 sm:col-span-3 space-y-1">
+                      <Label className="data-label text-xs">Warehouse</Label>
+                      <Select
+                        value={selectedItem.warehouse_id}
+                        onValueChange={(value) => handleUpdateItem(selectedItem.id, 'warehouse_id', value)}
+                      >
+                        <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                          <SelectValue placeholder="Optional" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Any warehouse</SelectItem>
+                          {warehouses.map((wh) => (
+                            <SelectItem key={wh.id} value={wh.id}>
+                              {wh.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Remove Button */}
+                    <div className="col-span-12 sm:col-span-1 flex items-end justify-end sm:justify-center">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveItem(selectedItem.id)}
+                        disabled={selectedItems.length === 1}
+                        className="h-9 w-9 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  {selectedItemId && items.find((i) => i.id === selectedItemId)?.default_unit && (
-                    <p className="text-xs text-slate-400">
-                      Unit: {items.find((i) => i.id === selectedItemId)?.default_unit}
-                    </p>
-                  )}
-                </div>
+                ))}
+
+                {/* Add Item Button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAddItem}
+                  className="w-full border-dashed border-slate-600 text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-blue-500/5"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Another Item
+                </Button>
               </div>
             </div>
 
@@ -463,8 +562,8 @@ export default function QMHQRouteDetailsPage() {
                 <div>
                   <h3 className="font-medium text-slate-200 mb-1">Item Route Info</h3>
                   <p className="text-sm text-slate-400">
-                    The Item route is used to request items from warehouse inventory. Stock availability
-                    will be checked when processing this request.
+                    Add items to be issued from warehouse inventory. Stock will be automatically
+                    deducted when this request is marked as fulfilled.
                   </p>
                 </div>
               </div>
