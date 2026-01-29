@@ -81,10 +81,11 @@ Plans:
   3. Voiding an invoice automatically updates Balance in Hand
   4. Voiding an invoice automatically updates invoiced quantities
   5. All void cascade effects are logged to audit trail
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 08-01: [TBD during planning]
+- [ ] 08-01-PLAN.md — Currency validation constraints and SECURITY DEFINER hardening
+- [ ] 08-02-PLAN.md — Invoice void cascade audit logging
 
 #### Phase 9: Manual Stock-In Enhancement
 **Goal**: Users can perform manual stock-in with currency selection and see EUSD calculations
@@ -158,7 +159,7 @@ Phases execute in numeric order: 7 → 7.1 → 8 → 9 → 10 → 11 → 12
 | 6. Status & Transaction UX | v1.1 | 3/3 | Complete | 2026-01-28 |
 | 7. UX Polish | v1.2 | 2/2 | Complete | 2026-01-29 |
 | 7.1 Attachment & Item Route Fixes | v1.2 | 3/3 | Complete | 2026-01-29 |
-| 8. Database Foundation | v1.2 | 0/0 | Not started | - |
+| 8. Database Foundation | v1.2 | 0/2 | Not started | - |
 | 9. Manual Stock-In Enhancement | v1.2 | 0/0 | Not started | - |
 | 10. Inventory Dashboard | v1.2 | 0/0 | Not started | - |
 | 11. Warehouse Detail Enhancement | v1.2 | 0/0 | Not started | - |
