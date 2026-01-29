@@ -49,6 +49,8 @@ import type {
   PurchaseOrder,
   Supplier,
   POStatusEnum,
+  QMHQItem,
+  Warehouse,
 } from "@/types/database";
 
 // Extended types
@@ -75,6 +77,11 @@ interface POWithRelations extends PurchaseOrder {
   };
 }
 
+type QMHQItemWithRelations = QMHQItem & {
+  item?: { id: string; name: string; sku: string | null; default_unit: string | null } | null;
+  warehouse?: { id: string; name: string } | null;
+};
+
 // Route type configuration
 const routeConfig: Record<string, { icon: typeof Package; label: string; color: string; bgColor: string }> = {
   item: { icon: Package, label: "Item", color: "text-blue-400", bgColor: "bg-blue-500/10 border-blue-500/20" },
@@ -91,6 +98,7 @@ export default function QMHQDetailPage() {
   const canEditAttachments = user?.role === 'admin' || user?.role === 'quartermaster';
 
   const [qmhq, setQmhq] = useState<QMHQWithRelations | null>(null);
+  const [qmhqItems, setQmhqItems] = useState<QMHQItemWithRelations[]>([]);
   const [transactions, setTransactions] = useState<FinancialTransactionWithUser[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<POWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,6 +135,51 @@ export default function QMHQDetailPage() {
     }
 
     setQmhq(qmhqData as unknown as QMHQWithRelations);
+
+    // Fetch qmhq_items if route_type is 'item'
+    if (qmhqData && qmhqData.route_type === 'item') {
+      const { data: itemsData } = await supabase
+        .from('qmhq_items')
+        .select(`
+          *,
+          item:items(id, name, sku, default_unit),
+          warehouse:warehouses(id, name)
+        `)
+        .eq('qmhq_id', qmhqData.id);
+
+      if (itemsData && itemsData.length > 0) {
+        setQmhqItems(itemsData as unknown as QMHQItemWithRelations[]);
+      } else if (qmhqData.item_id) {
+        // Fallback for legacy single-item QMHQ
+        const { data: legacyItem } = await supabase
+          .from('items')
+          .select('id, name, sku, default_unit')
+          .eq('id', qmhqData.item_id)
+          .single();
+
+        const { data: legacyWarehouse } = qmhqData.warehouse_id
+          ? await supabase
+              .from('warehouses')
+              .select('id, name')
+              .eq('id', qmhqData.warehouse_id)
+              .single()
+          : { data: null };
+
+        if (legacyItem) {
+          setQmhqItems([{
+            id: 'legacy',
+            qmhq_id: qmhqData.id,
+            item_id: qmhqData.item_id,
+            quantity: qmhqData.quantity || 0,
+            warehouse_id: qmhqData.warehouse_id,
+            created_at: qmhqData.created_at || new Date().toISOString(),
+            created_by: qmhqData.created_by,
+            item: legacyItem,
+            warehouse: legacyWarehouse,
+          }]);
+        }
+      }
+    }
 
     // Fetch file count for attachments tab badge
     const { count: filesCount } = await supabase
@@ -509,38 +562,40 @@ export default function QMHQDetailPage() {
             </div>
 
             {/* Route-specific Info */}
-            {qmhq.route_type === "item" && (
-              <div className="command-panel corner-accents">
+            {qmhq.route_type === "item" && qmhqItems.length > 0 && (
+              <div className="command-panel corner-accents lg:col-span-2">
                 <div className="section-header">
                   <Package className="h-4 w-4 text-blue-400" />
-                  <h2>Item Details</h2>
+                  <h2>Requested Items ({qmhqItems.length})</h2>
                 </div>
 
-                <div className="space-y-4">
-                  {qmhq.item && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                        <Package className="h-5 w-5 text-blue-400" />
+                <div className="space-y-3">
+                  {qmhqItems.map((item, index) => (
+                    <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 border border-slate-700/50">
+                      <div className="flex items-center gap-4">
+                        <span className="text-xs font-mono text-slate-500 w-6">#{index + 1}</span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            {item.item?.sku && (
+                              <code className="text-amber-400 text-xs">{item.item.sku}</code>
+                            )}
+                            <span className="text-slate-200 font-medium">{item.item?.name || 'Unknown Item'}</span>
+                          </div>
+                          {item.warehouse && (
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              From: {item.warehouse.name}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-slate-400 uppercase tracking-wider">Item</p>
-                        <p className="text-slate-200 font-medium">{qmhq.item.name}</p>
-                        {qmhq.item.sku && (
-                          <code className="text-xs text-amber-400">{qmhq.item.sku}</code>
+                      <div className="text-right">
+                        <span className="text-lg font-mono text-blue-400">{item.quantity}</span>
+                        {item.item?.default_unit && (
+                          <span className="text-xs text-slate-400 ml-1">{item.item.default_unit}</span>
                         )}
                       </div>
                     </div>
-                  )}
-
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Quantity</p>
-                    <p className="text-xl font-mono text-slate-200">
-                      {qmhq.quantity ?? "—"}
-                      {qmhq.item?.default_unit && (
-                        <span className="text-sm text-slate-400 ml-2">{qmhq.item.default_unit}</span>
-                      )}
-                    </p>
-                  </div>
+                  ))}
                 </div>
               </div>
             )}
