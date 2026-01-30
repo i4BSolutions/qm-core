@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Phase 10 - Inventory Dashboard (Complete)
+**Current focus:** Phase 11 - Warehouse Detail Enhancement (In Progress)
 
 ## Current Position
 
-Phase: 10 of 12 (Inventory Dashboard)
-Plan: 2 of 2 in current phase
+Phase: 11 of 12 (Warehouse Detail Enhancement)
+Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-01-30 — Completed 10-02-PLAN.md (Dashboard Filters)
+Last activity: 2026-01-30 — Completed 11-01-PLAN.md (Warehouse WAC/EUSD Display)
 
-Progress: [████████████░░░░░░░░] 80% (v1.2 in progress: Phases 7, 7.1, 8, 9, 10 complete)
+Progress: [█████████████░░░░░░░] 83% (v1.2 in progress: Phases 7, 7.1, 8, 9, 10, 11 complete)
 
 ## Milestone History
 
@@ -73,6 +73,11 @@ Recent decisions affecting v1.2:
 - URL search params for filter state — Shareable filtered views with browser navigation support (Phase 10.02)
 - Searchable item select pattern — Input filter + dropdown for large item lists (Phase 10.02)
 - Shallow routing for filter updates — Prevents page scroll jumps and history pollution (Phase 10.02)
+- Global LOW_STOCK_THRESHOLD = 10 units — Simpler than per-item config, matches inventory dashboard pattern (Phase 11.01)
+- Zero-stock items in table, excluded from KPI counts — Complete visibility with accurate metrics (Phase 11.01)
+- EUSD-only display for warehouse inventory — Removed MMK columns, EUSD sufficient for value tracking (Phase 11.01)
+- Dash (—) for null WAC values — Better UX than "0.00 EUSD" for items without cost data (Phase 11.01)
+- Right-align numeric columns — Accounting style conventions for better readability (Phase 11.01)
 
 ### Roadmap Evolution
 
@@ -93,10 +98,10 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 10-02-PLAN.md (Dashboard Filters)
-Resume: Phase 10 verified complete. Ready for Phase 11 (Warehouse Detail Enhancement).
-Note: Run `npx supabase db push` to apply KPI RPC migration (042_inventory_dashboard_kpis.sql)
+Stopped at: Completed 11-01-PLAN.md (Warehouse WAC/EUSD Display)
+Resume: Phase 11 complete. Ready for Phase 12 or additional enhancements.
+Note: Warehouse detail page now displays per-item WAC with EUSD values, zero-stock visibility, and low stock warnings.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-01-30 — Phase 10 complete (2/2 plans)*
+*Last updated: 2026-01-30 — Phase 11 complete (1/1 plans)*
