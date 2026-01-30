@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { ArrowDownToLine, ArrowUpFromLine, Package, TrendingUp, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -13,9 +13,15 @@ import { formatCurrency, formatAmount } from "@/lib/utils";
 import {
   getInventoryKPIs,
   getInventoryTransactions,
+  getWarehousesForFilter,
+  getItemsForFilter,
   type InventoryKPIs,
   type InventoryTransaction,
+  type WarehouseOption,
+  type ItemOption,
 } from "@/lib/actions/inventory-dashboard";
+import { FilterPopover } from "./components/filter-popover";
+import { FilterChips, type FilterChip } from "./components/filter-chips";
 
 export default function InventoryPage() {
   const router = useRouter();
@@ -26,24 +32,54 @@ export default function InventoryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
+  const [items, setItems] = useState<ItemOption[]>([]);
 
   // Tab state from URL
   const activeTab = searchParams.get("tab") || "all";
 
-  // Fetch KPIs
+  // Filter state from URL
+  const fromDate = searchParams.get("from") || undefined;
+  const toDate = searchParams.get("to") || undefined;
+  const warehouseId = searchParams.get("warehouse") || undefined;
+  const itemId = searchParams.get("item") || undefined;
+
+  // Fetch warehouses and items on mount
+  useEffect(() => {
+    async function fetchFilterOptions() {
+      try {
+        const [warehousesData, itemsData] = await Promise.all([
+          getWarehousesForFilter(),
+          getItemsForFilter(),
+        ]);
+        setWarehouses(warehousesData);
+        setItems(itemsData);
+      } catch (error) {
+        console.error("Error fetching filter options:", error);
+      }
+    }
+    fetchFilterOptions();
+  }, []);
+
+  // Fetch KPIs (with filters)
   useEffect(() => {
     async function fetchKPIs() {
       try {
-        const data = await getInventoryKPIs({});
+        const data = await getInventoryKPIs({
+          fromDate,
+          toDate,
+          warehouseId,
+          itemId,
+        });
         setKpis(data);
       } catch (error) {
         console.error("Error fetching KPIs:", error);
       }
     }
     fetchKPIs();
-  }, []);
+  }, [fromDate, toDate, warehouseId, itemId]);
 
-  // Fetch transactions
+  // Fetch transactions (with filters)
   useEffect(() => {
     async function fetchTransactions() {
       setIsLoading(true);
@@ -57,6 +93,10 @@ export default function InventoryPage() {
 
         const result = await getInventoryTransactions({
           movementType: movementType as any,
+          fromDate,
+          toDate,
+          warehouseId,
+          itemId,
           page: currentPage,
           pageSize,
         });
@@ -70,19 +110,92 @@ export default function InventoryPage() {
       }
     }
     fetchTransactions();
-  }, [activeTab, currentPage, pageSize]);
+  }, [activeTab, currentPage, pageSize, fromDate, toDate, warehouseId, itemId]);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [fromDate, toDate, warehouseId, itemId, activeTab]);
 
   // Update URL when tab changes
   const handleTabChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", value);
-    router.push(`/inventory?${params.toString()}`);
-    setCurrentPage(1); // Reset to page 1 when tab changes
+    router.replace(`/inventory?${params.toString()}`, { scroll: false });
   };
 
-  // Handle KPI card click
+  // Handle KPI card click - preserve filters
   const handleKPIClick = (tab: string) => {
     handleTabChange(tab);
+  };
+
+  // Handle filter changes
+  const handleFiltersChange = (filters: {
+    fromDate?: string;
+    toDate?: string;
+    warehouseId?: string;
+    itemId?: string;
+  }) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    // Update or remove filter params
+    if (filters.fromDate) {
+      params.set("from", filters.fromDate);
+    } else {
+      params.delete("from");
+    }
+
+    if (filters.toDate) {
+      params.set("to", filters.toDate);
+    } else {
+      params.delete("to");
+    }
+
+    if (filters.warehouseId) {
+      params.set("warehouse", filters.warehouseId);
+    } else {
+      params.delete("warehouse");
+    }
+
+    if (filters.itemId) {
+      params.set("item", filters.itemId);
+    } else {
+      params.delete("item");
+    }
+
+    router.replace(`/inventory?${params.toString()}`, { scroll: false });
+  };
+
+  // Handle removing a single filter
+  const handleRemoveFilter = (key: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    switch (key) {
+      case "fromDate":
+        params.delete("from");
+        break;
+      case "toDate":
+        params.delete("to");
+        break;
+      case "warehouseId":
+        params.delete("warehouse");
+        break;
+      case "itemId":
+        params.delete("item");
+        break;
+    }
+
+    router.replace(`/inventory?${params.toString()}`, { scroll: false });
+  };
+
+  // Handle clearing all filters
+  const handleClearAllFilters = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("from");
+    params.delete("to");
+    params.delete("warehouse");
+    params.delete("item");
+    router.replace(`/inventory?${params.toString()}`, { scroll: false });
   };
 
   // Format date
@@ -94,6 +207,47 @@ export default function InventoryPage() {
       year: "numeric",
     });
   };
+
+  // Generate filter chips
+  const filterChips = useMemo((): FilterChip[] => {
+    const chips: FilterChip[] = [];
+
+    if (fromDate) {
+      chips.push({
+        key: "fromDate",
+        label: `From: ${formatDate(fromDate)}`,
+      });
+    }
+
+    if (toDate) {
+      chips.push({
+        key: "toDate",
+        label: `To: ${formatDate(toDate)}`,
+      });
+    }
+
+    if (warehouseId) {
+      const warehouse = warehouses.find((w) => w.id === warehouseId);
+      if (warehouse) {
+        chips.push({
+          key: "warehouseId",
+          label: `Warehouse: ${warehouse.name}`,
+        });
+      }
+    }
+
+    if (itemId) {
+      const item = items.find((i) => i.id === itemId);
+      if (item) {
+        chips.push({
+          key: "itemId",
+          label: `Item: ${item.name}`,
+        });
+      }
+    }
+
+    return chips;
+  }, [fromDate, toDate, warehouseId, itemId, warehouses, items]);
 
   // Calculate total pages
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -124,6 +278,26 @@ export default function InventoryPage() {
             </Button>
           </Link>
         </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="flex flex-col gap-3">
+        <FilterPopover
+          warehouses={warehouses}
+          items={items}
+          currentFilters={{
+            fromDate,
+            toDate,
+            warehouseId,
+            itemId,
+          }}
+          onFiltersChange={handleFiltersChange}
+        />
+        <FilterChips
+          chips={filterChips}
+          onRemove={handleRemoveFilter}
+          onClearAll={handleClearAllFilters}
+        />
       </div>
 
       {/* KPI Cards */}

@@ -68,6 +68,17 @@ export interface InventoryTransactionsResult {
   totalCount: number;
 }
 
+export interface WarehouseOption {
+  id: string;
+  name: string;
+}
+
+export interface ItemOption {
+  id: string;
+  name: string;
+  sku: string;
+}
+
 // ============================================
 // Server Actions
 // ============================================
@@ -184,4 +195,44 @@ export async function getInventoryTransactions(
     transactions: (data as any as InventoryTransaction[]) || [],
     totalCount: count || 0,
   };
+}
+
+/**
+ * Get all active warehouses for filter dropdown
+ */
+export async function getWarehousesForFilter(): Promise<WarehouseOption[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("warehouses")
+    .select("id, name")
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching warehouses:", error);
+    throw new Error(`Failed to fetch warehouses: ${error.message}`);
+  }
+
+  return (data || []) as WarehouseOption[];
+}
+
+/**
+ * Get all active items for filter dropdown
+ */
+export async function getItemsForFilter(): Promise<ItemOption[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("items")
+    .select("id, name, sku")
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching items:", error);
+    throw new Error(`Failed to fetch items: ${error.message}`);
+  }
+
+  return (data || []) as ItemOption[];
 }
