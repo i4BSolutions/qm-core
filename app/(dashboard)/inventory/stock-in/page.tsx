@@ -17,6 +17,7 @@ import {
   Trash2,
   CheckSquare,
   Square,
+  Calculator,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,14 @@ interface StockInLineItem {
 
 type SourceMode = "invoice" | "manual";
 
+// Currency options aligned with database constraint (Phase 8)
+const SUPPORTED_CURRENCIES = [
+  { value: 'MMK', label: 'MMK - Myanmar Kyat' },
+  { value: 'USD', label: 'USD - US Dollar' },
+  { value: 'CNY', label: 'CNY - Chinese Yuan' },
+  { value: 'THB', label: 'THB - Thai Baht' },
+];
+
 function StockInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -103,6 +112,10 @@ function StockInContent() {
   const [manualItemId, setManualItemId] = useState("");
   const [manualQuantity, setManualQuantity] = useState<string>("");
   const [manualUnitCost, setManualUnitCost] = useState<string>("");
+
+  // Currency and exchange rate for manual mode
+  const [currency, setCurrency] = useState('MMK');
+  const [exchangeRate, setExchangeRate] = useState('1');
 
   // Common form state
   const [warehouseId, setWarehouseId] = useState("");
@@ -230,6 +243,21 @@ function StockInContent() {
     return items.find((item) => item.id === manualItemId);
   }, [items, manualItemId]);
 
+  // Calculate EUSD for manual mode in real-time
+  const calculatedEusd = useMemo(() => {
+    const cost = parseFloat(manualUnitCost) || 0;
+    const qty = parseFloat(manualQuantity) || 0;
+    const rate = parseFloat(exchangeRate) || 1;
+    const totalValue = cost * qty;
+    if (rate <= 0) return 0;
+    return Math.round((totalValue / rate) * 100) / 100;
+  }, [manualUnitCost, manualQuantity, exchangeRate]);
+
+  // Total value for display
+  const manualTotalValue = useMemo(() => {
+    return (parseFloat(manualQuantity) || 0) * (parseFloat(manualUnitCost) || 0);
+  }, [manualQuantity, manualUnitCost]);
+
   // Validation
   const hasErrors = useMemo(() => {
     if (sourceMode === "invoice") {
@@ -298,6 +326,14 @@ function StockInContent() {
     );
   };
 
+  // Handle currency change - auto-set USD rate to 1.0 per database constraint
+  const handleCurrencyChange = (value: string) => {
+    setCurrency(value);
+    if (value === 'USD') {
+      setExchangeRate('1');
+    }
+  };
+
   const handleSubmit = async () => {
     if (!user || hasErrors) return;
 
@@ -350,8 +386,8 @@ function StockInContent() {
             warehouse_id: warehouseId,
             quantity: qty,
             unit_cost: cost,
-            currency: "MMK",
-            exchange_rate: 1,
+            currency: currency,
+            exchange_rate: parseFloat(exchangeRate) || 1,
             transaction_date: transactionDate.toISOString().split("T")[0],
             notes: notes || null,
             status: "completed",
@@ -840,14 +876,80 @@ function StockInContent() {
                 placeholder="0.00"
                 className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
-              <p className="text-xs text-slate-500 mt-1">
-                Total:{" "}
-                <span className="font-mono text-emerald-400">
-                  {formatCurrency((parseFloat(manualQuantity) || 0) * (parseFloat(manualUnitCost) || 0))}
-                </span>
-              </p>
             </div>
           </div>
+
+          {/* Currency and Exchange Rate */}
+          <div className="grid gap-4 md:grid-cols-3 mt-4 pt-4 border-t border-slate-700">
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
+                Currency *
+              </label>
+              <Select value={currency} onValueChange={handleCurrencyChange}>
+                <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_CURRENCIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
+                Exchange Rate *
+              </label>
+              <Input
+                type="number"
+                min="0.0001"
+                step="0.0001"
+                value={exchangeRate}
+                onChange={(e) => setExchangeRate(e.target.value)}
+                disabled={currency === 'USD'}
+                placeholder="1.0000"
+                className={`bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${currency === 'USD' ? 'opacity-50 cursor-not-allowed' : ''}`}
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                {currency === 'USD' ? 'USD rate is always 1.0' : `1 EUSD = ${exchangeRate || '1'} ${currency}`}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
+                Total Value
+              </label>
+              <div className="p-2 rounded bg-slate-800/50 border border-slate-700 text-right">
+                <span className="font-mono text-lg text-amber-400">
+                  {formatCurrency(manualTotalValue)} {currency}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* EUSD Calculation Panel */}
+          {manualItemId && (parseFloat(manualQuantity) || 0) > 0 && (parseFloat(manualUnitCost) || 0) > 0 && (
+            <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 mt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5 text-emerald-400" />
+                  <span className="text-sm text-slate-300">Calculated EUSD Value</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-2xl font-mono font-bold text-emerald-400">
+                    {formatCurrency(calculatedEusd)}
+                  </span>
+                  <span className="text-emerald-400 font-medium">EUSD</span>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                Formula: {formatCurrency(manualTotalValue)} {currency} / {exchangeRate || '1'} = {formatCurrency(calculatedEusd)} EUSD
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -957,7 +1059,7 @@ function StockInContent() {
               )}
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              {sourceMode === "invoice" ? selectedInvoice?.currency || "MMK" : "MMK"}
+              {sourceMode === "invoice" ? selectedInvoice?.currency || "MMK" : currency}
             </p>
           </div>
         </div>
