@@ -540,20 +540,33 @@ export default function WarehouseDetailPage() {
 
       {/* KPI Cards */}
       <div
-        className="grid grid-cols-4 gap-4 animate-slide-up"
+        className="grid grid-cols-3 gap-4 animate-slide-up"
         style={{ animationDelay: "50ms" }}
       >
+        <div className="command-panel text-center bg-emerald-500/5 border-emerald-500/20">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <DollarSign className="h-5 w-5 text-emerald-400" />
+            <p className="text-xs text-slate-400 uppercase tracking-wider">
+              Total Value
+            </p>
+          </div>
+          <p className="text-2xl font-mono font-bold text-emerald-400">
+            {formatCurrency(kpis.totalValueEusd)} EUSD
+          </p>
+          <p className="text-xs text-slate-500 mt-1">EUSD equivalent</p>
+        </div>
+
         <div className="command-panel text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Boxes className="h-5 w-5 text-blue-400" />
             <p className="text-xs text-slate-400 uppercase tracking-wider">
-              Total Items
+              Unique Items
             </p>
           </div>
           <p className="text-3xl font-mono font-bold text-blue-400">
             {kpis.totalItems}
           </p>
-          <p className="text-xs text-slate-500 mt-1">distinct items</p>
+          <p className="text-xs text-slate-500 mt-1">with stock &gt; 0</p>
         </div>
 
         <div className="command-panel text-center">
@@ -567,32 +580,6 @@ export default function WarehouseDetailPage() {
             {kpis.totalUnits.toLocaleString()}
           </p>
           <p className="text-xs text-slate-500 mt-1">units in stock</p>
-        </div>
-
-        <div className="command-panel text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <DollarSign className="h-5 w-5 text-amber-400" />
-            <p className="text-xs text-slate-400 uppercase tracking-wider">
-              Total Value
-            </p>
-          </div>
-          <p className="text-2xl font-mono font-bold text-amber-400">
-            {formatCurrency(kpis.totalValueEusd)}
-          </p>
-          <p className="text-xs text-slate-500 mt-1">EUSD equivalent</p>
-        </div>
-
-        <div className="command-panel text-center bg-emerald-500/5 border-emerald-500/20">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <TrendingUp className="h-5 w-5 text-emerald-400" />
-            <p className="text-xs text-emerald-400 uppercase tracking-wider">
-              Total (EUSD)
-            </p>
-          </div>
-          <p className="text-2xl font-mono font-bold text-emerald-400">
-            {formatCurrency(kpis.totalValueEusd)}
-          </p>
-          <p className="text-xs text-slate-500 mt-1">equivalent</p>
         </div>
       </div>
 
