@@ -29,10 +29,10 @@ Requirements for Inventory & Financial Accuracy milestone.
 
 ### Manual Stock-In
 
-- [ ] **STCK-01**: User can select currency for manual stock-in
-- [ ] **STCK-02**: User can enter exchange rate (4 decimal places) for manual stock-in
-- [ ] **STCK-03**: User can see EUSD equivalent calculated from amount and exchange rate
-- [ ] **STCK-04**: Manual stock-in unit cost factors into item WAC calculation
+- [x] **STCK-01**: User can select currency for manual stock-in
+- [x] **STCK-02**: User can enter exchange rate (4 decimal places) for manual stock-in
+- [x] **STCK-03**: User can see EUSD equivalent calculated from amount and exchange rate
+- [x] **STCK-04**: Manual stock-in unit cost factors into item WAC calculation
 
 ### Invoice Void Cascade
 
@@ -97,10 +97,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INVD-06 | Phase 10 | Pending |
 | WHSE-01 | Phase 11 | Pending |
 | WHSE-02 | Phase 11 | Pending |
-| STCK-01 | Phase 9 | Pending |
-| STCK-02 | Phase 9 | Pending |
-| STCK-03 | Phase 9 | Pending |
-| STCK-04 | Phase 9 | Pending |
+| STCK-01 | Phase 9 | Complete |
+| STCK-02 | Phase 9 | Complete |
+| STCK-03 | Phase 9 | Complete |
+| STCK-04 | Phase 9 | Complete |
 | VOID-01 | Phase 12 | Pending |
 | VOID-02 | Phase 12 | Pending |
 | VOID-03 | Phase 12 | Pending |
@@ -121,4 +121,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-01-29 — v1.2 roadmap created with 100% coverage*
+*Last updated: 2026-01-30 — Phase 9 requirements STCK-01 through STCK-04 complete*

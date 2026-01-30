@@ -99,7 +99,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 09-01-PLAN.md — Add currency selection, exchange rate, and EUSD calculation to manual stock-in
+- [x] 09-01-PLAN.md — Add currency selection, exchange rate, and EUSD calculation to manual stock-in
 
 #### Phase 10: Inventory Dashboard
 **Goal**: Users can view comprehensive stock transaction history with KPIs and filters
@@ -160,7 +160,7 @@ Phases execute in numeric order: 7 → 7.1 → 8 → 9 → 10 → 11 → 12
 | 7. UX Polish | v1.2 | 2/2 | Complete | 2026-01-29 |
 | 7.1 Attachment & Item Route Fixes | v1.2 | 3/3 | Complete | 2026-01-29 |
 | 8. Database Foundation | v1.2 | 2/2 | Complete | 2026-01-30 |
-| 9. Manual Stock-In Enhancement | v1.2 | 0/1 | Planning complete | - |
+| 9. Manual Stock-In Enhancement | v1.2 | 1/1 | Complete | 2026-01-30 |
 | 10. Inventory Dashboard | v1.2 | 0/0 | Not started | - |
 | 11. Warehouse Detail Enhancement | v1.2 | 0/0 | Not started | - |
 | 12. Invoice Void Cascade | v1.2 | 0/0 | Not started | - |
