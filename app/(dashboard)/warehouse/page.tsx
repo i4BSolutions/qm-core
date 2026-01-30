@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, MoreHorizontal, Pencil, Trash2, Warehouse, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ export default function WarehousesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<WarehouseType | null>(null);
   const { toast } = useToast();
+  const router = useRouter();
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -198,6 +200,7 @@ export default function WarehousesPage() {
           searchKey="name"
           searchPlaceholder="Search warehouses..."
           isLoading={isLoading}
+          onRowClick={(warehouse) => router.push(`/warehouse/${warehouse.id}`)}
         />
       </div>
 

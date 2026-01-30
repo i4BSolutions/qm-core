@@ -63,6 +63,13 @@ const statusGroups = [
   },
 ] as const;
 
+// Voided group shown only when showVoided is true
+const voidedGroup = {
+  key: "voided",
+  label: "VOIDED",
+  dotClass: "status-dot bg-red-500",
+} as const;
+
 export default function InvoiceListPage() {
   const [invoices, setInvoices] = useState<InvoiceWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -172,11 +179,15 @@ export default function InvoiceListPage() {
       pending: [],
       in_progress: [],
       completed: [],
+      voided: [],
     };
 
     paginatedInvoices.forEach((inv) => {
-      // Skip voided invoices in card view grouping
-      if (inv.is_voided) return;
+      // Put voided invoices in voided group
+      if (inv.is_voided) {
+        groups.voided.push(inv);
+        return;
+      }
 
       const status = inv.status || "draft";
       const group = statusGroups.find((g) => g.statuses.includes(status));
@@ -381,7 +392,7 @@ export default function InvoiceListPage() {
 
       {/* Card View - Grouped by Status */}
       {viewMode === "card" && (
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className={`grid gap-6 ${showVoided ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
           {statusGroups.map((group) => (
             <div key={group.key} className="flex flex-col">
               {/* Column Header */}
@@ -415,6 +426,41 @@ export default function InvoiceListPage() {
               </div>
             </div>
           ))}
+
+          {/* Voided Column - Only shown when showVoided is true */}
+          {showVoided && (
+            <div className="flex flex-col">
+              {/* Column Header */}
+              <div className="column-header border-red-500/30">
+                <div className={voidedGroup.dotClass} />
+                <h2 className="text-sm font-bold uppercase tracking-widest text-red-400">
+                  {voidedGroup.label}
+                </h2>
+                <span className="stat-counter ml-auto bg-red-500/20 text-red-400">
+                  {groupedInvoices.voided.length}
+                </span>
+              </div>
+
+              {/* Column Body */}
+              <div className="flex-1 rounded-b-lg border border-t-0 border-red-500/30 bg-red-950/10 p-3 min-h-[400px]">
+                <div className="space-y-3">
+                  {groupedInvoices.voided.length === 0 ? (
+                    <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-red-500/30">
+                      <p className="text-sm text-red-400/60">No voided invoices</p>
+                    </div>
+                  ) : (
+                    groupedInvoices.voided.map((inv, index) => (
+                      <InvoiceCard
+                        key={inv.id}
+                        invoice={inv}
+                        animationDelay={index * 50}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
