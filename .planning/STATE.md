@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 10 of 12 (Inventory Dashboard)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-30 — Completed 10-01-PLAN.md (Dashboard KPIs & Transaction Table)
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-30 — Completed 10-02-PLAN.md (Dashboard Filters)
 
-Progress: [███████████░░░░░░░░░] 75% (v1.2 in progress: Phases 7, 7.1, 8, 9, 10.01 complete)
+Progress: [███████████░░░░░░░░░] 77% (v1.2 in progress: Phases 7, 7.1, 8, 9, 10 complete)
 
 ## Milestone History
 
@@ -70,6 +70,9 @@ Recent decisions affecting v1.2:
 - RPC function for KPI aggregation — Server-side efficiency over client aggregation (Phase 10.01)
 - Tab state in URL search params — Enables sharing filtered views and browser back/forward (Phase 10.01)
 - Foreign key hints for ambiguous relationships — Explicit FK names in Supabase queries (Phase 10.01)
+- URL search params for filter state — Shareable filtered views with browser navigation support (Phase 10.02)
+- Searchable item select pattern — Input filter + dropdown for large item lists (Phase 10.02)
+- Shallow routing for filter updates — Prevents page scroll jumps and history pollution (Phase 10.02)
 
 ### Roadmap Evolution
 
@@ -90,10 +93,10 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 10-01-PLAN.md (Dashboard KPIs & Transaction Table)
-Resume: Phase 10 Plan 01 complete. Ready for Plan 02 (Filters & Export).
+Stopped at: Completed 10-02-PLAN.md (Dashboard Filters)
+Resume: Phase 10 complete. Ready for Phase 11 (Audit Trail UI).
 Note: Run `npx supabase db push` to apply KPI RPC migration (042_inventory_dashboard_kpis.sql)
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-01-30 — Phase 10 Plan 01 complete (1/2 plans)*
+*Last updated: 2026-01-30 — Phase 10 complete (2/2 plans)*
