@@ -15,12 +15,12 @@ Requirements for Inventory & Financial Accuracy milestone.
 
 ### Inventory Dashboard
 
-- [ ] **INVD-01**: User can view stock in/out transaction list
-- [ ] **INVD-02**: User can see transaction count KPIs (total in, total out by period)
-- [ ] **INVD-03**: User can see transaction value KPIs (total MMK and EUSD)
-- [ ] **INVD-04**: User can filter transactions by date range
-- [ ] **INVD-05**: User can filter transactions by warehouse
-- [ ] **INVD-06**: User can view transactions grouped by type (in vs out)
+- [x] **INVD-01**: User can view stock in/out transaction list
+- [x] **INVD-02**: User can see transaction count KPIs (total in, total out by period)
+- [x] **INVD-03**: User can see transaction value KPIs (total MMK and EUSD)
+- [x] **INVD-04**: User can filter transactions by date range
+- [x] **INVD-05**: User can filter transactions by warehouse
+- [x] **INVD-06**: User can view transactions grouped by type (in vs out)
 
 ### Warehouse Detail
 
@@ -89,12 +89,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-01 | Phase 7 | Complete |
 | UX-02 | Phase 7 | Complete |
 | UX-03 | Phase 7 | Complete |
-| INVD-01 | Phase 10 | Pending |
-| INVD-02 | Phase 10 | Pending |
-| INVD-03 | Phase 10 | Pending |
-| INVD-04 | Phase 10 | Pending |
-| INVD-05 | Phase 10 | Pending |
-| INVD-06 | Phase 10 | Pending |
+| INVD-01 | Phase 10 | Complete |
+| INVD-02 | Phase 10 | Complete |
+| INVD-03 | Phase 10 | Complete |
+| INVD-04 | Phase 10 | Complete |
+| INVD-05 | Phase 10 | Complete |
+| INVD-06 | Phase 10 | Complete |
 | WHSE-01 | Phase 11 | Pending |
 | WHSE-02 | Phase 11 | Pending |
 | STCK-01 | Phase 9 | Complete |
@@ -121,4 +121,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-01-30 — Phase 9 requirements STCK-01 through STCK-04 complete*
+*Last updated: 2026-01-30 — Phase 10 requirements INVD-01 through INVD-06 complete*
