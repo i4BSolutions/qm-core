@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Phase 8 - Database Foundation (Complete)
+**Current focus:** Phase 9 - Manual Stock-In Enhancement (In Progress)
 
 ## Current Position
 
-Phase: 8 of 12 (Database Foundation)
-Plan: 2 of 2 in current phase
+Phase: 9 of 12 (Manual Stock-In Enhancement)
+Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-01-30 — Completed 08-02-PLAN.md (Invoice Void Cascade)
+Last activity: 2026-01-30 — Completed 09-01-PLAN.md (Currency & EUSD Calculation)
 
-Progress: [█████████░░░░░░░░░░░] 65% (v1.2 in progress: Phases 7, 7.1, 8 complete)
+Progress: [██████████░░░░░░░░░░] 70% (v1.2 in progress: Phases 7, 7.1, 8, 9 complete)
 
 ## Milestone History
 
@@ -66,6 +66,7 @@ Recent decisions affecting v1.2:
 - SECURITY DEFINER search_path hardening — pg_catalog, public to prevent privilege escalation
 - Trigger ordering via alphabetical prefix — aa_ fires first (block), zz_ fires last (audit)
 - Balance in Hand unchanged on void — PO commitment preserved, only invoiced qty changes
+- EUSD panel conditional display — Only shown when item, quantity, and unit cost are all filled
 
 ### Roadmap Evolution
 
@@ -86,9 +87,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 08-02-PLAN.md (Invoice Void Cascade)
-Resume: Phase 8 complete. Ready for Phase 9 planning.
+Stopped at: Completed 09-01-PLAN.md (Currency & EUSD Calculation)
+Resume: Phase 9 complete. Ready for Phase 10 planning.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-01-30 — Phase 8 complete (2/2 plans)*
+*Last updated: 2026-01-30 — Phase 9 complete (1/1 plans)*
