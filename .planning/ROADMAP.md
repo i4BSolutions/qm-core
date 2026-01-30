@@ -2,14 +2,14 @@
 
 ## Milestones
 
-- ✅ **v1.0 MVP** - Foundation (shipped pre-existing)
-- ✅ **v1.1 Enhancement** - Phases 1-6 (shipped 2026-01-28)
-- 🚧 **v1.2 Inventory & Financial Accuracy** - Phases 7-12 (current)
+- **v1.0 MVP** - Foundation (shipped pre-existing)
+- **v1.1 Enhancement** - Phases 1-6 (shipped 2026-01-28)
+- **v1.2 Inventory & Financial Accuracy** - Phases 7-12 (current)
 
 ## Phases
 
 <details>
-<summary>✅ v1.1 Enhancement (Phases 1-6) - SHIPPED 2026-01-28</summary>
+<summary>v1.1 Enhancement (Phases 1-6) - SHIPPED 2026-01-28</summary>
 
 ### Phase 1: PO Creation Workflow Fix
 **Goal**: Users can create purchase orders without workflow blockers
@@ -37,7 +37,7 @@
 
 </details>
 
-### 🚧 v1.2 Inventory & Financial Accuracy (Current)
+### v1.2 Inventory & Financial Accuracy (Current)
 
 **Milestone Goal:** Users can accurately track inventory values with WAC, view comprehensive inventory dashboards, and rely on automatic financial recalculations when invoices are voided.
 
@@ -112,10 +112,11 @@ Plans:
   4. User can filter transactions by date range
   5. User can filter transactions by warehouse
   6. User can toggle view between "All", "Stock In", and "Stock Out" groupings
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 10-01: [TBD during planning]
+- [ ] 10-01-PLAN.md — Database RPC + dashboard page with KPIs, tabs, and transaction table
+- [ ] 10-02-PLAN.md — Filter system with popover, chips, and URL persistence
 
 #### Phase 11: Warehouse Detail Enhancement
 **Goal**: Warehouse detail page displays per-item WAC with EUSD values
@@ -147,7 +148,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 7 → 7.1 → 8 → 9 → 10 → 11 → 12
+Phases execute in numeric order: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -161,6 +162,6 @@ Phases execute in numeric order: 7 → 7.1 → 8 → 9 → 10 → 11 → 12
 | 7.1 Attachment & Item Route Fixes | v1.2 | 3/3 | Complete | 2026-01-29 |
 | 8. Database Foundation | v1.2 | 2/2 | Complete | 2026-01-30 |
 | 9. Manual Stock-In Enhancement | v1.2 | 1/1 | Complete | 2026-01-30 |
-| 10. Inventory Dashboard | v1.2 | 0/0 | Not started | - |
+| 10. Inventory Dashboard | v1.2 | 0/2 | Not started | - |
 | 11. Warehouse Detail Enhancement | v1.2 | 0/0 | Not started | - |
 | 12. Invoice Void Cascade | v1.2 | 0/0 | Not started | - |
