@@ -24,8 +24,8 @@ Requirements for Inventory & Financial Accuracy milestone.
 
 ### Warehouse Detail
 
-- [ ] **WHSE-01**: User can see per-item WAC display (stock qty, WAC amount, total value)
-- [ ] **WHSE-02**: User can see EUSD value per item in warehouse
+- [x] **WHSE-01**: User can see per-item WAC display (stock qty, WAC amount, total value)
+- [x] **WHSE-02**: User can see EUSD value per item in warehouse
 
 ### Manual Stock-In
 
@@ -95,8 +95,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INVD-04 | Phase 10 | Complete |
 | INVD-05 | Phase 10 | Complete |
 | INVD-06 | Phase 10 | Complete |
-| WHSE-01 | Phase 11 | Pending |
-| WHSE-02 | Phase 11 | Pending |
+| WHSE-01 | Phase 11 | Complete |
+| WHSE-02 | Phase 11 | Complete |
 | STCK-01 | Phase 9 | Complete |
 | STCK-02 | Phase 9 | Complete |
 | STCK-03 | Phase 9 | Complete |
@@ -121,4 +121,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-01-30 — Phase 10 requirements INVD-01 through INVD-06 complete*
+*Last updated: 2026-01-30 — Phase 11 requirements WHSE-01, WHSE-02 complete*
