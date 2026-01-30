@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Phase 9 - Manual Stock-In Enhancement (Complete)
+**Current focus:** Phase 10 - Inventory Dashboard (In Progress)
 
 ## Current Position
 
-Phase: 9 of 12 (Manual Stock-In Enhancement)
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-01-30 — Completed 09-01-PLAN.md (Currency & EUSD Calculation)
+Phase: 10 of 12 (Inventory Dashboard)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-30 — Completed 10-01-PLAN.md (Dashboard KPIs & Transaction Table)
 
-Progress: [██████████░░░░░░░░░░] 70% (v1.2 in progress: Phases 7, 7.1, 8, 9 complete)
+Progress: [███████████░░░░░░░░░] 75% (v1.2 in progress: Phases 7, 7.1, 8, 9, 10.01 complete)
 
 ## Milestone History
 
@@ -67,6 +67,9 @@ Recent decisions affecting v1.2:
 - Trigger ordering via alphabetical prefix — aa_ fires first (block), zz_ fires last (audit)
 - Balance in Hand unchanged on void — PO commitment preserved, only invoiced qty changes
 - EUSD panel conditional display — Only shown when item, quantity, and unit cost are all filled
+- RPC function for KPI aggregation — Server-side efficiency over client aggregation (Phase 10.01)
+- Tab state in URL search params — Enables sharing filtered views and browser back/forward (Phase 10.01)
+- Foreign key hints for ambiguous relationships — Explicit FK names in Supabase queries (Phase 10.01)
 
 ### Roadmap Evolution
 
@@ -87,9 +90,10 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 09-01-PLAN.md (Currency & EUSD Calculation)
-Resume: Phase 9 complete. Ready for Phase 10 planning.
+Stopped at: Completed 10-01-PLAN.md (Dashboard KPIs & Transaction Table)
+Resume: Phase 10 Plan 01 complete. Ready for Plan 02 (Filters & Export).
+Note: Run `npx supabase db push` to apply KPI RPC migration (042_inventory_dashboard_kpis.sql)
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-01-30 — Phase 9 complete (1/1 plans)*
+*Last updated: 2026-01-30 — Phase 10 Plan 01 complete (1/2 plans)*
