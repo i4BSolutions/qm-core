@@ -64,7 +64,6 @@ type SelectedItem = {
   id: string;  // Client-side key (crypto.randomUUID())
   item_id: string;
   quantity: string;  // String for controlled input
-  warehouse_id: string;
 };
 
 export default function QMHQRouteDetailsPage() {
@@ -83,9 +82,8 @@ export default function QMHQRouteDetailsPage() {
   // Item route state
   const [items, setItems] = useState<Item[]>([]);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([
-    { id: crypto.randomUUID(), item_id: '', quantity: '', warehouse_id: '' }
+    { id: crypto.randomUUID(), item_id: '', quantity: '' }
   ]);
-  const [warehouses, setWarehouses] = useState<{id: string; name: string}[]>([]);
 
   // Expense/PO route state
   const [amount, setAmount] = useState("");
@@ -169,21 +167,13 @@ export default function QMHQRouteDetailsPage() {
     const supabase = createClient();
 
     if (route === "item") {
-      const [itemsRes, warehousesRes] = await Promise.all([
-        supabase
-          .from("items")
-          .select("id, name, sku, default_unit, description")
-          .eq("is_active", true)
-          .order("name")
-          .limit(200),
-        supabase
-          .from("warehouses")
-          .select("id, name")
-          .eq("is_active", true)
-          .order("name")
-      ]);
-      if (itemsRes.data) setItems(itemsRes.data as Item[]);
-      if (warehousesRes.data) setWarehouses(warehousesRes.data);
+      const { data: itemsData } = await supabase
+        .from("items")
+        .select("id, name, sku, default_unit, description")
+        .eq("is_active", true)
+        .order("name")
+        .limit(200);
+      if (itemsData) setItems(itemsData as Item[]);
     }
 
     setIsLoading(false);
@@ -192,7 +182,7 @@ export default function QMHQRouteDetailsPage() {
   const handleAddItem = () => {
     setSelectedItems([
       ...selectedItems,
-      { id: crypto.randomUUID(), item_id: '', quantity: '', warehouse_id: '' }
+      { id: crypto.randomUUID(), item_id: '', quantity: '' }
     ]);
   };
 
@@ -298,7 +288,6 @@ export default function QMHQRouteDetailsPage() {
               qmhq_id: qmhqData.id,
               item_id: item.item_id,
               quantity: parseFloat(item.quantity),
-              warehouse_id: item.warehouse_id || null,
               created_by: user.id,
             }))
           );
@@ -467,7 +456,7 @@ export default function QMHQRouteDetailsPage() {
                     </div>
 
                     {/* Item Select */}
-                    <div className="col-span-12 sm:col-span-5 space-y-1">
+                    <div className="col-span-12 sm:col-span-7 space-y-1">
                       <Label className="data-label text-xs">Item</Label>
                       <Select
                         value={selectedItem.item_id}
@@ -492,8 +481,8 @@ export default function QMHQRouteDetailsPage() {
                     </div>
 
                     {/* Quantity */}
-                    <div className="col-span-6 sm:col-span-2 space-y-1">
-                      <Label className="data-label text-xs">Qty</Label>
+                    <div className="col-span-6 sm:col-span-3 space-y-1">
+                      <Label className="data-label text-xs">Quantity</Label>
                       <Input
                         type="number"
                         min="1"
@@ -505,29 +494,8 @@ export default function QMHQRouteDetailsPage() {
                       />
                     </div>
 
-                    {/* Warehouse (Optional) */}
-                    <div className="col-span-6 sm:col-span-3 space-y-1">
-                      <Label className="data-label text-xs">Warehouse</Label>
-                      <Select
-                        value={selectedItem.warehouse_id || "__none__"}
-                        onValueChange={(value) => handleUpdateItem(selectedItem.id, 'warehouse_id', value === "__none__" ? '' : value)}
-                      >
-                        <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                          <SelectValue placeholder="Optional" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">Any warehouse</SelectItem>
-                          {warehouses.map((wh) => (
-                            <SelectItem key={wh.id} value={wh.id}>
-                              {wh.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
                     {/* Remove Button */}
-                    <div className="col-span-12 sm:col-span-1 flex items-end justify-end sm:justify-center">
+                    <div className="col-span-6 sm:col-span-1 flex items-end justify-end sm:justify-center">
                       <Button
                         type="button"
                         variant="ghost"
@@ -562,8 +530,8 @@ export default function QMHQRouteDetailsPage() {
                 <div>
                   <h3 className="font-medium text-slate-200 mb-1">Item Route Info</h3>
                   <p className="text-sm text-slate-400">
-                    Add items to be issued from warehouse inventory. Stock will be automatically
-                    deducted when this request is marked as fulfilled.
+                    This is an item request. Select the items and quantities needed.
+                    Stock out will be processed separately from the QMHQ detail page.
                   </p>
                 </div>
               </div>

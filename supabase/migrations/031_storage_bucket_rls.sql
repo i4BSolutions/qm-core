@@ -145,7 +145,4 @@ CREATE POLICY storage_attachments_delete ON storage.objects
     AND public.get_user_role() IN ('admin', 'quartermaster')
   );
 
--- ============================================
--- Comments
--- ============================================
-COMMENT ON TABLE storage.buckets IS 'Supabase Storage bucket configuration';
+-- Note: Cannot add comments on storage.buckets (system table owned by Supabase)

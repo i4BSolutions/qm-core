@@ -785,8 +785,8 @@ export default function QMHQDetailPage() {
                   </div>
                   <h3 className="text-lg font-medium text-slate-300 mb-2">No Items Issued Yet</h3>
                   <p className="text-sm text-slate-400 max-w-md mb-4">
-                    Items will be automatically issued when this request is marked as fulfilled,
-                    or you can manually issue items using the button above.
+                    Issue items from warehouse inventory using the button above.
+                    Stock will be deducted from the selected warehouse.
                   </p>
                 </div>
               ) : (
