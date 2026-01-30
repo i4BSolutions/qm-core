@@ -125,11 +125,11 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Warehouse inventory tab shows per-item WAC (stock qty, WAC amount, total value)
   2. Warehouse inventory tab shows EUSD value per item
-  3. User can see total warehouse value in both MMK and EUSD
-**Plans**: TBD
+  3. User can see total warehouse value in EUSD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 11-01: [TBD during planning]
+- [ ] 11-01-PLAN.md — Enhance inventory table with EUSD-only WAC display, zero-stock visibility, and low stock warnings
 
 #### Phase 12: Invoice Void Cascade
 **Goal**: Voiding invoices automatically updates all dependent financial and status calculations
@@ -163,5 +163,5 @@ Phases execute in numeric order: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12
 | 8. Database Foundation | v1.2 | 2/2 | Complete | 2026-01-30 |
 | 9. Manual Stock-In Enhancement | v1.2 | 1/1 | Complete | 2026-01-30 |
 | 10. Inventory Dashboard | v1.2 | 2/2 | Complete | 2026-01-30 |
-| 11. Warehouse Detail Enhancement | v1.2 | 0/0 | Not started | - |
+| 11. Warehouse Detail Enhancement | v1.2 | 0/1 | In progress | - |
 | 12. Invoice Void Cascade | v1.2 | 0/0 | Not started | - |
