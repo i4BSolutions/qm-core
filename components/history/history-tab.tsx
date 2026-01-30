@@ -17,6 +17,7 @@ import {
   History,
   Loader2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AuditLog, AuditAction } from "@/types/database";
@@ -208,8 +209,14 @@ function HistoryEntry({ log, isLast }: HistoryEntryProps) {
   const changes = parseChanges(log);
   const hasDetails = changes.length > 0 || log.old_value || log.new_value;
 
+  // Detect void cascade entry
+  const isVoidCascade = log.changes_summary?.includes('void of invoice') || false;
+
   return (
-    <div className="relative flex gap-4">
+    <div className={cn(
+      "relative flex gap-4",
+      isVoidCascade && "border-l-2 border-red-500/50 pl-2 -ml-2"
+    )}>
       {/* Timeline line */}
       {!isLast && (
         <div className="absolute left-[18px] top-10 bottom-0 w-px bg-slate-700" />
@@ -234,6 +241,12 @@ function HistoryEntry({ log, isLast }: HistoryEntryProps) {
               {log.changes_summary && (
                 <span className="text-sm text-slate-400">
                   — {log.changes_summary}
+                </span>
+              )}
+              {isVoidCascade && (
+                <span className="text-xs text-red-400/70 flex items-center gap-1 ml-1">
+                  <ArrowRightLeft className="h-3 w-3" />
+                  Cascade effect
                 </span>
               )}
             </div>
@@ -275,14 +288,25 @@ function HistoryEntry({ log, isLast }: HistoryEntryProps) {
 
         {/* Expanded details */}
         {expanded && hasDetails && (
-          <div className="mt-3 rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+          <div className={cn(
+            "mt-3 rounded-lg border bg-slate-800/50 p-3",
+            isVoidCascade ? "border-red-500/30" : "border-slate-700"
+          )}>
             {/* Single field change */}
             {log.field_name && (log.old_value || log.new_value) && (
               <div className="text-sm">
-                <span className="text-slate-400">{formatFieldName(log.field_name)}:</span>
+                <span className="text-slate-400">
+                  {formatFieldName(log.field_name)}:
+                  {isVoidCascade && log.field_name === 'invoiced_quantity' && (
+                    <span className="ml-2 text-xs text-red-400/70">(Qty restored)</span>
+                  )}
+                  {isVoidCascade && log.action === 'status_change' && (
+                    <span className="ml-2 text-xs text-red-400/70">(Status recalculated)</span>
+                  )}
+                </span>
                 <div className="mt-1 flex items-center gap-2">
                   {log.old_value && (
-                    <span className="px-2 py-0.5 rounded bg-red-500/10 text-red-400 line-through text-xs">
+                    <span className="px-2 py-0.5 rounded bg-red-500/10 text-red-400 line-through text-xs font-mono">
                       {log.old_value}
                     </span>
                   )}
@@ -290,7 +314,7 @@ function HistoryEntry({ log, isLast }: HistoryEntryProps) {
                     <ArrowRightLeft className="h-3 w-3 text-slate-500" />
                   )}
                   {log.new_value && (
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-xs">
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-xs font-mono">
                       {log.new_value}
                     </span>
                   )}
