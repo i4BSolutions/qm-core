@@ -132,18 +132,18 @@ Plans:
 - [x] 11-01-PLAN.md — Enhance inventory table with EUSD-only WAC display, zero-stock visibility, and low stock warnings
 
 #### Phase 12: Invoice Void Cascade
-**Goal**: Voiding invoices automatically updates all dependent financial and status calculations
+**Goal**: Voiding invoices triggers immediate UI feedback showing cascade effects
 **Depends on**: Phase 11
 **Requirements**: VOID-01, VOID-02, VOID-03, VOID-04
 **Success Criteria** (what must be TRUE):
   1. When user voids invoice, PO status badge updates immediately
-  2. When user voids invoice, Balance in Hand reflects updated available budget
+  2. When user voids invoice, Balance in Hand reflects updated available budget (Note: unchanged by design)
   3. When user voids invoice, PO line item "invoiced" quantities decrease correctly
-  4. User can review audit trail showing all cascade effects (PO status change, Balance in Hand update, quantity changes)
-**Plans**: TBD
+  4. User can review audit trail showing all cascade effects (PO status change, quantity changes)
+**Plans**: 1 plan
 
 Plans:
-- [ ] 12-01: [TBD during planning]
+- [ ] 12-01-PLAN.md — Server action with cascade feedback, toast notifications, and enhanced audit display
 
 ## Progress
 
@@ -164,4 +164,4 @@ Phases execute in numeric order: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12
 | 9. Manual Stock-In Enhancement | v1.2 | 1/1 | Complete | 2026-01-30 |
 | 10. Inventory Dashboard | v1.2 | 2/2 | Complete | 2026-01-30 |
 | 11. Warehouse Detail Enhancement | v1.2 | 1/1 | Complete | 2026-01-30 |
-| 12. Invoice Void Cascade | v1.2 | 0/0 | Not started | - |
+| 12. Invoice Void Cascade | v1.2 | 0/1 | Not started | - |
