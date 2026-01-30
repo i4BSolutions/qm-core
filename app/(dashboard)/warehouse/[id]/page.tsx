@@ -41,6 +41,9 @@ import type {
   StockOutReason,
 } from "@/types/database";
 
+// Constants
+const LOW_STOCK_THRESHOLD = 10;
+
 // Extended types
 interface WarehouseInventoryItem {
   item_id: string;
@@ -192,84 +195,128 @@ export default function WarehouseDetailPage() {
   // Inventory table columns
   const inventoryColumns: ColumnDef<WarehouseInventoryItem>[] = [
     {
-      accessorKey: "item_sku",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="SKU" />
-      ),
-      cell: ({ row }) => (
-        <code className="rounded bg-slate-800 px-2 py-0.5 text-xs font-mono text-amber-400">
-          {row.getValue("item_sku") || "—"}
-        </code>
-      ),
-    },
-    {
       accessorKey: "item_name",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Item" />
       ),
-      cell: ({ row }) => (
-        <Link
-          href={`/item/${row.original.item_id}`}
-          className="flex items-center gap-2 hover:text-amber-400 transition-colors"
-        >
-          <Package className="h-4 w-4 text-slate-400" />
-          <span className="font-medium text-slate-200">
-            {row.getValue("item_name")}
-          </span>
-        </Link>
+      cell: ({ row }) => {
+        const stock = row.original.current_stock;
+        const isZeroStock = stock <= 0;
+        return (
+          <Link
+            href={`/item/${row.original.item_id}`}
+            className={`flex items-center gap-2 hover:text-amber-400 transition-colors ${
+              isZeroStock ? "opacity-50" : ""
+            }`}
+          >
+            <Package className="h-4 w-4 text-slate-400" />
+            <span className={`font-medium ${isZeroStock ? "text-slate-500" : "text-slate-200"}`}>
+              {row.getValue("item_name")}
+            </span>
+          </Link>
+        );
+      },
+    },
+    {
+      accessorKey: "item_sku",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="SKU" />
       ),
+      cell: ({ row }) => {
+        const isZeroStock = row.original.current_stock <= 0;
+        return (
+          <code className={`rounded bg-slate-800 px-2 py-0.5 text-xs font-mono ${
+            isZeroStock ? "text-slate-500" : "text-amber-400"
+          }`}>
+            {row.getValue("item_sku") || "—"}
+          </code>
+        );
+      },
+    },
+    {
+      accessorKey: "item_unit",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Unit" />
+      ),
+      cell: ({ row }) => {
+        const isZeroStock = row.original.current_stock <= 0;
+        return (
+          <span className={`text-sm ${isZeroStock ? "text-slate-500" : "text-slate-400"}`}>
+            {row.getValue("item_unit") || "—"}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "current_stock",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Stock" />
       ),
-      cell: ({ row }) => (
-        <span className="font-mono text-emerald-400">
-          {formatStockQuantity(
-            row.getValue("current_stock"),
-            row.original.item_unit
-          )}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "wac_amount",
-      header: "WAC",
-      cell: ({ row }) => (
-        <span className="font-mono text-slate-300">
-          {formatWAC(row.getValue("wac_amount"), row.original.wac_currency)}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const stock = row.getValue("current_stock") as number;
+        const unit = row.original.item_unit;
+        let colorClass = "text-emerald-400";
+
+        if (stock <= 0) {
+          colorClass = "text-slate-500";
+        } else if (stock < LOW_STOCK_THRESHOLD) {
+          colorClass = "text-amber-400 font-semibold";
+        }
+
+        return (
+          <div className="text-right">
+            <span className={`font-mono ${colorClass}`}>
+              {formatStockQuantity(stock, unit)}
+            </span>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "wac_amount_eusd",
-      header: "WAC (EUSD)",
-      cell: ({ row }) => (
-        <span className="font-mono text-emerald-400">
-          {formatCurrency(row.getValue("wac_amount_eusd") ?? 0)}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "total_value",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Total Value" />
+        <DataTableColumnHeader column={column} title="WAC (EUSD)" />
       ),
-      cell: ({ row }) => (
-        <span className="font-mono text-slate-300">
-          {formatCurrency(row.getValue("total_value"))}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const wac = row.getValue("wac_amount_eusd") as number | null;
+        const isZeroStock = row.original.current_stock <= 0;
+
+        if (wac === null || wac === undefined) {
+          return <div className="text-right"><span className="text-slate-500">—</span></div>;
+        }
+
+        return (
+          <div className="text-right">
+            <span className={`font-mono ${isZeroStock ? "text-slate-500" : "text-slate-300"}`}>
+              {formatCurrency(wac)} EUSD
+            </span>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "total_value_eusd",
-      header: "Total (EUSD)",
-      cell: ({ row }) => (
-        <span className="font-mono text-emerald-400 font-medium">
-          {formatCurrency(row.getValue("total_value_eusd"))}
-        </span>
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Total (EUSD)" />
       ),
+      cell: ({ row }) => {
+        const total = row.getValue("total_value_eusd") as number;
+        const isZeroStock = row.original.current_stock <= 0;
+
+        if (total === 0 || total === null) {
+          return <div className="text-right"><span className="text-slate-500">—</span></div>;
+        }
+
+        return (
+          <div className="text-right">
+            <span className={`font-mono font-medium ${
+              isZeroStock ? "text-slate-500" : "text-emerald-400"
+            }`}>
+              {formatCurrency(total)} EUSD
+            </span>
+          </div>
+        );
+      },
     },
   ];
 
