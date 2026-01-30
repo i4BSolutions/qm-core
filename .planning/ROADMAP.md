@@ -143,7 +143,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 12-01-PLAN.md — Server action with cascade feedback, toast notifications, and enhanced audit display
+- [x] 12-01-PLAN.md — Server action with cascade feedback, toast notifications, and enhanced audit display
 
 ## Progress
 
@@ -164,4 +164,4 @@ Phases execute in numeric order: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12
 | 9. Manual Stock-In Enhancement | v1.2 | 1/1 | Complete | 2026-01-30 |
 | 10. Inventory Dashboard | v1.2 | 2/2 | Complete | 2026-01-30 |
 | 11. Warehouse Detail Enhancement | v1.2 | 1/1 | Complete | 2026-01-30 |
-| 12. Invoice Void Cascade | v1.2 | 0/1 | Not started | - |
+| 12. Invoice Void Cascade | v1.2 | 1/1 | Complete | 2026-01-31 |
