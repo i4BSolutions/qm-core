@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Phase 11 - Warehouse Detail Enhancement (In Progress)
+**Current focus:** Phase 12 - Invoice Void Cascade (In Progress)
 
 ## Current Position
 
-Phase: 11 of 12 (Warehouse Detail Enhancement)
+Phase: 12 of 12 (Invoice Void Cascade)
 Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-01-30 — Completed 11-01-PLAN.md (Warehouse WAC/EUSD Display)
+Last activity: 2026-01-30 — Completed 12-01-PLAN.md (Invoice Void Cascade UI Feedback)
 
-Progress: [█████████████░░░░░░░] 83% (v1.2 in progress: Phases 7, 7.1, 8, 9, 10, 11 complete)
+Progress: [█████████████████████] 100% (v1.2 complete: Phases 7, 7.1, 8, 9, 10, 11, 12 complete)
 
 ## Milestone History
 
@@ -78,6 +78,10 @@ Recent decisions affecting v1.2:
 - EUSD-only display for warehouse inventory — Removed MMK columns, EUSD sufficient for value tracking (Phase 11.01)
 - Dash (—) for null WAC values — Better UX than "0.00 EUSD" for items without cost data (Phase 11.01)
 - Right-align numeric columns — Accounting style conventions for better readability (Phase 11.01)
+- Server action fetches pre-void state for cascade feedback — Enables accurate old/new qty comparison (Phase 12.01)
+- Toast description accepts JSX for multi-line feedback — Structured cascade effects display (Phase 12.01)
+- Cascade detection via changes_summary string match — Leverages existing audit infrastructure (Phase 12.01)
+- Red border accent for void cascade audit entries — Visual distinction from direct user actions (Phase 12.01)
 
 ### Roadmap Evolution
 
@@ -98,10 +102,10 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 11-01-PLAN.md (Warehouse WAC/EUSD Display)
-Resume: Phase 11 complete. Ready for Phase 12 or additional enhancements.
-Note: Warehouse detail page now displays per-item WAC with EUSD values, zero-stock visibility, and low stock warnings.
+Stopped at: Completed 12-01-PLAN.md (Invoice Void Cascade UI Feedback)
+Resume: Phase 12 complete. All v1.2 phases complete (7, 7.1, 8, 9, 10, 11, 12).
+Note: Invoice void now provides detailed cascade feedback via toast (PO status, qty changes). History tab displays void cascade entries with visual distinction. Stock-in block error shows user-friendly message.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-01-30 — Phase 11 complete (1/1 plans)*
+*Last updated: 2026-01-30 — Phase 12 complete (1/1 plans), v1.2 complete*
