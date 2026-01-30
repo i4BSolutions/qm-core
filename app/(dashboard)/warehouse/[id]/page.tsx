@@ -147,9 +147,8 @@ export default function WarehouseDetailPage() {
           }
         });
 
-        // Calculate total values and filter to positive stock
+        // Calculate total values (include all items, even zero-stock)
         const inventoryList = Array.from(inventoryMap.values())
-          .filter((inv) => inv.current_stock > 0)
           .map((inv) => ({
             ...inv,
             total_value: inv.current_stock * (inv.wac_amount || 0),
@@ -172,13 +171,13 @@ export default function WarehouseDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  // Calculate KPIs
+  // Calculate KPIs (only count items with positive stock)
   const kpis = useMemo(() => {
-    const totalItems = inventoryItems.length;
-    const totalUnits = inventoryItems.reduce((sum, item) => sum + item.current_stock, 0);
-    const totalValue = inventoryItems.reduce((sum, item) => sum + item.total_value, 0);
-    const totalValueEusd = inventoryItems.reduce((sum, item) => sum + item.total_value_eusd, 0);
-    return { totalItems, totalUnits, totalValue, totalValueEusd };
+    const itemsWithStock = inventoryItems.filter((item) => item.current_stock > 0);
+    const totalItems = itemsWithStock.length;
+    const totalUnits = itemsWithStock.reduce((sum, item) => sum + item.current_stock, 0);
+    const totalValueEusd = itemsWithStock.reduce((sum, item) => sum + item.total_value_eusd, 0);
+    return { totalItems, totalUnits, totalValueEusd };
   }, [inventoryItems]);
 
   const formatDate = (dateStr: string | null | undefined) => {
@@ -531,9 +530,9 @@ export default function WarehouseDetailPage() {
             </p>
           </div>
           <p className="text-2xl font-mono font-bold text-amber-400">
-            {formatCurrency(kpis.totalValue)}
+            {formatCurrency(kpis.totalValueEusd)}
           </p>
-          <p className="text-xs text-slate-500 mt-1">at WAC</p>
+          <p className="text-xs text-slate-500 mt-1">EUSD equivalent</p>
         </div>
 
         <div className="command-panel text-center bg-emerald-500/5 border-emerald-500/20">
