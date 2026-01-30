@@ -37,6 +37,8 @@ import {
 } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
 import { HistoryTab } from "@/components/history";
+import { voidInvoice } from "@/lib/actions/invoice-actions";
+import { useToast } from "@/components/ui/use-toast";
 import type {
   Invoice,
   InvoiceLineItem,
@@ -73,6 +75,7 @@ export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { toast } = useToast();
   const invoiceId = params.id as string;
 
   const [invoice, setInvoice] = useState<InvoiceWithRelations | null>(null);
@@ -172,28 +175,55 @@ export default function InvoiceDetailPage() {
 
   const handleVoid = async (reason: string) => {
     if (!invoice || !user) return;
-
     setIsVoiding(true);
-    const supabase = createClient();
 
-    const { error } = await supabase
-      .from("invoices")
-      .update({
-        is_voided: true,
-        void_reason: reason,
-        voided_by: user.id,
-        status: "voided",
-      })
-      .eq("id", invoiceId);
+    try {
+      const result = await voidInvoice(invoiceId, reason);
 
-    if (error) {
-      console.error("Error voiding invoice:", error);
-      throw new Error("Failed to void invoice");
+      if (!result.success) {
+        toast({
+          variant: "destructive",
+          title: "Void Failed",
+          description: result.error,
+        });
+        setIsVoiding(false);
+        return;
+      }
+
+      // Build detailed success toast
+      const { data } = result;
+      toast({
+        title: "Invoice Voided",
+        description: (
+          <div className="space-y-1">
+            <p>Invoice {data.invoiceNumber} has been voided.</p>
+            {data.poNumber && data.newPoStatus && (
+              <p className="text-sm">
+                PO {data.poNumber} status: {data.newPoStatus.replace(/_/g, ' ')}
+              </p>
+            )}
+            {data.invoicedQtyChanges.length > 0 && (
+              <p className="text-sm">
+                {data.invoicedQtyChanges.length} item(s) invoiced qty updated
+              </p>
+            )}
+          </div>
+        ),
+      });
+
+      setIsVoiding(false);
+      setShowVoidDialog(false);
+      // Data will refresh via revalidatePath, but fetchData for immediate local update
+      fetchData();
+
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Void Failed",
+        description: "An unexpected error occurred. Please try again.",
+      });
+      setIsVoiding(false);
     }
-
-    setIsVoiding(false);
-    setShowVoidDialog(false);
-    fetchData();
   };
 
   const formatDate = (dateStr: string | null | undefined) => {
