@@ -3,7 +3,7 @@
 import { Trash2, Package, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, handleQuantityKeyDown, handleAmountKeyDown } from "@/lib/utils";
 import { calculateAvailableQuantity } from "@/lib/utils/invoice-status";
 import type { InvoiceLineItem, POLineItem, Item } from "@/types/database";
 
@@ -125,17 +125,16 @@ export function EditableInvoiceLineItemsTable({
                   <td className="py-2 px-3">
                     <div className="relative">
                       <Input
-                        type="number"
-                        min="0.01"
-                        max={item.available_quantity}
-                        step="0.01"
-                        value={item.quantity}
+                        type="text"
+                        inputMode="numeric"
+                        value={item.quantity === 0 ? "" : item.quantity}
                         onChange={(e) => {
-                          const value = parseFloat(e.target.value) || 0;
+                          const value = parseInt(e.target.value) || 0;
                           onUpdateItem(item.id, "quantity", value);
                         }}
+                        onKeyDown={handleQuantityKeyDown}
                         disabled={disabled}
-                        className={`w-20 text-right font-mono bg-slate-800 border-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                        className={`w-20 text-right font-mono bg-slate-800 border-slate-700 ${
                           isOverQuantity ? "border-red-500" : ""
                         }`}
                       />
@@ -156,10 +155,9 @@ export function EditableInvoiceLineItemsTable({
                   </td>
                   <td className="py-2 px-3">
                     <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.unit_price}
+                      type="text"
+                      inputMode="decimal"
+                      value={item.unit_price === 0 ? "" : item.unit_price}
                       onChange={(e) =>
                         onUpdateItem(
                           item.id,
@@ -167,8 +165,9 @@ export function EditableInvoiceLineItemsTable({
                           parseFloat(e.target.value) || 0
                         )
                       }
+                      onKeyDown={handleAmountKeyDown}
                       disabled={disabled}
-                      className="w-28 text-right font-mono bg-slate-800 border-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-28 text-right font-mono bg-slate-800 border-slate-700"
                     />
                   </td>
                   <td className="py-2 px-3 text-right">

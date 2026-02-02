@@ -34,7 +34,7 @@ import {
   type POForInvoice,
   type InvoiceLineItemFormData,
 } from "@/components/invoice";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, handleExchangeRateKeyDown, handleQuantityKeyDown, handleAmountKeyDown } from "@/lib/utils";
 import { calculateAvailableQuantity } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
@@ -536,18 +536,13 @@ function InvoiceCreateContent() {
                       Exchange Rate (to EUSD) *
                     </label>
                     <Input
-                      type="number"
-                      min="0.0001"
-                      step="0.0001"
+                      type="text"
+                      inputMode="decimal"
                       value={exchangeRate}
                       onChange={(e) => setExchangeRate(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "-" || e.key === "e" || e.key === "E") {
-                          e.preventDefault();
-                        }
-                      }}
+                      onKeyDown={handleExchangeRateKeyDown}
                       placeholder="1.0000"
-                      className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="bg-slate-800/50 border-slate-700 font-mono"
                     />
                   </div>
                 </div>
@@ -650,14 +645,14 @@ function InvoiceCreateContent() {
                               <div>
                                 <label className="text-xs text-slate-500 block mb-1">Qty</label>
                                 <Input
-                                  type="number"
-                                  min="1"
-                                  max={item.available_quantity}
-                                  value={item.quantity}
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={item.quantity === 0 ? "" : item.quantity}
                                   onChange={(e) =>
                                     handleUpdateLineItem(item.id, "quantity", parseInt(e.target.value) || 0)
                                   }
-                                  className={`w-20 text-right font-mono bg-slate-800 border-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                  onKeyDown={handleQuantityKeyDown}
+                                  className={`w-20 text-right font-mono bg-slate-800 border-slate-700 ${
                                     hasError ? "border-red-500" : ""
                                   }`}
                                 />
@@ -665,14 +660,14 @@ function InvoiceCreateContent() {
                               <div>
                                 <label className="text-xs text-slate-500 block mb-1">Unit Price</label>
                                 <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={item.unit_price}
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={item.unit_price === 0 ? "" : item.unit_price}
                                   onChange={(e) =>
                                     handleUpdateLineItem(item.id, "unit_price", parseFloat(e.target.value) || 0)
                                   }
-                                  className="w-28 text-right font-mono bg-slate-800 border-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  onKeyDown={handleAmountKeyDown}
+                                  className="w-28 text-right font-mono bg-slate-800 border-slate-700"
                                 />
                               </div>
                               <div>
