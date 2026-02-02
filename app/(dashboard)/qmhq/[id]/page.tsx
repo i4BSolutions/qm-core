@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/utils";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { useAuth } from "@/components/providers/auth-provider";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 import { TransactionDialog } from "@/components/qmhq/transaction-dialog";
 import { TransactionViewModal } from "@/components/qmhq/transaction-view-modal";
 import { POStatusBadge } from "@/components/po/po-status-badge";
@@ -104,6 +105,7 @@ export default function QMHQDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { can } = usePermissions();
   const qmhqId = params.id as string;
 
   // Per-file delete permission check matching RLS policy
@@ -421,12 +423,14 @@ export default function QMHQDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link href={`/qmhq/${qmhqId}/edit`}>
-            <Button variant="outline" className="border-slate-700 hover:bg-slate-800 text-slate-300">
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
-          </Link>
+          {can("update", "qmhq") && (
+            <Link href={`/qmhq/${qmhqId}/edit`}>
+              <Button variant="outline" className="border-slate-700 hover:bg-slate-800 text-slate-300">
+                <Edit className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Edit</span>
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 

@@ -35,6 +35,7 @@ import { HistoryTab } from "@/components/history";
 import { AttachmentsTab } from "@/components/files/attachments-tab";
 import { ClickableStatusBadge } from "@/components/status/clickable-status-badge";
 import { useAuth } from "@/components/providers/auth-provider";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 interface QMRLWithRelations extends QMRL {
   status?: StatusConfig | null;
@@ -69,6 +70,7 @@ export default function QMRLDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { can } = usePermissions();
   const [qmrl, setQmrl] = useState<QMRLWithRelations | null>(null);
   const [relatedQmhq, setRelatedQmhq] = useState<QMHQWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -263,12 +265,14 @@ export default function QMRLDetailPage() {
 
         {/* Actions */}
         <div className="flex gap-3">
-          <Link href={`/qmrl/${qmrl.id}/edit`}>
-            <Button variant="outline" className="border-slate-700 hover:bg-slate-800 hover:border-amber-500/30">
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
-          </Link>
+          {can("update", "qmrl") && (
+            <Link href={`/qmrl/${qmrl.id}/edit`}>
+              <Button variant="outline" className="border-slate-700 hover:bg-slate-800 hover:border-amber-500/30">
+                <Pencil className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Edit</span>
+              </Button>
+            </Link>
+          )}
           <Link href={`/qmhq/new?qmrl=${qmrl.id}`}>
             <Button className="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400">
               <Plus className="mr-2 h-4 w-4" />
