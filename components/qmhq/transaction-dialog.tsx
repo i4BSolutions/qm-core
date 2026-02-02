@@ -23,7 +23,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { createClient } from "@/lib/supabase/client";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, handleAmountKeyDown, handleExchangeRateKeyDown } from "@/lib/utils";
 import {
   Loader2,
   TrendingUp,
@@ -315,18 +315,13 @@ export function TransactionDialog({
               </Label>
               <Input
                 id="amount"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e" || e.key === "E") {
-                    e.preventDefault();
-                  }
-                }}
+                onKeyDown={handleAmountKeyDown}
                 placeholder="0.00"
-                className="bg-slate-800/50 border-slate-700 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="bg-slate-800/50 border-slate-700 text-slate-200 font-mono"
               />
             </div>
 
@@ -352,18 +347,13 @@ export function TransactionDialog({
               </Label>
               <Input
                 id="exchange_rate"
-                type="number"
-                min="0.0001"
-                step="0.0001"
+                type="text"
+                inputMode="decimal"
                 value={exchangeRate}
                 onChange={(e) => setExchangeRate(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e" || e.key === "E") {
-                    e.preventDefault();
-                  }
-                }}
+                onKeyDown={handleExchangeRateKeyDown}
                 placeholder="1.0000"
-                className="bg-slate-800/50 border-slate-700 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="bg-slate-800/50 border-slate-700 text-slate-200 font-mono"
               />
             </div>
           </div>
