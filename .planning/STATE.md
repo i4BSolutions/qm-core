@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 14 — Currency & Number Input Standardization
-Plan: 02 of 7
+Plan: 05 of 7
 Status: In progress
-Last activity: 2026-02-02 — Completed 14-02-PLAN.md
+Last activity: 2026-02-02 — Completed 14-05-PLAN.md
 
-Progress: [██████░░░░░░░░░░░░░░░] 30%
+Progress: [██████████████░░░░░░░] 71%
 
 ## Milestone Overview: v1.3
 
@@ -24,7 +24,7 @@ Progress: [██████░░░░░░░░░░░░░░░] 30%
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
 | 13 | Verify & fix attachment deletion + QMHQ fulfillment | 5 | Complete |
-| 14 | Standardize number inputs + currency display | 7 | In Progress (2/7) |
+| 14 | Standardize number inputs + currency display | 7 | In Progress (5/7) |
 | 15 | Add Edit buttons to detail pages | 4 | Pending |
 | 16 | Capture status change notes in audit history | 2 | Pending |
 
@@ -118,6 +118,8 @@ Recent decisions affecting v1.2:
 - Red border accent for void cascade audit entries — Visual distinction from direct user actions (Phase 12.01)
 - EUSD line always shown even for USD currency — Visual consistency across application (Phase 14.02)
 - CurrencyDisplay size variants (sm/md/lg) — Typography scaling for different UI contexts (Phase 14.02)
+- Summary panel preservation — Detailed breakdown format for InvoiceSummaryPanel, CurrencyDisplay for InvoiceTotalsInline (Phase 14.05)
+- Balance panel EUSD-only — POBalancePanel preserved as EUSD for balance validation consistency (Phase 14.05)
 
 ### Roadmap Evolution
 
@@ -138,10 +140,10 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 14-02-PLAN.md
-Resume: Continue Phase 14 — Plan 03 (CurrencyInput component)
-Note: CurrencyDisplay component created with two-line stacked format.
+Stopped at: Completed 14-05-PLAN.md
+Resume: Continue Phase 14 — Plan 06 (form currency inputs)
+Note: CurrencyDisplay component now used in cards and list views.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-02 — Phase 14 Plan 02 complete*
+*Last updated: 2026-02-02 — Phase 14 Plan 05 complete*
