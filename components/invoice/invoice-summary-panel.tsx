@@ -3,6 +3,7 @@
 import { DollarSign, ArrowRightLeft, Calculator } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatExchangeRate } from "@/lib/utils/invoice-status";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 
 interface InvoiceSummaryPanelProps {
   totalAmount: number;
@@ -77,7 +78,7 @@ export function InvoiceSummaryPanel({
   );
 }
 
-// Compact version for inline display
+// Compact version for inline display using CurrencyDisplay
 interface InvoiceTotalsInlineProps {
   totalAmount: number;
   totalEUSD: number;
@@ -90,17 +91,12 @@ export function InvoiceTotalsInline({
   currency,
 }: InvoiceTotalsInlineProps) {
   return (
-    <div className="flex items-center gap-4">
-      <div className="text-right">
-        <p className="text-xs text-slate-400">{currency}</p>
-        <p className="font-mono text-slate-200">{formatCurrency(totalAmount)}</p>
-      </div>
-      <div className="text-right">
-        <p className="text-xs text-slate-400">EUSD</p>
-        <p className="font-mono font-semibold text-emerald-400">
-          {formatCurrency(totalEUSD)}
-        </p>
-      </div>
-    </div>
+    <CurrencyDisplay
+      amount={totalAmount}
+      currency={currency}
+      amountEusd={totalEUSD}
+      size="md"
+      align="right"
+    />
   );
 }
