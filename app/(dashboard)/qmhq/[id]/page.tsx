@@ -206,12 +206,13 @@ export default function QMHQDetailPage() {
       }
 
       // Fetch stock-out transactions for this QMHQ
+      // Use explicit FK hint for warehouse since table has two FK to warehouses
       const { data: stockOutData, error: stockOutError } = await supabase
         .from('inventory_transactions')
         .select(`
           *,
           item:items(id, name, sku),
-          warehouse:warehouses(id, name)
+          warehouse:warehouses!inventory_transactions_warehouse_id_fkey(id, name)
         `)
         .eq('qmhq_id', qmhqData.id)
         .eq('movement_type', 'inventory_out')
