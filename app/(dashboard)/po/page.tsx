@@ -22,8 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/utils";
 import { POCard } from "@/components/po/po-card";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { POStatusBadge } from "@/components/po/po-status-badge";
 import { POProgressBar } from "@/components/po/po-progress-bar";
 import { PO_STATUS_CONFIG, calculatePOProgress } from "@/lib/utils/po-status";
@@ -480,9 +480,13 @@ export default function POListPage() {
                         )}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <span className="font-mono text-emerald-400">
-                          {formatCurrency(po.total_amount_eusd ?? 0)} EUSD
-                        </span>
+                        <CurrencyDisplay
+                          amount={po.total_amount}
+                          currency={po.currency || "MMK"}
+                          amountEusd={po.total_amount_eusd}
+                          size="sm"
+                          align="right"
+                        />
                       </td>
                       <td className="py-3 px-4">
                         <POStatusBadge

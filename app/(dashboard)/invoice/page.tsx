@@ -24,8 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/utils";
 import { InvoiceCard, InvoiceStatusBadge } from "@/components/invoice";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { INVOICE_STATUS_CONFIG } from "@/lib/utils/invoice-status";
 import type {
   Invoice,
@@ -487,9 +487,13 @@ export default function InvoiceListPage() {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <span className="font-mono text-emerald-400">
-                        {formatCurrency(inv.total_amount_eusd ?? 0)} EUSD
-                      </span>
+                      <CurrencyDisplay
+                        amount={inv.total_amount}
+                        currency={inv.currency || "MMK"}
+                        amountEusd={inv.total_amount_eusd}
+                        size="sm"
+                        align="right"
+                      />
                     </td>
                     <td className="py-3 px-4">
                       <InvoiceStatusBadge

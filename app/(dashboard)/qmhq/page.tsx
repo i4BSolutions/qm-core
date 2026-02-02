@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/utils";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import type { QMHQ, StatusConfig, Category, User as UserType, QMRL } from "@/types/database";
 
 // Extended QMHQ type with joined relations
@@ -421,9 +421,13 @@ export default function QMHQPage() {
                             <div className="mb-3 p-2 rounded bg-slate-800/50 border border-slate-700">
                               <div className="flex items-center justify-between">
                                 <span className="text-xs text-slate-400">Amount</span>
-                                <span className="font-mono text-sm text-emerald-400">
-                                  {formatCurrency(qmhq.amount_eusd ?? 0)} EUSD
-                                </span>
+                                <CurrencyDisplay
+                                  amount={qmhq.amount}
+                                  currency={qmhq.currency || "MMK"}
+                                  amountEusd={qmhq.amount_eusd}
+                                  size="sm"
+                                  align="right"
+                                />
                               </div>
                             </div>
                           )}
@@ -532,10 +536,14 @@ export default function QMHQPage() {
                       )}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      {(qmhq.route_type === "expense" || qmhq.route_type === "po") && qmhq.amount_eusd ? (
-                        <span className="font-mono text-emerald-400">
-                          {formatCurrency(qmhq.amount_eusd)} EUSD
-                        </span>
+                      {(qmhq.route_type === "expense" || qmhq.route_type === "po") && qmhq.amount ? (
+                        <CurrencyDisplay
+                          amount={qmhq.amount}
+                          currency={qmhq.currency || "MMK"}
+                          amountEusd={qmhq.amount_eusd}
+                          size="sm"
+                          align="right"
+                        />
                       ) : (
                         <span className="text-slate-500">—</span>
                       )}
