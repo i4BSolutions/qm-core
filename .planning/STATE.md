@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 13 — Verification & Quick Fixes
-Plan: 01 of 5
+Plan: 02 of 5
 Status: In progress
-Last activity: 2026-02-02 — Completed 13-01-PLAN.md (Attachment Delete Permission UI Fix)
+Last activity: 2026-02-02 — Completed 13-02-PLAN.md (QMHQ Fulfillment Progress)
 
-Progress: [█░░░░░░░░░░░░░░░░░░░░] 5%
+Progress: [██░░░░░░░░░░░░░░░░░░░] 10%
 
 ## Milestone Overview: v1.3
 
@@ -23,7 +23,7 @@ Progress: [█░░░░░░░░░░░░░░░░░░░░] 5%
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| 13 | Verify & fix attachment deletion + QMHQ fulfillment | 5 | In progress (1/5) |
+| 13 | Verify & fix attachment deletion + QMHQ fulfillment | 5 | In progress (2/5) |
 | 14 | Standardize number inputs + currency display | 7 | Pending |
 | 15 | Add Edit buttons to detail pages | 4 | Pending |
 | 16 | Capture status change notes in audit history | 2 | Pending |
@@ -90,6 +90,9 @@ Recent decisions affecting v1.2:
 - Per-item warehouse selection in junction table — Flexible sourcing for multi-item QMHQ
 - Legacy qmhq.item_id preserved — Backward compatibility with existing single-item records
 - Attachment delete per-file ownership check — Users can delete own uploads, admin/quartermaster can delete any (Phase 13.01)
+- FulfillmentProgressBar emerald color gradient — Matches existing Complete badge styling (Phase 13.02)
+- Max issuable qty = min(available stock, remaining QMHQ qty) — Prevents over-issuance (Phase 13.02)
+- General stock-out excludes QMHQ-assigned items — Items in QMHQ item routes only issuable from QMHQ (Phase 13.02)
 - No unit price in item route form — Unit price comes from WAC at stock-out time
 - Per-item warehouse selection is optional — User can specify preferred warehouse or leave empty
 - Currency codes limited to USD, MMK, CNY, THB — Regional operational requirements
@@ -133,10 +136,10 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 13-01-PLAN.md
-Resume file: .planning/phases/13-verification-quick-fixes/13-02-PLAN.md
-Note: Phase 13 Plan 01 complete. Continue with Plan 02 (QMHQ Fulfillment Verification).
+Stopped at: Completed 13-02-PLAN.md
+Resume file: None
+Note: Phase 13 Plan 02 complete. Ready for Plan 03 or Phase 14.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-02 — Completed Phase 13 Plan 01*
+*Last updated: 2026-02-02 — Completed Phase 13 Plan 02*
