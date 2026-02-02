@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
 import {
   STOCK_OUT_REASON_CONFIG,
   getStockOutReasonHexColor,
@@ -670,18 +670,11 @@ export default function StockOutPage() {
                 Quantity *
               </label>
               <Input
-                type="number"
-                min="1"
-                max={maxIssuableQty}
-                step="1"
+                type="text"
+                inputMode="numeric"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e" || e.key === "E") {
-                    e.preventDefault();
-                  }
-                }}
-                placeholder="1"
+                onKeyDown={handleQuantityKeyDown}
                 className={`bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                   parsedQuantity > maxIssuableQty ? "border-red-500" : ""
                 }`}
