@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 13 — Verification & Quick Fixes
-Plan: —
-Status: Ready for planning
-Last activity: 2026-02-02 — Roadmap v1.3 created (Phases 13-16)
+Plan: 01 of 5
+Status: In progress
+Last activity: 2026-02-02 — Completed 13-01-PLAN.md (Attachment Delete Permission UI Fix)
 
-Progress: [░░░░░░░░░░░░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░░░░░░░░░░░░] 5%
 
 ## Milestone Overview: v1.3
 
@@ -23,7 +23,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░░] 0%
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| 13 | Verify & fix attachment deletion + QMHQ fulfillment | 5 | Pending |
+| 13 | Verify & fix attachment deletion + QMHQ fulfillment | 5 | In progress (1/5) |
 | 14 | Standardize number inputs + currency display | 7 | Pending |
 | 15 | Add Edit buttons to detail pages | 4 | Pending |
 | 16 | Capture status change notes in audit history | 2 | Pending |
@@ -89,7 +89,7 @@ Recent decisions affecting v1.2:
 - Idempotency check prevents duplicate stock-outs — Status can toggle, prevent duplicate transactions
 - Per-item warehouse selection in junction table — Flexible sourcing for multi-item QMHQ
 - Legacy qmhq.item_id preserved — Backward compatibility with existing single-item records
-- Attachment delete admin-only — Only admin and quartermaster roles can delete attachments, matching RLS policy
+- Attachment delete per-file ownership check — Users can delete own uploads, admin/quartermaster can delete any (Phase 13.01)
 - No unit price in item route form — Unit price comes from WAC at stock-out time
 - Per-item warehouse selection is optional — User can specify preferred warehouse or leave empty
 - Currency codes limited to USD, MMK, CNY, THB — Regional operational requirements
@@ -133,10 +133,10 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Roadmap v1.3 created
-Resume: Plan Phase 13 — Verification & Quick Fixes
-Note: v1.3 focuses on bug fixes and UX polish. Phase 13 starts with verification of already-deployed features.
+Stopped at: Completed 13-01-PLAN.md
+Resume file: .planning/phases/13-verification-quick-fixes/13-02-PLAN.md
+Note: Phase 13 Plan 01 complete. Continue with Plan 02 (QMHQ Fulfillment Verification).
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-02 — Roadmap v1.3 created (Phases 13-16)*
+*Last updated: 2026-02-02 — Completed Phase 13 Plan 01*
