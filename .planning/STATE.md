@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 
 ## Current Position
 
-Phase: 14 — Currency & Number Input Standardization (COMPLETE)
-Plan: 07 of 7 (complete: 01, 02, 03, 04, 05, 06, 07)
+Phase: 15 — Edit Capability
+Plan: 01 of 1 (complete: 01)
 Status: Phase complete
-Last activity: 2026-02-02 — Completed 14-07-PLAN.md
+Last activity: 2026-02-02 — Completed 15-01-PLAN.md
 
-Progress: [████████████████████░] 83%
+Progress: [█████████████████████] 88%
 
 ## Milestone Overview: v1.3
 
@@ -25,7 +25,7 @@ Progress: [████████████████████░] 83%
 |-------|------|--------------|--------|
 | 13 | Verify & fix attachment deletion + QMHQ fulfillment | 5 | Complete |
 | 14 | Standardize number inputs + currency display | 7 | Complete |
-| 15 | Add Edit buttons to detail pages | 4 | Pending |
+| 15 | Add Edit buttons to detail pages | 4 | Complete |
 | 16 | Capture status change notes in audit history | 2 | Pending |
 
 **Research Notes:**
@@ -124,6 +124,9 @@ Recent decisions affecting v1.2:
 - KPI panel consolidation — Item detail WAC panel reduced from 5 to 4 cards with combined currency display (Phase 14.07)
 - Summary panel consolidation in PO/Invoice — Reduced from 4 to 3 columns by combining amount displays (Phase 14.06)
 - Stock-in summary EUSD calculation — summaryTotals computed value for both invoice and manual modes (Phase 14.06)
+- Quartermaster cannot edit PO — Explicit business rule override of permission matrix (Phase 15.01)
+- Invoice has no Edit button — Void functionality serves as modification mechanism (Phase 15.01)
+- Permission-gated buttons with can() check — Wrap action buttons in conditional permission check (Phase 15.01)
 
 ### Roadmap Evolution
 
@@ -144,10 +147,10 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed Phase 14 (all plans)
-Resume: Begin Phase 15 — Edit buttons for detail pages
-Note: All currency display and number input standardization complete. React hooks violation in qmhq/[id] fixed (14-06).
+Stopped at: Completed Phase 15 (all plans)
+Resume: Begin Phase 16 — Status change notes in audit history
+Note: Edit buttons now permission-gated. Quartermaster excluded from PO edit per user decision. Invoice has no edit button.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-02 — Phase 14 complete*
+*Last updated: 2026-02-02 — Phase 15 complete*
