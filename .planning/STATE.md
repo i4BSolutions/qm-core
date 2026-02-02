@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 
 ## Current Position
 
-Phase: 14 — Currency & Number Input Standardization
-Plan: 05 of 7 (complete: 01, 02, 03, 04, 05)
-Status: In progress
-Last activity: 2026-02-02 — Completed 14-04-PLAN.md
+Phase: 14 — Currency & Number Input Standardization (COMPLETE)
+Plan: 07 of 7 (complete: 01, 02, 03, 04, 05, 06, 07)
+Status: Phase complete
+Last activity: 2026-02-02 — Completed 14-07-PLAN.md
 
-Progress: [██████████████░░░░░░░] 71%
+Progress: [████████████████████░] 83%
 
 ## Milestone Overview: v1.3
 
@@ -24,7 +24,7 @@ Progress: [██████████████░░░░░░░] 71%
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
 | 13 | Verify & fix attachment deletion + QMHQ fulfillment | 5 | Complete |
-| 14 | Standardize number inputs + currency display | 7 | In Progress (5/7) |
+| 14 | Standardize number inputs + currency display | 7 | Complete |
 | 15 | Add Edit buttons to detail pages | 4 | Pending |
 | 16 | Capture status change notes in audit history | 2 | Pending |
 
@@ -120,6 +120,8 @@ Recent decisions affecting v1.2:
 - CurrencyDisplay size variants (sm/md/lg) — Typography scaling for different UI contexts (Phase 14.02)
 - Summary panel preservation — Detailed breakdown format for InvoiceSummaryPanel, CurrencyDisplay for InvoiceTotalsInline (Phase 14.05)
 - Balance panel EUSD-only — POBalancePanel preserved as EUSD for balance validation consistency (Phase 14.05)
+- Two-line currency display in detail pages — Warehouse, Item, QMRL detail pages use CurrencyDisplay for WAC and amounts (Phase 14.07)
+- KPI panel consolidation — Item detail WAC panel reduced from 5 to 4 cards with combined currency display (Phase 14.07)
 
 ### Roadmap Evolution
 
@@ -140,10 +142,10 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 14-04-PLAN.md
-Resume: Continue Phase 14 — Plan 06 (form currency inputs)
-Note: PO, Invoice, and Transaction forms now use centralized number input handlers.
+Stopped at: Completed 14-07-PLAN.md (Phase 14 complete)
+Resume: Begin Phase 15 — Edit buttons for detail pages
+Note: All currency display and number input standardization complete. Pre-existing lint issue in qmhq/[id] (useMemo hooks order) noted for future fix.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-02 — Phase 14 Plan 04 complete*
+*Last updated: 2026-02-02 — Phase 14 complete*
