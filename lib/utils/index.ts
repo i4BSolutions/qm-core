@@ -130,3 +130,16 @@ export function snakeToTitle(text: string): string {
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// Number input utilities
+export {
+  handleAmountKeyDown,
+  handleExchangeRateKeyDown,
+  handleQuantityKeyDown,
+  validateAmount,
+  validateExchangeRate,
+  validateQuantity,
+  parseAmount,
+  parseExchangeRate,
+  parseQuantity,
+} from "./number-input";
