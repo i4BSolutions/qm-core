@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { ChevronRight, Building2, CalendarDays } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
 import { POStatusBadge, ApprovalStatusBadge } from "./po-status-badge";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { POProgressBar } from "./po-progress-bar";
 import { calculatePOProgress } from "@/lib/utils/po-status";
 import type { PurchaseOrder, Supplier, QMHQ } from "@/types/database";
@@ -78,9 +78,13 @@ export function POCard({ po, animationDelay = 0 }: POCardProps) {
         <div className="mb-3 p-2 rounded bg-slate-800/50 border border-slate-700">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-400">Total Amount</span>
-            <span className="font-mono text-sm text-emerald-400">
-              {formatCurrency(po.total_amount_eusd ?? 0)} EUSD
-            </span>
+            <CurrencyDisplay
+              amount={po.total_amount}
+              currency={po.currency || "MMK"}
+              amountEusd={po.total_amount_eusd}
+              size="sm"
+              align="right"
+            />
           </div>
         </div>
 

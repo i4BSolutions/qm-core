@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { ChevronRight, FileText, CalendarDays, Building2 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
 import { InvoiceStatusBadge } from "./invoice-status-badge";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import type { Invoice, PurchaseOrder, Supplier } from "@/types/database";
 
 interface InvoiceWithRelations extends Invoice {
@@ -87,20 +87,14 @@ export function InvoiceCard({ invoice, animationDelay = 0 }: InvoiceCardProps) {
         <div className="mb-3 p-2 rounded bg-slate-800/50 border border-slate-700">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-400">Total Amount</span>
-            <span className="font-mono text-sm text-emerald-400">
-              {formatCurrency(invoice.total_amount_eusd ?? 0)} EUSD
-            </span>
+            <CurrencyDisplay
+              amount={invoice.total_amount}
+              currency={invoice.currency || "MMK"}
+              amountEusd={invoice.total_amount_eusd}
+              size="sm"
+              align="right"
+            />
           </div>
-          {invoice.currency && invoice.currency !== "EUSD" && (
-            <div className="flex items-center justify-between mt-1">
-              <span className="text-xs text-slate-500">
-                ({invoice.currency})
-              </span>
-              <span className="font-mono text-xs text-slate-400">
-                {formatCurrency(invoice.total_amount ?? 0)}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Divider */}
