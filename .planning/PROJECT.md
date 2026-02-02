@@ -8,14 +8,14 @@ An internal ticket, expense, and inventory management platform serving as a Sing
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-## Current State (v1.2 Shipped)
+## Current State (v1.3 Shipped)
 
 **Tech Stack:**
 - Next.js 14+ with App Router, TypeScript strict mode
 - Supabase for auth, database, and file storage
 - Tailwind CSS with dark theme support
-- ~32,000+ lines of TypeScript
-- 35+ database migrations with RLS policies
+- ~34,000+ lines of TypeScript
+- 48 database migrations with RLS policies
 
 **Shipped Features:**
 - Email OTP authentication with 7-role RBAC
@@ -27,21 +27,16 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Live management dashboard with KPIs and alerts
 - Inventory dashboard with transaction history and filters
 - Warehouse detail with per-item WAC and EUSD values
-- Quick status changes via clickable badges
+- Quick status changes via clickable badges with optional notes
 - Complete audit logging with cascade effects
+- Standardized currency display (original + EUSD)
+- Number input utilities (no auto-format on blur)
+- QMHQ fulfillment progress tracking
+- Permission-gated Edit buttons on detail pages
 
-## Current Milestone: v1.3 UX & Bug Fixes
+## Next Milestone: TBD
 
-**Goal:** Fix critical bugs and polish user experience across all entity workflows.
-
-**Target features:**
-- Fix attachment delete RLS policy (all users blocked)
-- Fix number input on-blur value changes
-- Fix status change notes not appearing in History
-- Standardize currency display (original + EUSD only, remove MMK)
-- Consistent number/qty/exchange rate inputs across all forms
-- QMHQ item route stock-out from detail page only with qty tracking
-- Ensure edit capability from all detail pages (QMRL, QMHQ, PO, Invoice)
+Run `/gsd:new-milestone` to define next goals.
 
 ## Requirements
 
@@ -79,17 +74,17 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - ✓ Manual stock-in with currency and exchange rate — v1.2
 - ✓ Invoice void cascade (PO status, quantities, financials) — v1.2
 
+<!-- V1.3 Features -->
+- ✓ Attachment delete UI aligned with RLS policy — v1.3
+- ✓ QMHQ fulfillment progress tracking — v1.3
+- ✓ Number input preserves typed value on blur — v1.3
+- ✓ Currency display standardized (original + EUSD) — v1.3
+- ✓ Status change notes captured in audit history — v1.3
+- ✓ Permission-gated Edit buttons on detail pages — v1.3
+
 ### Active
 
-<!-- v1.3 UX & Bug Fixes -->
-
-- [ ] Fix attachment delete RLS policy (all users blocked)
-- [ ] Fix number input on-blur value changes
-- [ ] Fix status change notes not in History tab
-- [ ] Standardize currency display (original + EUSD only)
-- [ ] Consistent number/qty/exchange rate inputs across forms
-- [ ] QMHQ item route stock-out from detail page only with qty tracking
-- [ ] Edit capability from all detail pages (QMRL, QMHQ, PO, Invoice)
+(None — run `/gsd:new-milestone` to define next goals)
 
 ### Out of Scope
 
@@ -105,6 +100,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.0 MVP — Foundation (pre-existing)
 - v1.1 Enhancement — Bug fixes, files, dashboard, UX (shipped 2026-01-28)
 - v1.2 Inventory & Financial Accuracy — WAC, inventory dashboard, void cascade (shipped 2026-01-31)
+- v1.3 UX & Bug Fixes — Input behavior, currency display, edit buttons, audit notes (shipped 2026-02-02)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -114,6 +110,10 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Cascade soft-delete with 30-day grace period
 - RPC functions for dashboard aggregations
 - useInterval hook with ref-based stale closure prevention
+- Number input utilities with keydown handlers (no auto-format on blur)
+- CurrencyDisplay component for two-line original + EUSD format
+- RPC-first pattern for complex mutations with audit trail
+- Trigger deduplication via time-window check
 
 ## Key Decisions
 
@@ -127,6 +127,13 @@ Users can reliably create purchase orders, receive inventory, and track request 
 | Quick status via badge click | Minimal UI change, intuitive | ✓ Good |
 | View-only transaction modal | Audit integrity over editability | ✓ Good |
 | Detail page uploads only | Entity must exist to attach files | ✓ Good |
+| Attachment delete per-file ownership | Users delete own, admin/quartermaster delete any | ✓ Good |
+| String state for number inputs | Preserves typed values, no auto-format on blur | ✓ Good |
+| CurrencyDisplay two-line format | Original currency + EUSD equivalent clearly visible | ✓ Good |
+| Quartermaster cannot edit PO | Explicit business rule override of permission matrix | ✓ Good |
+| Invoice has no Edit button | Void functionality serves as modification mechanism | ✓ Good |
+| RPC creates audit before entity update | Enables trigger deduplication to prevent duplicates | ✓ Good |
+| 2-second window for audit deduplication | Balances race condition protection vs. usability | ✓ Good |
 
 ## Constraints
 
@@ -134,5 +141,11 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - **Compatibility**: Must work with existing RLS and audit system
 - **Audit**: All status/financial changes must be logged
 
+## Known Tech Debt
+
+- PO Edit page does not exist at /po/[id]/edit (Edit button links to 404)
+  - Pre-existing issue discovered during v1.3 audit
+  - Either create edit page or document PO as immutable after creation
+
 ---
-*Last updated: 2026-02-02 after v1.3 milestone started*
+*Last updated: 2026-02-02 after v1.3 milestone shipped*
