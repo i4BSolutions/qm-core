@@ -37,6 +37,7 @@ import {
   handleAmountKeyDown,
   handleExchangeRateKeyDown,
 } from "@/lib/utils";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { MOVEMENT_TYPE_CONFIG } from "@/lib/utils/inventory";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
@@ -262,6 +263,32 @@ function StockInContent() {
   const manualTotalValue = useMemo(() => {
     return (parseFloat(manualQuantity) || 0) * (parseFloat(manualUnitCost) || 0);
   }, [manualQuantity, manualUnitCost]);
+
+  // Summary totals for both modes
+  const summaryTotals = useMemo(() => {
+    if (sourceMode === "invoice") {
+      const totalValue = selectedStockInLines.reduce(
+        (sum, line) => sum + line.quantity * line.unit_cost,
+        0
+      );
+      const rate = selectedInvoice?.exchange_rate || 1;
+      const eusdValue = rate > 0 ? totalValue / rate : 0;
+      return {
+        currency: selectedInvoice?.currency || "MMK",
+        totalValue,
+        eusdValue: Math.round(eusdValue * 100) / 100,
+        exchangeRate: rate,
+      };
+    } else {
+      const rate = parseFloat(exchangeRate) || 1;
+      return {
+        currency,
+        totalValue: manualTotalValue,
+        eusdValue: calculatedEusd,
+        exchangeRate: rate,
+      };
+    }
+  }, [sourceMode, selectedStockInLines, selectedInvoice, currency, exchangeRate, manualTotalValue, calculatedEusd]);
 
   // Validation
   const hasErrors = useMemo(() => {
@@ -1036,23 +1063,16 @@ function StockInContent() {
             </p>
           </div>
 
-          <div className="text-center p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <p className="text-xs text-amber-400 uppercase tracking-wider mb-1">
+          <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <p className="text-xs text-amber-400 uppercase tracking-wider mb-2">
               Total Value
             </p>
-            <p className="text-2xl font-mono font-bold text-amber-400">
-              {formatCurrency(
-                sourceMode === "invoice"
-                  ? selectedStockInLines.reduce(
-                      (sum, line) => sum + line.quantity * line.unit_cost,
-                      0
-                    )
-                  : (parseFloat(manualQuantity) || 0) * (parseFloat(manualUnitCost) || 0)
-              )}
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {sourceMode === "invoice" ? selectedInvoice?.currency || "MMK" : currency}
-            </p>
+            <CurrencyDisplay
+              amount={summaryTotals.totalValue}
+              currency={summaryTotals.currency}
+              amountEusd={summaryTotals.eusdValue}
+              size="lg"
+            />
           </div>
         </div>
       </div>
