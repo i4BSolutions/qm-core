@@ -131,7 +131,7 @@ Plans:
 **Notes**: Wave 1 (parallel): Plans 01, 02. Wave 2 (parallel): Plans 03, 04, 05. Wave 3 (parallel): Plans 06, 07.
 
 #### Phase 15: Edit Capability
-**Goal**: Users can edit entities directly from their detail pages
+**Goal**: Users can edit entities directly from their detail pages with permission-based visibility
 **Depends on**: Phase 14
 **Requirements**: EDIT-01, EDIT-02, EDIT-03, EDIT-04
 **Success Criteria** (what must be TRUE):
@@ -139,9 +139,11 @@ Plans:
   2. QMHQ detail page has Edit button that routes to the edit form
   3. PO detail page has Edit button that routes to the edit form (hidden when PO is closed)
   4. Invoice detail page shows view-only with no Edit button (void functionality exists instead)
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 15-01-PLAN.md - Add permission-gated Edit buttons to detail pages
 
-**Notes**: Edit forms already exist for all entities. This phase adds navigation buttons and respects entity state (closed PO, voided invoice).
+**Notes**: Edit forms already exist for all entities. This phase adds permission checks to existing buttons and removes Edit from Invoice (void exists instead).
 
 #### Phase 16: Audit Notes Feature
 **Goal**: Status change notes are captured in audit log and displayed in History tab
@@ -178,5 +180,5 @@ Phases execute in numeric order: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13 -> 1
 | 12. Invoice Void Cascade | v1.2 | 1/1 | Complete | 2026-01-31 |
 | 13. Verification & Quick Fixes | v1.3 | 2/2 | Complete | 2026-02-02 |
 | 14. Currency & Number Input Standardization | v1.3 | 7/7 | Complete | 2026-02-02 |
-| 15. Edit Capability | v1.3 | 0/? | Pending | - |
+| 15. Edit Capability | v1.3 | 0/1 | Pending | - |
 | 16. Audit Notes Feature | v1.3 | 0/? | Pending | - |
