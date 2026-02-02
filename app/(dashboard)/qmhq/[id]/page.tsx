@@ -313,6 +313,18 @@ export default function QMHQDetailPage() {
     });
   };
 
+  // Calculate if all items are fully issued (for item route)
+  // Must be before early returns per React hooks rules
+  const allItemsFullyIssued = useMemo(() => {
+    if (qmhqItems.length === 0) return false;
+    return qmhqItems.every((item) => {
+      const issuedQty = stockOutTransactions
+        .filter(t => t.item_id === item.item_id)
+        .reduce((sum, t) => sum + (t.quantity || 0), 0);
+      return issuedQty >= item.quantity;
+    });
+  }, [qmhqItems, stockOutTransactions]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -353,17 +365,6 @@ export default function QMHQDetailPage() {
   const moneyOutTotal = transactions
     .filter((t) => t.transaction_type === "money_out")
     .reduce((sum, t) => sum + (t.amount_eusd ?? 0), 0);
-
-  // Calculate if all items are fully issued (for item route)
-  const allItemsFullyIssued = useMemo(() => {
-    if (qmhqItems.length === 0) return false;
-    return qmhqItems.every((item) => {
-      const issuedQty = stockOutTransactions
-        .filter(t => t.item_id === item.item_id)
-        .reduce((sum, t) => sum + (t.quantity || 0), 0);
-      return issuedQty >= item.quantity;
-    });
-  }, [qmhqItems, stockOutTransactions]);
 
   return (
     <div className="space-y-6 relative">
