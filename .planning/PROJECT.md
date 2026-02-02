@@ -8,25 +8,40 @@ An internal ticket, expense, and inventory management platform serving as a Sing
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-## Current State (v1.1 Shipped)
+## Current State (v1.2 Shipped)
 
 **Tech Stack:**
 - Next.js 14+ with App Router, TypeScript strict mode
 - Supabase for auth, database, and file storage
 - Tailwind CSS with dark theme support
-- ~31,689 lines of TypeScript
-- 33 database migrations with RLS policies
+- ~32,000+ lines of TypeScript
+- 35+ database migrations with RLS policies
 
 **Shipped Features:**
 - Email OTP authentication with 7-role RBAC
 - QMRL/QMHQ with Notion-style status system
 - Purchase orders with smart status calculation
-- Invoice creation with quantity validation
-- Inventory stock-in/out with WAC valuation
+- Invoice creation with quantity validation and void cascade
+- Inventory stock-in/out with WAC valuation (multi-currency)
 - File attachments with drag-drop upload, preview, and ZIP download
 - Live management dashboard with KPIs and alerts
+- Inventory dashboard with transaction history and filters
+- Warehouse detail with per-item WAC and EUSD values
 - Quick status changes via clickable badges
-- Complete audit logging
+- Complete audit logging with cascade effects
+
+## Current Milestone: v1.3 UX & Bug Fixes
+
+**Goal:** Fix critical bugs and polish user experience across all entity workflows.
+
+**Target features:**
+- Fix attachment delete RLS policy (all users blocked)
+- Fix number input on-blur value changes
+- Fix status change notes not appearing in History
+- Standardize currency display (original + EUSD only, remove MMK)
+- Consistent number/qty/exchange rate inputs across all forms
+- QMHQ item route stock-out from detail page only with qty tracking
+- Ensure edit capability from all detail pages (QMRL, QMHQ, PO, Invoice)
 
 ## Requirements
 
@@ -54,18 +69,27 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - ✓ Quick status change via badge click — v1.1
 - ✓ DD/MM/YYYY date picker standardization — v1.1
 
+<!-- V1.2 Features -->
+- ✓ Transaction date picker consistency — v1.2
+- ✓ Number input empty placeholders — v1.2
+- ✓ Number input validation (prevent negative/zero) — v1.2
+- ✓ Warehouse detail with per-item WAC display — v1.2
+- ✓ Inventory dashboard with transaction counts and values — v1.2
+- ✓ Inventory dashboard warehouse filter — v1.2
+- ✓ Manual stock-in with currency and exchange rate — v1.2
+- ✓ Invoice void cascade (PO status, quantities, financials) — v1.2
+
 ### Active
 
-<!-- v1.2 Inventory & Financial Accuracy -->
+<!-- v1.3 UX & Bug Fixes -->
 
-- [ ] Transaction date picker consistency (money in/out matches DD/MM/YYYY style)
-- [ ] Number input fields use empty placeholders (fix default value interference)
-- [ ] Number input validation (prevent negative values and zero)
-- [ ] Warehouse detail page with per-item WAC display
-- [ ] Stock in/out dashboard with transaction counts and values
-- [ ] Inventory Dashboard warehouse filter
-- [ ] Manual stock-in with currency and exchange rate (factors into WAC)
-- [ ] Invoice void triggers full PO recalculation (status, quantities, financials)
+- [ ] Fix attachment delete RLS policy (all users blocked)
+- [ ] Fix number input on-blur value changes
+- [ ] Fix status change notes not in History tab
+- [ ] Standardize currency display (original + EUSD only)
+- [ ] Consistent number/qty/exchange rate inputs across forms
+- [ ] QMHQ item route stock-out from detail page only with qty tracking
+- [ ] Edit capability from all detail pages (QMRL, QMHQ, PO, Invoice)
 
 ### Out of Scope
 
@@ -80,6 +104,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 **Milestones:**
 - v1.0 MVP — Foundation (pre-existing)
 - v1.1 Enhancement — Bug fixes, files, dashboard, UX (shipped 2026-01-28)
+- v1.2 Inventory & Financial Accuracy — WAC, inventory dashboard, void cascade (shipped 2026-01-31)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -110,4 +135,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - **Audit**: All status/financial changes must be logged
 
 ---
-*Last updated: 2026-01-28 after v1.2 milestone started*
+*Last updated: 2026-02-02 after v1.3 milestone started*
