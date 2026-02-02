@@ -27,8 +27,8 @@ Requirements for UX & Bug Fixes milestone.
 
 ### Status History
 
-- [ ] **HIST-01**: Status change notes appear in History tab with the status change entry
-- [ ] **HIST-02**: Audit log captures user-entered reason/notes for status changes
+- [x] **HIST-01**: Status change notes appear in History tab with the status change entry
+- [x] **HIST-02**: Audit log captures user-entered reason/notes for status changes
 
 ### QMHQ Item Route Fulfillment
 
@@ -161,8 +161,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CURR-01 | Phase 14 | Complete |
 | CURR-02 | Phase 14 | Complete |
 | CURR-03 | Phase 14 | Complete |
-| HIST-01 | Phase 16 | Pending |
-| HIST-02 | Phase 16 | Pending |
+| HIST-01 | Phase 16 | Complete |
+| HIST-02 | Phase 16 | Complete |
 | FULF-01 | Phase 13 | Complete |
 | FULF-02 | Phase 13 | Complete |
 | FULF-03 | Phase 13 | Complete |
@@ -189,4 +189,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-02-02 — Phase 15 requirements complete*
+*Last updated: 2026-02-02 — v1.3 milestone complete*
