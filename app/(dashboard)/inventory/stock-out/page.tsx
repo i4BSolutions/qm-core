@@ -71,6 +71,7 @@ export default function StockOutPage() {
   const [items, setItems] = useState<ItemWithStock[]>([]);
   const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
   const [qmhqInfo, setQmhqInfo] = useState<{ request_id: string; line_name: string } | null>(null);
+  const [qmhqItemsInfo, setQmhqItemsInfo] = useState<Map<string, { requested: number; issued: number }>>(new Map());
 
   // Form state
   const [selectedItemId, setSelectedItemId] = useState("");
@@ -96,10 +97,6 @@ export default function StockOutPage() {
       .eq("is_active", true)
       .order("name");
 
-    if (itemsData) {
-      setItems(itemsData as ItemWithStock[]);
-    }
-
     // Fetch warehouses
     const { data: warehousesData } = await supabase
       .from("warehouses")
@@ -121,6 +118,96 @@ export default function StockOutPage() {
 
       if (qmhqData) {
         setQmhqInfo(qmhqData);
+      }
+
+      // Fetch QMHQ items with their requested quantities and already issued quantities
+      const { data: qmhqItemsData } = await supabase
+        .from("qmhq_items")
+        .select("item_id, quantity")
+        .eq("qmhq_id", qmhqId);
+
+      if (qmhqItemsData && qmhqItemsData.length > 0) {
+        const qmhqItemIds = qmhqItemsData.map(qi => qi.item_id);
+
+        // Fetch already issued quantities for this QMHQ
+        const { data: issuedData } = await supabase
+          .from("inventory_transactions")
+          .select("item_id, quantity")
+          .eq("qmhq_id", qmhqId)
+          .eq("movement_type", "inventory_out")
+          .eq("is_active", true)
+          .in("item_id", qmhqItemIds);
+
+        // Calculate issued quantities per item
+        const issuedByItem = new Map<string, number>();
+        issuedData?.forEach(tx => {
+          const current = issuedByItem.get(tx.item_id) || 0;
+          issuedByItem.set(tx.item_id, current + (tx.quantity || 0));
+        });
+
+        // Build info map with requested and issued quantities
+        const infoMap = new Map<string, { requested: number; issued: number }>();
+        qmhqItemsData.forEach(qi => {
+          infoMap.set(qi.item_id, {
+            requested: qi.quantity,
+            issued: issuedByItem.get(qi.item_id) || 0,
+          });
+        });
+        setQmhqItemsInfo(infoMap);
+
+        // Filter items to only show QMHQ items
+        if (itemsData) {
+          const qmhqItemIdSet = new Set(qmhqItemIds);
+          setItems(itemsData.filter(item => qmhqItemIdSet.has(item.id)) as ItemWithStock[]);
+        }
+      } else {
+        // Fallback: check for legacy single-item QMHQ
+        const { data: legacyQmhq } = await supabase
+          .from("qmhq")
+          .select("item_id, quantity")
+          .eq("id", qmhqId)
+          .single();
+
+        if (legacyQmhq?.item_id && itemsData) {
+          // Fetch already issued quantities for this legacy QMHQ
+          const { data: issuedData } = await supabase
+            .from("inventory_transactions")
+            .select("quantity")
+            .eq("qmhq_id", qmhqId)
+            .eq("item_id", legacyQmhq.item_id)
+            .eq("movement_type", "inventory_out")
+            .eq("is_active", true);
+
+          const totalIssued = issuedData?.reduce((sum, tx) => sum + (tx.quantity || 0), 0) || 0;
+
+          const infoMap = new Map<string, { requested: number; issued: number }>();
+          infoMap.set(legacyQmhq.item_id, {
+            requested: legacyQmhq.quantity || 0,
+            issued: totalIssued,
+          });
+          setQmhqItemsInfo(infoMap);
+
+          setItems(itemsData.filter(item => item.id === legacyQmhq.item_id) as ItemWithStock[]);
+        } else if (itemsData) {
+          setItems(itemsData as ItemWithStock[]);
+        }
+      }
+    } else {
+      // General stock-out: exclude items assigned to active QMHQ item routes
+      const { data: qmhqItemsData } = await supabase
+        .from("qmhq_items")
+        .select(`
+          item_id,
+          qmhq!inner(id, route_type)
+        `)
+        .eq("qmhq.route_type", "item");
+
+      const qmhqItemIds = new Set(qmhqItemsData?.map(qi => qi.item_id) || []);
+
+      if (itemsData) {
+        // Filter out items assigned to QMHQ item routes
+        const availableItems = itemsData.filter(item => !qmhqItemIds.has(item.id));
+        setItems(availableItems as ItemWithStock[]);
       }
     }
 
@@ -232,6 +319,26 @@ export default function StockOutPage() {
     return warehouses.filter((wh) => wh.id !== selectedWarehouseId);
   }, [warehouses, selectedWarehouseId]);
 
+  // QMHQ item info for selected item
+  const selectedQmhqItemInfo = useMemo(() => {
+    if (!qmhqId || !selectedItemId) return null;
+    return qmhqItemsInfo.get(selectedItemId) || null;
+  }, [qmhqId, selectedItemId, qmhqItemsInfo]);
+
+  // Remaining quantity that can be issued for QMHQ items
+  const remainingQmhqQty = useMemo(() => {
+    if (!selectedQmhqItemInfo) return null;
+    return Math.max(0, selectedQmhqItemInfo.requested - selectedQmhqItemInfo.issued);
+  }, [selectedQmhqItemInfo]);
+
+  // Max quantity that can be issued (minimum of available stock and remaining QMHQ qty)
+  const maxIssuableQty = useMemo(() => {
+    if (remainingQmhqQty !== null) {
+      return Math.min(availableStock, remainingQmhqQty);
+    }
+    return availableStock;
+  }, [availableStock, remainingQmhqQty]);
+
   // Parsed quantity for validation and submit
   const parsedQuantity = parseFloat(quantity) || 0;
 
@@ -242,6 +349,8 @@ export default function StockOutPage() {
     if (!selectedWarehouseId) return true;
     if (qty <= 0) return true;
     if (qty > availableStock) return true;
+    // For QMHQ, also check against remaining unfulfilled quantity
+    if (qmhqId && remainingQmhqQty !== null && qty > remainingQmhqQty) return true;
     if (reason === "transfer" && !destinationWarehouseId) return true;
     return false;
   }, [
@@ -249,6 +358,8 @@ export default function StockOutPage() {
     selectedWarehouseId,
     quantity,
     availableStock,
+    qmhqId,
+    remainingQmhqQty,
     reason,
     destinationWarehouseId,
   ]);
@@ -561,7 +672,7 @@ export default function StockOutPage() {
               <Input
                 type="number"
                 min="1"
-                max={availableStock}
+                max={maxIssuableQty}
                 step="1"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
@@ -572,18 +683,35 @@ export default function StockOutPage() {
                 }}
                 placeholder="1"
                 className={`bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                  parsedQuantity > availableStock ? "border-red-500" : ""
+                  parsedQuantity > maxIssuableQty ? "border-red-500" : ""
                 }`}
               />
-              <p className="text-xs text-slate-500 mt-1">
-                Available:{" "}
-                <span className="font-mono text-emerald-400">
-                  {availableStock}
-                </span>
-                {parsedQuantity > availableStock && (
-                  <span className="text-red-400 ml-2">Exceeds available!</span>
+              <div className="text-xs mt-1 space-y-0.5">
+                <p className="text-slate-500">
+                  Available:{" "}
+                  <span className="font-mono text-emerald-400">
+                    {availableStock}
+                  </span>
+                </p>
+                {qmhqId && selectedQmhqItemInfo && (
+                  <p className="text-slate-400">
+                    Max issuable:{" "}
+                    <span className="font-mono text-blue-400">
+                      {maxIssuableQty}
+                    </span>
+                    <span className="text-slate-500 ml-1">
+                      (requested: {selectedQmhqItemInfo.requested}, already issued: {selectedQmhqItemInfo.issued})
+                    </span>
+                  </p>
                 )}
-              </p>
+                {parsedQuantity > maxIssuableQty && (
+                  <p className="text-red-400">
+                    {qmhqId && remainingQmhqQty !== null && parsedQuantity <= availableStock
+                      ? `Exceeds remaining unfulfilled quantity (${remainingQmhqQty})!`
+                      : "Exceeds available stock!"}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
