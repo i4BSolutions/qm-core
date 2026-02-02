@@ -206,7 +206,7 @@ export default function QMHQDetailPage() {
       }
 
       // Fetch stock-out transactions for this QMHQ
-      const { data: stockOutData } = await supabase
+      const { data: stockOutData, error: stockOutError } = await supabase
         .from('inventory_transactions')
         .select(`
           *,
@@ -217,6 +217,10 @@ export default function QMHQDetailPage() {
         .eq('movement_type', 'inventory_out')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
+
+      console.log('[QMHQ Debug] Fetching stock-out for qmhq_id:', qmhqData.id);
+      console.log('[QMHQ Debug] Stock-out data:', stockOutData);
+      console.log('[QMHQ Debug] Stock-out error:', stockOutError);
 
       if (stockOutData) {
         setStockOutTransactions(stockOutData as unknown as StockOutTransaction[]);

@@ -376,7 +376,9 @@ export default function StockOutPage() {
 
       // Create stock out transaction
       const qty = parseFloat(quantity) || 0;
-      const { error: insertError } = await supabase
+      console.log('[StockOut Debug] Creating transaction with qmhq_id:', qmhqId);
+      console.log('[StockOut Debug] Item ID:', selectedItemId);
+      const { data: insertedData, error: insertError } = await supabase
         .from("inventory_transactions")
         .insert({
           movement_type: "inventory_out",
@@ -391,8 +393,12 @@ export default function StockOutPage() {
           notes: notes || null,
           status: "completed",
           created_by: user.id,
-        });
+        })
+        .select()
+        .single();
 
+      console.log('[StockOut Debug] Inserted data:', insertedData);
+      console.log('[StockOut Debug] Insert error:', insertError);
       if (insertError) throw insertError;
 
       // If transfer, also create stock in at destination
