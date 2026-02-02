@@ -99,9 +99,12 @@
   3. QMHQ item route stock-out is only accessible from QMHQ detail page (not general stock-out form)
   4. Stock-out quantity cannot exceed remaining unfulfilled quantity (requested minus already issued)
   5. QMHQ detail page shows fulfillment progress indicator (e.g., "5/10 fulfilled")
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 13-01-PLAN.md - Fix attachment delete permission UI to match RLS policy
+- [ ] 13-02-PLAN.md - Add fulfillment progress tracking and stock-out restrictions
 
-**Notes**: Research indicates RLS policy (migration 036) and stock-out tab (QMHQ detail lines 712-837) already exist. This phase verifies functionality and addresses any gaps.
+**Notes**: Research indicates RLS policy (migration 037) and stock-out tab (QMHQ detail lines 712-837) already exist. This phase verifies functionality and addresses any gaps.
 
 #### Phase 14: Currency & Number Input Standardization
 **Goal**: Number inputs preserve user-typed values and currency displays show original value with EUSD equivalent
@@ -165,7 +168,7 @@ Phases execute in numeric order: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13 -> 1
 | 10. Inventory Dashboard | v1.2 | 2/2 | Complete | 2026-01-30 |
 | 11. Warehouse Detail Enhancement | v1.2 | 1/1 | Complete | 2026-01-30 |
 | 12. Invoice Void Cascade | v1.2 | 1/1 | Complete | 2026-01-31 |
-| 13. Verification & Quick Fixes | v1.3 | 0/? | Pending | - |
+| 13. Verification & Quick Fixes | v1.3 | 0/2 | Pending | - |
 | 14. Currency & Number Input Standardization | v1.3 | 0/? | Pending | - |
 | 15. Edit Capability | v1.3 | 0/? | Pending | - |
 | 16. Audit Notes Feature | v1.3 | 0/? | Pending | - |
