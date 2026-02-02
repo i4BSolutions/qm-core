@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -38,7 +38,9 @@ import { POProgressBar } from "@/components/po/po-progress-bar";
 import { calculatePOProgress } from "@/lib/utils/po-status";
 import { HistoryTab } from "@/components/history";
 import { AttachmentsTab } from "@/components/files/attachments-tab";
+import type { FileAttachmentWithUploader } from "@/lib/actions/files";
 import { ClickableStatusBadge } from "@/components/status/clickable-status-badge";
+import { FulfillmentProgressBar } from "@/components/qmhq/fulfillment-progress-bar";
 import type {
   QMHQ,
   StatusConfig,
@@ -103,7 +105,14 @@ export default function QMHQDetailPage() {
   const { user } = useAuth();
   const qmhqId = params.id as string;
 
-  const canEditAttachments = user?.role === 'admin' || user?.role === 'quartermaster';
+  // Per-file delete permission check matching RLS policy
+  const canDeleteFile = useCallback((file: FileAttachmentWithUploader) => {
+    if (!user) return false;
+    // Admin and quartermaster can delete any file
+    if (user.role === 'admin' || user.role === 'quartermaster') return true;
+    // Users can delete their own uploads
+    return file.uploaded_by === user.id;
+  }, [user]);
 
   const [qmhq, setQmhq] = useState<QMHQWithRelations | null>(null);
   const [qmhqItems, setQmhqItems] = useState<QMHQItemWithRelations[]>([]);
@@ -343,6 +352,17 @@ export default function QMHQDetailPage() {
   const moneyOutTotal = transactions
     .filter((t) => t.transaction_type === "money_out")
     .reduce((sum, t) => sum + (t.amount_eusd ?? 0), 0);
+
+  // Calculate if all items are fully issued (for item route)
+  const allItemsFullyIssued = useMemo(() => {
+    if (qmhqItems.length === 0) return false;
+    return qmhqItems.every((item) => {
+      const issuedQty = stockOutTransactions
+        .filter(t => t.item_id === item.item_id)
+        .reduce((sum, t) => sum + (t.quantity || 0), 0);
+      return issuedQty >= item.quantity;
+    });
+  }, [qmhqItems, stockOutTransactions]);
 
   return (
     <div className="space-y-6 relative">
@@ -632,6 +652,36 @@ export default function QMHQDetailPage() {
               </div>
             )}
 
+            {/* Fulfillment Progress for item route */}
+            {qmhq.route_type === "item" && qmhqItems.length > 0 && (
+              <div className="command-panel corner-accents lg:col-span-2">
+                <div className="section-header">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  <h2>Fulfillment Progress</h2>
+                </div>
+                <div className="space-y-3">
+                  {qmhqItems.map((item) => {
+                    const issuedQty = stockOutTransactions
+                      .filter(t => t.item_id === item.item_id)
+                      .reduce((sum, t) => sum + (t.quantity || 0), 0);
+                    return (
+                      <div key={item.id} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-200">{item.item?.name || 'Unknown Item'}</span>
+                          {item.item?.sku && <code className="text-amber-400 text-xs">{item.item.sku}</code>}
+                        </div>
+                        <FulfillmentProgressBar
+                          issuedQty={issuedQty}
+                          requestedQty={item.quantity}
+                          size="sm"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Financial Info for expense/po */}
             {(qmhq.route_type === "expense" || qmhq.route_type === "po") && (
               <div className="command-panel corner-accents">
@@ -718,14 +768,25 @@ export default function QMHQDetailPage() {
                   <ArrowUpFromLine className="h-4 w-4 text-red-400" />
                   <h2>Stock Out Transactions</h2>
                 </div>
-                <Link href={`/inventory/stock-out?qmhq=${qmhqId}`}>
+{allItemsFullyIssued ? (
                   <Button
-                    className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400"
+                    disabled
+                    className="bg-slate-600 cursor-not-allowed"
+                    title="All items have been fully issued"
                   >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Issue Items
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Fully Issued
                   </Button>
-                </Link>
+                ) : (
+                  <Link href={`/inventory/stock-out?qmhq=${qmhqId}`}>
+                    <Button
+                      className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Issue Items
+                    </Button>
+                  </Link>
+                )}
               </div>
 
               {/* Items Summary */}
@@ -740,38 +801,46 @@ export default function QMHQDetailPage() {
                     const isFullyIssued = pendingQty === 0;
 
                     return (
-                      <div key={item.id} className="flex items-center justify-between p-2 rounded bg-slate-800/50">
-                        <div className="flex items-center gap-3">
-                          {isFullyIssued ? (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                          ) : (
-                            <Package className="h-4 w-4 text-slate-400" />
-                          )}
-                          <div>
-                            <span className="text-slate-200">{item.item?.name || 'Unknown'}</span>
-                            {item.item?.sku && (
-                              <code className="text-amber-400 text-xs ml-2">{item.item.sku}</code>
+                      <div key={item.id} className="p-2 rounded bg-slate-800/50">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            {isFullyIssued ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                            ) : (
+                              <Package className="h-4 w-4 text-slate-400" />
+                            )}
+                            <div>
+                              <span className="text-slate-200">{item.item?.name || 'Unknown'}</span>
+                              {item.item?.sku && (
+                                <code className="text-amber-400 text-xs ml-2">{item.item.sku}</code>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="text-slate-400">
+                              Requested: <span className="font-mono text-blue-400">{item.quantity}</span>
+                            </span>
+                            <span className="text-slate-400">
+                              Issued: <span className="font-mono text-emerald-400">{issuedQty}</span>
+                            </span>
+                            {!isFullyIssued && (
+                              <span className="text-slate-400">
+                                Pending: <span className="font-mono text-amber-400">{pendingQty}</span>
+                              </span>
+                            )}
+                            {isFullyIssued && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
+                                Complete
+                              </span>
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="text-slate-400">
-                            Requested: <span className="font-mono text-blue-400">{item.quantity}</span>
-                          </span>
-                          <span className="text-slate-400">
-                            Issued: <span className="font-mono text-emerald-400">{issuedQty}</span>
-                          </span>
-                          {!isFullyIssued && (
-                            <span className="text-slate-400">
-                              Pending: <span className="font-mono text-amber-400">{pendingQty}</span>
-                            </span>
-                          )}
-                          {isFullyIssued && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
-                              Complete
-                            </span>
-                          )}
-                        </div>
+                        <FulfillmentProgressBar
+                          issuedQty={issuedQty}
+                          requestedQty={item.quantity}
+                          size="sm"
+                          showLabel={false}
+                        />
                       </div>
                     );
                   })}
@@ -1068,7 +1137,8 @@ export default function QMHQDetailPage() {
               entityType="qmhq"
               entityId={qmhqId}
               entityDisplayId={qmhq.request_id}
-              canEdit={canEditAttachments}
+              canDeleteFile={canDeleteFile}
+              canUpload={true}
               onFileCountChange={setFileCount}
             />
           </div>

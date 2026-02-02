@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import type { FileAttachmentWithUploader } from "@/lib/actions/files";
 import {
   ArrowLeft,
   Pencil,
@@ -72,7 +73,14 @@ export default function QMRLDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [fileCount, setFileCount] = useState(0);
 
-  const canEditAttachments = user?.role === 'admin' || user?.role === 'quartermaster';
+  // Per-file delete permission check matching RLS policy
+  const canDeleteFile = useCallback((file: FileAttachmentWithUploader) => {
+    if (!user) return false;
+    // Admin and quartermaster can delete any file
+    if (user.role === 'admin' || user.role === 'quartermaster') return true;
+    // Users can delete their own uploads
+    return file.uploaded_by === user.id;
+  }, [user]);
 
   const fetchQMRL = useCallback(async (id: string) => {
     setIsLoading(true);
@@ -586,7 +594,8 @@ export default function QMRLDetailPage() {
               entityType="qmrl"
               entityId={qmrl.id}
               entityDisplayId={qmrl.request_id}
-              canEdit={canEditAttachments}
+              canDeleteFile={canDeleteFile}
+              canUpload={true}
               onFileCountChange={setFileCount}
             />
           </div>
