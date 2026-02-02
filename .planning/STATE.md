@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 
 ## Current Position
 
-Phase: 15 — Edit Capability
+Phase: 16 — Audit Notes Feature
 Plan: 01 of 1 (complete: 01)
 Status: Phase complete
-Last activity: 2026-02-02 — Completed 15-01-PLAN.md
+Last activity: 2026-02-02 — Completed 16-01-PLAN.md
 
-Progress: [█████████████████████] 88%
+Progress: [██████████████████████] 100%
 
 ## Milestone Overview: v1.3
 
@@ -26,7 +26,7 @@ Progress: [█████████████████████] 88%
 | 13 | Verify & fix attachment deletion + QMHQ fulfillment | 5 | Complete |
 | 14 | Standardize number inputs + currency display | 7 | Complete |
 | 15 | Add Edit buttons to detail pages | 4 | Complete |
-| 16 | Capture status change notes in audit history | 2 | Pending |
+| 16 | Capture status change notes in audit history | 2 | Complete |
 
 **Research Notes:**
 - RLS policy for attachment delete already exists (migration 036)
@@ -127,6 +127,9 @@ Recent decisions affecting v1.2:
 - Quartermaster cannot edit PO — Explicit business rule override of permission matrix (Phase 15.01)
 - Invoice has no Edit button — Void functionality serves as modification mechanism (Phase 15.01)
 - Permission-gated buttons with can() check — Wrap action buttons in conditional permission check (Phase 15.01)
+- RPC creates audit entry before entity update — Enables trigger deduplication check to prevent duplicates (Phase 16.01)
+- 2-second time window for audit deduplication — Balances race condition protection vs. legitimate rapid changes (Phase 16.01)
+- Note preserved on status update error — Dialog stays open with note intact for retry (Phase 16.01)
 
 ### Roadmap Evolution
 
@@ -147,10 +150,10 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed Phase 15 (all plans)
-Resume: Begin Phase 16 — Status change notes in audit history
-Note: Edit buttons now permission-gated. Quartermaster excluded from PO edit per user decision. Invoice has no edit button.
+Stopped at: Completed Phase 16 (all plans)
+Resume: v1.3 milestone complete — all phases (13-16) finished
+Note: Status change notes feature ready for verification. Migration 048 needs to be applied to database.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-02 — Phase 15 complete*
+*Last updated: 2026-02-02 — Phase 16 complete (v1.3 milestone complete)*
