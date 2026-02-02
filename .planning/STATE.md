@@ -122,6 +122,8 @@ Recent decisions affecting v1.2:
 - Balance panel EUSD-only — POBalancePanel preserved as EUSD for balance validation consistency (Phase 14.05)
 - Two-line currency display in detail pages — Warehouse, Item, QMRL detail pages use CurrencyDisplay for WAC and amounts (Phase 14.07)
 - KPI panel consolidation — Item detail WAC panel reduced from 5 to 4 cards with combined currency display (Phase 14.07)
+- Summary panel consolidation in PO/Invoice — Reduced from 4 to 3 columns by combining amount displays (Phase 14.06)
+- Stock-in summary EUSD calculation — summaryTotals computed value for both invoice and manual modes (Phase 14.06)
 
 ### Roadmap Evolution
 
@@ -142,9 +144,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 14-07-PLAN.md (Phase 14 complete)
+Stopped at: Completed Phase 14 (all plans)
 Resume: Begin Phase 15 — Edit buttons for detail pages
-Note: All currency display and number input standardization complete. Pre-existing lint issue in qmhq/[id] (useMemo hooks order) noted for future fix.
+Note: All currency display and number input standardization complete. React hooks violation in qmhq/[id] fixed (14-06).
 
 ---
 *State initialized: 2026-01-27*
