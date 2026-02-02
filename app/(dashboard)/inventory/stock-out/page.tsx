@@ -433,8 +433,8 @@ export default function StockOutPage() {
 
       // Redirect back to QMHQ or warehouse list
       if (qmhqId) {
-        // Add timestamp to force QMHQ page to refetch data
-        router.push(`/qmhq/${qmhqId}?updated=${Date.now()}`);
+        // Use window.location for hard reload to ensure fresh data
+        window.location.href = `/qmhq/${qmhqId}`;
       } else {
         router.push("/warehouse");
       }
