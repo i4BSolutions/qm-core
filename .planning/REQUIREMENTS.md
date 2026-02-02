@@ -15,7 +15,7 @@ Requirements for UX & Bug Fixes milestone.
 ### Number Input Behavior
 
 - [ ] **NINP-01**: Number input fields preserve typed value on blur (no auto-formatting during edit)
-- [ ] **NINP-02**: Number inputs accept empty string, display placeholder when empty
+- [ ] **NINP-02**: Number inputs accept empty string, show blank when empty (not "0")
 - [ ] **NINP-03**: Amount fields format to 2 decimal places only on submit
 - [ ] **NINP-04**: Exchange rate fields format to 4 decimal places only on submit
 

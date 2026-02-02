@@ -112,7 +112,7 @@ Plans:
 **Requirements**: NINP-01, NINP-02, NINP-03, NINP-04, CURR-01, CURR-02, CURR-03
 **Success Criteria** (what must be TRUE):
   1. Typing a number and clicking away preserves the exact typed value (no auto-formatting on blur)
-  2. Empty number inputs show placeholder text (not "0" or "0.00")
+  2. Empty number inputs show blank (not "0" or "0.00")
   3. Amount fields format to 2 decimal places only when form is submitted
   4. Exchange rate fields format to 4 decimal places only when form is submitted
   5. Financial amounts display original currency value (USD, THB, etc.) not converted to MMK
