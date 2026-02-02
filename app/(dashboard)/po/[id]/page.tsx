@@ -31,6 +31,7 @@ import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { canCreateInvoice } from "@/lib/utils/po-status";
 import { calculatePOProgress, canEditPO, canCancelPO } from "@/lib/utils/po-status";
 import { HistoryTab } from "@/components/history";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 import type {
   PurchaseOrder,
   POLineItem,
@@ -62,6 +63,7 @@ interface InvoiceForPO extends Invoice {
 export default function PODetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { can, isQuartermaster } = usePermissions();
   const poId = params.id as string;
 
   const [po, setPO] = useState<POWithRelations | null>(null);
@@ -211,7 +213,9 @@ export default function PODetailPage() {
     );
   }
 
-  const showEditButton = canEditPO(po.status as POStatusEnum);
+  // Per user decision: Quartermaster cannot edit PO even though permission matrix grants CRUD
+  // Only Finance, Proposal, and Admin can edit PO
+  const showEditButton = can("update", "purchase_orders") && !isQuartermaster && canEditPO(po.status as POStatusEnum);
   const showCancelButton = canCancelPO(po.status as POStatusEnum);
 
   return (
@@ -277,8 +281,8 @@ export default function PODetailPage() {
           {showEditButton && (
             <Link href={`/po/${poId}/edit`}>
               <Button variant="outline" className="border-slate-700 hover:bg-slate-800 text-slate-300">
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
+                <Edit className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Edit</span>
               </Button>
             </Link>
           )}
