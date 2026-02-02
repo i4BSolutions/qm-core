@@ -11,7 +11,6 @@ import {
   CalendarDays,
   DollarSign,
   AlertTriangle,
-  Edit,
   Ban,
   Clock,
   Package,
@@ -33,7 +32,6 @@ import { formatCurrency } from "@/lib/utils";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import {
   canVoidInvoice,
-  canEditInvoice,
   formatExchangeRate,
 } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -282,10 +280,6 @@ export default function InvoiceDetailPage() {
     invoice.status as InvoiceStatus,
     invoice.is_voided ?? false
   );
-  const showEditButton = canEditInvoice(
-    invoice.status as InvoiceStatus,
-    invoice.is_voided ?? false
-  );
 
   return (
     <div className="space-y-6 relative">
@@ -368,17 +362,6 @@ export default function InvoiceDetailPage() {
               <Ban className="mr-2 h-4 w-4" />
               Void Invoice
             </Button>
-          )}
-          {showEditButton && (
-            <Link href={`/invoice/${invoiceId}/edit`}>
-              <Button
-                variant="outline"
-                className="border-slate-700 hover:bg-slate-800 text-slate-300"
-              >
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </Button>
-            </Link>
           )}
         </div>
       </div>
