@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -104,9 +104,13 @@ const routeConfig: Record<string, { icon: typeof Package; label: string; color: 
 export default function QMHQDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { can } = usePermissions();
   const qmhqId = params.id as string;
+
+  // Track updated param to trigger refetch after stock-out
+  const updatedParam = searchParams.get("updated");
 
   // Per-file delete permission check matching RLS policy
   const canDeleteFile = useCallback((file: FileAttachmentWithUploader) => {
@@ -293,7 +297,7 @@ export default function QMHQDetailPage() {
     if (qmhqId) {
       fetchData();
     }
-  }, [qmhqId, fetchData]);
+  }, [qmhqId, fetchData, updatedParam]);
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return "—";
