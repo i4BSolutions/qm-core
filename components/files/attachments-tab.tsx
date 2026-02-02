@@ -76,7 +76,12 @@ interface AttachmentsTabProps {
   entityType: 'qmrl' | 'qmhq';
   entityId: string;
   entityDisplayId: string; // Display ID for ZIP naming (e.g., "QMRL-2025-00001")
+  /** @deprecated Use canDeleteFile for per-file permission checks */
   canEdit?: boolean;
+  /** Per-file permission check - returns true if user can delete specific file */
+  canDeleteFile?: (file: FileAttachmentWithUploader) => boolean;
+  /** Whether user can upload new files (default: true) */
+  canUpload?: boolean;
   onFileCountChange?: (count: number) => void;
 }
 
@@ -110,7 +115,9 @@ export function AttachmentsTab({
   entityType,
   entityId,
   entityDisplayId,
-  canEdit = true,
+  canEdit,
+  canDeleteFile,
+  canUpload = true,
   onFileCountChange,
 }: AttachmentsTabProps) {
   // State
@@ -463,7 +470,7 @@ export function AttachmentsTab({
               key={file.id}
               file={file}
               thumbnailUrl={thumbnailUrls.get(file.id)}
-              canDelete={canEdit}
+              canDelete={canDeleteFile ? canDeleteFile(file) : (canEdit ?? false)}
               onDelete={() => handleDeleteClick(file)}
               onPreview={() => handlePreviewOpen(file)}
             />
@@ -471,8 +478,8 @@ export function AttachmentsTab({
         </FileGrid>
       )}
 
-      {/* Drop Zone (only if canEdit) */}
-      {canEdit && (
+      {/* Drop Zone (only if canUpload) */}
+      {canUpload && (
         <FileDropzone
           onFilesAccepted={handleFilesAccepted}
           disabled={progress.isUploading}
