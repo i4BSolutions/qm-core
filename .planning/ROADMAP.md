@@ -118,9 +118,17 @@ Plans:
   5. Financial amounts display original currency value (USD, THB, etc.) not converted to MMK
   6. EUSD equivalent appears alongside original currency in all financial displays
   7. Currency formatting is consistent across QMRL, QMHQ, PO, Invoice, and Inventory views
-**Plans**: TBD
+**Plans**: 7 plans
+Plans:
+- [ ] 14-01-PLAN.md - Create number input utilities (keydown handlers, validators)
+- [ ] 14-02-PLAN.md - Create CurrencyDisplay component for two-line format
+- [ ] 14-03-PLAN.md - Update inventory and QMHQ forms with number input handlers
+- [ ] 14-04-PLAN.md - Update PO and Invoice forms with number input handlers
+- [ ] 14-05-PLAN.md - Update card components and list pages with CurrencyDisplay
+- [ ] 14-06-PLAN.md - Update QMHQ, PO, Invoice detail pages with CurrencyDisplay
+- [ ] 14-07-PLAN.md - Update warehouse, item, QMRL detail pages with CurrencyDisplay
 
-**Notes**: Uses existing formatCurrency/formatAmount utilities. Pattern change: string state + blur formatting instead of immediate parseFloat.
+**Notes**: Wave 1 (parallel): Plans 01, 02. Wave 2 (parallel): Plans 03, 04, 05. Wave 3 (parallel): Plans 06, 07.
 
 #### Phase 15: Edit Capability
 **Goal**: Users can edit entities directly from their detail pages
@@ -169,6 +177,6 @@ Phases execute in numeric order: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13 -> 1
 | 11. Warehouse Detail Enhancement | v1.2 | 1/1 | Complete | 2026-01-30 |
 | 12. Invoice Void Cascade | v1.2 | 1/1 | Complete | 2026-01-31 |
 | 13. Verification & Quick Fixes | v1.3 | 2/2 | Complete | 2026-02-02 |
-| 14. Currency & Number Input Standardization | v1.3 | 0/? | Pending | - |
+| 14. Currency & Number Input Standardization | v1.3 | 0/7 | Pending | - |
 | 15. Edit Capability | v1.3 | 0/? | Pending | - |
 | 16. Audit Notes Feature | v1.3 | 0/? | Pending | - |
