@@ -9,14 +9,45 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 13 — Verification & Quick Fixes
 Plan: —
-Status: Defining requirements
-Last activity: 2026-02-02 — Milestone v1.3 started
+Status: Ready for planning
+Last activity: 2026-02-02 — Roadmap v1.3 created (Phases 13-16)
 
 Progress: [░░░░░░░░░░░░░░░░░░░░░] 0%
 
+## Milestone Overview: v1.3
+
+**Phases:** 4 (Phases 13-16)
+**Requirements:** 18 total
+
+| Phase | Goal | Requirements | Status |
+|-------|------|--------------|--------|
+| 13 | Verify & fix attachment deletion + QMHQ fulfillment | 5 | Pending |
+| 14 | Standardize number inputs + currency display | 7 | Pending |
+| 15 | Add Edit buttons to detail pages | 4 | Pending |
+| 16 | Capture status change notes in audit history | 2 | Pending |
+
+**Research Notes:**
+- RLS policy for attachment delete already exists (migration 036)
+- QMHQ stock-out tab already exists (lines 712-837)
+- Phase 13 is primarily verification with gap fixes
+- Phase 16 requires careful trigger deduplication
+
 ## Milestone History
+
+### v1.2 Inventory & Financial Accuracy (Shipped 2026-01-31)
+
+**Velocity:**
+- Total plans: 14
+- Phases: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12
+
+**Key Patterns Established:**
+- EUSD-only display pattern (dropped MMK columns)
+- Cascade audit logging with changes_summary
+- Server action for pre-void state capture
+- RPC functions for aggregation
+- URL search params for filter state
 
 ### v1.1 Enhancement (Shipped 2026-01-28)
 
@@ -102,10 +133,10 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Starting v1.3 milestone
-Resume: Define requirements and create roadmap for v1.3 UX & Bug Fixes
-Note: v1.2 shipped. Starting v1.3 focused on bug fixes and UX polish.
+Stopped at: Roadmap v1.3 created
+Resume: Plan Phase 13 — Verification & Quick Fixes
+Note: v1.3 focuses on bug fixes and UX polish. Phase 13 starts with verification of already-deployed features.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-02 — Milestone v1.3 started*
+*Last updated: 2026-02-02 — Roadmap v1.3 created (Phases 13-16)*

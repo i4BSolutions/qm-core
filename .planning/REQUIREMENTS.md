@@ -3,7 +3,49 @@
 **Defined:** 2026-01-28
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-## v1.2 Requirements
+## v1.3 Requirements
+
+Requirements for UX & Bug Fixes milestone.
+
+### Attachment Management
+
+- [ ] **ATCH-01**: Users can delete their own file attachments from QMRL/QMHQ detail pages
+- [ ] **ATCH-02**: Admin and Quartermaster can delete any file attachment
+
+### Number Input Behavior
+
+- [ ] **NINP-01**: Number input fields preserve typed value on blur (no auto-formatting during edit)
+- [ ] **NINP-02**: Number inputs accept empty string, display placeholder when empty
+- [ ] **NINP-03**: Amount fields format to 2 decimal places only on submit
+- [ ] **NINP-04**: Exchange rate fields format to 4 decimal places only on submit
+
+### Currency Display
+
+- [ ] **CURR-01**: Financial amounts display original currency value
+- [ ] **CURR-02**: EUSD equivalent shown alongside original currency (not MMK)
+- [ ] **CURR-03**: Consistent currency formatting across all entity views (QMRL, QMHQ, PO, Invoice, Inventory)
+
+### Status History
+
+- [ ] **HIST-01**: Status change notes appear in History tab with the status change entry
+- [ ] **HIST-02**: Audit log captures user-entered reason/notes for status changes
+
+### QMHQ Item Route Fulfillment
+
+- [ ] **FULF-01**: QMHQ item route stock-out only available from QMHQ detail page (not general stock-out)
+- [ ] **FULF-02**: Stock-out enforces maximum quantity (cannot exceed requested qty minus already fulfilled)
+- [ ] **FULF-03**: QMHQ detail shows fulfillment progress (fulfilled qty vs requested qty)
+
+### Edit Capability
+
+- [ ] **EDIT-01**: QMRL detail page has Edit button routing to edit form
+- [ ] **EDIT-02**: QMHQ detail page has Edit button routing to edit form
+- [ ] **EDIT-03**: PO detail page has Edit button routing to edit form (if not closed)
+- [ ] **EDIT-04**: Invoice detail page shows view-only (no edit, void instead)
+
+---
+
+## v1.2 Requirements (Complete)
 
 Requirements for Inventory & Financial Accuracy milestone.
 
@@ -36,10 +78,10 @@ Requirements for Inventory & Financial Accuracy milestone.
 
 ### Invoice Void Cascade
 
-- [ ] **VOID-01**: When invoice is voided, PO status is automatically recalculated
-- [ ] **VOID-02**: When invoice is voided, Balance in Hand is automatically updated
-- [ ] **VOID-03**: When invoice is voided, invoiced quantities are recalculated
-- [ ] **VOID-04**: When invoice is voided, all cascade effects are logged to audit trail
+- [x] **VOID-01**: When invoice is voided, PO status is automatically recalculated
+- [x] **VOID-02**: When invoice is voided, Balance in Hand is automatically updated
+- [x] **VOID-03**: When invoice is voided, invoiced quantities are recalculated
+- [x] **VOID-04**: When invoice is voided, all cascade effects are logged to audit trail
 
 ## Future Requirements
 
@@ -101,24 +143,50 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STCK-02 | Phase 9 | Complete |
 | STCK-03 | Phase 9 | Complete |
 | STCK-04 | Phase 9 | Complete |
-| VOID-01 | Phase 12 | Pending |
-| VOID-02 | Phase 12 | Pending |
-| VOID-03 | Phase 12 | Pending |
-| VOID-04 | Phase 12 | Pending |
+| VOID-01 | Phase 12 | Complete |
+| VOID-02 | Phase 12 | Complete |
+| VOID-03 | Phase 12 | Complete |
+| VOID-04 | Phase 12 | Complete |
 
-**Coverage:**
+### v1.3 Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| ATCH-01 | Phase 13 | Pending |
+| ATCH-02 | Phase 13 | Pending |
+| NINP-01 | Phase 14 | Pending |
+| NINP-02 | Phase 14 | Pending |
+| NINP-03 | Phase 14 | Pending |
+| NINP-04 | Phase 14 | Pending |
+| CURR-01 | Phase 14 | Pending |
+| CURR-02 | Phase 14 | Pending |
+| CURR-03 | Phase 14 | Pending |
+| HIST-01 | Phase 16 | Pending |
+| HIST-02 | Phase 16 | Pending |
+| FULF-01 | Phase 13 | Pending |
+| FULF-02 | Phase 13 | Pending |
+| FULF-03 | Phase 13 | Pending |
+| EDIT-01 | Phase 15 | Pending |
+| EDIT-02 | Phase 15 | Pending |
+| EDIT-03 | Phase 15 | Pending |
+| EDIT-04 | Phase 15 | Pending |
+
+**v1.2 Coverage:**
 - v1.2 requirements: 19 total
 - Mapped to phases: 19
+- Complete: 19
+
+**v1.3 Coverage:**
+- v1.3 requirements: 18 total
+- Mapped to phases: 18
 - Unmapped: 0
 
-**Phase Distribution:**
-- Phase 7 (UX Polish): 3 requirements
-- Phase 8 (Database Foundation): 0 direct requirements (enables STCK-04, VOID-01-04)
-- Phase 9 (Manual Stock-In Enhancement): 4 requirements
-- Phase 10 (Inventory Dashboard): 6 requirements
-- Phase 11 (Warehouse Detail Enhancement): 2 requirements
-- Phase 12 (Invoice Void Cascade): 4 requirements
+**v1.3 Phase Distribution:**
+- Phase 13 (Verification & Fixes): 5 requirements (ATCH-01, ATCH-02, FULF-01, FULF-02, FULF-03)
+- Phase 14 (Currency & Number Input Standardization): 7 requirements (NINP-01-04, CURR-01-03)
+- Phase 15 (Edit Capability): 4 requirements (EDIT-01-04)
+- Phase 16 (Audit Notes Feature): 2 requirements (HIST-01, HIST-02)
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-01-30 — Phase 11 requirements WHSE-01, WHSE-02 complete*
+*Last updated: 2026-02-02 — v1.3 requirements added*

@@ -4,7 +4,8 @@
 
 - **v1.0 MVP** - Foundation (shipped pre-existing)
 - **v1.1 Enhancement** - Phases 1-6 (shipped 2026-01-28)
-- **v1.2 Inventory & Financial Accuracy** - Phases 7-12 (current)
+- **v1.2 Inventory & Financial Accuracy** - Phases 7-12 (shipped 2026-01-31)
+- **v1.3 UX & Bug Fixes** - Phases 13-16 (current)
 
 ## Phases
 
@@ -37,118 +38,117 @@
 
 </details>
 
-### v1.2 Inventory & Financial Accuracy (Current)
+<details>
+<summary>v1.2 Inventory & Financial Accuracy (Phases 7-12) - SHIPPED 2026-01-31</summary>
 
-**Milestone Goal:** Users can accurately track inventory values with WAC, view comprehensive inventory dashboards, and rely on automatic financial recalculations when invoices are voided.
-
-#### Phase 7: UX Polish
+### Phase 7: UX Polish
 **Goal**: Number inputs and date pickers work consistently across all transaction forms
 **Depends on**: Phase 6
 **Requirements**: UX-01, UX-02, UX-03
-**Success Criteria** (what must be TRUE):
-  1. Transaction date picker (money in/out) displays DD/MM/YYYY format matching system standard
-  2. Number input fields allow direct typing without default value interference
-  3. Number input fields reject negative values and zero where inappropriate
-**Plans**: 2 plans
+**Plans**: 2 plans (completed)
 
-Plans:
-- [x] 07-01-PLAN.md — Calendar dropdowns and transaction dialog fixes
-- [x] 07-02-PLAN.md — Propagate number input fixes to PO, Invoice, Stock forms
-
-#### Phase 7.1: Attachment & Item Route Fixes (INSERTED)
+### Phase 7.1: Attachment & Item Route Fixes (INSERTED)
 **Goal**: Fix attachment deletion and enhance QMHQ item route with multi-item stock-out capability
 **Depends on**: Phase 7
 **Requirements**: Urgent fixes discovered post-Phase 7
-**Success Criteria** (what must be TRUE):
-  1. Users can delete attachments from QMRL and QMHQ detail pages
-  2. Date picker calendar shows simple navigation without month/year dropdowns
-  3. QMHQ item route triggers stock-out when request is fulfilled
-  4. QMHQ item route form supports selecting multiple items (no unit price field)
-**Plans**: 3 plans
+**Plans**: 3 plans (completed)
 
-Plans:
-- [x] 07.1-01-PLAN.md — Fix attachment permissions and simplify date picker
-- [x] 07.1-02-PLAN.md — Database: auto stock-out trigger and multi-item schema
-- [x] 07.1-03-PLAN.md — Multi-item UI for QMHQ item route
-
-#### Phase 8: Database Foundation
+### Phase 8: Database Foundation
 **Goal**: Database layer supports currency-aware WAC calculation and invoice void cascades
 **Depends on**: Phase 7.1
 **Requirements**: Enables STCK-04, VOID-01, VOID-02, VOID-03, VOID-04
-**Success Criteria** (what must be TRUE):
-  1. Manual stock-in with currency/exchange rate correctly updates item WAC
-  2. Voiding an invoice automatically recalculates PO status
-  3. Voiding an invoice automatically updates Balance in Hand
-  4. Voiding an invoice automatically updates invoiced quantities
-  5. All void cascade effects are logged to audit trail
-**Plans**: 2 plans
+**Plans**: 2 plans (completed)
 
-Plans:
-- [x] 08-01-PLAN.md — Currency validation constraints and SECURITY DEFINER hardening
-- [x] 08-02-PLAN.md — Invoice void cascade audit logging
-
-#### Phase 9: Manual Stock-In Enhancement
+### Phase 9: Manual Stock-In Enhancement
 **Goal**: Users can perform manual stock-in with currency selection and see EUSD calculations
 **Depends on**: Phase 8
 **Requirements**: STCK-01, STCK-02, STCK-03, STCK-04
-**Success Criteria** (what must be TRUE):
-  1. User can select currency (MMK, USD, other) for manual stock-in
-  2. User can enter exchange rate with 4 decimal precision
-  3. User sees real-time EUSD equivalent as they type amounts
-  4. Manual stock-in unit cost factors into item WAC alongside invoice-based stock-in
-**Plans**: 1 plan
+**Plans**: 1 plan (completed)
 
-Plans:
-- [x] 09-01-PLAN.md — Add currency selection, exchange rate, and EUSD calculation to manual stock-in
-
-#### Phase 10: Inventory Dashboard
+### Phase 10: Inventory Dashboard
 **Goal**: Users can view comprehensive stock transaction history with KPIs and filters
 **Depends on**: Phase 9
 **Requirements**: INVD-01, INVD-02, INVD-03, INVD-04, INVD-05, INVD-06
-**Success Criteria** (what must be TRUE):
-  1. User can view paginated list of all stock in/out transactions
-  2. User sees transaction count KPIs (total in, total out by period)
-  3. User sees transaction value KPIs (total MMK and EUSD)
-  4. User can filter transactions by date range
-  5. User can filter transactions by warehouse
-  6. User can toggle view between "All", "Stock In", and "Stock Out" groupings
-**Plans**: 2 plans
+**Plans**: 2 plans (completed)
 
-Plans:
-- [x] 10-01-PLAN.md — Database RPC + dashboard page with KPIs, tabs, and transaction table
-- [x] 10-02-PLAN.md — Filter system with popover, chips, and URL persistence
-
-#### Phase 11: Warehouse Detail Enhancement
+### Phase 11: Warehouse Detail Enhancement
 **Goal**: Warehouse detail page displays per-item WAC with EUSD values
 **Depends on**: Phase 10
 **Requirements**: WHSE-01, WHSE-02
-**Success Criteria** (what must be TRUE):
-  1. Warehouse inventory tab shows per-item WAC (stock qty, WAC amount, total value)
-  2. Warehouse inventory tab shows EUSD value per item
-  3. User can see total warehouse value in EUSD
-**Plans**: 1 plan
+**Plans**: 1 plan (completed)
 
-Plans:
-- [x] 11-01-PLAN.md — Enhance inventory table with EUSD-only WAC display, zero-stock visibility, and low stock warnings
-
-#### Phase 12: Invoice Void Cascade
+### Phase 12: Invoice Void Cascade
 **Goal**: Voiding invoices triggers immediate UI feedback showing cascade effects
 **Depends on**: Phase 11
 **Requirements**: VOID-01, VOID-02, VOID-03, VOID-04
-**Success Criteria** (what must be TRUE):
-  1. When user voids invoice, PO status badge updates immediately
-  2. When user voids invoice, Balance in Hand reflects updated available budget (Note: unchanged by design)
-  3. When user voids invoice, PO line item "invoiced" quantities decrease correctly
-  4. User can review audit trail showing all cascade effects (PO status change, quantity changes)
-**Plans**: 1 plan
+**Plans**: 1 plan (completed)
 
-Plans:
-- [x] 12-01-PLAN.md — Server action with cascade feedback, toast notifications, and enhanced audit display
+</details>
+
+### v1.3 UX & Bug Fixes (Current)
+
+**Milestone Goal:** Users experience consistent input behavior, standardized currency display, and can edit entities from detail pages while status change notes are properly captured in audit history.
+
+#### Phase 13: Verification & Quick Fixes
+**Goal**: Verify already-deployed features work correctly and fix any gaps in attachment deletion and QMHQ fulfillment
+**Depends on**: Phase 12
+**Requirements**: ATCH-01, ATCH-02, FULF-01, FULF-02, FULF-03
+**Success Criteria** (what must be TRUE):
+  1. User who uploaded an attachment can delete it from QMRL/QMHQ detail page
+  2. Admin and Quartermaster can delete any attachment regardless of uploader
+  3. QMHQ item route stock-out is only accessible from QMHQ detail page (not general stock-out form)
+  4. Stock-out quantity cannot exceed remaining unfulfilled quantity (requested minus already issued)
+  5. QMHQ detail page shows fulfillment progress indicator (e.g., "5/10 fulfilled")
+**Plans**: TBD
+
+**Notes**: Research indicates RLS policy (migration 036) and stock-out tab (QMHQ detail lines 712-837) already exist. This phase verifies functionality and addresses any gaps.
+
+#### Phase 14: Currency & Number Input Standardization
+**Goal**: Number inputs preserve user-typed values and currency displays show original value with EUSD equivalent
+**Depends on**: Phase 13
+**Requirements**: NINP-01, NINP-02, NINP-03, NINP-04, CURR-01, CURR-02, CURR-03
+**Success Criteria** (what must be TRUE):
+  1. Typing a number and clicking away preserves the exact typed value (no auto-formatting on blur)
+  2. Empty number inputs show placeholder text (not "0" or "0.00")
+  3. Amount fields format to 2 decimal places only when form is submitted
+  4. Exchange rate fields format to 4 decimal places only when form is submitted
+  5. Financial amounts display original currency value (USD, THB, etc.) not converted to MMK
+  6. EUSD equivalent appears alongside original currency in all financial displays
+  7. Currency formatting is consistent across QMRL, QMHQ, PO, Invoice, and Inventory views
+**Plans**: TBD
+
+**Notes**: Uses existing formatCurrency/formatAmount utilities. Pattern change: string state + blur formatting instead of immediate parseFloat.
+
+#### Phase 15: Edit Capability
+**Goal**: Users can edit entities directly from their detail pages
+**Depends on**: Phase 14
+**Requirements**: EDIT-01, EDIT-02, EDIT-03, EDIT-04
+**Success Criteria** (what must be TRUE):
+  1. QMRL detail page has Edit button that routes to the edit form
+  2. QMHQ detail page has Edit button that routes to the edit form
+  3. PO detail page has Edit button that routes to the edit form (hidden when PO is closed)
+  4. Invoice detail page shows view-only with no Edit button (void functionality exists instead)
+**Plans**: TBD
+
+**Notes**: Edit forms already exist for all entities. This phase adds navigation buttons and respects entity state (closed PO, voided invoice).
+
+#### Phase 16: Audit Notes Feature
+**Goal**: Status change notes are captured in audit log and displayed in History tab
+**Depends on**: Phase 15
+**Requirements**: HIST-01, HIST-02
+**Success Criteria** (what must be TRUE):
+  1. When user changes status with a note, the note appears in the History tab entry
+  2. Audit log records include user-entered reason/notes for status changes
+  3. Status changes without notes still appear in History (notes field empty is acceptable)
+  4. No duplicate audit entries when status is changed (trigger deduplication works)
+**Plans**: TBD
+
+**Notes**: Requires UI to pass notes through status update flow. Trigger modification needed for deduplication. Test for race conditions with rapid status changes.
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12
+Phases execute in numeric order: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -165,3 +165,7 @@ Phases execute in numeric order: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12
 | 10. Inventory Dashboard | v1.2 | 2/2 | Complete | 2026-01-30 |
 | 11. Warehouse Detail Enhancement | v1.2 | 1/1 | Complete | 2026-01-30 |
 | 12. Invoice Void Cascade | v1.2 | 1/1 | Complete | 2026-01-31 |
+| 13. Verification & Quick Fixes | v1.3 | 0/? | Pending | - |
+| 14. Currency & Number Input Standardization | v1.3 | 0/? | Pending | - |
+| 15. Edit Capability | v1.3 | 0/? | Pending | - |
+| 16. Audit Notes Feature | v1.3 | 0/? | Pending | - |
