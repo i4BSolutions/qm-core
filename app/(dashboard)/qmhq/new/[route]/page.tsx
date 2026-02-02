@@ -29,7 +29,12 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/providers/auth-provider";
-import { formatCurrency } from "@/lib/utils";
+import {
+  formatCurrency,
+  handleQuantityKeyDown,
+  handleAmountKeyDown,
+  handleExchangeRateKeyDown,
+} from "@/lib/utils";
 import type { Item } from "@/types/database";
 
 // Route configuration
@@ -484,12 +489,11 @@ export default function QMHQRouteDetailsPage() {
                     <div className="col-span-6 sm:col-span-3 space-y-1">
                       <Label className="data-label text-xs">Quantity</Label>
                       <Input
-                        type="number"
-                        min="1"
-                        step="1"
+                        type="text"
+                        inputMode="numeric"
                         value={selectedItem.quantity}
                         onChange={(e) => handleUpdateItem(selectedItem.id, 'quantity', e.target.value)}
-                        placeholder="0"
+                        onKeyDown={handleQuantityKeyDown}
                         className="bg-slate-800/50 border-slate-700 focus:border-blue-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </div>
@@ -556,12 +560,11 @@ export default function QMHQRouteDetailsPage() {
                     </Label>
                     <Input
                       id="amount"
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      placeholder="0.00"
+                      onKeyDown={handleAmountKeyDown}
                       className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </div>
@@ -588,12 +591,11 @@ export default function QMHQRouteDetailsPage() {
                     </Label>
                     <Input
                       id="exchange_rate"
-                      type="number"
-                      min="0.0001"
-                      step="0.0001"
+                      type="text"
+                      inputMode="decimal"
                       value={exchangeRate}
                       onChange={(e) => setExchangeRate(e.target.value)}
-                      placeholder="1.0000"
+                      onKeyDown={handleExchangeRateKeyDown}
                       className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <p className="text-xs text-slate-400">Rate to convert to EUSD (1 EUSD = X {currency})</p>
@@ -654,12 +656,11 @@ export default function QMHQRouteDetailsPage() {
                     </Label>
                     <Input
                       id="amount"
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      placeholder="0.00"
+                      onKeyDown={handleAmountKeyDown}
                       className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </div>
@@ -686,12 +687,11 @@ export default function QMHQRouteDetailsPage() {
                     </Label>
                     <Input
                       id="exchange_rate"
-                      type="number"
-                      min="0.0001"
-                      step="0.0001"
+                      type="text"
+                      inputMode="decimal"
                       value={exchangeRate}
                       onChange={(e) => setExchangeRate(e.target.value)}
-                      placeholder="1.0000"
+                      onKeyDown={handleExchangeRateKeyDown}
                       className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <p className="text-xs text-slate-400">Rate to convert to EUSD</p>
