@@ -22,7 +22,7 @@ interface StatusChangeDialogProps {
   newStatus: StatusConfig;
   entityType: "qmrl" | "qmhq";
   entityId: string;
-  onConfirm: () => Promise<void>;
+  onConfirm: (note: string) => Promise<void>;
 }
 
 export function StatusChangeDialog({
@@ -40,7 +40,7 @@ export function StatusChangeDialog({
   const handleConfirm = async () => {
     setIsConfirming(true);
     try {
-      await onConfirm();
+      await onConfirm(note);
       // Reset note after successful confirmation
       setNote("");
     } catch (error) {
@@ -100,14 +100,15 @@ export function StatusChangeDialog({
             </label>
             <Textarea
               id="note"
-              placeholder="Add note (optional)"
+              placeholder="Why are you changing the status?"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
+              maxLength={256}
               disabled={isConfirming}
             />
             <p className="text-xs text-slate-500">
-              Note: This note is informational only. Status changes are tracked automatically in the audit log.
+              {note.length}/256 characters • Notes are stored in the audit log
             </p>
           </div>
         </div>

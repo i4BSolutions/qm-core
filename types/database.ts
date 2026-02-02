@@ -1650,6 +1650,20 @@ export type Database = {
           severity: string
         }[]
       }
+      update_status_with_note: {
+        Args: {
+          p_entity_type: string
+          p_entity_id: string
+          p_new_status_id: string
+          p_note: string | null
+          p_user_id: string
+        }
+        Returns: {
+          success: boolean
+          message?: string
+          error?: string
+        }
+      }
     }
     Enums: {
       entity_type: "qmrl" | "qmhq" | "item"

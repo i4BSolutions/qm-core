@@ -80,26 +80,30 @@ export function ClickableStatusBadge({
     }
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (note: string) => {
     if (!selectedStatus || !user || isUpdating) return;
 
     setIsUpdating(true);
 
     try {
       const supabase = createClient();
-      const tableName = entityType === "qmrl" ? "qmrl" : "qmhq";
 
-      const { error } = await supabase
-        .from(tableName)
-        .update({
-          status_id: selectedStatus.id,
-          updated_at: new Date().toISOString(),
-          updated_by: user.id,
-        })
-        .eq("id", entityId);
+      // Use RPC function to update status with note
+      const { data, error } = await supabase.rpc('update_status_with_note', {
+        p_entity_type: entityType,
+        p_entity_id: entityId,
+        p_new_status_id: selectedStatus.id,
+        p_note: note || null,
+        p_user_id: user.id
+      });
 
       if (error) {
         throw error;
+      }
+
+      // Check for application-level errors in response
+      if (data && !data.success) {
+        throw new Error(data.error || 'Failed to update status');
       }
 
       toast({
@@ -119,9 +123,11 @@ export function ClickableStatusBadge({
       console.error("Error updating status:", error);
       toast({
         title: "Error",
-        description: "Failed to update status. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to update status. Please try again.",
         variant: "destructive",
       });
+      // Don't close dialog on error - keep note preserved
+      throw error;
     } finally {
       setIsUpdating(false);
     }
