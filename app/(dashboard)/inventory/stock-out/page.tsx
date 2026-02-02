@@ -434,6 +434,7 @@ export default function StockOutPage() {
       // Redirect back to QMHQ or warehouse list
       if (qmhqId) {
         router.push(`/qmhq/${qmhqId}`);
+        router.refresh(); // Force refetch to update progress bar
       } else {
         router.push("/warehouse");
       }
