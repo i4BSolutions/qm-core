@@ -139,9 +139,9 @@ Plans:
   2. QMHQ detail page has Edit button that routes to the edit form
   3. PO detail page has Edit button that routes to the edit form (hidden when PO is closed)
   4. Invoice detail page shows view-only with no Edit button (void functionality exists instead)
-**Plans**: 1 plan
+**Plans**: 1 plan (completed)
 Plans:
-- [ ] 15-01-PLAN.md - Add permission-gated Edit buttons to detail pages
+- [x] 15-01-PLAN.md - Add permission-gated Edit buttons to detail pages
 
 **Notes**: Edit forms already exist for all entities. This phase adds permission checks to existing buttons and removes Edit from Invoice (void exists instead).
 
@@ -180,5 +180,5 @@ Phases execute in numeric order: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13 -> 1
 | 12. Invoice Void Cascade | v1.2 | 1/1 | Complete | 2026-01-31 |
 | 13. Verification & Quick Fixes | v1.3 | 2/2 | Complete | 2026-02-02 |
 | 14. Currency & Number Input Standardization | v1.3 | 7/7 | Complete | 2026-02-02 |
-| 15. Edit Capability | v1.3 | 0/1 | Pending | - |
+| 15. Edit Capability | v1.3 | 1/1 | Complete | 2026-02-02 |
 | 16. Audit Notes Feature | v1.3 | 0/? | Pending | - |

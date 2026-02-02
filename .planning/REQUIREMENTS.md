@@ -14,16 +14,16 @@ Requirements for UX & Bug Fixes milestone.
 
 ### Number Input Behavior
 
-- [ ] **NINP-01**: Number input fields preserve typed value on blur (no auto-formatting during edit)
-- [ ] **NINP-02**: Number inputs accept empty string, show blank when empty (not "0")
-- [ ] **NINP-03**: Amount fields format to 2 decimal places only on submit
-- [ ] **NINP-04**: Exchange rate fields format to 4 decimal places only on submit
+- [x] **NINP-01**: Number input fields preserve typed value on blur (no auto-formatting during edit)
+- [x] **NINP-02**: Number inputs accept empty string, show blank when empty (not "0")
+- [x] **NINP-03**: Amount fields format to 2 decimal places only on submit
+- [x] **NINP-04**: Exchange rate fields format to 4 decimal places only on submit
 
 ### Currency Display
 
-- [ ] **CURR-01**: Financial amounts display original currency value
-- [ ] **CURR-02**: EUSD equivalent shown alongside original currency (not MMK)
-- [ ] **CURR-03**: Consistent currency formatting across all entity views (QMRL, QMHQ, PO, Invoice, Inventory)
+- [x] **CURR-01**: Financial amounts display original currency value
+- [x] **CURR-02**: EUSD equivalent shown alongside original currency (not MMK)
+- [x] **CURR-03**: Consistent currency formatting across all entity views (QMRL, QMHQ, PO, Invoice, Inventory)
 
 ### Status History
 
@@ -38,10 +38,10 @@ Requirements for UX & Bug Fixes milestone.
 
 ### Edit Capability
 
-- [ ] **EDIT-01**: QMRL detail page has Edit button routing to edit form
-- [ ] **EDIT-02**: QMHQ detail page has Edit button routing to edit form
-- [ ] **EDIT-03**: PO detail page has Edit button routing to edit form (if not closed)
-- [ ] **EDIT-04**: Invoice detail page shows view-only (no edit, void instead)
+- [x] **EDIT-01**: QMRL detail page has Edit button routing to edit form
+- [x] **EDIT-02**: QMHQ detail page has Edit button routing to edit form
+- [x] **EDIT-03**: PO detail page has Edit button routing to edit form (if not closed)
+- [x] **EDIT-04**: Invoice detail page shows view-only (no edit, void instead)
 
 ---
 
@@ -154,22 +154,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | ATCH-01 | Phase 13 | Complete |
 | ATCH-02 | Phase 13 | Complete |
-| NINP-01 | Phase 14 | Pending |
-| NINP-02 | Phase 14 | Pending |
-| NINP-03 | Phase 14 | Pending |
-| NINP-04 | Phase 14 | Pending |
-| CURR-01 | Phase 14 | Pending |
-| CURR-02 | Phase 14 | Pending |
-| CURR-03 | Phase 14 | Pending |
+| NINP-01 | Phase 14 | Complete |
+| NINP-02 | Phase 14 | Complete |
+| NINP-03 | Phase 14 | Complete |
+| NINP-04 | Phase 14 | Complete |
+| CURR-01 | Phase 14 | Complete |
+| CURR-02 | Phase 14 | Complete |
+| CURR-03 | Phase 14 | Complete |
 | HIST-01 | Phase 16 | Pending |
 | HIST-02 | Phase 16 | Pending |
 | FULF-01 | Phase 13 | Complete |
 | FULF-02 | Phase 13 | Complete |
 | FULF-03 | Phase 13 | Complete |
-| EDIT-01 | Phase 15 | Pending |
-| EDIT-02 | Phase 15 | Pending |
-| EDIT-03 | Phase 15 | Pending |
-| EDIT-04 | Phase 15 | Pending |
+| EDIT-01 | Phase 15 | Complete |
+| EDIT-02 | Phase 15 | Complete |
+| EDIT-03 | Phase 15 | Complete |
+| EDIT-04 | Phase 15 | Complete |
 
 **v1.2 Coverage:**
 - v1.2 requirements: 19 total
@@ -189,4 +189,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-02-02 — Phase 13 requirements complete*
+*Last updated: 2026-02-02 — Phase 15 requirements complete*
