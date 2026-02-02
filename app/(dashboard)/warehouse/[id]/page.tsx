@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import { formatCurrency } from "@/lib/utils";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import {
   MOVEMENT_TYPE_CONFIG,
   STOCK_OUT_REASON_CONFIG,
@@ -275,21 +276,25 @@ export default function WarehouseDetailPage() {
     {
       accessorKey: "wac_amount_eusd",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="WAC (EUSD)" />
+        <DataTableColumnHeader column={column} title="WAC" />
       ),
       cell: ({ row }) => {
-        const wac = row.getValue("wac_amount_eusd") as number | null;
-        const isZeroStock = row.original.current_stock <= 0;
+        const { wac_amount, wac_currency, wac_amount_eusd, current_stock } = row.original;
+        const isZeroStock = current_stock <= 0;
 
-        if (wac === null || wac === undefined) {
+        if (wac_amount === null || wac_amount === undefined) {
           return <div className="text-right"><span className="text-slate-500">—</span></div>;
         }
 
         return (
-          <div className="text-right">
-            <span className={`font-mono ${isZeroStock ? "text-slate-500" : "text-slate-300"}`}>
-              {formatCurrency(wac)} EUSD
-            </span>
+          <div className={isZeroStock ? "opacity-50" : ""}>
+            <CurrencyDisplay
+              amount={wac_amount}
+              currency={wac_currency || "USD"}
+              amountEusd={wac_amount_eusd}
+              size="sm"
+              align="right"
+            />
           </div>
         );
       },
@@ -297,23 +302,25 @@ export default function WarehouseDetailPage() {
     {
       accessorKey: "total_value_eusd",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Total (EUSD)" />
+        <DataTableColumnHeader column={column} title="Total Value" />
       ),
       cell: ({ row }) => {
-        const total = row.getValue("total_value_eusd") as number;
-        const isZeroStock = row.original.current_stock <= 0;
+        const { total_value, total_value_eusd, wac_currency, current_stock } = row.original;
+        const isZeroStock = current_stock <= 0;
 
-        if (total === 0 || total === null) {
+        if (total_value === 0 || total_value === null) {
           return <div className="text-right"><span className="text-slate-500">—</span></div>;
         }
 
         return (
-          <div className="text-right">
-            <span className={`font-mono font-medium ${
-              isZeroStock ? "text-slate-500" : "text-emerald-400"
-            }`}>
-              {formatCurrency(total)} EUSD
-            </span>
+          <div className={isZeroStock ? "opacity-50" : ""}>
+            <CurrencyDisplay
+              amount={total_value}
+              currency={wac_currency || "USD"}
+              amountEusd={total_value_eusd}
+              size="sm"
+              align="right"
+            />
           </div>
         );
       },
