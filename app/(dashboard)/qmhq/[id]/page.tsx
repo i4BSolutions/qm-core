@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/utils";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { useAuth } from "@/components/providers/auth-provider";
 import { TransactionDialog } from "@/components/qmhq/transaction-dialog";
 import { TransactionViewModal } from "@/components/qmhq/transaction-view-modal";
@@ -691,34 +692,21 @@ export default function QMHQDetailPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Amount</p>
-                      <p className="text-lg font-mono text-slate-200">
-                        {formatCurrency(qmhq.amount ?? 0)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Currency</p>
-                      <p className="text-lg text-slate-200">{qmhq.currency || "MMK"}</p>
+                      <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">QMHQ Amount</p>
+                      <CurrencyDisplay
+                        amount={qmhq.amount}
+                        currency={qmhq.currency || "MMK"}
+                        amountEusd={qmhq.amount_eusd}
+                        size="lg"
+                      />
                     </div>
                     <div>
                       <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Exchange Rate</p>
                       <p className="text-lg font-mono text-slate-200">{qmhq.exchange_rate ?? 1}</p>
+                      <p className="text-xs text-slate-400 mt-1">1 EUSD = {qmhq.exchange_rate ?? 1} {qmhq.currency || "MMK"}</p>
                     </div>
-                  </div>
-
-                  <div className={`p-3 rounded-lg ${
-                    qmhq.route_type === "expense"
-                      ? "bg-emerald-500/10 border border-emerald-500/20"
-                      : "bg-purple-500/10 border border-purple-500/20"
-                  }`}>
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Amount in EUSD</p>
-                    <p className={`text-2xl font-mono font-bold ${
-                      qmhq.route_type === "expense" ? "text-emerald-400" : "text-purple-400"
-                    }`}>
-                      {formatCurrency(qmhq.amount_eusd ?? 0)} EUSD
-                    </p>
                   </div>
                 </div>
               </div>

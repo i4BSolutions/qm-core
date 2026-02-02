@@ -27,6 +27,7 @@ import { POProgressBar } from "@/components/po/po-progress-bar";
 import { ReadonlyLineItemsTable } from "@/components/po/po-line-items-table";
 import { InvoiceStatusBadge } from "@/components/invoice";
 import { formatCurrency } from "@/lib/utils";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { canCreateInvoice } from "@/lib/utils/po-status";
 import { calculatePOProgress, canEditPO, canCancelPO } from "@/lib/utils/po-status";
 import { HistoryTab } from "@/components/history";
@@ -286,23 +287,17 @@ export default function PODetailPage() {
 
       {/* Financial Summary Panel */}
       <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
-        <div className="grid grid-cols-4 gap-4">
-          {/* Total Amount */}
-          <div className="text-center p-4 rounded-lg bg-slate-800/30 border border-slate-700">
+        <div className="grid grid-cols-3 gap-4">
+          {/* Total Amount with EUSD */}
+          <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700">
             <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">PO Total</p>
-            <p className="text-xl font-mono font-bold text-slate-200">
-              {formatCurrency(po.total_amount ?? 0)}
-            </p>
-            <p className="text-xs text-slate-400 mt-1">{po.currency || "MMK"}</p>
-          </div>
-
-          {/* Total EUSD */}
-          <div className="text-center p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-            <p className="text-xs text-emerald-400 uppercase tracking-wider mb-2">Total (EUSD)</p>
-            <p className="text-xl font-mono font-bold text-emerald-400">
-              {formatCurrency(po.total_amount_eusd ?? 0)}
-            </p>
-            <p className="text-xs text-slate-400 mt-1">Exchange: {po.exchange_rate ?? 1}</p>
+            <CurrencyDisplay
+              amount={po.total_amount}
+              currency={po.currency || "MMK"}
+              amountEusd={po.total_amount_eusd}
+              size="lg"
+            />
+            <p className="text-xs text-slate-400 mt-2">Rate: {po.exchange_rate ?? 1}</p>
           </div>
 
           {/* Invoiced Progress */}
