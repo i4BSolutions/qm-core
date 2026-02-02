@@ -31,7 +31,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/utils";
+import {
+  formatCurrency,
+  handleQuantityKeyDown,
+  handleAmountKeyDown,
+  handleExchangeRateKeyDown,
+} from "@/lib/utils";
 import { MOVEMENT_TYPE_CONFIG } from "@/lib/utils/inventory";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
@@ -739,9 +744,8 @@ function StockInContent() {
                                     Qty
                                   </label>
                                   <Input
-                                    type="number"
-                                    min="1"
-                                    max={line.max_quantity}
+                                    type="text"
+                                    inputMode="numeric"
                                     value={line.quantity}
                                     onChange={(e) =>
                                       handleUpdateLineQuantity(
@@ -749,6 +753,7 @@ function StockInContent() {
                                         parseInt(e.target.value) || 0
                                       )
                                     }
+                                    onKeyDown={handleQuantityKeyDown}
                                     className={`w-20 text-right font-mono bg-slate-800 border-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                                       hasQtyError ? "border-red-500" : ""
                                     }`}
@@ -759,9 +764,8 @@ function StockInContent() {
                                     Unit Cost
                                   </label>
                                   <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
+                                    type="text"
+                                    inputMode="decimal"
                                     value={line.unit_cost}
                                     onChange={(e) =>
                                       handleUpdateLineUnitCost(
@@ -769,6 +773,7 @@ function StockInContent() {
                                         parseFloat(e.target.value) || 0
                                       )
                                     }
+                                    onKeyDown={handleAmountKeyDown}
                                     className="w-28 text-right font-mono bg-slate-800 border-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   />
                                 </div>
@@ -838,17 +843,11 @@ function StockInContent() {
                 Quantity *
               </label>
               <Input
-                type="number"
-                min="1"
-                step="1"
+                type="text"
+                inputMode="numeric"
                 value={manualQuantity}
                 onChange={(e) => setManualQuantity(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e" || e.key === "E") {
-                    e.preventDefault();
-                  }
-                }}
-                placeholder="1"
+                onKeyDown={handleQuantityKeyDown}
                 className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               {selectedManualItem?.default_unit && (
@@ -863,17 +862,11 @@ function StockInContent() {
                 Unit Cost * (for WAC calculation)
               </label>
               <Input
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={manualUnitCost}
                 onChange={(e) => setManualUnitCost(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e" || e.key === "E") {
-                    e.preventDefault();
-                  }
-                }}
-                placeholder="0.00"
+                onKeyDown={handleAmountKeyDown}
                 className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
@@ -904,13 +897,12 @@ function StockInContent() {
                 Exchange Rate *
               </label>
               <Input
-                type="number"
-                min="0.0001"
-                step="0.0001"
+                type="text"
+                inputMode="decimal"
                 value={exchangeRate}
                 onChange={(e) => setExchangeRate(e.target.value)}
+                onKeyDown={handleExchangeRateKeyDown}
                 disabled={currency === 'USD'}
-                placeholder="1.0000"
                 className={`bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${currency === 'USD' ? 'opacity-50 cursor-not-allowed' : ''}`}
               />
               <p className="text-xs text-slate-500 mt-1">
