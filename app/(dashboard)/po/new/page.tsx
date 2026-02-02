@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { POBalancePanel } from "@/components/po/po-balance-panel";
 import { EditableLineItemsTable } from "@/components/po/po-line-items-table";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, handleExchangeRateKeyDown } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import type { QMHQ, Supplier, Item, ContactPerson } from "@/types/database";
 
@@ -450,18 +450,13 @@ function POCreateContent() {
                 Exchange Rate (to EUSD)
               </label>
               <Input
-                type="number"
-                min="0.0001"
-                step="0.0001"
+                type="text"
+                inputMode="decimal"
                 value={exchangeRate}
                 onChange={(e) => setExchangeRate(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e" || e.key === "E") {
-                    e.preventDefault();
-                  }
-                }}
+                onKeyDown={handleExchangeRateKeyDown}
                 placeholder="1.0000"
-                className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="bg-slate-800/50 border-slate-700 font-mono"
               />
             </div>
           </div>

@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, handleQuantityKeyDown, handleAmountKeyDown } from "@/lib/utils";
 import { MiniProgressBar } from "./po-progress-bar";
 import { calculateLineItemProgress } from "@/lib/utils/po-status";
 import type { POLineItem, Item } from "@/types/database";
@@ -153,10 +153,9 @@ export function EditableLineItemsTable({
                       <Minus className="h-3 w-3" />
                     </Button>
                     <Input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={item.quantity}
+                      type="text"
+                      inputMode="numeric"
+                      value={item.quantity === 0 ? "" : item.quantity}
                       onChange={(e) =>
                         onUpdateItem(
                           item.id,
@@ -164,8 +163,9 @@ export function EditableLineItemsTable({
                           Math.max(1, Math.floor(parseInt(e.target.value) || 1))
                         )
                       }
+                      onKeyDown={handleQuantityKeyDown}
                       disabled={disabled}
-                      className="w-16 text-center font-mono bg-slate-800 border-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-16 text-center font-mono bg-slate-800 border-slate-700"
                     />
                     <Button
                       type="button"
@@ -187,10 +187,9 @@ export function EditableLineItemsTable({
                 </td>
                 <td className="py-2 px-3">
                   <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.unit_price}
+                    type="text"
+                    inputMode="decimal"
+                    value={item.unit_price === 0 ? "" : item.unit_price}
                     onChange={(e) =>
                       onUpdateItem(
                         item.id,
@@ -198,8 +197,9 @@ export function EditableLineItemsTable({
                         parseFloat(e.target.value) || 0
                       )
                     }
+                    onKeyDown={handleAmountKeyDown}
                     disabled={disabled}
-                    className="w-32 text-right font-mono bg-slate-800 border-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-32 text-right font-mono bg-slate-800 border-slate-700"
                   />
                 </td>
                 <td className="py-2 px-3 text-right">
