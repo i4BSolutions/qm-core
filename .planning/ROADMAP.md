@@ -154,9 +154,11 @@ Plans:
   2. Audit log records include user-entered reason/notes for status changes
   3. Status changes without notes still appear in History (notes field empty is acceptable)
   4. No duplicate audit entries when status is changed (trigger deduplication works)
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 16-01-PLAN.md - Create RPC for status updates with notes and wire UI
 
-**Notes**: Requires UI to pass notes through status update flow. Trigger modification needed for deduplication. Test for race conditions with rapid status changes.
+**Notes**: Infrastructure already exists: audit_logs.notes column, dialog has textarea, history-tab displays notes. This phase wires them together and adds trigger deduplication.
 
 ## Progress
 
@@ -181,4 +183,4 @@ Phases execute in numeric order: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13 -> 1
 | 13. Verification & Quick Fixes | v1.3 | 2/2 | Complete | 2026-02-02 |
 | 14. Currency & Number Input Standardization | v1.3 | 7/7 | Complete | 2026-02-02 |
 | 15. Edit Capability | v1.3 | 1/1 | Complete | 2026-02-02 |
-| 16. Audit Notes Feature | v1.3 | 0/? | Pending | - |
+| 16. Audit Notes Feature | v1.3 | 0/1 | Pending | - |
