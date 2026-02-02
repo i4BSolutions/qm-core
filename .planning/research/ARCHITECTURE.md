@@ -1,742 +1,1050 @@
-# Architecture Patterns for v1.2 Inventory Enhancements
+# Architecture Integration: v1.3 UX & Bug Fixes
 
-**Domain:** QM System Inventory Management (v1.2 milestone)
-**Researched:** 2026-01-28
-**Context:** Subsequent milestone enhancing existing Next.js 14 + Supabase architecture
+**Domain:** QM System - Subsequent Milestone (Bug Fixes & Polish)
+**Researched:** 2026-02-02
+**Context:** Fixing bugs and polishing UX in existing Next.js 14 + Supabase application
 
 ---
 
 ## Executive Summary
 
-v1.2 adds inventory dashboard, WAC display enhancements, and invoice void cascade recalculation to an existing architecture that already includes:
-- Database triggers for WAC calculation
-- RPC functions for dashboard aggregations
-- Server Actions with parallel fetching
-- Client-side state management in components
+v1.3 focuses on fixing five specific issues in the existing architecture without introducing new features. All fixes integrate with established patterns:
 
-**Key architectural decisions:**
-1. **Extend existing RPC pattern** for inventory analytics (proven pattern from management dashboard)
-2. **Add cascade triggers** for invoice void → PO status → WAC recalculation
-3. **Use client-side calculation** for warehouse detail KPIs (existing pattern)
-4. **Server Actions for mutations** with optimistic UI updates
+- **RLS policy fix** - Extends existing file_attachments RLS pattern
+- **Input component fixes** - Standardizes existing controlled input pattern
+- **Audit display fix** - Uses existing audit_logs table structure
+- **Currency standardization** - Consolidates existing formatCurrency() usage
+- **QMHQ stock-out detail page** - Adds UI using existing auto-stockout trigger
 
-**Integration complexity:** MEDIUM
-- Builds on proven patterns (dashboard RPC, WAC triggers)
-- New cascade logic requires careful trigger ordering
-- Manual stock-in needs WAC trigger enhancement (not replacement)
+**Key architectural principle:** Fix, don't refactor. Preserve existing patterns and add minimal changes.
+
+**Integration complexity:** LOW
+- All fixes work within existing architecture
+- No new database tables or major components
+- Minimal dependencies between fixes
+- Can be implemented in parallel
 
 ---
 
-## Integration Points with Existing Architecture
+## Existing Architecture Overview
 
-### 1. Database Layer Extensions
+### Current Stack (v1.2 Baseline)
 
-#### Existing Foundation
-```
-- WAC trigger: update_item_wac() (migration 024)
-- Dashboard RPCs: get_qmrl_status_counts(), get_qmhq_status_counts(), get_low_stock_alerts() (migration 033)
-- Audit triggers: create_audit_log() (migration 026)
-- Views: warehouse_inventory, item_stock_summary (migration 024)
-```
+**Database Layer:**
+- PostgreSQL 14+ via Supabase
+- RLS policies on all tables (migration 027, 036, 037)
+- Audit triggers on entity changes (migration 026)
+- Auto-stockout trigger for QMHQ item route (migration 034)
+- WAC calculation triggers (migration 024)
 
-#### New Additions (v1.2)
+**Backend Layer:**
+- Next.js 14 App Router with Server Components
+- Server Actions for mutations (lib/actions/*.ts)
+- Supabase server client for database access
+- TypeScript strict mode
+
+**Frontend Layer:**
+- React 18 with Server Components + Client Components
+- Controlled inputs with useState
+- UI components in components/ui/*.tsx
+- formatCurrency() utility for all currency display (lib/utils/index.ts)
+
+**File Storage:**
+- Supabase Storage bucket: qm-attachments
+- Polymorphic file_attachments table (entity_type + entity_id)
+- RLS policies: admin/quartermaster can upload/delete
+
+---
+
+## Integration Points by Fix
+
+### Fix 1: File Attachments RLS Policy Update
+
+#### Current Architecture
 ```sql
--- New RPC: get_inventory_dashboard_stats()
--- Purpose: Aggregate inventory metrics for dashboard
--- Returns: {
---   total_items, total_units, total_value_mmk, total_value_eusd,
---   warehouses: [{id, name, item_count, unit_count, value_mmk, value_eusd}],
---   top_items_by_value: [{item_id, name, sku, value_eusd, stock}],
---   movement_summary: {last_30_days: {in_count, out_count, in_value, out_value}}
--- }
+-- Migration 036: File attachments UPDATE policy
+-- Location: supabase/migrations/036_fix_file_attachments_rls.sql
 
--- New trigger: cascade_invoice_void_recalculation()
--- Purpose: Recalculate PO status, quantities, and WAC when invoice voided
--- Cascade sequence:
---   1. Mark invoice_line_items as voided (via invoice.is_voided)
---   2. Decrement po_line_items.invoiced_quantity
---   3. Recalculate PO status (not_started | partially_invoiced | etc.)
---   4. If inventory_in exists for voided invoice → cancel transactions
---   5. Recalculate item WAC (via existing update_item_wac logic)
-
--- Enhanced trigger: update_item_wac() modification
--- New: Handle manual stock-in with different currency
--- Change: Accept unit_cost in ANY currency, convert to item's WAC currency
--- Formula: WAC = (existing_value_in_wac_currency + new_value_converted) / total_qty
+CREATE POLICY file_attachments_update ON public.file_attachments
+  FOR UPDATE
+  USING (
+    public.get_user_role() IN ('admin', 'quartermaster')
+  )
+  WITH CHECK (
+    public.get_user_role() IN ('admin', 'quartermaster')
+  );
 ```
 
-#### Integration Strategy
-- **Extend, don't replace**: WAC trigger gets new currency conversion logic
-- **Reuse existing views**: `warehouse_inventory` already has WAC, just query it
-- **New RPC follows existing pattern**: Same SECURITY DEFINER + GRANT pattern as dashboard RPCs
+**Current behavior:** Admin and quartermaster can soft-delete (update deleted_at/deleted_by)
 
-### 2. Data Flow Patterns
+#### Integration Points
 
-#### Pattern A: Dashboard Aggregation (EXISTING + ENHANCED)
+**Component using file deletion:**
+- `components/files/attachments-tab.tsx` - Calls deleteFile() Server Action
+- `lib/actions/files.ts` - Server Action that performs UPDATE
 
-**Existing Pattern (Management Dashboard):**
-```typescript
-// lib/actions/dashboard.ts
-export async function getDashboardData() {
-  const supabase = await createClient();
+**Data flow:**
+```
+User clicks delete → AttachmentsTab (client)
+  ↓
+deleteFile(fileId) Server Action
+  ↓
+supabase.from('file_attachments').update({ deleted_at, deleted_by })
+  ↓
+RLS policy checks: USING (role check) + WITH CHECK (role check)
+  ↓
+If passes: Update succeeds
+If fails: "new row violates row-level security policy" error
+```
 
-  // Parallel RPC calls (no waterfall)
-  const qmrlStatsPromise = supabase.rpc('get_qmrl_status_counts');
-  const qmhqStatsPromise = supabase.rpc('get_qmhq_status_counts');
-  const lowStockPromise = supabase.rpc('get_low_stock_alerts', { threshold: 10 });
+**Current issue:** WITH CHECK clause missing in migration 036 caused failure
 
-  const [qmrlStats, qmhqStats, lowStock] = await Promise.all([...]);
+#### Fix Integration
 
-  return { qmrlStats, qmhqStats, lowStockAlerts };
+**Files to modify:**
+1. `supabase/migrations/036_fix_file_attachments_rls.sql` (ALREADY FIXED)
+   - Already has WITH CHECK clause
+   - No additional changes needed
+
+**Files unchanged:**
+- `lib/actions/files.ts` - No changes (Server Action works correctly)
+- `components/files/attachments-tab.tsx` - No changes (UI works correctly)
+
+**Migration strategy:**
+- Migration 036 already deployed (v1.2)
+- No new migration needed
+- This fix is **COMPLETE** in current codebase
+
+**Confidence:** HIGH - Fix already exists and verified
+
+---
+
+### Fix 2: Input Component Controlled Input Pattern
+
+#### Current Architecture
+
+**Base input component:**
+```tsx
+// components/ui/input.tsx
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, error, ...props }, ref) => {
+    return (
+      <input
+        type={type}
+        className={cn("flex h-10 w-full...", error && "border-red-500", className)}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+```
+
+**Controlled input pattern (used in forms):**
+```tsx
+// Common pattern in form components
+const [value, setValue] = useState("");
+
+<Input
+  value={value}
+  onChange={(e) => setValue(e.target.value)}
+/>
+```
+
+#### Integration Points
+
+**Forms using controlled inputs:**
+1. `app/(dashboard)/qmrl/new/page.tsx` - QMRL creation form
+2. `app/(dashboard)/qmhq/new/page.tsx` - QMHQ creation form
+3. `app/(dashboard)/po/new/page.tsx` - PO creation form
+4. `app/(dashboard)/invoice/new/page.tsx` - Invoice creation form
+5. `app/(dashboard)/inventory/stock-in/page.tsx` - Stock-in form
+6. `components/qmhq/transaction-dialog.tsx` - Transaction form
+
+**Current issue:** Some forms have `value={value || ""}` instead of consistent pattern
+
+#### Fix Integration
+
+**Pattern standardization:**
+
+**Before (inconsistent):**
+```tsx
+// Some forms do this:
+<Input value={title} onChange={(e) => setTitle(e.target.value)} />
+
+// Others do this:
+<Input value={title || ""} onChange={(e) => setTitle(e.target.value)} />
+
+// Problem: Inconsistent handling of null/undefined initial values
+// Result: React warning "uncontrolled to controlled" when value changes from null to string
+```
+
+**After (consistent):**
+```tsx
+// Always initialize state with empty string:
+const [title, setTitle] = useState("");  // NOT useState(null) or useState<string | null>(null)
+
+// Always use value directly:
+<Input value={title} onChange={(e) => setTitle(e.target.value)} />
+```
+
+**Files to modify:**
+1. Grep all form components for `useState<string>()` or `useState(null)`
+2. Change to `useState("")` for all string-based inputs
+3. Remove `|| ""` from Input value props
+
+**Search pattern:**
+```bash
+# Find problematic patterns:
+grep -r "useState<string | null>" app/(dashboard)
+grep -r "useState(null)" app/(dashboard) | grep -v "// useState(null) is intentional"
+grep -r "value={.*||.*\"\"}" app/(dashboard)
+```
+
+**Migration strategy:**
+1. Audit all form components (6 files identified above)
+2. Standardize useState initialization to empty string
+3. Remove defensive `|| ""` checks
+4. Test each form submission with empty and filled values
+
+**No database changes required**
+**No Server Action changes required**
+**No UI component changes required** (Input component already handles empty strings correctly)
+
+**Confidence:** HIGH - Pure client-side pattern fix, no side effects
+
+---
+
+### Fix 3: Status Change Notes vs Audit Display
+
+#### Current Architecture
+
+**Status change dialog:**
+```tsx
+// components/status/status-change-dialog.tsx
+export function StatusChangeDialog({
+  currentStatus,
+  newStatus,
+  onConfirm,
+  ...
+}: StatusChangeDialogProps) {
+  const [note, setNote] = useState("");  // Optional note field
+
+  const handleConfirm = async () => {
+    await onConfirm();  // Calls Server Action
+    setNote("");        // Resets note
+  };
+
+  // Dialog includes textarea for note
+  <Textarea
+    id="note"
+    placeholder="Add note (optional)"
+    value={note}
+    onChange={(e) => setNote(e.target.value)}
+  />
 }
 ```
 
-**New Pattern (Inventory Dashboard):**
-```typescript
-// lib/actions/inventory.ts (NEW FILE)
-export async function getInventoryDashboardData() {
-  const supabase = await createClient();
-
-  // NEW RPC for aggregated inventory stats
-  const inventoryStatsPromise = supabase.rpc('get_inventory_dashboard_stats');
-
-  // Existing queries for recent movements (parallel)
-  const recentMovementsPromise = supabase
-    .from('inventory_transactions')
-    .select('*, item:items(name, sku), warehouse:warehouses(name)')
-    .eq('status', 'completed')
-    .order('transaction_date', { ascending: false })
-    .limit(10);
-
-  const [inventoryStats, recentMovements] = await Promise.all([...]);
-
-  return { stats: inventoryStats.data, recentMovements: recentMovements.data };
-}
+**Status update Server Action:**
+```tsx
+// Called from clickable-status-badge.tsx
+const handleStatusChange = async () => {
+  await supabase
+    .from(entityType)  // 'qmrl' or 'qmhq'
+    .update({ status_id: newStatus.id, updated_by: user.id })
+    .eq('id', entityId);
+};
 ```
 
-**Why this pattern:**
-- Proven performance in existing management dashboard
-- Single RPC call avoids N+1 queries for aggregations
-- Parallel fetching prevents waterfall
-- Server Action keeps data fetching server-side (no client credentials exposure)
+**Audit trigger (existing):**
+```sql
+-- supabase/migrations/026_audit_triggers.sql
+CREATE OR REPLACE FUNCTION create_audit_log() RETURNS TRIGGER AS $$
+BEGIN
+  -- Status change detection
+  IF TG_TABLE_NAME IN ('qmrl', 'qmhq') THEN
+    IF OLD.status_id IS DISTINCT FROM NEW.status_id THEN
+      -- Get status names
+      SELECT name INTO old_status_name FROM status_config WHERE id = OLD.status_id;
+      SELECT name INTO new_status_name FROM status_config WHERE id = NEW.status_id;
 
-#### Pattern B: Warehouse Detail with Client-Side KPIs (EXISTING)
+      summary := 'Status changed from "' || old_status_name || '" to "' || new_status_name || '"';
 
-**Existing Pattern:**
-```typescript
-// app/(dashboard)/warehouse/[id]/page.tsx (EXISTING)
-const [inventoryItems, setInventoryItems] = useState<WarehouseInventoryItem[]>([]);
-
-// Fetch transactions, calculate inventory client-side
-const inventoryMap = new Map();
-transactionsData.forEach((t) => {
-  if (t.movement_type === "inventory_in") inv.current_stock += t.quantity;
-  else if (t.movement_type === "inventory_out") inv.current_stock -= t.quantity;
-});
-
-// Calculate KPIs from calculated inventory
-const kpis = useMemo(() => {
-  const totalItems = inventoryItems.length;
-  const totalUnits = inventoryItems.reduce((sum, item) => sum + item.current_stock, 0);
-  const totalValue = inventoryItems.reduce((sum, item) => sum + item.total_value, 0);
-  return { totalItems, totalUnits, totalValue, totalValueEusd };
-}, [inventoryItems]);
+      INSERT INTO audit_logs (
+        entity_type, entity_id, action,
+        field_name, old_value, new_value,
+        changes_summary,  -- Uses generated summary, NOT user note
+        changed_by, changed_by_name, changed_at
+      ) VALUES (...);
+    END IF;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
 ```
 
-**No Change Required:**
-- Existing warehouse detail page already calculates KPIs client-side
-- Already uses `useMemo` for performance
-- Already displays WAC from item.wac_amount
-- v1.2 does NOT modify this pattern
+**Audit logs table:**
+```sql
+-- supabase/migrations/025_audit_logs.sql
+CREATE TABLE audit_logs (
+  id UUID PRIMARY KEY,
+  entity_type TEXT,
+  entity_id UUID,
+  action audit_action,      -- 'status_change'
+  field_name TEXT,          -- 'status_id'
+  old_value TEXT,           -- old status UUID
+  new_value TEXT,           -- new status UUID
+  changes_summary TEXT,     -- "Status changed from X to Y"
+  notes TEXT,               -- Optional additional context
+  changed_by UUID,
+  changed_by_name TEXT,
+  changed_at TIMESTAMPTZ
+);
+```
 
-**Why this pattern:**
-- KPIs are derived from fetched data (no separate query needed)
-- Client-side calculation is fast for single-warehouse scope
-- WAC already comes from database (calculated by triggers)
+#### Current Issue
 
-#### Pattern C: Invoice Void Cascade (NEW)
+**Problem:** StatusChangeDialog collects user note but doesn't pass it to the update operation. Note is discarded.
+
+**User expectation:** Note entered in dialog should appear in audit trail
+
+**Current audit display:**
+```tsx
+// components/history/history-tab.tsx
+{log.changes_summary}  // Shows "Status changed from X to Y"
+{log.notes}            // Shows NULL (no notes stored)
+```
+
+#### Integration Points
+
+**Components involved:**
+1. `components/status/clickable-status-badge.tsx` - Triggers status change dialog
+2. `components/status/status-change-dialog.tsx` - Collects note from user
+3. `app/(dashboard)/qmrl/[id]/page.tsx` - Displays audit history via HistoryTab
+4. `app/(dashboard)/qmhq/[id]/page.tsx` - Displays audit history via HistoryTab
+5. `components/history/history-tab.tsx` - Renders audit logs with notes
+
+**Data flow (current):**
+```
+User types note in dialog
+  ↓
+User clicks "Confirm"
+  ↓
+onConfirm() calls Server Action (note NOT passed)
+  ↓
+Server Action: UPDATE status_id
+  ↓
+Trigger: create_audit_log() fires
+  ↓
+INSERT into audit_logs with changes_summary, notes = NULL
+  ↓
+Note is lost (never stored)
+```
+
+#### Fix Integration
+
+**Option A: Store note in qmrl/qmhq.notes field (NOT RECOMMENDED)**
+- Requires schema change to add status_change_note field
+- Mixes status notes with general notes
+- Breaks single responsibility
+
+**Option B: Pass note to audit trigger (RECOMMENDED)**
 
 **Implementation:**
+
+1. **Modify status update to store note in audit log**
+
+**Change Server Action signature:**
+```tsx
+// clickable-status-badge.tsx
+const handleStatusChange = async (note?: string) => {
+  // Create audit log entry FIRST with note
+  await supabase.from('audit_logs').insert({
+    entity_type: entityType,
+    entity_id: entityId,
+    action: 'status_change',
+    field_name: 'status_id',
+    old_value: currentStatus.id,
+    new_value: newStatus.id,
+    changes_summary: `Status changed from "${currentStatus.name}" to "${newStatus.name}"`,
+    notes: note || null,  // User's note here
+    changed_by: user.id,
+    changed_by_name: user.full_name,
+    changed_at: new Date().toISOString(),
+  });
+
+  // THEN update the status
+  await supabase
+    .from(entityType)
+    .update({ status_id: newStatus.id, updated_by: user.id })
+    .eq('id', entityId);
+};
+```
+
+**Change dialog to pass note:**
+```tsx
+// status-change-dialog.tsx
+interface StatusChangeDialogProps {
+  onConfirm: (note?: string) => Promise<void>;  // Accept note parameter
+}
+
+const handleConfirm = async () => {
+  await onConfirm(note);  // Pass note to callback
+  setNote("");
+};
+```
+
+**Modify trigger to skip duplicate audit log:**
 ```sql
--- Trigger on invoices table: AFTER UPDATE
-CREATE OR REPLACE FUNCTION cascade_invoice_void_recalculation()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Only process when invoice is voided
-  IF NEW.is_voided = true AND OLD.is_voided = false THEN
-
-    -- Step 1: Decrement po_line_items.invoiced_quantity
-    UPDATE po_line_items pli
-    SET invoiced_quantity = GREATEST(invoiced_quantity - ili.quantity, 0),
-        updated_at = NOW()
-    FROM invoice_line_items ili
-    WHERE ili.invoice_id = NEW.id
-      AND pli.id = ili.po_line_item_id;
-
-    -- Step 2: Cancel related inventory_in transactions
-    UPDATE inventory_transactions
-    SET status = 'cancelled',
-        updated_at = NOW()
-    WHERE invoice_id = NEW.id
-      AND movement_type = 'inventory_in'
-      AND status = 'completed';
-
-    -- Step 3: Recalculate PO status (triggers existing PO status calculation)
-    -- This happens automatically via existing calculate_po_status() trigger
-
-    -- Step 4: Recalculate WAC for affected items
-    -- This happens automatically via existing handle_inventory_transaction_status_change() trigger
-    -- which runs when inventory_transactions.status changes to 'cancelled'
-
+-- Modify create_audit_log() function
+IF TG_TABLE_NAME IN ('qmrl', 'qmhq') THEN
+  IF OLD.status_id IS DISTINCT FROM NEW.status_id THEN
+    -- Check if manual audit log already exists (within last 5 seconds)
+    IF NOT EXISTS (
+      SELECT 1 FROM audit_logs
+      WHERE entity_type = TG_TABLE_NAME
+        AND entity_id = NEW.id
+        AND action = 'status_change'
+        AND changed_at > NOW() - INTERVAL '5 seconds'
+    ) THEN
+      -- Only create audit log if one wasn't manually inserted
+      INSERT INTO audit_logs (...);
+    END IF;
   END IF;
+END IF;
+```
 
+**Files to modify:**
+1. `components/status/status-change-dialog.tsx` - Pass note to onConfirm
+2. `components/status/clickable-status-badge.tsx` - Accept note, create audit log manually
+3. `supabase/migrations/043_audit_trigger_dedup.sql` (NEW) - Add deduplication check to trigger
+
+**HistoryTab already displays notes:**
+```tsx
+// components/history/history-tab.tsx (NO CHANGES)
+{log.notes && (
+  <p className="text-sm text-slate-400 mt-1">{log.notes}</p>
+)}
+```
+
+**Migration strategy:**
+1. Create migration 043 with trigger modification
+2. Update client components to pass/accept note
+3. Test status change with and without note
+4. Verify audit log shows note correctly
+
+**Confidence:** MEDIUM - Requires careful trigger modification to avoid duplicate logs
+
+---
+
+### Fix 4: Currency Display Standardization
+
+#### Current Architecture
+
+**Utility function:**
+```tsx
+// lib/utils/index.ts
+export function formatCurrency(amount: number, decimals: number = 2): string {
+  const multiplier = Math.pow(10, decimals);
+  const rounded = Math.round(amount * multiplier) / multiplier;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "decimal",
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(rounded);
+}
+
+export function formatAmount(amount: number, currency: string = "MMK", decimals: number = 2): string {
+  return formatCurrency(amount, decimals) + ` ${currency}`;
+}
+
+export function formatEUSD(amount: number): string {
+  return formatCurrency(amount, 2) + " EUSD";
+}
+```
+
+**Current usage patterns (inconsistent):**
+```tsx
+// Pattern 1: Direct formatting with hardcoded decimals
+<span>{amount.toFixed(2)} MMK</span>
+
+// Pattern 2: formatCurrency without currency
+<span>{formatCurrency(amount)} MMK</span>
+
+// Pattern 3: formatAmount with currency
+<span>{formatAmount(amount, "MMK")}</span>
+
+// Pattern 4: formatEUSD
+<span>{formatEUSD(amountEusd)}</span>
+
+// Pattern 5: Intl.NumberFormat inline
+<span>{new Intl.NumberFormat("en-US").format(amount)} MMK</span>
+```
+
+#### Integration Points
+
+**Files with currency display:**
+1. `app/(dashboard)/qmhq/[id]/page.tsx` - QMHQ financial summary (Lines 421, 429, 439, 450, 461, 648, 658, 670, 918, 921, 1026, 1027)
+2. `app/(dashboard)/po/[id]/page.tsx` - PO amounts
+3. `app/(dashboard)/invoice/[id]/page.tsx` - Invoice totals
+4. `app/(dashboard)/inventory/page.tsx` - Inventory dashboard KPIs
+5. `app/(dashboard)/warehouse/[id]/page.tsx` - Warehouse totals
+6. `components/qmhq/transaction-dialog.tsx` - Transaction amounts
+7. `components/management/dashboard-kpis.tsx` - KPI cards
+
+**Search pattern:**
+```bash
+# Find all currency display instances:
+grep -r "toFixed(2)" app/(dashboard) components/
+grep -r "formatCurrency" app/(dashboard) components/
+grep -r 'MMK"' app/(dashboard) components/
+grep -r 'EUSD"' app/(dashboard) components/
+grep -r "Intl.NumberFormat" app/(dashboard) components/
+```
+
+#### Fix Integration
+
+**Standardization rules:**
+
+1. **For amounts with currency:**
+   ```tsx
+   // Use formatAmount()
+   {formatAmount(amount, currency)}  // "1,234.56 MMK"
+   ```
+
+2. **For EUSD amounts:**
+   ```tsx
+   // Use formatEUSD()
+   {formatEUSD(amountEusd)}  // "1,234.56 EUSD"
+   ```
+
+3. **For numbers without currency:**
+   ```tsx
+   // Use formatCurrency()
+   {formatCurrency(quantity, 0)}  // "1,234" (no decimals for quantities)
+   ```
+
+4. **Never use directly:**
+   - ❌ `amount.toFixed(2)`
+   - ❌ `new Intl.NumberFormat(...).format(amount)`
+   - ❌ Hardcoded `" MMK"` or `" EUSD"` suffixes
+
+**Migration strategy:**
+
+1. **Audit phase:**
+   ```bash
+   # Create checklist of all currency displays
+   grep -rn "toFixed\|Intl.NumberFormat\|MMK\|EUSD" app/(dashboard) components/ > currency_audit.txt
+   ```
+
+2. **Replace phase:**
+   - For each file in audit list:
+     - Replace `.toFixed(2)` + `" MMK"` → `formatAmount(amount, "MMK")`
+     - Replace `.toFixed(2)` + `" EUSD"` → `formatEUSD(amount)`
+     - Replace inline NumberFormat → appropriate helper
+
+3. **Test phase:**
+   - Visual regression test: Screenshot before/after each page
+   - Verify all amounts still display correctly
+   - Check edge cases: 0, negative, very large numbers
+
+**Files to modify (estimated 15-20 files):**
+- All files with financial data display
+- Focus on QMHQ, PO, Invoice, Inventory pages
+
+**No database changes**
+**No Server Action changes**
+**No utility function changes** (helpers already exist)
+
+**Confidence:** HIGH - Pure presentation layer refactor, no logic changes
+
+---
+
+### Fix 5: QMHQ Detail Page Stock-Out Tab
+
+#### Current Architecture
+
+**Auto-stockout trigger (existing):**
+```sql
+-- supabase/migrations/034_qmhq_auto_stockout.sql
+CREATE OR REPLACE FUNCTION auto_stockout_on_qmhq_fulfilled() RETURNS TRIGGER AS $$
+BEGIN
+  -- When QMHQ item route status changes to 'done':
+  IF (OLD.status_id IS DISTINCT FROM NEW.status_id)
+     AND status_is_done = true
+     AND NEW.route_type = 'item'
+     AND NEW.item_id IS NOT NULL
+     AND NEW.warehouse_id IS NOT NULL
+  THEN
+    -- Create inventory_out transaction
+    INSERT INTO inventory_transactions (
+      movement_type, item_id, warehouse_id, quantity,
+      reason, qmhq_id, transaction_date, notes, status, created_by
+    ) VALUES (
+      'inventory_out', NEW.item_id, NEW.warehouse_id, NEW.quantity,
+      'request', NEW.id, CURRENT_DATE,
+      'Auto stock-out from ' || NEW.request_id,
+      'completed', NEW.updated_by
+    );
+  END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 ```
 
-**Cascade Sequence:**
+**QMHQ detail page (existing):**
+```tsx
+// app/(dashboard)/qmhq/[id]/page.tsx
+export default function QMHQDetailPage() {
+  const [qmhq, setQmhq] = useState<QMHQWithRelations | null>(null);
+  const [qmhqItems, setQmhqItems] = useState<QMHQItemWithRelations[]>([]);
+  const [stockOutTransactions, setStockOutTransactions] = useState<StockOutTransaction[]>([]);
+
+  // Fetch QMHQ data
+  const fetchData = useCallback(async () => {
+    // ... fetch qmhq, qmhq_items
+
+    // Fetch stock-out transactions for this QMHQ
+    const { data: stockOutData } = await supabase
+      .from('inventory_transactions')
+      .select(`*, item:items(...), warehouse:warehouses(...)`)
+      .eq('qmhq_id', qmhqData.id)
+      .eq('movement_type', 'inventory_out')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    setStockOutTransactions(stockOutData || []);
+  }, [qmhqId]);
+
+  return (
+    <Tabs>
+      {/* Details Tab */}
+      <TabsContent value="details">...</TabsContent>
+
+      {/* Stock Out Tab (EXISTING - Lines 712-837) */}
+      {qmhq.route_type === "item" && (
+        <TabsContent value="stock-out">
+          <div className="command-panel">
+            {/* Header with "Issue Items" button */}
+            <Link href={`/inventory/stock-out?qmhq=${qmhqId}`}>
+              <Button>Issue Items</Button>
+            </Link>
+
+            {/* Items summary showing requested vs issued quantities */}
+            <div className="mb-6">
+              {qmhqItems.map((item) => {
+                const issuedQty = stockOutTransactions
+                  .filter(t => t.item_id === item.item_id)
+                  .reduce((sum, t) => sum + t.quantity, 0);
+                const pendingQty = item.quantity - issuedQty;
+
+                return (
+                  <div key={item.id}>
+                    {/* Show requested, issued, pending quantities */}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* List of stock-out transactions */}
+            {stockOutTransactions.map((tx) => (
+              <div key={tx.id}>
+                {/* Transaction details: item, warehouse, quantity, date, notes */}
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+      )}
+    </Tabs>
+  );
+}
 ```
-User voids invoice (UI → Server Action → Supabase UPDATE)
+
+#### Current Issue
+
+**Problem:** Stock-Out tab already exists and functions correctly!
+
+**User expectation:** Click "Issue Items" button, navigate to stock-out form with QMHQ pre-selected, submit form, return to QMHQ detail to see new transaction.
+
+**Current behavior:** ✅ Tab exists, ✅ fetches transactions, ✅ shows summary, ✅ displays transaction list
+
+#### Integration Points
+
+**Components involved:**
+1. `app/(dashboard)/qmhq/[id]/page.tsx` - Already has stock-out tab (Lines 712-837)
+2. `app/(dashboard)/inventory/stock-out/page.tsx` - Stock-out form (accepts ?qmhq= URL param)
+3. `supabase/migrations/034_qmhq_auto_stockout.sql` - Trigger creates transactions
+
+**Data flow (existing and working):**
+```
+User views QMHQ detail (item route)
   ↓
-[1] cascade_invoice_void_recalculation() fires
-  ↓ Updates po_line_items.invoiced_quantity
-  ↓ Cancels inventory_transactions
+fetchData() queries inventory_transactions WHERE qmhq_id = X
   ↓
-[2] handle_inventory_transaction_status_change() fires (EXISTING TRIGGER)
-  ↓ Recalculates item WAC (from remaining completed transactions)
+Displays Stock Out tab with transactions
   ↓
-[3] calculate_po_status() fires (EXISTING TRIGGER - assumed from codebase patterns)
-  ↓ Recalculates PO status based on new invoiced_quantity
+User clicks "Issue Items" button
   ↓
-[4] create_audit_log() fires (EXISTING TRIGGER)
-  ↓ Logs void action to audit_logs
+Navigate to /inventory/stock-out?qmhq={id}
+  ↓
+Stock-out form pre-fills QMHQ, user selects item/warehouse/qty
+  ↓
+Submit form → INSERT inventory_transaction
+  ↓
+Navigate back to QMHQ detail
+  ↓
+fetchData() refetches, new transaction appears
 ```
 
-**Why this pattern:**
-- Leverages existing trigger infrastructure
-- Database ensures consistency (transaction-safe)
-- Single UPDATE triggers entire cascade
-- Reuses existing WAC recalculation logic (no duplication)
+#### Fix Integration
 
-#### Pattern D: Manual Stock-In with Currency Handling (ENHANCED)
+**NO FIX NEEDED** - Feature already exists and works correctly.
 
-**Current WAC Trigger Limitation:**
-```sql
--- EXISTING: Assumes unit_cost is in item's WAC currency
-UPDATE items
-SET wac_amount = new_wac,
-    wac_currency = NEW.currency,  -- Overwrites currency (PROBLEM if different)
-    wac_exchange_rate = NEW.exchange_rate
-WHERE id = NEW.item_id;
+**Verification:**
+1. ✅ Tab exists: Line 476 defines tab trigger, Lines 712-837 implement tab content
+2. ✅ Fetches transactions: Lines 193-207 fetch stock-out transactions
+3. ✅ Displays summary: Lines 732-779 show requested vs issued quantities
+4. ✅ Links to stock-out form: Line 721 has button with `href={/inventory/stock-out?qmhq=${qmhqId}}`
+5. ✅ Shows transaction list: Lines 794-833 map over stockOutTransactions
+
+**If issue is with manual stock-out (not auto-stockout):**
+- Users can manually create stock-out via "Issue Items" button
+- Form allows selecting specific items and quantities
+- This is INTENDED behavior (flexible stock issuance)
+
+**No changes required**
+
+**Confidence:** HIGH - Feature complete and functional
+
+---
+
+## Suggested Fix Order
+
+### Parallel Track (No Dependencies)
+
+All fixes can be implemented in parallel as they have minimal interdependencies:
+
+**Track 1: Database Layer**
+- Fix 3 (Status notes) - New migration for audit trigger deduplication
+
+**Track 2: Component Layer**
+- Fix 2 (Input standardization) - Audit and fix form components
+- Fix 4 (Currency standardization) - Audit and fix display components
+
+**Track 3: Verification**
+- Fix 1 (RLS policy) - Already fixed, verify deployment
+- Fix 5 (Stock-out tab) - Already implemented, verify functionality
+
+### Recommended Execution Order
+
+**Phase 1: Verification (No coding)**
+1. Fix 1: Verify RLS policy is deployed and working
+2. Fix 5: Verify stock-out tab exists and functions correctly
+
+**Phase 2: Quick Wins (Low risk, high impact)**
+3. Fix 2: Input standardization - Grep and replace pattern
+4. Fix 4: Currency standardization - Grep and replace formatters
+
+**Phase 3: Complex Fix (Requires testing)**
+5. Fix 3: Status notes - Modify trigger, update components, test audit trail
+
+**Total estimated effort:** 4-6 hours
+- Phase 1: 30 minutes (verification only)
+- Phase 2: 2-3 hours (systematic find/replace + testing)
+- Phase 3: 1.5-2 hours (trigger modification + component updates + testing)
+
+---
+
+## Files Requiring Modification
+
+### New Files (1 file)
+```
+supabase/migrations/043_audit_trigger_dedup.sql
+  Purpose: Add deduplication check to create_audit_log() trigger
+  Lines: ~30
+  Complexity: MEDIUM (modify existing trigger function)
 ```
 
-**Enhanced WAC Trigger:**
-```sql
-CREATE OR REPLACE FUNCTION update_item_wac()
-RETURNS TRIGGER AS $$
-DECLARE
-  current_wac DECIMAL(15,2);
-  current_qty DECIMAL(15,2);
-  current_wac_currency TEXT;
-  current_wac_rate DECIMAL(10,4);
-  new_value_in_wac_currency DECIMAL(15,2);
-  existing_value DECIMAL(15,2);
-  new_wac DECIMAL(15,2);
-BEGIN
-  -- Get current item WAC and currency
-  SELECT wac_amount, wac_currency, wac_exchange_rate, [current_qty_calc]
-  INTO current_wac, current_wac_currency, current_wac_rate, current_qty
-  FROM items WHERE id = NEW.item_id;
+### Modified Files (15-20 files estimated)
 
-  -- Convert new stock-in value to item's WAC currency
-  IF NEW.currency = current_wac_currency THEN
-    new_value_in_wac_currency := NEW.quantity * NEW.unit_cost;
-  ELSE
-    -- Convert: new_currency → USD → wac_currency
-    new_value_in_wac_currency := (NEW.quantity * NEW.unit_cost / NEW.exchange_rate) * current_wac_rate;
-  END IF;
-
-  -- Calculate new WAC in item's currency
-  existing_value := current_qty * current_wac;
-  new_wac := (existing_value + new_value_in_wac_currency) / (current_qty + NEW.quantity);
-
-  -- Update item (currency stays consistent)
-  UPDATE items
-  SET wac_amount = new_wac,
-      -- wac_currency unchanged (maintains consistency)
-      updated_at = NOW()
-  WHERE id = NEW.item_id;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+**Fix 2: Input Standardization (6 files)**
 ```
-
-**Why this pattern:**
-- WAC currency consistency: Item keeps single WAC currency (doesn't flip-flop)
-- Cross-currency conversion: Manual stock-in in THB converts to item's MMK WAC
-- Formula preservation: Still uses weighted average, just converts values first
-
-### 3. Component Architecture
-
-#### New Components (v1.2)
-
-```
-app/(dashboard)/inventory/
-  page.tsx                    # Inventory Dashboard (NEW - enhanced from placeholder)
-    ├─ Uses: getInventoryDashboardData() Server Action
-    ├─ Displays: KPI cards, warehouse breakdown, top items, recent movements
-    └─ Pattern: Same as management dashboard (KPI cards + tables)
-
-components/inventory/
-  inventory-stats-cards.tsx   # KPI cards component (NEW)
-  warehouse-breakdown-chart.tsx # Chart component (NEW - if charts added later)
-  top-items-table.tsx         # Top items by value table (NEW)
-```
-
-#### Modified Components (v1.2)
-
-```
-app/(dashboard)/warehouse/[id]/page.tsx
-  # NO CHANGES - already has WAC display via warehouse_inventory view
-  # Existing KPI cards already show total_value_eusd
-
+app/(dashboard)/qmrl/new/page.tsx
+app/(dashboard)/qmhq/new/page.tsx
+app/(dashboard)/po/new/page.tsx
+app/(dashboard)/invoice/new/page.tsx
 app/(dashboard)/inventory/stock-in/page.tsx
-  # MINOR ENHANCEMENT - add currency selector for manual stock-in
-  # Existing: Only shows invoice-based stock-in
-  # New: Add manual entry form with currency/exchange rate fields
+components/qmhq/transaction-dialog.tsx
 ```
 
-### 4. Server Actions Pattern
+**Fix 3: Status Notes (2 files)**
+```
+components/status/status-change-dialog.tsx
+  Change: Pass note to onConfirm callback
+  Lines modified: 2-3
 
-**New Server Action:**
-```typescript
-// lib/actions/inventory.ts (NEW FILE)
-'use server';
-
-import { createClient } from '@/lib/supabase/server';
-
-export async function getInventoryDashboardData() {
-  // Pattern: Same as getDashboardData() in lib/actions/dashboard.ts
-  // Parallel RPC + query fetching
-}
-
-export async function voidInvoice(invoiceId: string, reason: string) {
-  const supabase = await createClient();
-
-  // Single UPDATE triggers cascade
-  const { error } = await supabase
-    .from('invoices')
-    .update({
-      is_voided: true,
-      voided_at: new Date().toISOString(),
-      voided_by: (await supabase.auth.getUser()).data.user?.id,
-      void_reason: reason,
-    })
-    .eq('id', invoiceId);
-
-  if (error) throw error;
-
-  // Cascade happens automatically in database
-  // Returns success, UI refetches data
-}
+components/status/clickable-status-badge.tsx
+  Change: Accept note parameter, create audit log manually
+  Lines modified: 10-15
 ```
 
-**Why Server Actions:**
-- Keeps database credentials server-side
-- Matches existing pattern (dashboard.ts, files.ts)
-- Simple API for client components
-- Automatic revalidation with Next.js cache
+**Fix 4: Currency Standardization (15-20 files)**
+```
+app/(dashboard)/qmhq/[id]/page.tsx
+app/(dashboard)/po/[id]/page.tsx
+app/(dashboard)/invoice/[id]/page.tsx
+app/(dashboard)/inventory/page.tsx
+app/(dashboard)/warehouse/[id]/page.tsx
+components/qmhq/transaction-dialog.tsx
+components/management/dashboard-kpis.tsx
+... (additional files found via grep)
+```
+
+### Unchanged Files (Existing patterns work)
+```
+lib/utils/index.ts - formatCurrency() helpers already correct
+components/ui/input.tsx - Base Input component already correct
+components/history/history-tab.tsx - Already displays notes field
+supabase/migrations/036_fix_file_attachments_rls.sql - Already fixed
+app/(dashboard)/qmhq/[id]/page.tsx - Stock-out tab already exists (Lines 712-837)
+```
 
 ---
 
-## Component Boundaries and Responsibilities
+## Testing Strategy
 
-### Database Layer
-**Responsibilities:**
-- WAC calculation (triggers)
-- PO status calculation (triggers)
-- Invoice void cascade (triggers)
-- Inventory aggregation (RPC functions)
-- Audit logging (triggers)
+### Fix 1: RLS Policy (Already Deployed)
+**Verification only:**
+1. Login as admin → upload file to QMRL → soft delete → verify success
+2. Login as quartermaster → upload file to QMHQ → soft delete → verify success
+3. Login as requester → attempt to delete file → verify error
 
-**Inputs:** SQL commands from Supabase client
-**Outputs:** Query results, trigger side effects
-**Dependencies:** PostgreSQL 14+, existing migrations 001-033
+### Fix 2: Input Standardization
+**Unit tests:**
+1. Render each form component
+2. Verify no React warnings in console ("uncontrolled to controlled")
+3. Type into each input field → verify state updates
 
-### Server Action Layer
-**Responsibilities:**
-- Parallel data fetching (avoid waterfalls)
-- Server-side Supabase client management
-- Data transformation for UI
-- Mutation operations (void invoice, stock-in)
+**Integration tests:**
+1. Fill out QMRL form with all fields → submit → verify data saved
+2. Leave fields empty → submit → verify validation errors
+3. Fill partially → navigate away → return → verify no warnings
 
-**Inputs:** Function calls from client components
-**Outputs:** Typed data objects, mutation results
-**Dependencies:** Supabase server client, Next.js Server Actions
+### Fix 3: Status Notes
+**Unit tests:**
+1. Status change with note → verify audit log has notes field populated
+2. Status change without note → verify audit log notes is NULL
+3. Trigger deduplication → verify only one audit log created
 
-### Presentation Layer
-**Responsibilities:**
-- Display aggregated data (KPI cards, tables, charts)
-- User interactions (filter, search, void invoice)
-- Client-side state (loading, error, pagination)
-- Optimistic updates (loading states during mutations)
+**Integration tests:**
+1. Change QMRL status with note "Approved by manager" → verify History tab shows note
+2. Change QMHQ status without note → verify History tab shows status change, no note
+3. Rapid status changes → verify no duplicate audit logs
 
-**Inputs:** Server Action responses
-**Outputs:** Rendered UI, user interactions
-**Dependencies:** React 18+, Server Actions, UI components
+### Fix 4: Currency Standardization
+**Visual regression tests:**
+1. Screenshot each page with currency display (before fix)
+2. Apply fix (replace formatters)
+3. Screenshot each page again (after fix)
+4. Compare screenshots → verify identical display
 
----
+**Unit tests:**
+1. Test formatAmount(1234.5678, "MMK") → "1,234.57 MMK"
+2. Test formatEUSD(9999.99) → "9,999.99 EUSD"
+3. Test formatCurrency(1234, 0) → "1,234"
 
-## Data Flow Diagrams
-
-### Flow 1: Inventory Dashboard Load
-
-```
-User navigates to /inventory
-  ↓
-[Server Component] page.tsx
-  ↓ Calls getInventoryDashboardData()
-  ↓
-[Server Action] lib/actions/inventory.ts
-  ↓ Promise.all([
-  ↓   supabase.rpc('get_inventory_dashboard_stats'),
-  ↓   supabase.from('inventory_transactions').select(...)
-  ↓ ])
-  ↓
-[Database] Executes RPC function
-  ↓ Aggregates from items, warehouses, inventory_transactions
-  ↓ Joins with WAC values from items.wac_amount
-  ↓
-[Server Action] Returns typed data
-  ↓
-[Server Component] Renders with data
-  ↓ Passes to client components (KPI cards, tables)
-  ↓
-[Client Components] Display + handle interactivity
-```
-
-**Performance:** Single RPC call avoids N+1, parallel fetching prevents waterfall
-
-### Flow 2: Invoice Void Cascade
-
-```
-User clicks "Void Invoice" button
-  ↓
-[Client Component] Invoice detail page
-  ↓ Calls voidInvoice(invoiceId, reason) Server Action
-  ↓
-[Server Action] lib/actions/inventory.ts
-  ↓ supabase.from('invoices').update({ is_voided: true, ... })
-  ↓
-[Database Trigger] cascade_invoice_void_recalculation()
-  ↓ [Step 1] UPDATE po_line_items (decrement invoiced_quantity)
-  ↓ [Step 2] UPDATE inventory_transactions (cancel related stock-ins)
-  ↓
-[Database Trigger] handle_inventory_transaction_status_change() (EXISTING)
-  ↓ Detects cancelled inventory_in transactions
-  ↓ Recalculates item WAC from remaining completed transactions
-  ↓
-[Database Trigger] calculate_po_status() (ASSUMED EXISTING)
-  ↓ Recalculates PO status based on new invoiced_quantity
-  ↓
-[Database Trigger] create_audit_log() (EXISTING)
-  ↓ Logs void action
-  ↓
-[Server Action] Returns success
-  ↓
-[Client Component] Refetches invoice detail
-  ↓ Shows updated status, audit log entry
-```
-
-**Consistency:** All updates happen in single database transaction
-
-### Flow 3: Manual Stock-In with Currency
-
-```
-User submits manual stock-in form (THB currency, item's WAC is MMK)
-  ↓
-[Client Component] stock-in/page.tsx
-  ↓ Calls createManualStockIn(...) Server Action
-  ↓
-[Server Action] lib/actions/inventory.ts
-  ↓ supabase.from('inventory_transactions').insert({
-  ↓   movement_type: 'inventory_in',
-  ↓   unit_cost: 100,      # THB
-  ↓   currency: 'THB',
-  ↓   exchange_rate: 0.029, # THB to USD
-  ↓   ...
-  ↓ })
-  ↓
-[Database Trigger] update_item_wac() (ENHANCED)
-  ↓ Fetches item's current WAC currency (MMK)
-  ↓ Converts new value: (100 THB / 0.029) * 2100 = 7,241,379 MMK
-  ↓ Calculates new WAC in MMK
-  ↓ Updates item.wac_amount (in MMK)
-  ↓
-[Server Action] Returns success
-  ↓
-[Client Component] Shows success toast, refetches inventory
-```
-
-**Currency Handling:** Cross-currency conversion maintains WAC consistency
+### Fix 5: Stock-Out Tab (Already Implemented)
+**Verification only:**
+1. Create QMHQ with item route → verify Stock Out tab appears
+2. Click "Issue Items" → verify navigation to stock-out form with qmhq pre-filled
+3. Submit stock-out form → verify transaction appears in Stock Out tab
+4. Verify summary shows requested vs issued quantities
 
 ---
 
-## Technology Stack Alignment
+## Risk Assessment
 
-### Database (PostgreSQL via Supabase)
-**Existing:**
-- Triggers: WAC calculation, audit logging, status updates
-- Views: warehouse_inventory, item_stock_summary
-- RPC functions: Dashboard aggregations
+| Fix | Risk Level | Mitigation |
+|-----|------------|------------|
+| **Fix 1: RLS Policy** | NONE | Already deployed and verified |
+| **Fix 2: Input Standardization** | LOW | Pure client-side, no side effects, easy to test |
+| **Fix 3: Status Notes** | MEDIUM | Trigger modification requires careful testing for deduplication |
+| **Fix 4: Currency Standardization** | LOW | Pure presentation layer, visual regression testing |
+| **Fix 5: Stock-Out Tab** | NONE | Already implemented and functional |
 
-**New (v1.2):**
-- Trigger: cascade_invoice_void_recalculation
-- Enhanced trigger: update_item_wac (currency conversion)
-- RPC function: get_inventory_dashboard_stats
-
-**Confidence:** HIGH - Extends proven patterns
-
-### Backend (Supabase + Next.js Server Actions)
-**Existing:**
-- Server Actions: getDashboardData(), file operations
-- Pattern: Parallel fetching with Promise.all
-
-**New (v1.2):**
-- Server Action: getInventoryDashboardData()
-- Server Action: voidInvoice()
-- Server Action: createManualStockIn() (enhanced)
-
-**Confidence:** HIGH - Same pattern as existing actions
-
-### Frontend (Next.js 14 Server Components + React 18)
-**Existing:**
-- Dashboard pattern: KPI cards + tables
-- Warehouse detail pattern: Client-side KPI calculation
-
-**New (v1.2):**
-- Inventory dashboard: Same as management dashboard
-- Stock-in form: Enhanced with currency selector
-
-**Confidence:** HIGH - Reuses existing components and patterns
-
----
-
-## Build Order and Dependencies
-
-### Phase 1: Database Foundation (No dependencies)
-**Tasks:**
-1. Create RPC function: `get_inventory_dashboard_stats()`
-2. Enhance trigger: `update_item_wac()` with currency conversion logic
-3. Create trigger: `cascade_invoice_void_recalculation()`
-
-**Testing:**
-- Unit test RPC function with sample data
-- Test WAC trigger with cross-currency stock-in
-- Test cascade trigger with voided invoice
-
-**Why first:** Database changes are foundation, must be deployed before app changes
-
-### Phase 2: Server Actions (Depends: Phase 1)
-**Tasks:**
-1. Create `lib/actions/inventory.ts`
-2. Implement `getInventoryDashboardData()`
-3. Implement `voidInvoice()`
-4. Enhance `createManualStockIn()` with currency fields
-
-**Testing:**
-- Server Action returns correct data structure
-- voidInvoice triggers cascade correctly
-- Manual stock-in with different currency calculates WAC
-
-**Why second:** Actions use new RPC/triggers, needed for UI
-
-### Phase 3: UI Components (Depends: Phase 2)
-**Tasks:**
-1. Build `app/(dashboard)/inventory/page.tsx` (dashboard)
-2. Create `components/inventory/inventory-stats-cards.tsx`
-3. Create `components/inventory/top-items-table.tsx`
-4. Enhance `app/(dashboard)/inventory/stock-in/page.tsx` with currency selector
-5. Add void button to invoice detail page
-
-**Testing:**
-- Dashboard displays correct KPIs
-- Stock-in form accepts currency selection
-- Void button triggers cascade, refetches data
-
-**Why third:** UI consumes Server Actions, built last
-
-### Phase 4: Integration Testing (Depends: Phase 1-3)
-**Tasks:**
-1. End-to-end test: Void invoice → verify PO status + WAC recalculation
-2. End-to-end test: Manual stock-in THB → verify WAC in MMK
-3. Performance test: Dashboard load time with 1000+ inventory items
-4. Cross-browser test: Dashboard renders correctly
-
-**Why last:** Validates entire flow across all layers
-
----
-
-## Architectural Constraints and Trade-offs
-
-### Constraint 1: Single WAC Currency per Item
-**Decision:** Each item maintains WAC in one consistent currency
-**Rationale:** Simplifies accounting, prevents currency flip-flopping
-**Trade-off:** Manual stock-in requires currency conversion (adds complexity to trigger)
-**Mitigation:** Conversion logic isolated in trigger, tested thoroughly
-
-### Constraint 2: Cascade Triggers for Void
-**Decision:** Use database triggers instead of application logic
-**Rationale:** Ensures consistency, handles edge cases (concurrent updates)
-**Trade-off:** Harder to debug than application code
-**Mitigation:** Comprehensive logging in triggers, audit trail captures all changes
-
-### Constraint 3: Client-Side KPI Calculation for Warehouse Detail
-**Decision:** Keep existing pattern (calculate from fetched transactions)
-**Rationale:** Avoids additional query, fast for single-warehouse scope
-**Trade-off:** Won't scale if warehouse has 10,000+ items
-**Mitigation:** Warehouse detail page is scoped to single warehouse (limited data), pagination if needed later
-
-### Constraint 4: RPC for Dashboard Aggregation
-**Decision:** Use single RPC function for inventory stats
-**Rationale:** Proven pattern from management dashboard, avoids N+1
-**Trade-off:** Less flexible than client-side aggregation
-**Mitigation:** RPC parameters allow filtering (e.g., by warehouse_id), extendable with new RPCs if needed
-
----
-
-## Integration Risk Assessment
-
-| Integration Point | Risk Level | Mitigation |
-|-------------------|------------|------------|
-| **WAC trigger enhancement** | MEDIUM | Thorough testing with multiple currencies, fallback to existing logic if conversion fails |
-| **Cascade trigger ordering** | HIGH | Document trigger execution order, test with concurrent invoice voids |
-| **RPC performance** | LOW | RPC aggregates server-side (fast), add indexes on join columns if slow |
-| **Manual stock-in UI** | LOW | Reuses existing form pattern, just adds currency fields |
-| **Invoice void UI** | LOW | Follows existing mutation pattern (Server Action + refetch) |
-
-**Highest Risk: Cascade Trigger Ordering**
-- **Issue:** If triggers fire in wrong order, WAC or PO status may be incorrect
+**Highest Risk: Fix 3 (Status Notes)**
+- **Issue:** Manual audit log insertion + trigger deduplication could create race conditions
 - **Mitigation:**
-  1. Use `AFTER UPDATE` trigger on invoices (fires after row committed)
-  2. Existing triggers on inventory_transactions and po_line_items fire automatically
-  3. Add integration test that voids invoice, checks all downstream updates
-  4. Document expected trigger sequence in migration comments
+  1. Transaction-safe check (INSERT within 5 seconds window)
+  2. Use database transaction for audit log + status update
+  3. Extensive testing with concurrent status changes
+  4. Rollback plan: Remove manual audit insertion, revert to trigger-only (lose notes feature)
+
+**Overall Risk: LOW**
+- 2 fixes require no changes (already done)
+- 2 fixes are low-risk presentation layer refactors
+- 1 fix requires moderate care (trigger modification) but has clear rollback path
 
 ---
 
 ## Performance Considerations
 
-### Dashboard Load Performance
-**Current Baseline:** Management dashboard loads in ~300ms (RPC + parallel queries)
-**Expected v1.2:** Inventory dashboard should match (~300-400ms)
+### Fix 1: RLS Policy
+**Impact:** NONE - Policy already deployed
 
-**Optimization:**
-- Single RPC call for aggregations (not multiple queries)
-- Indexes on inventory_transactions (warehouse_id, item_id, transaction_date)
-- Parallel fetching (RPC + recent movements query)
+### Fix 2: Input Standardization
+**Impact:** NEGLIGIBLE - State initialization is instant
+**Before:** `useState(null)` + defensive check `value || ""`
+**After:** `useState("")` + direct `value`
+**Performance:** Removes one conditional check per render (microsecond improvement)
 
-**Scalability:**
-- RPC aggregates in database (efficient at any scale)
-- Recent movements limited to 10 records (constant time)
-- Warehouse breakdown limited by warehouse count (typically < 20)
+### Fix 3: Status Notes
+**Impact:** MINIMAL - Adds one INSERT before UPDATE
+**Before:** Single UPDATE triggers audit log creation
+**After:** Manual INSERT audit log + UPDATE + trigger checks for duplicate
+**Performance:** ~10-20ms additional latency (one extra database INSERT)
+**Scalability:** Audit log inserts are fast, indexed on entity_type + entity_id
 
-### Invoice Void Cascade Performance
-**Expected:** < 200ms for typical invoice (5-10 line items)
+### Fix 4: Currency Standardization
+**Impact:** NONE - Formatting functions have identical performance
+**Before:** `amount.toFixed(2)` or inline `Intl.NumberFormat`
+**After:** `formatCurrency()` which uses `Intl.NumberFormat`
+**Performance:** Identical (both use same browser API)
 
-**Optimization:**
-- Single UPDATE triggers cascade (not multiple API calls)
-- Batch updates in trigger (UPDATE FROM join, not loop)
-- Indexes on foreign keys (po_line_item_id, invoice_id)
+### Fix 5: Stock-Out Tab
+**Impact:** NONE - Already implemented, already optimized
 
-**Scalability:**
-- Performance degrades linearly with line item count
-- Large invoices (100+ line items) may take 1-2 seconds (acceptable for rare operation)
-
-### WAC Recalculation Performance
-**Current:** < 50ms for item with < 100 transactions
-**Expected v1.2:** Same (currency conversion adds negligible overhead)
-
-**Optimization:**
-- Recalculation only on inventory_in (not every transaction)
-- Aggregates from completed transactions only (filtered in query)
+**Overall Performance Impact: NEGLIGIBLE**
+- No queries added or removed
+- No additional network requests
+- No algorithmic changes
+- All changes are presentation layer or already-deployed database changes
 
 ---
 
-## Testing Strategy per Layer
+## Architectural Constraints
 
-### Database Layer Tests
-**Unit Tests (SQL):**
-- RPC function returns correct structure and values
-- WAC trigger handles cross-currency conversion correctly
-- Cascade trigger updates all related tables
+### Constraint 1: Preserve Existing Patterns
+**Decision:** Use existing helpers (formatCurrency, formatAmount) instead of creating new ones
+**Rationale:** Consistency with codebase, avoids duplication
+**Trade-off:** None (helpers already exist and are correct)
 
-**Integration Tests (SQL):**
-- Void invoice → verify po_line_items, inventory_transactions, items.wac_amount all updated
-- Manual stock-in THB → verify item WAC recalculated in MMK
+### Constraint 2: Minimal Database Changes
+**Decision:** Only one new migration (Fix 3: audit trigger deduplication)
+**Rationale:** Reduce deployment risk, preserve existing trigger logic
+**Trade-off:** Trigger becomes slightly more complex (adds EXISTS check)
 
-### Server Action Tests
-**Unit Tests (TypeScript):**
-- getInventoryDashboardData returns typed data
-- voidInvoice calls Supabase with correct parameters
+### Constraint 3: No Breaking Changes
+**Decision:** All fixes maintain existing APIs and data structures
+**Rationale:** v1.3 is a polish/bug-fix release, not a refactor
+**Trade-off:** Some technical debt remains (e.g., inconsistent patterns in older code)
 
-**Integration Tests (TypeScript):**
-- Call Server Action → verify database state changes
-- Error handling: Supabase error → thrown exception
-
-### UI Component Tests
-**Unit Tests (React Testing Library):**
-- Inventory dashboard renders KPI cards
-- Stock-in form submits with currency fields
-
-**Integration Tests (Playwright/Cypress):**
-- Load inventory dashboard → verify KPIs displayed
-- Submit manual stock-in → verify success toast
-- Void invoice → verify refetched data shows voided status
+### Constraint 4: Backward Compatibility
+**Decision:** Audit logs without notes still display correctly
+**Rationale:** Existing audit logs from before Fix 3 don't have notes field
+**Trade-off:** HistoryTab must handle NULL notes gracefully (already does)
 
 ---
 
-## Sources and References
+## Rollback Strategy
 
-### PostgreSQL Trigger Patterns
-- [PostgreSQL Trigger Definition Documentation](https://www.postgresql.org/docs/current/trigger-definition.html)
-- [PostgreSQL CREATE TRIGGER Documentation](https://www.postgresql.org/docs/current/sql-createtrigger.html)
-- [Optimizing PostgreSQL Trigger Execution - DEV Community](https://dev.to/bhanufyi/optimizing-postgresql-trigger-execution-balancing-precision-with-control-ibh)
+### Fix 1: RLS Policy
+**Rollback:** N/A - Already deployed and stable
 
-### Next.js Dashboard Patterns
-- [Next.js Data Fetching Patterns and Best Practices](https://nextjs.org/docs/14/app/building-your-application/data-fetching/patterns)
-- [Next.js Server and Client Components](https://nextjs.org/docs/app/getting-started/server-and-client-components)
-- [Next.js SaaS Dashboard Development: Scalability & Best Practices](https://www.ksolves.com/blog/next-js/best-practices-for-saas-dashboards)
+### Fix 2: Input Standardization
+**Rollback:**
+```bash
+git revert <commit-sha>
+# Revert useState("") back to useState(null)
+# Re-add defensive || "" checks
+```
+**Risk of rollback:** NONE - Pure client-side change
 
-### Inventory Management Architecture
-- [Building an Inventory Management App with Next.js - Medium](https://medium.com/@hackable-projects/building-an-inventory-management-app-with-next-js-react-and-firebase-e9647a61eb82)
-- [Build an Inventory Management System Using NextJS - GeeksforGeeks](https://www.geeksforgeeks.org/reactjs/build-an-inventory-management-system-using-nextjs/)
+### Fix 3: Status Notes
+**Rollback Plan A (Safe):**
+```sql
+-- Revert trigger to original version (no deduplication check)
+-- Remove manual audit log insertion from client code
+-- Result: Status changes work, but notes are lost
+```
 
-### Existing Codebase (HIGH Confidence)
-- `supabase/migrations/024_inventory_wac_trigger.sql` - WAC calculation trigger
-- `supabase/migrations/033_dashboard_functions.sql` - RPC aggregation pattern
-- `lib/actions/dashboard.ts` - Parallel fetching pattern
-- `app/(dashboard)/warehouse/[id]/page.tsx` - Client-side KPI calculation pattern
+**Rollback Plan B (Keep notes):**
+```sql
+-- Keep trigger deduplication
+-- Fix client code if race condition detected
+-- Result: Notes preserved, fix timing issue
+```
+
+### Fix 4: Currency Standardization
+**Rollback:**
+```bash
+git revert <commit-sha>
+# Revert to previous formatter usage
+# Risk: NONE (display-only change)
+```
+
+### Fix 5: Stock-Out Tab
+**Rollback:** N/A - No changes made
+
+**Overall Rollback Risk: LOW**
+- All changes are isolated
+- No cascading dependencies
+- Clear revert paths for each fix
+
+---
+
+## Integration with Existing Architecture Summary
+
+### Database Layer
+- ✅ Fix 1: RLS policy already in migrations/036
+- ✅ Fix 5: Auto-stockout trigger already in migrations/034
+- 🆕 Fix 3: New migration/043 for audit trigger deduplication
+
+### Backend Layer
+- ✅ No new Server Actions required
+- 🆕 Fix 3: Modify clickable-status-badge to insert audit log manually
+
+### Frontend Layer
+- 🆕 Fix 2: Standardize useState patterns in form components
+- 🆕 Fix 3: Pass note from dialog to status update handler
+- 🆕 Fix 4: Replace ad-hoc formatters with standard utilities
+
+### Patterns Preserved
+- ✅ Controlled inputs with useState
+- ✅ Server Actions for mutations
+- ✅ Audit triggers for logging
+- ✅ formatCurrency() for display
+- ✅ RLS for authorization
+- ✅ Auto-triggers for business logic
+
+### Patterns Modified
+- 🆕 Fix 3: Manual audit log insertion before automated trigger (hybrid approach)
+
+**Architecture Philosophy: Fix Within Existing Patterns**
+- No new frameworks or libraries
+- No new architectural patterns introduced
+- All changes work within v1.2 established architecture
+- Minimal surface area for bugs
+- Clear rollback paths for all changes
 
 ---
 
 ## Confidence Assessment
 
-| Area | Confidence | Rationale |
-|------|------------|-----------|
-| **RPC Pattern** | HIGH | Proven in management dashboard, same approach |
-| **WAC Enhancement** | MEDIUM | Currency conversion adds complexity, needs thorough testing |
-| **Cascade Triggers** | MEDIUM | Pattern is standard, but ordering requires careful testing |
-| **Server Actions** | HIGH | Follows existing pattern exactly (dashboard.ts) |
-| **UI Components** | HIGH | Reuses existing dashboard component structure |
+| Fix | Confidence | Rationale |
+|-----|------------|-----------|
+| **Fix 1: RLS Policy** | HIGH | Already deployed and verified in v1.2 |
+| **Fix 2: Input Standardization** | HIGH | Simple pattern fix, well-understood React behavior |
+| **Fix 3: Status Notes** | MEDIUM | Trigger modification requires testing, but pattern is clear |
+| **Fix 4: Currency Standardization** | HIGH | Utilities already exist and tested, just need to use consistently |
+| **Fix 5: Stock-Out Tab** | HIGH | Feature already implemented and functional |
 
 **Overall Confidence: MEDIUM-HIGH**
-- High confidence in patterns (all proven in existing codebase)
-- Medium confidence in cascade logic (new complexity, needs validation)
-- Thorough testing will raise confidence to HIGH
+- 4 out of 5 fixes are HIGH confidence
+- 1 fix (status notes) requires moderate care but has clear implementation path
+- No unknowns or exploratory work required
+- All patterns exist and are proven in codebase
 
 ---
 
-*Architecture Research Complete: 2026-01-28*
+*Architecture Research Complete: 2026-02-02*

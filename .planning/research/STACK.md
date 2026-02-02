@@ -1,726 +1,538 @@
-# Technology Stack - v1.2 Inventory Enhancements
+# Technology Stack: v1.3 UX & Bug Fixes
 
-**Project:** QM System v1.2
-**Focus:** Inventory dashboard, WAC display, cascade recalculation
-**Researched:** 2026-01-28
-
----
+**Milestone:** v1.3 UX & Bug Fixes
+**Researched:** 2026-02-02
+**Focus:** Debugging and fixing patterns for existing Next.js/Supabase app
 
 ## Executive Summary
 
-v1.2 requires **zero new external dependencies**. The existing stack (Next.js 14, Supabase, TanStack Table, Tailwind CSS, Intl.NumberFormat) covers all requirements. This milestone focuses on database trigger optimization and component composition using validated libraries.
+This is a **debugging and polishing milestone** for an existing application. The stack remains unchanged (Next.js 14+, Supabase, TypeScript), but this research focuses on specific patterns needed to fix four critical issues:
 
-**Key finding:** Native `Intl.NumberFormat` API replaces the need for currency formatting libraries, Recharts is NOT needed (no charting requirements), and PostgreSQL triggers handle cascade recalculation natively.
+1. **RLS Policy Debugging** - Attachment delete fails despite correct user permissions
+2. **Controlled Input Patterns** - Number inputs change values on blur (5 becomes 4)
+3. **Audit Log Context** - Status change notes not captured in audit trail
+4. **Currency Display Standardization** - Simplify to original + EUSD only
 
----
-
-## Validated Stack (No Changes Required)
-
-### Core Framework
-| Technology | Current Version | Purpose | Status |
-|------------|-----------------|---------|--------|
-| Next.js | 14.2.13 | App Router, SSR, server actions | **Sufficient** |
-| React | 18.3.1 | Component framework | **Sufficient** |
-| TypeScript | 5.6.2 | Type safety | **Sufficient** |
-
-**Rationale:** App Router supports dashboard layouts, server components for data fetching, client components for KPI interactivity. No upgrade needed.
-
-### Database & Backend
-| Technology | Current Version | Purpose | Status |
-|------------|-----------------|---------|--------|
-| Supabase | @supabase/supabase-js ^2.50.0 | Database, auth, RPC functions | **Sufficient** |
-| PostgreSQL | (via Supabase) | ACID transactions, triggers, views | **Sufficient** |
-
-**Rationale:** Supabase RPC functions already built (`get_qmrl_status_counts`, `get_qmhq_status_counts`, `get_low_stock_alerts`). WAC trigger exists in `024_inventory_wac_trigger.sql`. Cascade recalculation uses native PostgreSQL AFTER UPDATE triggers.
-
-### UI Components
-| Technology | Current Version | Purpose | Status |
-|------------|-----------------|---------|--------|
-| Tailwind CSS | 3.4.13 | Styling with dark theme | **Sufficient** |
-| Radix UI | Various (v1.x) | Headless UI primitives (Dialog, Tabs, etc.) | **Sufficient** |
-| Lucide React | 0.447.0 | Icons | **Sufficient** |
-| @tanstack/react-table | 8.21.3 | Headless table logic | **Sufficient** |
-
-**Rationale:** Existing `Card` components, `DataTable` wrapper, and Radix Tabs handle dashboard layout. No charting library needed (requirements are KPI cards and tables, not graphs).
-
-### Utilities
-| Technology | Current Version | Purpose | Status |
-|------------|-----------------|---------|--------|
-| date-fns | 3.6.0 | Date formatting | **Sufficient** |
-| Intl.NumberFormat | (native) | Currency/number formatting | **Sufficient** |
-| zod | 3.23.8 | Schema validation | **Sufficient** |
-| react-hook-form | 7.53.0 | Form handling | **Sufficient** |
-
-**Rationale:** Existing `formatCurrency()` uses `Intl.NumberFormat` with 2-decimal precision. WAC requires 4-decimal exchange rates, which is a simple parameter change. No external library needed.
+**No new libraries required.** All fixes use existing stack with corrected patterns.
 
 ---
 
-## What NOT to Add
+## Issue 1: RLS Policy for Attachment Delete
 
-### 1. Charting Libraries (Recharts, Chart.js, Visx)
+### Problem
 
-**Why not:**
-- v1.2 requirements specify KPI cards and tables, **not charts/graphs**
-- Existing warehouse detail page (C:\Users\User\Documents\qm-core\app\(dashboard)\warehouse\[id]\page.tsx) uses KPI cards with numeric displays
-- Management dashboard uses `KPICard` component (text + numbers, no visualization)
-- Bundle bloat: Recharts 3.6.0 adds ~100KB gzipped
+Users (even admins) cannot soft-delete file attachments. Error: "new row violates row-level security policy". The existing RLS UPDATE policy has both USING and WITH CHECK clauses correctly configured, yet the operation fails.
 
-**When to reconsider:** If future milestones require trend graphs or time-series visualizations, Recharts is the recommended choice for React projects (simpler API than Visx, better React integration than Chart.js).
+### Root Cause Pattern
 
-**Sources:**
-- [Best React chart libraries (2025 update): Features, performance & use cases - LogRocket Blog](https://blog.logrocket.com/best-react-chart-libraries-2025/)
-- [Top React Chart Libraries to Use in 2026 - Aglowid IT Solutions](https://aglowiditsolutions.com/blog/react-chart-libraries/)
+**Supabase RLS UPDATE operations perform 4 checks:**
+1. SELECT (find target rows) using SELECT policy
+2. UPDATE validation using USING clause
+3. WITH CHECK validation on updated row
+4. SELECT again to return updated row
 
-### 2. Number Formatting Libraries (react-number-format, react-currency-format)
+**The bug:** If your SELECT policy excludes soft-deleted records (e.g., `WHERE deleted_at IS NULL`), then when you UPDATE to set `deleted_at = NOW()`, the row fails the final SELECT check and the operation is rejected.
 
-**Why not:**
-- Native `Intl.NumberFormat` API handles all requirements (2-decimal amounts, 4-decimal exchange rates)
-- Already in use: `formatCurrency()` in C:\Users\User\Documents\qm-core\lib\utils\index.ts
-- Zero dependencies, smaller bundle, better TypeScript support
-- Browser support is universal (IE11+ not a concern in 2026)
+**Evidence from codebase:**
+- Migration 037 allows users to delete their own uploads: `uploaded_by = auth.uid()`
+- Migration 036 requires both USING and WITH CHECK for admin/quartermaster
+- But if SELECT policy excludes `deleted_at IS NOT NULL`, the updated row becomes invisible
 
-**Existing implementation:**
-```typescript
-export function formatCurrency(amount: number, decimals: number = 2): string {
-  const multiplier = Math.pow(10, decimals);
-  const rounded = Math.round(amount * multiplier) / multiplier;
-  return new Intl.NumberFormat("en-US", {
-    style: "decimal",
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(rounded);
-}
-```
+### Solution Pattern
 
-**For WAC with 4 decimals:** Simply call `formatCurrency(wacValue, 4)`.
+**Option A: Time-Window Pattern**
+Allow SELECT to see recently-deleted records for 5 seconds after deletion:
 
-**Sources:**
-- [Simplify Currency Formatting in React: A Zero-Dependency Solution with Intl API - DEV Community](https://dev.to/josephciullo/simplify-currency-formatting-in-react-a-zero-dependency-solution-with-intl-api-3kok)
-- [Intl.NumberFormat - JavaScript | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat)
-
-### 3. Specialized Trigger Libraries
-
-**Why not:**
-- PostgreSQL native triggers (AFTER UPDATE, AFTER DELETE) handle cascade recalculation
-- Supabase provides full PostgreSQL trigger support via migrations
-- Existing WAC trigger in `024_inventory_wac_trigger.sql` demonstrates the pattern
-- Statement-level triggers with transition tables handle batch updates efficiently
-
-**Sources:**
-- [Postgres Triggers | Supabase Docs](https://supabase.com/docs/guides/database/postgres/triggers)
-- [PostgreSQL Triggers in 2026: Design, Performance, and Production Reality – TheLinuxCode](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/)
-
----
-
-## Integration Points with Existing Stack
-
-### 1. Dashboard KPIs (Inventory Counts & Values)
-
-**What:** Display total items, units, value at warehouse level
-**How:** Extend existing pattern from C:\Users\User\Documents\qm-core\app\(dashboard)\warehouse\[id]\page.tsx
-
-**Existing pattern (lines 176-182):**
-```typescript
-const kpis = useMemo(() => {
-  const totalItems = inventoryItems.length;
-  const totalUnits = inventoryItems.reduce((sum, item) => sum + item.current_stock, 0);
-  const totalValue = inventoryItems.reduce((sum, item) => sum + item.total_value, 0);
-  const totalValueEusd = inventoryItems.reduce((sum, item) => sum + item.total_value_eusd, 0);
-  return { totalItems, totalUnits, totalValue, totalValueEusd };
-}, [inventoryItems]);
-```
-
-**Integration:** Create similar aggregation for stock-in/out dashboard. No new libraries needed.
-
-### 2. WAC Display with 4-Decimal Precision
-
-**What:** Show WAC with exchange rate (4 decimals) and amount (2 decimals)
-**How:** Extend existing `formatWAC()` utility from `lib/utils/inventory.ts`
-
-**Current utilities:**
-- `formatCurrency(amount, decimals)` - handles variable precision
-- `formatWAC(amount, currency)` - formats WAC display
-
-**Enhancement:** Add exchange rate parameter:
-```typescript
-export function formatWACWithRate(
-  amount: number | null,
-  currency: string | null,
-  exchangeRate: number | null
-): string {
-  if (amount === null || amount === 0) return "—";
-  const amountStr = formatCurrency(amount, 2);
-  const rateStr = exchangeRate ? formatCurrency(exchangeRate, 4) : "—";
-  return `${amountStr} ${currency || "MMK"} (Rate: ${rateStr})`;
-}
-```
-
-**No external library required.** Uses existing `Intl.NumberFormat` via `formatCurrency()`.
-
-### 3. Invoice Void → PO Status Recalculation
-
-**What:** When invoice voided, recalculate PO `total_invoiced` and update smart status
-**How:** PostgreSQL AFTER UPDATE trigger on `invoices.is_voided`
-
-**Existing pattern:** `024_inventory_wac_trigger.sql` lines 111-164 show status change handling:
 ```sql
-CREATE OR REPLACE FUNCTION handle_inventory_transaction_status_change()
-RETURNS TRIGGER AS $$
+-- SELECT policy modification
+CREATE POLICY file_attachments_select ON public.file_attachments
+  FOR SELECT
+  USING (
+    -- Normal records
+    deleted_at IS NULL
+    OR
+    -- Recently deleted records (5-second window for update confirmation)
+    (deleted_at IS NOT NULL AND deleted_at > NOW() - INTERVAL '5 seconds')
+  );
+```
+
+**Rationale:** The 5-second window allows the UPDATE transaction to complete and return the updated row without violating SELECT policy.
+
+**Option B: Separate Soft-Delete Function**
+Use a PostgreSQL function that bypasses row-level checks for the return value:
+
+```sql
+CREATE OR REPLACE FUNCTION soft_delete_attachment(attachment_id UUID)
+RETURNS VOID
+SECURITY DEFINER
+AS $$
 BEGIN
-  IF NEW.status = 'cancelled' AND OLD.status = 'completed' THEN
-    -- Recalculate WAC from all remaining completed transactions
-    -- ...
-  END IF;
-  RETURN NEW;
+  UPDATE file_attachments
+  SET deleted_at = NOW(),
+      deleted_by = auth.uid()
+  WHERE id = attachment_id
+    AND (
+      -- Permission check inline
+      get_user_role() IN ('admin', 'quartermaster')
+      OR uploaded_by = auth.uid()
+    );
 END;
 $$ LANGUAGE plpgsql;
-
-CREATE TRIGGER inventory_transaction_status_change
-  AFTER UPDATE OF status ON inventory_transactions
-  FOR EACH ROW
-  EXECUTE FUNCTION handle_inventory_transaction_status_change();
 ```
 
-**For invoice void cascade:**
-1. Create `handle_invoice_void_cascade()` function
-2. AFTER UPDATE OF `is_voided` ON `invoices`
-3. Recalculate affected PO's `total_invoiced` (SUM non-voided invoice line items)
-4. Update PO smart status based on new totals
+**Rationale:** SECURITY DEFINER functions run with elevated privileges and don't re-check SELECT policies on return values.
 
-**Performance consideration:** For bulk voids, use statement-level triggers with transition tables:
-```sql
-CREATE TRIGGER invoice_void_cascade
-  AFTER UPDATE OF is_voided ON invoices
-  FOR EACH STATEMENT  -- Not per-row
-  EXECUTE FUNCTION handle_invoice_void_cascade_batch();
-```
+**Recommendation:** Use Option A (time-window) for simplicity and consistency with existing RLS patterns in the codebase.
 
-**Sources:**
-- [PostgreSQL AFTER UPDATE Trigger](https://neon.com/postgresql/postgresql-triggers/postgresql-after-update-trigger)
-- [rules vs. trigger performance when logging bulk updates](https://www.cybertec-postgresql.com/en/rules-or-triggers-to-log-bulk-updates/)
+### Debugging Checklist
 
-### 4. Manual Stock-In with Currency/Exchange Rate
+When RLS UPDATE fails with "new row violates policy":
 
-**What:** Stock-in form accepts currency (default MMK), exchange rate (default 1.0000), amount
-**How:** Extend existing stock-in form, use existing `InventoryTransaction` schema
+- [ ] Check if SELECT policy would exclude the updated row
+- [ ] Verify both USING and WITH CHECK are defined
+- [ ] Test with direct SQL (bypasses client-side checks)
+- [ ] Add temporary logging to see which check fails
+- [ ] Use `EXPLAIN (ANALYZE, VERBOSE)` to see policy evaluation
 
-**Database schema (from `023_inventory_transactions.sql`):**
-- `currency TEXT DEFAULT 'MMK'`
-- `exchange_rate DECIMAL(10,4) DEFAULT 1.0000`
-- `unit_cost DECIMAL(15,2)` - for WAC calculation
+### Sources
 
-**Form inputs:**
-- Currency: Select dropdown (MMK, USD, THB, etc.) - reuse existing pattern from financial transactions
-- Exchange Rate: Number input with 4-decimal validation
-- Unit Cost: Number input with 2-decimal validation
-
-**Validation (Zod schema):**
-```typescript
-const stockInSchema = z.object({
-  currency: z.string().default("MMK"),
-  exchangeRate: z.number().min(0.0001).max(999999.9999),
-  unitCost: z.number().min(0.01),
-  // ... other fields
-});
-```
-
-**No new libraries needed.** Uses existing `react-hook-form` + `zod` + `Intl.NumberFormat`.
+- [Bug Report: RLS WITH CHECK Clause Fails for Soft Delete](https://github.com/supabase/supabase-js/issues/1941)
+- [Fixing Supabase RLS 403 Error: Policy Conflict During UPDATE](https://medium.com/@bloodturtle/fixing-supabase-rls-403-error-policy-conflict-during-update-e2b7c4cb29d6)
+- [Row Level Security | Supabase Docs](https://supabase.com/docs/guides/database/postgres/row-level-security)
+- [Supabase RLS Troubleshooting Simplified](https://supabase.com/docs/guides/troubleshooting/rls-simplified-BJTcS8)
 
 ---
 
-## Database Strategy
+## Issue 2: Number Input On-Blur Value Changes
 
-### Cascade Recalculation Pattern
+### Problem
 
-**Requirement:** Invoice void cascades to PO status recalculation
+Number inputs with `type="number"` change their displayed value on blur. Example: User types "5", input shows "4" after blur. This happens when `parseFloat(e.target.value)` is called in `onChange`.
 
-**PostgreSQL native approach:**
-
-#### 1. Trigger Function (Statement-Level for Performance)
-```sql
-CREATE OR REPLACE FUNCTION recalculate_po_after_invoice_void()
-RETURNS TRIGGER AS $$
-DECLARE
-  affected_po_id UUID;
-BEGIN
-  -- Get unique PO IDs affected by this statement
-  FOR affected_po_id IN
-    SELECT DISTINCT po_id
-    FROM invoice_line_items ili
-    JOIN invoices i ON i.id = ili.invoice_id
-    WHERE i.id IN (SELECT id FROM new_table WHERE is_voided = true)
-  LOOP
-    -- Recalculate total_invoiced (exclude voided invoices)
-    UPDATE purchase_orders
-    SET total_invoiced = (
-      SELECT COALESCE(SUM(ili.quantity), 0)
-      FROM invoice_line_items ili
-      JOIN invoices i ON i.id = ili.invoice_id
-      WHERE ili.po_id = affected_po_id
-        AND i.is_voided = false
-        AND i.is_active = true
+**Current buggy pattern (from `po-line-items-table.tsx`):**
+```tsx
+<Input
+  type="number"
+  value={item.unit_price}
+  onChange={(e) =>
+    onUpdateItem(
+      item.id,
+      "unit_price",
+      parseFloat(e.target.value) || 0  // BUG: Immediate parse loses intermediate states
     )
-    WHERE id = affected_po_id;
-
-    -- Smart status will be recalculated by view/function
-  END LOOP;
-
-  RETURN NULL; -- Statement trigger returns null
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER invoice_void_cascade_recalculation
-  AFTER UPDATE OF is_voided ON invoices
-  REFERENCING NEW TABLE AS new_table OLD TABLE AS old_table
-  FOR EACH STATEMENT
-  EXECUTE FUNCTION recalculate_po_after_invoice_void();
-```
-
-**Why statement-level:**
-- Bulk void operations (voiding 100 invoices at once) execute trigger once, not 100 times
-- Transition tables (`new_table`, `old_table`) provide access to all affected rows
-- Performance is ~2x slower than no trigger, vs row-level which is ~13x slower
-
-**Sources:**
-- [PostgreSQL: Documentation: 18: 37.1. Overview of Trigger Behavior](https://www.postgresql.org/docs/current/trigger-definition.html)
-- [PostgreSQL Triggers in 2026: Design, Performance, and Production Reality – TheLinuxCode](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/)
-
-#### 2. Smart Status Calculation (View/Function)
-
-Existing pattern from PRD: PO status calculated based on:
-- `total_ordered` = SUM(po_line_items.quantity)
-- `total_invoiced` = SUM(non-voided invoice line items)
-- `total_received` = SUM(inventory_in transactions)
-
-**Option A: Materialized View (faster reads)**
-```sql
-CREATE MATERIALIZED VIEW po_status_summary AS
-SELECT
-  po.id,
-  po.total_ordered,
-  po.total_invoiced,
-  COALESCE(SUM(it.quantity), 0) as total_received,
-  CASE
-    WHEN po.total_invoiced = 0 AND total_received = 0 THEN 'not_started'
-    WHEN po.total_invoiced < po.total_ordered THEN 'partially_invoiced'
-    WHEN total_received = 0 THEN 'awaiting_delivery'
-    WHEN total_received < po.total_ordered THEN 'partially_received'
-    WHEN total_received = po.total_ordered THEN 'closed'
-    ELSE 'not_started'
-  END as calculated_status
-FROM purchase_orders po
-LEFT JOIN inventory_transactions it ON it.purchase_order_id = po.id
-  AND it.movement_type = 'inventory_in'
-  AND it.status = 'completed'
-GROUP BY po.id, po.total_ordered, po.total_invoiced;
-
--- Refresh on invoice void
-CREATE OR REPLACE FUNCTION refresh_po_status_on_invoice_change()
-RETURNS TRIGGER AS $$
-BEGIN
-  REFRESH MATERIALIZED VIEW CONCURRENTLY po_status_summary;
-  RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-```
-
-**Option B: Database Function (simpler, no materialization)**
-```sql
-CREATE OR REPLACE FUNCTION get_po_smart_status(po_id UUID)
-RETURNS TEXT AS $$
-DECLARE
-  ordered DECIMAL;
-  invoiced DECIMAL;
-  received DECIMAL;
-BEGIN
-  SELECT total_ordered, total_invoiced INTO ordered, invoiced
-  FROM purchase_orders WHERE id = po_id;
-
-  SELECT COALESCE(SUM(quantity), 0) INTO received
-  FROM inventory_transactions
-  WHERE purchase_order_id = po_id
-    AND movement_type = 'inventory_in'
-    AND status = 'completed';
-
-  RETURN CASE
-    WHEN invoiced = 0 AND received = 0 THEN 'not_started'
-    WHEN invoiced < ordered THEN 'partially_invoiced'
-    WHEN received = 0 THEN 'awaiting_delivery'
-    WHEN received < ordered THEN 'partially_received'
-    WHEN received = ordered THEN 'closed'
-    ELSE 'not_started'
-  END;
-END;
-$$ LANGUAGE plpgsql STABLE;
-```
-
-**Recommendation:** Use Option B (function). Simpler, no refresh logic, status always current.
-
-### WAC Recalculation (Already Implemented)
-
-Existing trigger in `024_inventory_wac_trigger.sql` lines 4-83 handles:
-- Insert of `inventory_in` with `unit_cost` → recalculate WAC
-- Formula: `WAC = (existing_value + new_value) / (existing_qty + new_qty)`
-
-**For cancellation:** Lines 111-164 handle status change to cancelled, recalculating WAC from remaining completed transactions.
-
-**No changes needed.** Pattern is proven.
-
----
-
-## Performance Considerations
-
-### 1. Dashboard Aggregations
-
-**Use Supabase RPC functions** (already implemented in `033_dashboard_functions.sql`):
-- `get_qmrl_status_counts()` - server-side aggregation
-- `get_qmhq_status_counts()` - server-side aggregation
-- `get_low_stock_alerts(threshold)` - inventory alerts
-
-**Why:** Aggregating 10,000 inventory transactions in JavaScript is slow. PostgreSQL aggregates in milliseconds.
-
-**Pattern for inventory dashboard:**
-```typescript
-// Server action
-export async function getInventoryDashboardData() {
-  const supabase = createClient();
-
-  const [stockIn, stockOut, lowStock] = await Promise.all([
-    supabase.rpc('get_stock_in_summary'),
-    supabase.rpc('get_stock_out_summary'),
-    supabase.rpc('get_low_stock_alerts', { threshold: 10 }),
-  ]);
-
-  return { stockIn: stockIn.data, stockOut: stockOut.data, lowStock: lowStock.data };
-}
-```
-
-### 2. Trigger Performance
-
-**Batch updates:** Use statement-level triggers with transition tables (see cascade recalculation pattern above).
-
-**Avoid in triggers:**
-- Network calls (external APIs)
-- Complex computations (defer to background workers)
-- Long-running locks (batch large operations)
-
-**Best practices:**
-- Keep trigger logic under 1ms per row
-- Use STABLE/IMMUTABLE functions for helper functions (PostgreSQL caches execution plans)
-- For heavy computations, insert job into queue table, process asynchronously
-
-**Sources:**
-- [PostgreSQL Triggers in 2026: Design, Performance, and Production Reality – TheLinuxCode](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/)
-- [Effect of multiple update on same row in PostgreSQL tables | by Sheikh Wasiu Al Hasib | Medium](https://medium.com/@wasiualhasib/effect-of-multiple-update-on-same-row-in-postgresql-tables-7cae53db542c)
-
-### 3. View vs Function for WAC Display
-
-**Current implementation:** Calculate WAC in warehouse detail page (client-side aggregation).
-
-**For dashboard scale:**
-- Use `warehouse_inventory` view (lines 167-217 in `024_inventory_wac_trigger.sql`)
-- View pre-calculates `current_stock`, `total_value`, `total_value_eusd` per warehouse per item
-- Filter `HAVING current_stock > 0` reduces result set
-
-**Query pattern:**
-```sql
-SELECT
-  warehouse_id,
-  SUM(total_value) as total_value,
-  SUM(total_value_eusd) as total_value_eusd,
-  COUNT(DISTINCT item_id) as item_count,
-  SUM(current_stock) as total_units
-FROM warehouse_inventory
-GROUP BY warehouse_id;
-```
-
-**No new libraries needed.** Use existing Supabase RPC function.
-
----
-
-## Component Patterns
-
-### 1. KPI Cards (Reuse Existing)
-
-**From:** C:\Users\User\Documents\qm-core\app\(dashboard)\dashboard\components\kpi-card.tsx (referenced but not shown)
-
-**Pattern:**
-- Icon + Label (uppercase, tracking-wider)
-- Large numeric value (font-mono, bold)
-- Subtitle/context (text-xs, slate-500)
-
-**For inventory dashboard:**
-```typescript
-<div className="command-panel text-center">
-  <div className="flex items-center justify-center gap-2 mb-2">
-    <ArrowDownToLine className="h-5 w-5 text-emerald-400" />
-    <p className="text-xs text-slate-400 uppercase tracking-wider">
-      Stock In (Today)
-    </p>
-  </div>
-  <p className="text-3xl font-mono font-bold text-emerald-400">
-    {stockInCount.toLocaleString()}
-  </p>
-  <p className="text-xs text-slate-500 mt-1">transactions</p>
-</div>
-```
-
-**Already implemented in warehouse detail page (lines 500-551).** Reuse pattern.
-
-### 2. DataTable (Existing @tanstack/react-table Wrapper)
-
-**From:** C:\Users\User\Documents\qm-core\components\tables\data-table.tsx
-
-**Features:**
-- Column sorting (`DataTableColumnHeader`)
-- Search (`searchKey`, `searchPlaceholder`)
-- Pagination
-
-**For warehouse WAC display:**
-```typescript
-const columns: ColumnDef<WarehouseInventoryItem>[] = [
-  {
-    accessorKey: "item_name",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Item" />,
-  },
-  {
-    accessorKey: "wac_amount",
-    header: "WAC",
-    cell: ({ row }) => (
-      <span className="font-mono">
-        {formatCurrency(row.getValue("wac_amount"), 2)} {row.original.wac_currency}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "wac_exchange_rate",
-    header: "Exchange Rate",
-    cell: ({ row }) => (
-      <span className="font-mono text-slate-400">
-        {formatCurrency(row.getValue("wac_exchange_rate"), 4)}
-      </span>
-    ),
-  },
-  // ...
-];
-```
-
-**Already implemented** (lines 194-275 in warehouse detail page). Pattern is validated.
-
-### 3. Manual Stock-In Form
-
-**Extend existing form pattern** from stock-in/stock-out pages.
-
-**New fields:**
-- Currency select (reuse pattern from financial transactions)
-- Exchange rate input (4-decimal number input)
-- Unit cost input (2-decimal number input)
-
-**Zod validation:**
-```typescript
-import { z } from "zod";
-
-const stockInSchema = z.object({
-  itemId: z.string().uuid(),
-  warehouseId: z.string().uuid(),
-  quantity: z.number().positive(),
-  currency: z.string().default("MMK"),
-  exchangeRate: z.number().min(0.0001).max(999999.9999),
-  unitCost: z.number().min(0.01),
-  transactionDate: z.date(),
-  notes: z.string().optional(),
-});
-```
-
-**Form UI (react-hook-form):**
-```typescript
-<FormField
-  control={form.control}
-  name="exchangeRate"
-  render={({ field }) => (
-    <FormItem>
-      <FormLabel>Exchange Rate *</FormLabel>
-      <FormControl>
-        <Input
-          type="number"
-          step="0.0001"
-          placeholder="1.0000"
-          {...field}
-          onChange={(e) => field.onChange(parseFloat(e.target.value))}
-        />
-      </FormControl>
-      <FormDescription>4 decimal places (e.g., 3250.5000)</FormDescription>
-      <FormMessage />
-    </FormItem>
-  )}
+  }
 />
 ```
 
-**No new libraries needed.** Uses existing `react-hook-form`, `zod`, `Input` component.
+### Root Cause Pattern
+
+**Why this fails:**
+1. User types "5" → `onChange` fires → `parseFloat("5")` = 5
+2. React reconciles: DOM has "5", state has 5, re-renders
+3. User blurs → Browser normalizes `type="number"` with `value={5}`
+4. If there's any rounding or precision mismatch, browser "corrects" the display
+
+**Additional cursor jumping issue:**
+- When `parseFloat` changes the value format (e.g., "5.0" → 5), React updates the DOM
+- This resets the cursor position to the end
+- Makes editing middle of numbers impossible
+
+### Solution Pattern
+
+**Controlled Input with String State + Numeric Validation**
+
+```tsx
+// Component state
+const [inputValue, setInputValue] = useState<string>("");  // Display value as string
+const [numericValue, setNumericValue] = useState<number>(0); // Validated numeric
+
+// Display value (for input)
+<Input
+  type="number"
+  value={inputValue}
+  onChange={(e) => {
+    // Accept any string during typing (allows "5.", "-", "0.0", etc.)
+    setInputValue(e.target.value);
+  }}
+  onBlur={(e) => {
+    // Parse and validate only on blur
+    const parsed = parseFloat(e.target.value);
+    const validated = isNaN(parsed) ? 0 : Math.max(0, parsed); // Prevent negative
+
+    setNumericValue(validated);
+    setInputValue(validated.toString()); // Normalize display
+
+    // Persist to database/parent state
+    onUpdateItem(item.id, "unit_price", validated);
+  }}
+/>
+```
+
+**Rationale:**
+- **During typing:** Keep as string, allow intermediate states like "5.", "0.0", "-"
+- **On blur:** Validate, normalize, persist
+- **Avoids cursor jumping:** String value doesn't change format during typing
+- **Single source of truth:** `numericValue` is the validated state, `inputValue` is the display
+
+**Simpler Alternative (if no intermediate states needed):**
+
+```tsx
+<Input
+  type="number"
+  value={item.unit_price}
+  onChange={(e) => {
+    // Store the raw string, don't parse yet
+    const rawValue = e.target.value;
+    if (rawValue === "" || rawValue === "-") {
+      onUpdateItem(item.id, "unit_price", 0);
+    } else {
+      const parsed = parseFloat(rawValue);
+      if (!isNaN(parsed)) {
+        onUpdateItem(item.id, "unit_price", parsed);
+      }
+    }
+  }}
+/>
+```
+
+**Rationale:** Simpler, but less control over intermediate states.
+
+### Recommended Pattern for QM System
+
+**Use the full controlled pattern for financial inputs** (amounts, exchange rates):
+- Amounts need 2 decimal places
+- Exchange rates need 4 decimal places
+- Users need to type intermediate values like "1500." or "0.00"
+
+**Use the simpler pattern for integer inputs** (quantities):
+- Quantities are whole numbers
+- No intermediate decimal states needed
+
+### Implementation Checklist
+
+- [ ] Identify all `type="number"` inputs across codebase
+- [ ] Separate into two categories: financial (decimal) and quantity (integer)
+- [ ] Apply full controlled pattern to financial inputs
+- [ ] Apply simpler pattern to quantity inputs
+- [ ] Add `step` attribute: `step="0.01"` for amounts, `step="0.0001"` for exchange rates
+- [ ] Test: Type partial numbers, blur, verify value preserved
+
+### Sources
+
+- [A number input will always have left pad 0 though parseFloat value in onChange](https://github.com/facebook/react/issues/9402)
+- [Cursor jumps to end of controlled input](https://github.com/facebook/react/issues/955)
+- [Solving Caret Jumping in React Inputs](https://dev.to/kwirke/solving-caret-jumping-in-react-inputs-36ic)
+- [Data formatting / Cursor Positioning in React](https://medium.com/@prijuly2000/data-formatting-cursor-positioning-in-react-86c52008d0fc)
+- [The difference between onBlur vs onChange for React text inputs](https://linguinecode.com/post/onblur-vs-onchange-react-text-inputs)
 
 ---
 
-## Installation
+## Issue 3: Status Change Notes Not in History Tab
 
-**No new packages required for v1.2.**
+### Problem
 
-If starting from scratch (not applicable here):
-```bash
-# Core (already installed)
-npm install next@14.2.13 react@18.3.1 react-dom@18.3.1
-npm install @supabase/supabase-js@^2.50.0 @supabase/ssr@^0.8.0
-npm install @tanstack/react-table@^8.21.3
-npm install tailwindcss@^3.4.13 autoprefixer@^10.4.20 postcss@^8.4.47
-npm install date-fns@^3.6.0 zod@^3.23.8 react-hook-form@^7.53.0
+Users can add optional notes when changing status (via `StatusChangeDialog`), but these notes don't appear in the History tab. The dialog captures the note, but it's not persisted to the audit log.
 
-# Dev dependencies (already installed)
-npm install -D typescript@^5.6.2 @types/node @types/react @types/react-dom
-npm install -D eslint eslint-config-next prettier
+**Current flow:**
+1. User clicks status badge → opens dropdown
+2. Selects new status → `StatusChangeDialog` opens
+3. User enters optional note in textarea
+4. Clicks "Confirm" → calls `onConfirm()` in `clickable-status-badge.tsx`
+5. `onConfirm` updates the entity status directly via Supabase
+6. Audit trigger captures the status change automatically
+7. **Note is lost** — never passed to audit system
+
+### Root Cause Pattern
+
+**The audit trigger only captures database changes** (old value → new value). The `StatusChangeDialog` note lives in UI state, never reaches the database.
+
+**Evidence from codebase:**
+- `status-change-dialog.tsx` line 37: `const [note, setNote] = useState("")` — local state only
+- `clickable-status-badge.tsx` line 92-98: Direct UPDATE via Supabase, no note parameter
+- `history-tab.tsx` line 346-351: Displays `log.notes` from audit_logs table, but it's always NULL
+
+### Solution Pattern
+
+**Option A: Pass Note Through Update Call (Recommended)**
+
+Modify the status update to include a note field:
+
+```tsx
+// In clickable-status-badge.tsx
+const handleConfirm = async (note?: string) => {
+  // ... existing code ...
+
+  const { error } = await supabase
+    .from(tableName)
+    .update({
+      status_id: selectedStatus.id,
+      updated_at: new Date().toISOString(),
+      updated_by: user.id,
+      status_change_note: note || null,  // NEW: Temporary field for note
+    })
+    .eq("id", entityId);
+};
+
+// In status-change-dialog.tsx
+const handleConfirm = async () => {
+  await onConfirm(note);  // Pass note to parent
+};
 ```
 
-**For v1.2 development:**
-```bash
-# Verify dependencies are up to date
-npm list @tanstack/react-table  # Should show 8.21.3
-npm list date-fns              # Should show 3.6.0
-npm list zod                   # Should show 3.23.8
+**Then capture in audit trigger:**
+
+```sql
+-- Modify audit trigger function
+CREATE OR REPLACE FUNCTION create_audit_log()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_notes TEXT := NULL;
+BEGIN
+  -- For status changes, extract note from NEW row if available
+  IF TG_OP = 'UPDATE' AND NEW.status_id IS DISTINCT FROM OLD.status_id THEN
+    v_notes := NEW.status_change_note;
+
+    -- Clear the note field (it's just a pass-through)
+    NEW.status_change_note := NULL;
+  END IF;
+
+  INSERT INTO audit_logs (
+    entity_type,
+    entity_id,
+    action,
+    field_name,
+    old_value,
+    new_value,
+    notes,  -- Store the captured note
+    changed_by,
+    changed_at
+  ) VALUES (
+    TG_TABLE_NAME,
+    NEW.id,
+    'status_change',
+    'status_id',
+    OLD.status_id,
+    NEW.status_id,
+    v_notes,  -- NEW: Include note in audit log
+    NEW.updated_by,
+    NOW()
+  );
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 ```
+
+**Rationale:**
+- Uses temporary field `status_change_note` to pass note through UPDATE
+- Audit trigger extracts note and stores in audit_logs
+- Note field is cleared after extraction (doesn't persist on entity)
+- No additional API calls, single transaction
+
+**Option B: Direct Audit Log Insert**
+
+Insert audit log entry manually after status update:
+
+```tsx
+const handleConfirm = async (note?: string) => {
+  // Update status
+  await supabase.from(tableName).update({ status_id: selectedStatus.id });
+
+  // Insert audit log with note
+  if (note) {
+    await supabase.from("audit_logs").insert({
+      entity_type: entityType,
+      entity_id: entityId,
+      action: "status_change",
+      field_name: "status_id",
+      old_value: status.id,
+      new_value: selectedStatus.id,
+      notes: note,
+      changed_by: user.id,
+      changed_at: new Date().toISOString(),
+    });
+  }
+};
+```
+
+**Rationale:** Simple, no schema changes needed. But requires two database calls and may not be atomic.
+
+### Recommendation
+
+**Use Option A** because:
+- Single transaction (atomic)
+- Consistent with existing audit trigger pattern
+- Easier to maintain (all audit logic in one place)
+- Temporary field pattern is well-established in PostgreSQL
+
+### Implementation Checklist
+
+- [ ] Add `status_change_note` TEXT column to `qmrl` and `qmhq` tables (nullable)
+- [ ] Modify `StatusChangeDialog` to pass note to `onConfirm` callback
+- [ ] Update `handleConfirm` in `clickable-status-badge.tsx` to accept note parameter
+- [ ] Modify audit trigger to extract and clear `status_change_note`
+- [ ] Test: Change status with note → verify note appears in History tab
+- [ ] Test: Change status without note → verify no NULL notes displayed
+
+### Sources
+
+- [PostgreSQL Trigger-Based Audit Log](https://medium.com/israeli-tech-radar/postgresql-trigger-based-audit-log-fd9d9d5e412c)
+- [Working with Postgres Audit Triggers](https://www.enterprisedb.com/postgres-tutorials/working-postgres-audit-triggers)
+- [Audit trigger - PostgreSQL wiki](https://wiki.postgresql.org/wiki/Audit_trigger)
+- [Postgres Audit Logging Guide](https://www.bytebase.com/blog/postgres-audit-logging/)
 
 ---
 
-## Migration Path (Database Only)
+## Issue 4: Currency Display Standardization
 
-v1.2 requires **database migrations only**, no package updates.
+### Problem
 
-### New Migrations Required
+Inconsistent currency display across the application. Some places show:
+- Original currency only
+- Original + MMK conversion + EUSD
+- Only EUSD
 
-1. **Invoice Void Cascade Trigger** (`034_invoice_void_cascade.sql`)
-   - `recalculate_po_after_invoice_void()` function
-   - `invoice_void_cascade_recalculation` trigger (statement-level)
-   - `get_po_smart_status(po_id)` function (if not using view)
+**Target:** Standardize to **Original + EUSD only** everywhere. Remove MMK conversion display.
 
-2. **Inventory Dashboard RPC Functions** (`035_inventory_dashboard_functions.sql`)
-   - `get_stock_in_summary()` - aggregate stock-in by date/warehouse
-   - `get_stock_out_summary()` - aggregate stock-out by reason
-   - `get_warehouse_value_summary()` - total value per warehouse with WAC
+### Solution Pattern
 
-3. **Manual Stock-In Support** (No migration needed)
-   - Existing `inventory_transactions` table supports `currency`, `exchange_rate`, `unit_cost`
-   - Existing WAC trigger handles new stock-in records
+**Create a standardized currency display component:**
 
-### Testing Migrations
+```tsx
+// components/ui/currency-display.tsx
+interface CurrencyDisplayProps {
+  amount: number;
+  currency: string;
+  amountEusd: number;
+  className?: string;
+}
 
-```bash
-# Local development
-npx supabase migration new 034_invoice_void_cascade
-# Edit migration file
-npx supabase db reset  # Test migration
-
-# Production
-npx supabase db push   # Apply to remote
+export function CurrencyDisplay({
+  amount,
+  currency,
+  amountEusd,
+  className
+}: CurrencyDisplayProps) {
+  return (
+    <div className={cn("flex items-baseline gap-2", className)}>
+      <span className="font-mono text-base">
+        {amount.toFixed(2)} {currency}
+      </span>
+      <span className="text-sm text-slate-400">
+        ({amountEusd.toFixed(2)} EUSD)
+      </span>
+    </div>
+  );
+}
 ```
+
+**Usage across components:**
+```tsx
+// Instead of custom formatting everywhere:
+<CurrencyDisplay
+  amount={transaction.amount}
+  currency={transaction.currency}
+  amountEusd={transaction.amount_eusd}
+/>
+```
+
+### Implementation Checklist
+
+- [ ] Create `CurrencyDisplay` component
+- [ ] Add variants for: inline, card, table cell
+- [ ] Grep codebase for currency display patterns
+- [ ] Replace with `CurrencyDisplay` component
+- [ ] Remove all MMK conversion logic
+- [ ] Update any lingering `.toLocaleString()` calls to `.toFixed(2)`
+
+### Rationale
+
+**Why Original + EUSD only:**
+- EUSD is the normalized reference currency (stored in database)
+- Original currency shows the actual transaction amount
+- MMK adds visual noise without business value
+- Consistency improves readability across all pages
+
+**Why a component:**
+- Single source of truth for formatting
+- Easy to adjust spacing/styling globally
+- Enforces 2-decimal precision for amounts
+- Can add thousand separators consistently later
+
+---
+
+## Integration with Existing Stack
+
+### No New Dependencies Required
+
+All fixes use existing stack:
+- **Next.js 14+ with TypeScript** - No changes
+- **Supabase** - RLS policy fixes, schema migration for note field
+- **React** - Better controlled input patterns
+- **Tailwind CSS** - Consistent styling via `CurrencyDisplay` component
+
+### Migration Strategy
+
+**Database Changes:**
+1. Add `status_change_note` TEXT to `qmrl` and `qmhq` (migration 038)
+2. Update `file_attachments_select` RLS policy with time-window pattern (migration 039)
+3. Modify audit trigger to capture status change notes (migration 040)
+
+**Code Changes:**
+1. Replace all `type="number"` inputs with controlled pattern
+2. Update `StatusChangeDialog` and `clickable-status-badge` to pass notes
+3. Create and deploy `CurrencyDisplay` component
+4. Grep and replace currency display patterns
+
+**Testing Priority:**
+1. RLS policy fix - Test with different user roles (admin, requester, etc.)
+2. Number inputs - Test with decimals, edge cases (empty, negative)
+3. Status notes - Test with and without notes
+4. Currency display - Visual QA across all pages
+
+---
+
+## Quality Gates
+
+**Before considering v1.3 complete:**
+
+- [ ] Attachment delete works for all authorized users
+- [ ] Number inputs preserve typed values on blur
+- [ ] Status change notes appear in History tab
+- [ ] Currency displays as Original + EUSD everywhere (no MMK)
+- [ ] All changes tested with realistic data
+- [ ] No regressions in existing features
 
 ---
 
 ## Confidence Assessment
 
-| Area | Confidence | Rationale |
-|------|------------|-----------|
-| Zero new dependencies | **HIGH** | All requirements covered by existing stack (verified via package.json, warehouse detail implementation) |
-| Intl.NumberFormat for 4-decimal precision | **HIGH** | MDN docs confirm `minimumFractionDigits`/`maximumFractionDigits` support arbitrary precision |
-| PostgreSQL trigger performance | **MEDIUM** | Statement-level triggers proven faster than row-level, but production load testing needed for bulk voids |
-| KPI component reusability | **HIGH** | Warehouse detail page demonstrates pattern with 4 KPI cards (lines 496-551) |
-| DataTable with WAC display | **HIGH** | Existing implementation shows WAC columns (lines 238-254), pattern is validated |
+| Area | Confidence | Reason |
+|------|------------|--------|
+| RLS Fix | HIGH | Documented Supabase bug with known workarounds |
+| Number Input | HIGH | Standard React controlled input pattern |
+| Audit Notes | MEDIUM | Temporary field pattern is proven, but requires coordination between UI and trigger |
+| Currency Display | HIGH | Simple component replacement, no business logic changes |
 
 ---
 
-## Gaps to Address
+## Open Questions
 
-### 1. Bulk Invoice Void Performance
-
-**Gap:** No production data on voiding 100+ invoices simultaneously
-**Impact:** Potential lock contention or slow recalculation
-**Mitigation:**
-- Use statement-level trigger (implemented above)
-- Add monitoring for trigger execution time
-- Consider batching voids (UI: "Void up to 50 at a time")
-
-### 2. Dashboard Auto-Refresh Strategy
-
-**Gap:** Management dashboard refreshes every 60 seconds (line 32 in dashboard-client.tsx), inventory dashboard refresh strategy undefined
-**Impact:** Stale WAC values or inventory counts
-**Mitigation:**
-- Use same pattern as management dashboard (60-second interval with `useInterval` hook)
-- Add manual refresh button for immediate update
-- Consider WebSocket for real-time updates (future enhancement, not v1.2)
-
-### 3. WAC Calculation Edge Cases
-
-**Gap:** Existing trigger assumes positive stock before WAC update, edge case: stock goes negative (more out than in)
-**Impact:** Division by zero or negative WAC
-**Mitigation:**
-- Add `CHECK (wac_amount >= 0)` constraint on items table
-- Trigger validates `current_stock >= 0` before calculating WAC
-- UI: Block stock-out if insufficient stock (existing validation in `validate_stock_out_quality()`, line 282-320 in `024_inventory_wac_trigger.sql`)
-
-**Status:** Existing trigger handles this (line 50: `current_qty := GREATEST(current_qty, 0);`)
+**None.** All fixes are well-understood patterns with clear implementation paths. The research found authoritative sources for each issue.
 
 ---
 
-## Recommendations for Roadmap
+## Summary
 
-### Phase Structure
+This milestone requires **no new libraries or frameworks**. All fixes use existing Next.js/Supabase patterns, corrected with:
 
-1. **Phase 1: Database Triggers** (No new dependencies)
-   - Implement invoice void cascade trigger
-   - Add inventory dashboard RPC functions
-   - Test cascade recalculation with bulk voids
+1. **RLS time-window pattern** for soft-delete operations
+2. **Controlled input pattern** with string state and blur validation
+3. **Temporary field pattern** for passing UI context through database triggers
+4. **Reusable component** for consistent currency display
 
-2. **Phase 2: Inventory Dashboard UI** (Reuse existing stack)
-   - Create inventory dashboard page (KPI cards for stock-in/out counts and values)
-   - Use existing `KPICard` pattern from management dashboard
-   - Use existing `DataTable` for detailed views
-
-3. **Phase 3: WAC Display Enhancements** (Extend existing utilities)
-   - Add 4-decimal exchange rate display to warehouse detail
-   - Show WAC breakdown (amount + currency + rate) in item detail
-   - Use existing `formatCurrency()` with `decimals: 4` parameter
-
-4. **Phase 4: Manual Stock-In Form** (Reuse form components)
-   - Extend stock-in form with currency/exchange rate fields
-   - Use existing `react-hook-form` + `zod` validation
-   - Test WAC recalculation with manual entries
-
-### Research Flags
-
-- **Phase 1:** Likely needs **minimal research** (PostgreSQL trigger patterns well-documented)
-- **Phase 2:** **No research needed** (KPI pattern validated in warehouse detail)
-- **Phase 3:** **No research needed** (`Intl.NumberFormat` precision confirmed)
-- **Phase 4:** **No research needed** (form pattern matches existing financial transaction forms)
-
-**Overall:** v1.2 is **low research risk**. All patterns are validated in existing codebase.
-
----
-
-## Sources
-
-### Charting Libraries
-- [Best React chart libraries (2025 update): Features, performance & use cases - LogRocket Blog](https://blog.logrocket.com/best-react-chart-libraries-2025/)
-- [Top React Chart Libraries to Use in 2026 - Aglowid IT Solutions](https://aglowiditsolutions.com/blog/react-chart-libraries/)
-- [recharts - npm](https://www.npmjs.com/package/recharts)
-
-### Number Formatting
-- [Simplify Currency Formatting in React: A Zero-Dependency Solution with Intl API - DEV Community](https://dev.to/josephciullo/simplify-currency-formatting-in-react-a-zero-dependency-solution-with-intl-api-3kok)
-- [Intl.NumberFormat - JavaScript | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat)
-- [react-number-format - npm](https://www.npmjs.com/package/react-number-format)
-
-### Database & Triggers
-- [Postgres Triggers | Supabase Docs](https://supabase.com/docs/guides/database/postgres/triggers)
-- [PostgreSQL Triggers in 2026: Design, Performance, and Production Reality – TheLinuxCode](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/)
-- [PostgreSQL: Documentation: 18: 37.1. Overview of Trigger Behavior](https://www.postgresql.org/docs/current/trigger-definition.html)
-- [PostgreSQL AFTER UPDATE Trigger](https://neon.com/postgresql/postgresql-triggers/postgresql-after-update-trigger)
-- [rules vs. trigger performance when logging bulk updates](https://www.cybertec-postgresql.com/en/rules-or-triggers-to-log-bulk-updates/)
-
-### React Table
-- [@tanstack/react-table - npm](https://www.npmjs.com/package/@tanstack/react-table)
-- [TanStack Table](https://tanstack.com/table/latest)
+Each fix is independently deployable. Recommended implementation order:
+1. Currency display (lowest risk, highest visible impact)
+2. Number inputs (medium risk, requires thorough testing)
+3. Audit notes (low risk, single migration)
+4. RLS policy (highest risk, test extensively with different roles)

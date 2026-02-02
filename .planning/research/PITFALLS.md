@@ -1,849 +1,796 @@
-# Domain Pitfalls: Inventory Dashboard & WAC Enhancements
+# Domain Pitfalls: v1.3 UX & Bug Fixes
 
-**Domain:** Inventory Management System - Dashboard, WAC, and Cascade Recalculation
-**Context:** Adding features to EXISTING QM System with triggers, audit logging, and PO status calculation
-**Researched:** 2026-01-28
+**Domain:** Internal ticket, expense, inventory management system (QM)
+**Researched:** 2026-02-02
+**Focus:** Bug fixes and UX improvements for existing features
+
+## Executive Summary
+
+This research focuses on common pitfalls when fixing five specific bug categories in the QM system:
+1. RLS policy fixes (file_attachments delete policy)
+2. Number input behavior fixes (onBlur value changes)
+3. Audit display fixes (status change notes not appearing)
+4. Currency standardization (inconsistent EUSD display)
+5. Stock-out workflow enhancement (QMHQ detail page)
+
+These are "second-order" bugs — fixes that can introduce new bugs if not carefully implemented. The research identifies warning signs, prevention strategies, and which phases need deeper attention.
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, data corruption, or major system failures.
+Mistakes that cause rewrites, security vulnerabilities, or major data integrity issues.
 
-### Pitfall 1: Trigger Recursion from Cascade Recalculation
+### Pitfall 1: Missing WITH CHECK in RLS UPDATE Policies
 
-**What goes wrong:** When invoice void triggers WAC recalculation, which triggers audit logging, which references the invoice table, creating circular trigger dependencies. In PostgreSQL, cascading triggers have no depth limit and the system will allow infinite recursion until stack overflow.
+**What goes wrong:**
+RLS UPDATE policies require both `USING` (to check if you can access the row) and `WITH CHECK` (to validate the new row state). Missing `WITH CHECK` causes:
+- Silent failures where updates appear to work in app but fail at database level
+- Error: "new row violates row-level security policy"
+- Users with valid permissions unable to perform legitimate updates
 
 **Why it happens:**
-- Multiple AFTER triggers on same table fire sequentially
-- WAC trigger updates `items` table → fires audit trigger on items
-- Invoice void updates `invoices.is_voided` → fires WAC recalculation → fires audit
-- If audit trigger queries related tables during CASCADE, it can re-trigger the original operation
+- PostgreSQL defaults to using `USING` clause for `WITH CHECK` if not specified, but this creates security gaps
+- Developers assume `USING` is sufficient for read+write checks
+- Documentation examples often show only `USING` clause
 
 **Consequences:**
-- Database deadlocks under concurrent operations
-- Transaction timeouts (PostgreSQL default: 1 second for deadlock detection)
-- Silent data corruption if transactions partially complete
-- Stack overflow errors in extreme cases
+- Admin cannot soft-delete files even with correct role
+- UPDATE operations fail with cryptic RLS errors
+- Security vulnerability: users might update rows they shouldn't based on new state
 
 **Prevention:**
 ```sql
--- Use pg_trigger_depth() to prevent recursion
-CREATE OR REPLACE FUNCTION update_item_wac()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Stop if we're already in a nested trigger call
-  IF pg_trigger_depth() > 1 THEN
+-- WRONG: Only USING clause
+CREATE POLICY file_attachments_update ON public.file_attachments
+  FOR UPDATE
+  USING (public.get_user_role() IN ('admin', 'quartermaster'));
+
+-- CORRECT: Both USING and WITH CHECK
+CREATE POLICY file_attachments_update ON public.file_attachments
+  FOR UPDATE
+  USING (
+    -- Can I access this row in its current state?
+    public.get_user_role() IN ('admin', 'quartermaster')
+    OR uploaded_by = auth.uid()
+  )
+  WITH CHECK (
+    -- Is the new row state valid?
+    public.get_user_role() IN ('admin', 'quartermaster')
+    OR uploaded_by = auth.uid()
+  );
+```
+
+**Detection:**
+- UPDATE operations fail with "new row violates row-level security policy"
+- Users report "permission denied" even with correct roles
+- Soft-delete operations (setting `is_active = false`) fail unexpectedly
+
+**References:**
+- [Postgres RLS Implementation Guide](https://www.permit.io/blog/postgres-rls-implementation-guide)
+- [PostgreSQL CREATE POLICY Documentation](https://www.postgresql.org/docs/current/sql-createpolicy.html)
+- [Supabase RLS Guide](https://supabase.com/docs/guides/database/postgres/row-level-security)
+
+---
+
+### Pitfall 2: UPDATE and INSERT Policies Require SELECT Policies
+
+**What goes wrong:**
+Even with correct UPDATE/INSERT policies, operations fail if user cannot SELECT the rows. PostgreSQL needs to:
+- For UPDATE: SELECT the row before updating it
+- For INSERT: SELECT the newly inserted row to return it to client
+
+**Why it happens:**
+- Documentation emphasizes CRUD operations separately
+- Developers assume UPDATE policy is sufficient for updates
+- Implicit SELECT requirement not obvious from error messages
+
+**Consequences:**
+- UPDATE operations fail silently or return empty results
+- INSERT operations succeed but client receives empty response
+- Users see "no data" even though data was modified
+
+**Prevention:**
+```sql
+-- Ensure SELECT policy exists alongside UPDATE/INSERT
+CREATE POLICY file_attachments_select ON public.file_attachments
+  FOR SELECT USING (
+    public.get_user_role() IN ('admin', 'quartermaster', 'inventory')
+    OR uploaded_by = auth.uid()
+  );
+
+CREATE POLICY file_attachments_update ON public.file_attachments
+  FOR UPDATE
+  USING (...)
+  WITH CHECK (...);
+```
+
+**Detection:**
+- UPDATE queries return `[]` instead of updated row
+- INSERT operations succeed but client sees no data
+- RLS-enabled tables show different behavior than RLS-disabled tables
+
+**References:**
+- [UPDATE RLS policy requires SELECT RLS policy too](https://github.com/supabase/supabase/issues/28559)
+- [Failing to update data because of row level security](https://github.com/PostgREST/postgrest/discussions/1844)
+
+---
+
+### Pitfall 3: Trigger Conditional Logic Order Matters
+
+**What goes wrong:**
+In audit trigger functions with multiple conditional branches, the order of IF statements determines which action gets logged. Wrong order causes:
+- Status changes logged as generic updates
+- Notes field not captured for status changes
+- Cascade effects not visible in audit trail
+
+**Why it happens:**
+- First matching condition wins, subsequent checks skipped
+- Generic UPDATE check comes before specific action checks
+- Developers add new conditions at bottom of function
+
+**Consequences:**
+- Status change notes disappear (captured in wrong branch)
+- Audit history shows "Updated qmrl" instead of "Status changed from X to Y"
+- Users cannot see why status changed
+
+**Prevention:**
+```sql
+-- WRONG: Generic UPDATE first
+IF TG_OP = 'UPDATE' THEN
+  -- This catches EVERYTHING, including status changes
+  audit_action := 'update';
+  -- ... log generic update
+END IF;
+
+IF OLD.status_id IS DISTINCT FROM NEW.status_id THEN
+  -- Never reached because previous IF already handled it
+  audit_action := 'status_change';
+END IF;
+
+-- CORRECT: Specific checks first, generic last
+IF TG_OP = 'UPDATE' THEN
+  -- Check for soft delete
+  IF OLD.is_active = TRUE AND NEW.is_active = FALSE THEN
+    audit_action := 'delete';
+    -- ... log soft delete
     RETURN NEW;
   END IF;
 
-  -- WAC calculation logic...
-END;
-$$ LANGUAGE plpgsql;
+  -- Check for void
+  IF (OLD.is_voided = FALSE) AND NEW.is_voided = TRUE THEN
+    audit_action := 'void';
+    -- ... log void with reason
+    RETURN NEW;
+  END IF;
+
+  -- Check for status change
+  IF OLD.status_id IS DISTINCT FROM NEW.status_id THEN
+    audit_action := 'status_change';
+    -- ... log status change with notes
+    RETURN NEW;
+  END IF;
+
+  -- LAST: Generic UPDATE for everything else
+  audit_action := 'update';
+  -- ... log generic update
+END IF;
 ```
 
-**Additional safeguards:**
-- Use WHEN clause on CREATE TRIGGER to conditionally fire only when specific fields change
-- Prefer BEFORE triggers over AFTER triggers where possible (modify row before insert, no recursion)
-- Set session variables as recursion guards: `SET LOCAL app.in_trigger = TRUE`
-- Monitor with `auto_explain.log_triggers` threshold to catch slow trigger chains
-
 **Detection:**
-- `pg_stat_activity` shows multiple processes waiting on ExclusiveLock
-- Error messages: "deadlock detected" or "maximum stack depth exceeded"
-- Slow queries during invoice void or stock-in operations
-- Audit logs show duplicate entries for same timestamp/action
+- Status changes appear as generic "Updated qmrl" entries
+- Notes field empty in history even though user entered notes
+- Specific action types (void, status_change, assignment_change) not appearing
 
-**Phase recommendation:** Phase 1 (Architecture) - Design trigger call graph before implementation
-
-**Sources:**
+**References:**
 - [PostgreSQL Triggers in 2026: Design, Performance, and Production Reality](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/)
-- [PostgreSQL Understanding deadlocks](https://www.cybertec-postgresql.com/en/postgresql-understanding-deadlocks/)
-- [Trigger recursion in PostgreSQL and how to deal with it](https://www.cybertec-postgresql.com/en/dealing-with-trigger-recursion-in-postgresql/)
+- [PostgreSQL Trigger Functions Documentation](https://www.postgresql.org/docs/current/plpgsql-trigger.html)
 
 ---
 
-### Pitfall 2: Full-History WAC Recalculation on Every Void
+### Pitfall 4: Notes Not Passed to Audit Log Insert
 
-**What goes wrong:** When voiding an invoice, the naive approach recalculates WAC by scanning ALL historical `inventory_in` transactions for that item. For items with 10,000+ transactions, this becomes a 5+ second operation, blocking the entire `items` table row.
+**What goes wrong:**
+User enters notes in status change dialog, but notes don't appear in audit log history. The note is collected in UI but never passed to the database UPDATE statement.
 
 **Why it happens:**
-- Existing trigger does full table scan: `SELECT SUM(quantity * unit_cost) FROM inventory_transactions WHERE item_id = ... AND status = 'completed'`
-- No index on `(item_id, status, movement_type)` compound key
-- PostgreSQL row-level locks on `items` table block concurrent dashboard queries
-- CROSS JOIN in `warehouse_inventory` view amplifies the problem (warehouses × items)
+- Status change happens via direct UPDATE to entity table
+- Audit trigger captures OLD/NEW state but not UI form data
+- No mechanism to pass user-provided notes from UI to trigger
 
 **Consequences:**
-- Dashboard timeout errors during void operations
-- 30+ second load times for warehouse detail pages
-- Users complain "system freezes when Finance voids invoices"
-- Concurrent stock-in operations fail with lock timeout
+- Users cannot explain why they changed status
+- Audit trail lacks context for important decisions
+- Compliance/debugging requires asking users "why did you do this?"
 
 **Prevention:**
 
-**Phase 1: Proper indexing**
+**Option A: Add notes column to entity tables**
 ```sql
--- Compound index for WAC recalculation query
-CREATE INDEX idx_inventory_transactions_wac_calc
-ON inventory_transactions(item_id, status, movement_type, is_active)
-WHERE status = 'completed' AND movement_type = 'inventory_in';
+-- Add notes column to qmrl, qmhq, etc.
+ALTER TABLE qmrl ADD COLUMN status_change_notes TEXT;
 
--- Include unit_cost in covering index
-CREATE INDEX idx_inventory_transactions_wac_calc_covering
-ON inventory_transactions(item_id, status)
-INCLUDE (quantity, unit_cost, currency, exchange_rate)
-WHERE status = 'completed' AND movement_type = 'inventory_in';
+-- Update includes notes
+UPDATE qmrl SET
+  status_id = $1,
+  status_change_notes = $2,
+  updated_by = $3
+WHERE id = $4;
+
+-- Trigger captures status_change_notes
+IF OLD.status_id IS DISTINCT FROM NEW.status_id THEN
+  INSERT INTO audit_logs (..., notes)
+  VALUES (..., NEW.status_change_notes);
+END IF;
 ```
 
-**Phase 2: Incremental WAC updates instead of full recalculation**
-- Store `total_quantity_in` and `total_value_in` on `items` table
-- On stock-in: increment counters (O(1) operation)
-- On void: decrement counters (O(1) operation)
-- Trade-off: Slightly more complex logic, but 1000x faster
-
-**Phase 3: Queue long-running recalculations**
-- For items with >1000 transactions, use background job
-- Set `wac_recalc_pending = true` flag
-- Show "⏳ Recalculating..." badge in dashboard
-- Run actual recalculation via Supabase Edge Function or pg_cron
-
-**Detection:**
-- `EXPLAIN ANALYZE` shows Seq Scan on inventory_transactions
-- `pg_stat_user_tables.seq_scan` increases rapidly
-- Lock wait events in `pg_stat_activity`: `relation` lock type
-- Dashboard queries timeout with "canceling statement due to statement timeout"
-
-**Phase recommendation:** Phase 1 (Database) - Add indexes; Phase 3 (Optimization) - Implement incremental updates
-
-**Sources:**
-- [Weighted Average Inventory Method: Complete Guide](https://www.finaleinventory.com/accounting-and-inventory-software/weighted-average-inventory-method)
-- [Cascade Update of Cost on Inventory Transactions](https://ifs-train.westsidecorporation.com/ifsdoc/documentation/en/MaintainInventory/AboutCascadeUpdateofInvTrans.htm)
-
----
-
-### Pitfall 3: Negative Stock Breaking WAC Calculation
-
-**What goes wrong:** WAC formula divides by total quantity: `WAC = total_value / total_qty`. If inventory goes negative (stock-out before stock-in due to timing issues), division by zero or negative denominators corrupt the WAC value. Existing trigger has `GREATEST(current_qty, 0)` but doesn't handle negative total after new transaction.
-
-**Why it happens:**
-- User manually creates stock-in with backdated transaction_date
-- System processes stock-out first (completed status), then processes backdated stock-in
-- Race condition: Two concurrent stock-outs exceed available stock
-- Transfer transactions: Stock-out from warehouse A before stock-in to warehouse B completes
-- Invoice void removes stock-in, but related stock-outs remain active
-
-**Consequences:**
-- WAC becomes NULL, NaN, or negative value
-- Dashboard shows "Invalid value" for item costs
-- `wac_amount_eusd` generated column returns NULL, breaking all financial reports
-- Cascade failure: All items in same warehouse show invalid costs
-- Audit trail shows correct transactions, but valuation is wrong
-
-**Prevention:**
-
-**Phase 1: Strict validation**
+**Option B: Separate audit_log INSERT from UI**
 ```sql
--- Enhance existing validate_stock_out_quantity() trigger
-CREATE OR REPLACE FUNCTION validate_stock_out_quantity()
-RETURNS TRIGGER AS $$
+-- Update entity
+UPDATE qmrl SET status_id = $1 WHERE id = $2;
+
+-- Explicitly insert audit log entry with notes
+INSERT INTO audit_logs (
+  entity_type, entity_id, action,
+  field_name, old_value, new_value,
+  changes_summary, notes,
+  changed_by, changed_by_name, changed_at
+) VALUES (
+  'qmrl', $2, 'status_change',
+  'status_id', $3, $1,
+  'Status changed from "..." to "..."', $4, -- $4 is user notes
+  $5, $6, NOW()
+);
+```
+
+**Option C: Use JSONB context in trigger**
+```sql
+-- Pass context via session variable
+SET LOCAL app.status_change_notes = 'User explanation here';
+
+-- Trigger reads from session
+CREATE FUNCTION create_audit_log() AS $$
 DECLARE
-  available_stock DECIMAL(15,2);
-  pending_stock_outs DECIMAL(15,2);
+  user_notes TEXT;
 BEGIN
-  -- Check not just completed, but also pending stock-outs
-  SELECT
-    COALESCE(SUM(CASE
-      WHEN movement_type = 'inventory_in' THEN quantity
-      WHEN movement_type = 'inventory_out' AND status IN ('completed', 'pending') THEN -quantity
-      ELSE 0
-    END), 0)
-  INTO available_stock
-  FROM inventory_transactions
-  WHERE item_id = NEW.item_id
-    AND warehouse_id = NEW.warehouse_id
-    AND is_active = true;
+  user_notes := current_setting('app.status_change_notes', true);
 
-  IF NEW.quantity > available_stock THEN
-    RAISE EXCEPTION 'Cannot create stock-out: Available stock % (including pending)',
-      available_stock;
-  END IF;
-
-  RETURN NEW;
+  INSERT INTO audit_logs (..., notes)
+  VALUES (..., user_notes);
 END;
-$$ LANGUAGE plpgsql;
-```
-
-**Phase 2: WAC calculation safety checks**
-```sql
--- In update_item_wac() function
-IF total_qty <= 0 THEN
-  -- Don't update WAC if quantity would go negative
-  RAISE WARNING 'Skipping WAC update: total quantity % is non-positive for item %',
-    total_qty, NEW.item_id;
-  RETURN NEW;
-END IF;
-
--- Sanity check: WAC shouldn't change by >500% in single transaction
-IF new_wac > current_wac * 5 OR new_wac < current_wac / 5 THEN
-  RAISE WARNING 'WAC changed by >500%: old=%, new=% for item %',
-    current_wac, new_wac, NEW.item_id;
-  -- Log to audit table for investigation
-END IF;
-```
-
-**Phase 3: UI warnings**
-- Show "⚠️ Negative stock detected" badge on item detail page
-- Block backdated transactions unless user has `inventory_admin` role
-- Daily cron job to detect and alert on negative stock situations
-
-**Detection:**
-- `SELECT * FROM items WHERE wac_amount IS NULL OR wac_amount < 0`
-- `SELECT * FROM warehouse_inventory WHERE current_stock < 0`
-- Dashboard shows blank cost values
-- Financial reports: "Total value EUSD" shows 0 or NULL for items
-
-**Phase recommendation:** Phase 1 (Database) - Add validation; Phase 2 (UI) - Add warnings
-
-**Sources:**
-- [Negative Inventory: What is it & How Does it Affect Stock Control?](https://www.unleashedsoftware.com/blog/negative-inventory-affect-inventory-control/)
-- [WAC Knowledge Base | Zoho Inventory](https://www.zoho.com/us/inventory/kb/items/inventory-wac-report.html)
-
----
-
-### Pitfall 4: Invoice Void Doesn't Cascade to PO Status Recalculation
-
-**What goes wrong:** QM System calculates PO status based on `total_invoiced` and `total_received` aggregates. When an invoice is voided (`is_voided = true`), the existing PO status calculation queries don't exclude voided invoices, showing PO as "fully invoiced" when it's actually not.
-
-**Why it happens:**
-- Existing PO status calculation: `SELECT SUM(quantity) FROM invoice_line_items WHERE po_line_item_id = ...`
-- Missing: `AND invoices.is_voided = false` condition in JOIN
-- Voiding sets flag but doesn't trigger PO status recalculation
-- Dashboard caches PO status, doesn't detect void events
-
-**Consequences:**
-- PO shows status "awaiting_delivery" but actually needs more invoices
-- Finance team can't create new invoice (blocked by "PO is closed" check)
-- Balance in Hand calculation is wrong (includes voided invoice amounts)
-- Cascade failure: QMHQ shows incorrect completion status
-
-**Prevention:**
-
-**Phase 1: Update PO status calculation queries**
-```sql
--- Create view that excludes voided invoices
-CREATE OR REPLACE VIEW po_line_items_with_invoice_status AS
-SELECT
-  pli.id,
-  pli.po_id,
-  pli.quantity as ordered_quantity,
-  COALESCE(SUM(
-    CASE WHEN i.is_voided = false THEN ili.quantity ELSE 0 END
-  ), 0) as invoiced_quantity,
-  COALESCE(SUM(
-    CASE WHEN i.is_voided = false THEN ili.received_quantity ELSE 0 END
-  ), 0) as received_quantity
-FROM po_line_items pli
-LEFT JOIN invoice_line_items ili ON ili.po_line_item_id = pli.id
-LEFT JOIN invoices i ON i.id = ili.invoice_id
-GROUP BY pli.id;
-```
-
-**Phase 2: Trigger to recalculate PO status on void**
-```sql
-CREATE OR REPLACE FUNCTION recalculate_po_status_on_void()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Only process when is_voided changes from false to true
-  IF NEW.is_voided = true AND OLD.is_voided = false THEN
-    -- Call existing PO status calculation function
-    PERFORM update_po_status(NEW.po_id);
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS invoice_void_update_po ON invoices;
-CREATE TRIGGER invoice_void_update_po
-  AFTER UPDATE OF is_voided ON invoices
-  FOR EACH ROW
-  EXECUTE FUNCTION recalculate_po_status_on_void();
-```
-
-**Phase 3: Update Balance in Hand calculation**
-```sql
--- In financial_transactions query
-SELECT
-  SUM(CASE WHEN ft.transaction_type = 'money_in' THEN ft.amount_eusd ELSE 0 END) -
-  SUM(CASE
-    WHEN ft.transaction_type = 'money_out'
-      AND ft.invoice_id IS NOT NULL
-      AND i.is_voided = false  -- KEY: exclude voided
-    THEN ft.amount_eusd
-    ELSE 0
-  END) as balance_in_hand
-FROM financial_transactions ft
-LEFT JOIN invoices i ON i.id = ft.invoice_id
-WHERE ft.qmhq_id = ...
+$$;
 ```
 
 **Detection:**
-- PO detail page shows "closed" but has unmatched quantities
-- `SELECT * FROM invoices WHERE is_voided = true` → check related PO status manually
-- Finance reports: Balance in Hand doesn't match bank statement
-- User report: "Can't create invoice for PO that should be open"
+- Notes field in StatusChangeDialog but notes empty in HistoryTab
+- User reports "I entered a note but it's not showing"
+- Audit log entries have NULL notes even for important changes
 
-**Phase recommendation:** Phase 1 (Database) - Add trigger; Phase 2 (Testing) - Test cascade thoroughly
-
-**Sources:**
-- [Inventory close - Supply Chain Management | Dynamics 365](https://learn.microsoft.com/en-us/dynamics365/supply-chain/cost-management/inventory-close)
-- [Voiding an Invoice - Certinia](https://help.certinia.com/main/2024.1/Content/OIM/Features/OrderFulfillment/Invoices/VoidingInvoice.htm)
+**References:**
+- [Postgres Audit Logging Guide](https://www.bytebase.com/blog/postgres-audit-logging/)
+- [Working with Postgres Audit Triggers](https://www.enterprisedb.com/postgres-tutorials/working-postgres-audit-triggers)
 
 ---
 
 ## Moderate Pitfalls
 
-Mistakes that cause delays, technical debt, or degraded performance.
+Mistakes that cause delays, inconsistent UX, or technical debt.
 
-### Pitfall 5: Dashboard N+1 Query Problem
+### Pitfall 5: Controlled Number Input onBlur Timing Issues
 
-**What goes wrong:** Warehouse dashboard loads list of 50 warehouses, then for each warehouse makes separate query to calculate total inventory value. 50 warehouses × 3 queries each (items count, total units, total value) = 150 database round-trips. Page load: 8-12 seconds.
-
-**Why it happens:**
-- Server component fetches warehouses: `const warehouses = await supabase.from('warehouses').select('*')`
-- For each warehouse, component calls: `getWarehouseInventoryStats(warehouse.id)`
-- Each call is separate RPC or query
-- No batching or aggregation at database level
-- Next.js Server Components don't automatically batch queries
-
-**Prevention:**
-
-**Phase 1: Use materialized aggregates**
-```sql
--- Create summary view with all KPIs
-CREATE MATERIALIZED VIEW warehouse_dashboard_stats AS
-SELECT
-  w.id as warehouse_id,
-  w.name,
-  w.location,
-  COUNT(DISTINCT wi.item_id) as total_items,
-  COALESCE(SUM(wi.current_stock), 0) as total_units,
-  COALESCE(SUM(wi.total_value), 0) as total_value,
-  COALESCE(SUM(wi.total_value_eusd), 0) as total_value_eusd,
-  MAX(it.transaction_date) as last_transaction_date
-FROM warehouses w
-LEFT JOIN warehouse_inventory wi ON wi.warehouse_id = w.id
-LEFT JOIN inventory_transactions it ON it.warehouse_id = w.id AND it.status = 'completed'
-WHERE w.is_active = true
-GROUP BY w.id, w.name, w.location;
-
--- Refresh on inventory transaction
-CREATE OR REPLACE FUNCTION refresh_warehouse_dashboard_stats()
-RETURNS TRIGGER AS $$
-BEGIN
-  REFRESH MATERIALIZED VIEW CONCURRENTLY warehouse_dashboard_stats;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-```
-
-**Phase 2: Single query with JSON aggregation**
-```typescript
-// Instead of N+1 queries, single query with joins
-const { data: warehouses } = await supabase
-  .rpc('get_warehouse_dashboard_data')
-
-// RPC function returns JSON with all aggregates
-```
-
-**Phase 3: Pagination + stale-while-revalidate caching**
-- Load 10 warehouses at a time
-- Cache dashboard stats for 5 minutes (low staleness tolerance)
-- Show "as of [timestamp]" indicator
-
-**Detection:**
-- Browser DevTools Network tab shows 100+ requests to Supabase
-- `pg_stat_statements` shows same query pattern with different IDs
-- Slow page load despite low data volume
-- Supabase dashboard shows high RPC call count
-
-**Phase recommendation:** Phase 2 (Dashboard Implementation) - Design queries first, then UI
-
-**Sources:**
-- [What is the N+1 Query Problem and How to Solve it?](https://planetscale.com/blog/what-is-n-1-query-problem-and-how-to-solve-it)
-- [Inventory dashboards | Microsoft Learn](https://learn.microsoft.com/en-us/dynamics365/intelligent-order-management/inventory-dashboards)
-
----
-
-### Pitfall 6: Multi-Currency Rounding Errors Compound Over Time
-
-**What goes wrong:** Invoice has line items in USD, exchange rate 1850.0000 MMK/USD. Item cost $10.00 becomes 18,500.00 MMK. WAC calculation stores 2 decimals. After 100 transactions with rounding at each step, WAC is off by 2-3% from true value. EUSD display shows incorrect amounts.
+**What goes wrong:**
+Number inputs formatted on blur can overwrite user-entered values due to React state update timing. User types "1000", blur triggers, value becomes "1,000" or "1000.00", but state update conflicts with previous onChange.
 
 **Why it happens:**
-- Exchange rate has 4 decimals: `DECIMAL(10,4)`
-- Amount has 2 decimals: `DECIMAL(15,2)`
-- EUSD generated column: `amount / exchange_rate` → rounds to 2 decimals
-- WAC calculation: `(existing_value + new_value) / total_qty` → rounds to 2 decimals
-- Each rounding introduces 0.01-0.49 error, compounds over time
-
-**Example compound error:**
-```
-Transaction 1: 100 units @ $10.00 → WAC = $10.00 (exact)
-Transaction 2: 50 units @ $10.45 → True WAC = $10.15, Stored = $10.15 (rounded)
-Transaction 3: 75 units @ $9.78 → True WAC = $10.05666..., Stored = $10.06 (rounded +0.00334)
-... after 100 transactions ...
-Displayed WAC: $10.23, True WAC: $10.01 (2.2% error)
-```
+- onBlur fires before final onChange in some browsers (Firefox)
+- Formatting logic uses stale state value
+- parseFloat/toFixed applied to display value, not raw value
 
 **Consequences:**
-- Financial reports show incorrect inventory valuation
-- Balance in Hand calculation accumulates error
-- Auditors flag discrepancy between WAC-based value and sum of transaction values
-- Multi-currency items worse than single-currency (error per currency conversion)
+- User types "100", blur changes it to "0" or "100.00" unexpectedly
+- Cursor position jumps during typing if formatting on onChange
+- Value disappears or resets when switching fields
 
 **Prevention:**
 
-**Phase 1: Store high-precision intermediate values**
-```sql
--- Add high-precision columns for internal calculation
-ALTER TABLE items ADD COLUMN wac_amount_precise DECIMAL(20,6);
-ALTER TABLE items ADD COLUMN total_value_precise DECIMAL(20,6);
-ALTER TABLE items ADD COLUMN total_quantity_precise DECIMAL(20,6);
+**Strategy 1: Store raw value, format for display only**
+```tsx
+// WRONG: Format on every change
+const [amount, setAmount] = useState("");
+<Input
+  value={amount}
+  onChange={(e) => setAmount(parseFloat(e.target.value).toFixed(2))}
+/>
 
--- Update WAC trigger to use precise values
-CREATE OR REPLACE FUNCTION update_item_wac()
-RETURNS TRIGGER AS $$
-DECLARE
-  new_wac_precise DECIMAL(20,6);
-BEGIN
-  -- Calculate with 6 decimal precision
-  new_wac_precise := (existing_value_precise + new_value_precise) / total_qty_precise;
+// CORRECT: Store raw, format on blur or display
+const [amount, setAmount] = useState(""); // raw string
+const [displayAmount, setDisplayAmount] = useState("");
 
-  -- Store both precise (for next calculation) and display (for UI)
-  UPDATE items SET
-    wac_amount_precise = new_wac_precise,
-    wac_amount = ROUND(new_wac_precise, 2),  -- Display value
-    total_value_precise = existing_value_precise + new_value_precise,
-    total_quantity_precise = total_qty_precise;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+<Input
+  value={displayAmount || amount}
+  onChange={(e) => {
+    setAmount(e.target.value); // raw value
+    setDisplayAmount(e.target.value);
+  }}
+  onBlur={() => {
+    const num = parseFloat(amount);
+    if (!isNaN(num)) {
+      setDisplayAmount(num.toFixed(2));
+    }
+  }}
+  onFocus={() => setDisplayAmount(amount)} // Show raw on focus
+/>
 ```
 
-**Phase 2: Periodic WAC reconciliation**
-```sql
--- Monthly job to compare stored WAC vs recalculated true WAC
-CREATE OR REPLACE FUNCTION audit_wac_accuracy()
-RETURNS TABLE(item_id UUID, stored_wac DECIMAL, true_wac DECIMAL, error_pct DECIMAL) AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    i.id,
-    i.wac_amount as stored_wac,
-    ROUND(SUM(it.quantity * it.unit_cost) / SUM(it.quantity), 2) as true_wac,
-    ROUND((i.wac_amount - (SUM(it.quantity * it.unit_cost) / SUM(it.quantity))) / i.wac_amount * 100, 2) as error_pct
-  FROM items i
-  JOIN inventory_transactions it ON it.item_id = i.id
-    AND it.movement_type = 'inventory_in'
-    AND it.status = 'completed'
-  GROUP BY i.id, i.wac_amount
-  HAVING ABS(i.wac_amount - (SUM(it.quantity * it.unit_cost) / SUM(it.quantity))) > 0.05;
-END;
-$$ LANGUAGE plpgsql;
+**Strategy 2: Debounce formatting**
+```tsx
+const [amount, setAmount] = useState("");
+const debouncedFormat = useMemo(
+  () => debounce((val: string) => {
+    const num = parseFloat(val);
+    if (!isNaN(num)) setAmount(num.toFixed(2));
+  }, 500),
+  []
+);
+
+<Input
+  value={amount}
+  onChange={(e) => {
+    setAmount(e.target.value);
+    debouncedFormat(e.target.value);
+  }}
+/>
 ```
 
-**Phase 3: Exchange rate conventions**
-- Always use rates >1.0 (1 USD = 1850 MMK, not 1 MMK = 0.00054 USD)
-- Store exchange rates as `source_currency/EUSD` consistently
-- Document: "EUSD is always denominator" in code comments
+**Strategy 3: No formatting in controlled input**
+```tsx
+// Let database handle precision
+const [amount, setAmount] = useState("");
+
+<Input
+  type="number"
+  step="0.01"
+  value={amount}
+  onChange={(e) => setAmount(e.target.value)}
+  // Format only for display outside input
+/>
+
+<div>Preview: {formatCurrency(parseFloat(amount))}</div>
+```
 
 **Detection:**
-- Run `audit_wac_accuracy()` monthly
-- Compare SUM(inventory_transactions.value) vs items.wac_amount * items.total_stock
-- Finance flags: "Inventory value doesn't match transaction history"
-- Error >1%: Investigate immediately
+- User reports "number keeps changing when I click away"
+- Value becomes "0.00" after entering then leaving field
+- Cursor jumps to end while typing decimal values
 
-**Phase recommendation:** Phase 1 (Database) - Add precise columns; Phase 4 (Maintenance) - Add reconciliation job
-
-**Sources:**
-- [Rounding issues when using multi-currency](https://forum.manager.io/t/rounding-issues-when-using-multi-currency/1622)
-- [Exchange Differences and Rounding](https://help-sage50.na.sage.com/en-ca/core/2026/Content/Transactions/Multicurrency/ExchangeDifferencesRounding.htm)
+**References:**
+- [The difference between onBlur vs onChange for React text inputs](https://linguinecode.com/post/onblur-vs-onchange-react-text-inputs)
+- [Set formatted number value to a Controlled input](https://github.com/orgs/react-hook-form/discussions/9161)
+- [useController onBlur overwrites onChange value](https://github.com/react-hook-form/react-hook-form/issues/7007)
 
 ---
 
-### Pitfall 7: Dashboard Shows Stale Data After Invoice Void
+### Pitfall 6: Inconsistent Currency Display Across Contexts
 
-**What goes wrong:** User voids invoice → refreshes warehouse dashboard → still shows old inventory quantities. WAC has updated in database, but Next.js page cache serves stale data. User reports "System is broken, void didn't work."
+**What goes wrong:**
+EUSD display appears in some places but not others. Exchange rates formatted with different decimal places (sometimes 2, sometimes 4). Currency symbols used inconsistently ($, USD, MMK vs Myanmar Kyat).
 
 **Why it happens:**
-- Next.js App Router defaults to `force-cache` for fetch requests
-- Server Components cache across requests (production behavior)
-- Supabase RPC calls don't invalidate Next.js cache
-- No real-time subscription on dashboard page
-- Materialized view `warehouse_dashboard_stats` not refreshed
+- Multiple developers implementing similar features
+- No central formatCurrency utility enforcing standards
+- Copy-paste from different parts of codebase
+- Business rules unclear (when to show EUSD vs local currency)
+
+**Consequences:**
+- Users confused about actual vs equivalent amounts
+- Financial reports inconsistent
+- Audit trail shows different precision (2 vs 4 decimals)
+- International users see wrong currency conventions
 
 **Prevention:**
 
-**Phase 1: Appropriate cache strategies**
+**Strategy 1: Centralized formatting utility**
 ```typescript
-// app/(dashboard)/inventory/warehouse/[id]/page.tsx
-export const revalidate = 60; // Revalidate every 60 seconds
+// lib/utils/currency.ts
+export function formatAmount(amount: number, decimals: number = 2): string {
+  return amount.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
 
-// For critical data, use no cache
-const { data: warehouseStats } = await supabase
-  .from('warehouse_inventory')
-  .select('*')
-  .eq('warehouse_id', id)
-  .single();
+export function formatCurrency(amount: number, currency: string = 'MMK'): string {
+  return `${formatAmount(amount, 2)} ${currency}`;
+}
 
-// Or use dynamic rendering
-export const dynamic = 'force-dynamic'; // Opt out of caching entirely
-```
+export function formatExchangeRate(rate: number): string {
+  return formatAmount(rate, 4); // Always 4 decimals
+}
 
-**Phase 2: Optimistic updates with revalidation**
-```typescript
-// When user voids invoice, optimistically update UI
-'use server'
-async function voidInvoice(invoiceId: string) {
-  await supabase
-    .from('invoices')
-    .update({ is_voided: true, void_reason: '...' })
-    .eq('id', invoiceId);
-
-  // Revalidate related pages
-  revalidatePath('/inventory/warehouse/[id]', 'page');
-  revalidatePath('/po/[id]', 'page');
-  revalidatePath('/dashboard');
+export function formatWithEUSD(
+  amount: number,
+  currency: string,
+  exchangeRate: number
+): string {
+  const eusd = amount / exchangeRate;
+  return `${formatCurrency(amount, currency)} (${formatAmount(eusd, 2)} EUSD)`;
 }
 ```
 
-**Phase 3: Real-time subscriptions for critical views**
-```typescript
-// Only for high-value pages (dashboard, warehouse detail)
-useEffect(() => {
-  const channel = supabase
-    .channel('warehouse_updates')
-    .on('postgres_changes',
-      { event: '*', schema: 'public', table: 'inventory_transactions' },
-      (payload) => {
-        // Refetch warehouse stats
-        queryClient.invalidateQueries(['warehouse', warehouseId]);
-      }
-    )
-    .subscribe();
+**Strategy 2: Consistent component pattern**
+```tsx
+// components/currency/currency-display.tsx
+interface CurrencyDisplayProps {
+  amount: number;
+  currency: string;
+  exchangeRate: number;
+  showEUSD?: boolean; // default true
+}
 
-  return () => supabase.removeChannel(channel);
-}, [warehouseId]);
+export function CurrencyDisplay({
+  amount,
+  currency,
+  exchangeRate,
+  showEUSD = true
+}: CurrencyDisplayProps) {
+  const eusd = amount / exchangeRate;
+
+  return (
+    <div className="currency-display">
+      <span className="amount">{formatCurrency(amount, currency)}</span>
+      {showEUSD && (
+        <span className="eusd">({formatAmount(eusd, 2)} EUSD)</span>
+      )}
+    </div>
+  );
+}
 ```
 
-**Phase 4: User feedback**
+**Strategy 3: Database-enforced precision**
+```sql
+-- Schema enforces precision
+amount DECIMAL(15,2), -- Always 2 decimals
+exchange_rate DECIMAL(10,4), -- Always 4 decimals
+amount_eusd DECIMAL(15,2) GENERATED ALWAYS AS (
+  ROUND(amount / exchange_rate, 2)
+) STORED
+```
+
+**Strategy 4: Design system tokens**
 ```typescript
-// Show "as of [timestamp]" on dashboard
-<div className="text-sm text-gray-500">
-  Last updated: {formatDistanceToNow(lastUpdated)} ago
-  <Button onClick={refetch}>Refresh</Button>
-</div>
+// Enforce in component library
+const CURRENCY_RULES = {
+  amount: { decimals: 2, display: 'always' },
+  exchangeRate: { decimals: 4, display: 'always' },
+  eusd: { decimals: 2, display: 'always', label: 'EUSD' },
+} as const;
 ```
 
 **Detection:**
-- User reports: "Voided invoice still shows in dashboard"
-- Compare database value vs UI display
-- Check Next.js cache headers: `X-Next-Cache: HIT` means stale data served
-- Materialized view timestamp vs current time
+- Same amount displayed as "1000.00" in one place, "1,000" in another
+- Exchange rates show "1.5" vs "1.5000" inconsistently
+- EUSD missing from transaction details but present in list view
+- Currency symbols vary ($ vs USD vs dollar icon)
 
-**Phase recommendation:** Phase 2 (Dashboard Implementation) - Configure caching strategy upfront
-
-**Sources:**
-- [11 Most Important Inventory Management KPIs in 2026](https://www.mrpeasy.com/blog/inventory-management-kpis/)
-- [Inventory dashboards | Microsoft Learn](https://learn.microsoft.com/en-us/dynamics365/intelligent-order-management/inventory-dashboards)
+**References:**
+- [The UX of Currency Display — What's in a $ Sign?](https://medium.com/workday-design/the-ux-of-currency-display-whats-in-a-sign-6447cbc4fb88)
+- [The UX of currency conventions for a global audience](https://bootcamp.uxdesign.cc/the-ux-of-currency-conventions-for-a-global-audience-4098ff66b6ed)
+- [Mastering Currency Formats in UX Writing](https://www.numberanalytics.com/blog/ultimate-guide-currency-formats-ux-writing)
 
 ---
 
-### Pitfall 8: Manual Stock-In with Missing Exchange Rate
+### Pitfall 7: Stock-Out from Detail Page Context Loss
 
-**What goes wrong:** User creates manual stock-in (not from invoice) for item purchased in foreign currency. Form doesn't require exchange rate input. System defaults to `exchange_rate = 1.0000`. WAC calculation uses wrong rate. Item cost appears 1850x higher than reality (if currency was USD but system treated as MMK).
+**What goes wrong:**
+Adding stock-out action to QMHQ detail page without proper context leads to:
+- User must re-enter item (already shown on page)
+- Warehouse not pre-selected even though QMHQ has warehouse
+- Quantity defaults to 0 instead of QMHQ quantity
+- No link back to originating QMHQ after stock-out completes
 
 **Why it happens:**
-- Stock-in form has optional exchange rate field (following invoice pattern)
-- Invoice form validates exchange rate ≠ 1.0 if currency ≠ base
-- Manual stock-in form doesn't have same validation
-- User assumes "system will figure it out"
-- Existing trigger accepts NULL or 1.0 as valid exchange rate
+- Stock-out form designed for standalone use (inventory page)
+- Form doesn't accept URL parameters for pre-fill
+- No "return to QMHQ" flow after completing stock-out
+- Context (QMHQ ID, item, warehouse) not passed to stock-out page
 
 **Consequences:**
-- Item WAC jumps from $10 to $18,500 (1850x error)
-- Dashboard flags item as extremely expensive
-- Finance team doesn't notice until month-end reconciliation
-- Correcting requires manual WAC recalculation for all affected items
-- Audit trail shows "what happened" but not "why user did this"
+- Poor UX: users re-enter information already on screen
+- Data entry errors: wrong item/quantity selected
+- Lost context: users unsure how to get back to QMHQ
+- Slow workflow: extra clicks and typing
 
 **Prevention:**
 
-**Phase 1: Form validation**
-```typescript
-// Stock-in form schema (Zod)
-const stockInSchema = z.object({
-  currency: z.string(),
-  exchange_rate: z.number().min(0.0001).max(100000),
-  unit_cost: z.number().min(0.01),
-}).refine((data) => {
-  // If currency is not base currency, require exchange rate ≠ 1.0
-  if (data.currency !== 'MMK' && data.exchange_rate === 1.0) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Exchange rate must reflect actual conversion rate for foreign currency",
-  path: ["exchange_rate"],
-});
+**Strategy 1: Modal dialog on same page**
+```tsx
+// QMHQ detail page
+function QMHQDetailPage() {
+  const [showStockOut, setShowStockOut] = useState(false);
+
+  return (
+    <>
+      <Button onClick={() => setShowStockOut(true)}>
+        Stock Out
+      </Button>
+
+      <StockOutDialog
+        open={showStockOut}
+        onClose={() => setShowStockOut(false)}
+        // Pre-fill from QMHQ context
+        itemId={qmhq.item_id}
+        warehouseId={qmhq.warehouse_id}
+        quantity={qmhq.quantity}
+        qmhqId={qmhq.id} // Link back
+        onSuccess={() => {
+          setShowStockOut(false);
+          refreshQMHQ();
+        }}
+      />
+    </>
+  );
+}
 ```
 
-**Phase 2: Smart defaults**
-```typescript
-// Fetch latest exchange rate from financial_transactions
-const getDefaultExchangeRate = async (currency: string) => {
-  if (currency === 'MMK') return 1.0000;
+**Strategy 2: URL parameters for pre-fill**
+```tsx
+// Navigate with context
+router.push(`/inventory/stock-out?` + new URLSearchParams({
+  itemId: qmhq.item_id,
+  warehouseId: qmhq.warehouse_id,
+  quantity: qmhq.quantity.toString(),
+  qmhqId: qmhq.id,
+  returnUrl: `/qmhq/${qmhq.id}`,
+}));
 
-  // Get most recent exchange rate for this currency
-  const { data } = await supabase
-    .from('financial_transactions')
-    .select('exchange_rate')
-    .eq('currency', currency)
-    .order('transaction_date', { ascending: false })
-    .limit(1)
-    .single();
+// Stock-out page reads params
+function StockOutPage() {
+  const searchParams = useSearchParams();
+  const [itemId, setItemId] = useState(searchParams.get('itemId') || '');
+  const returnUrl = searchParams.get('returnUrl');
 
-  return data?.exchange_rate ?? null; // Return null to force user input
-};
-
-// In form
-useEffect(() => {
-  if (currency !== 'MMK') {
-    const rate = await getDefaultExchangeRate(currency);
-    if (rate) {
-      setExchangeRate(rate);
-      setFieldNote(`Using latest ${currency} rate from ${formatDate(lastTxDate)}`);
-    } else {
-      setFieldError("No recent exchange rate found. Please enter manually.");
-    }
-  }
-}, [currency]);
+  // After success
+  if (returnUrl) router.push(returnUrl);
+}
 ```
 
-**Phase 3: Database constraint**
-```sql
--- Add check constraint to inventory_transactions
-ALTER TABLE inventory_transactions
-ADD CONSTRAINT check_exchange_rate_with_currency
-CHECK (
-  (currency = 'MMK' AND exchange_rate = 1.0000) OR
-  (currency != 'MMK' AND exchange_rate != 1.0000 AND exchange_rate IS NOT NULL)
-);
-```
-
-**Phase 4: Anomaly detection**
-```sql
--- Daily cron job to detect suspicious WAC changes
-CREATE OR REPLACE FUNCTION detect_wac_anomalies()
-RETURNS TABLE(item_id UUID, item_name TEXT, old_wac DECIMAL, new_wac DECIMAL, change_pct DECIMAL) AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    i.id,
-    i.name,
-    al.old_values->>'wac_amount' as old_wac,
-    al.new_values->>'wac_amount' as new_wac,
-    ROUND((
-      (al.new_values->>'wac_amount')::DECIMAL -
-      (al.old_values->>'wac_amount')::DECIMAL
-    ) / (al.old_values->>'wac_amount')::DECIMAL * 100, 2) as change_pct
-  FROM audit_logs al
-  JOIN items i ON i.id = al.entity_id
-  WHERE al.entity_type = 'items'
-    AND al.field_name = 'wac_amount'
-    AND al.changed_at > NOW() - INTERVAL '24 hours'
-    AND ABS((
-      (al.new_values->>'wac_amount')::DECIMAL -
-      (al.old_values->>'wac_amount')::DECIMAL
-    ) / (al.old_values->>'wac_amount')::DECIMAL) > 5.0; -- 500% change
-END;
-$$ LANGUAGE plpgsql;
+**Strategy 3: Breadcrumb context**
+```tsx
+// Stock-out page shows origin
+<Breadcrumb>
+  <BreadcrumbItem href="/inventory">Inventory</BreadcrumbItem>
+  {qmhqId && (
+    <BreadcrumbItem href={`/qmhq/${qmhqId}`}>
+      QMHQ-2025-00042
+    </BreadcrumbItem>
+  )}
+  <BreadcrumbItem>Stock Out</BreadcrumbItem>
+</Breadcrumb>
 ```
 
 **Detection:**
-- WAC changes by >500% in single transaction (see Pitfall 3 warning)
-- Item cost suddenly in different order of magnitude
-- User submits support ticket: "Why is this item so expensive?"
-- Monthly reconciliation: WAC doesn't match purchase history
+- User complains "why do I have to enter the item again?"
+- High error rate on stock-out (wrong item/warehouse selected)
+- Users click back button instead of using return link
+- Support tickets: "I did stock-out but can't find the QMHQ"
 
-**Phase recommendation:** Phase 2 (Stock-in Form) - Add validation immediately
-
-**Sources:**
-- [Common Issues with Currency and Exchange rate](https://help.sap.com/docs/SUPPORT_CONTENT/erphcm/3354687756.html)
-- [Multicurrency Management - Dynamics GP](https://learn.microsoft.com/en-us/dynamics-gp/financials/multicurrencymanagement)
+**References:**
+- [How to Handle Out-of-Stock Products for eComm](https://thegray.company/blog/permanently-temporarily-out-of-stock-products-ecommerce-seo-ux)
+- [How to Optimize Out of Stock Product Pages](https://cxl.com/blog/out-of-stock-product-pages/)
+- [Boost Sales: Tackling Out-of-Stock Issues with UX Experiments](https://www.quantummetric.com/blog/out-of-stock-ux-conducting-experiments-and-addressing-oos-retail)
 
 ---
 
 ## Minor Pitfalls
 
-Mistakes that cause annoyance or UX issues but are easily fixable.
+Mistakes that cause annoyance but are easily fixable.
 
-### Pitfall 9: Warehouse Dashboard Shows Items with Zero Stock
+### Pitfall 8: IS DISTINCT FROM vs = for NULL Comparisons
 
-**What goes wrong:** Dashboard lists 500 items per warehouse, but only 50 have actual stock. Users scroll through long list of "Current Stock: 0" rows. "Why show items we don't have?"
+**What goes wrong:**
+Trigger conditions use `=` or `!=` for comparisons, missing changes when values are NULL. `NULL = NULL` is `NULL` (not TRUE), so condition never matches.
 
 **Why it happens:**
-- `warehouse_inventory` view uses `CROSS JOIN items` (all items × all warehouses)
-- HAVING clause filters `current_stock > 0`, but some items have `current_stock = 0.00` exactly
-- UI doesn't filter zero-stock items
-- Product requirement unclear: "Show all items or only stocked items?"
+- SQL beginners use `=` habitually from other languages
+- NULL behavior counterintuitive
+- Copy-paste from examples that don't handle NULL
+
+**Consequences:**
+- Status changes not logged when old status is NULL (initial state)
+- Assignment changes missed when unassigning (new value NULL)
+- Audit trail incomplete for NULL transitions
 
 **Prevention:**
-- Update view HAVING clause: `HAVING COALESCE(SUM(...), 0) > 0.001` (account for rounding)
-- Add UI toggle: "Show zero-stock items" checkbox (default: off)
-- Add filter: "Only show items with recent activity (last 90 days)"
+```sql
+-- WRONG: Misses NULL cases
+IF OLD.status_id != NEW.status_id THEN
+  -- Never true if either is NULL
+END IF;
 
-**Phase recommendation:** Phase 2 (Dashboard UI) - Add filter controls
+-- CORRECT: Handles NULL properly
+IF OLD.status_id IS DISTINCT FROM NEW.status_id THEN
+  -- True if values differ OR one is NULL
+END IF;
+```
+
+**Detection:**
+- Initial status changes not appearing in history
+- "Unassigned" actions not logged
+- Audit logs missing entries for specific transitions
 
 ---
 
-### Pitfall 10: PO Status Doesn't Update Until Page Refresh
+### Pitfall 9: Soft Delete Breaks Referential Queries
 
-**What goes wrong:** Finance user voids invoice, sees success toast, clicks back to PO detail page. PO still shows "awaiting_delivery" status. User refreshes page manually → status updates to "partially_invoiced."
+**What goes wrong:**
+Setting `is_active = false` (soft delete) but queries still join to soft-deleted records. User sees:
+- Deleted statuses appearing in dropdowns
+- Voided transactions in totals
+- Inactive items in inventory counts
 
 **Why it happens:**
-- Void action updates invoice but doesn't refetch PO data
-- Server Action completes but doesn't return updated PO status
-- Client-side React state not invalidated
-- Page uses static data fetched at initial load
+- Queries written before soft-delete implemented
+- Developer forgets to add `WHERE is_active = true`
+- Aggregate queries (SUM, COUNT) don't filter soft-deleted
+
+**Consequences:**
+- Financial totals include voided transactions
+- Status dropdowns show deleted statuses
+- Inventory counts include deleted items
 
 **Prevention:**
-```typescript
-// In void invoice Server Action
-'use server'
-async function voidInvoice(invoiceId: string, poId: string) {
-  await supabase.from('invoices').update({ is_voided: true }).eq('id', invoiceId);
+```sql
+-- WRONG: Includes soft-deleted
+SELECT SUM(amount) FROM financial_transactions WHERE qmhq_id = $1;
 
-  // Refetch updated PO status
-  const { data: updatedPO } = await supabase
-    .from('purchase_orders')
-    .select('*, status')
-    .eq('id', poId)
-    .single();
-
-  revalidatePath(`/po/${poId}`);
-
-  return { success: true, updatedStatus: updatedPO.status };
-}
-
-// In client component
-const handleVoid = async () => {
-  const result = await voidInvoice(invoiceId, poId);
-  toast.success(`Invoice voided. PO status: ${result.updatedStatus}`);
-  router.refresh(); // Force page refresh
-};
+-- CORRECT: Exclude soft-deleted
+SELECT SUM(amount)
+FROM financial_transactions
+WHERE qmhq_id = $1
+  AND is_active = true
+  AND (is_voided IS NULL OR is_voided = false);
 ```
 
-**Phase recommendation:** Phase 3 (Polish) - Add refetch logic to mutations
+**Detection:**
+- User reports "deleted status still showing in dropdown"
+- Financial totals don't match after voiding transaction
+- Items with 0 stock still appearing in warehouse list
+
+---
+
+### Pitfall 10: Exchange Rate Defaults to 0 Instead of 1
+
+**What goes wrong:**
+New transaction forms initialize exchange rate to 0, causing:
+- Division by zero in EUSD calculation
+- Error: "exchange rate must be greater than 0"
+- NaN or Infinity displayed
+
+**Why it happens:**
+- useState("") or useState(0) for numeric fields
+- Form validation triggers before user enters value
+- Backend expects number but receives empty string
+
+**Consequences:**
+- User sees "Invalid EUSD" immediately on opening form
+- Cannot calculate preview until exchange rate entered
+- Confusion: "I haven't entered anything yet, why is it erroring?"
+
+**Prevention:**
+```tsx
+// WRONG: Defaults to 0 or empty
+const [exchangeRate, setExchangeRate] = useState("");
+const eusd = amount / (parseFloat(exchangeRate) || 0); // Division by zero
+
+// CORRECT: Default to 1 for same-currency
+const [exchangeRate, setExchangeRate] = useState("1.0000");
+const eusd = amount / (parseFloat(exchangeRate) || 1); // Safe fallback
+
+// Better: Intelligent default based on currency
+const [currency, setCurrency] = useState("MMK");
+const [exchangeRate, setExchangeRate] = useState(
+  getDefaultExchangeRate(currency) // 1.0000 for MMK, fetch for others
+);
+```
+
+**Detection:**
+- Form shows "0 EUSD" or "NaN EUSD" on load
+- Console errors: "Cannot divide by zero"
+- Users must enter exchange rate even for same-currency transactions
 
 ---
 
 ## Phase-Specific Warnings
 
-| Phase | Topic | Likely Pitfall | Mitigation |
-|-------|-------|---------------|------------|
-| Phase 1: Database Schema | WAC Trigger | Pitfall 1: Trigger recursion | Design trigger call graph, add `pg_trigger_depth()` checks |
-| Phase 1: Database Schema | Invoice Void | Pitfall 4: PO status cascade | Add trigger to recalculate PO status on void |
-| Phase 1: Database Schema | Indexing | Pitfall 2: Full-history recalc | Add compound indexes BEFORE go-live |
-| Phase 2: Dashboard UI | Aggregation Queries | Pitfall 5: N+1 queries | Write single aggregation query first, then build UI |
-| Phase 2: Dashboard UI | Stock-in Form | Pitfall 8: Missing exchange rate | Add validation schema with currency/rate rules |
-| Phase 2: Dashboard UI | Cache Strategy | Pitfall 7: Stale data | Configure `revalidate` or `dynamic` at page level |
-| Phase 3: Testing | Negative Stock | Pitfall 3: WAC breaks | Test backdated transactions, concurrent stock-outs |
-| Phase 3: Testing | Invoice Void Cascade | Pitfall 4: Cascade failure | Test void → PO status → Balance in Hand → QMHQ status full chain |
-| Phase 4: Optimization | Multi-Currency Rounding | Pitfall 6: Compound errors | Add periodic reconciliation job |
-| Phase 4: Optimization | Long-Running Recalc | Pitfall 2: Timeout | Implement background job queue for large items |
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| RLS Policy Fixes | Missing WITH CHECK clause, no SELECT policy | Audit all UPDATE policies, add WITH CHECK mirroring USING. Verify SELECT policy exists for all tables with UPDATE/INSERT policies. |
+| Number Input Fixes | onBlur overwrites onChange, formatting timing | Use separate display vs raw value state. Format only on blur or display, not during typing. Test in Firefox (onBlur timing differs). |
+| Audit Display Fixes | Trigger conditional order, notes not captured | Place specific checks (status_change, void) before generic UPDATE. Verify notes flow from UI → UPDATE → trigger → audit_logs. |
+| Currency Standardization | Inconsistent decimals, missing EUSD | Create centralized formatCurrency utilities. Use CurrencyDisplay component. Enforce precision in database schema. Add Storybook examples. |
+| Stock-Out Enhancement | Context loss, no pre-fill, no return link | Use dialog on same page OR pass URL params. Pre-fill item/warehouse/quantity from QMHQ. Add "Return to QMHQ" breadcrumb/link. |
 
 ---
 
-## Testing Checklist
+## Quality Checklist
 
-Before shipping each phase:
+Before merging any fix in this milestone:
 
-**Phase 1: Database**
-- [ ] Create item with 1000+ transactions, time WAC recalculation (should be <100ms)
-- [ ] Trigger recursive scenario: stock-in → WAC update → audit log → verify no deadlock
-- [ ] Create backdated transaction, verify stock doesn't go negative
-- [ ] Void invoice, verify PO status updates immediately
-- [ ] Check `EXPLAIN ANALYZE` for all dashboard queries (no Seq Scan on large tables)
+**RLS Policy Changes:**
+- [ ] UPDATE policy has both USING and WITH CHECK
+- [ ] WITH CHECK conditions mirror USING (or stricter)
+- [ ] SELECT policy exists for tables with UPDATE/INSERT
+- [ ] Test with non-admin user role
+- [ ] Verify soft-delete works (is_active = false)
 
-**Phase 2: Dashboard**
-- [ ] Load warehouse with 100+ items, verify <2 second load time
-- [ ] Void invoice in one tab, refresh dashboard in another tab, verify WAC updates
-- [ ] Create manual stock-in with USD currency and exchange_rate = 1.0, verify form rejects
-- [ ] Load warehouse dashboard with 50 warehouses, verify <3 seconds (N+1 test)
+**Number Input Changes:**
+- [ ] Separate raw value from display value
+- [ ] Format on blur or display, not onChange
+- [ ] Prevent negative numbers with onKeyDown
+- [ ] Test in Firefox (onBlur timing differs)
+- [ ] Default exchange rate to 1.0, not 0
 
-**Phase 3: Integration**
-- [ ] Void invoice → verify: audit log created, PO status changed, Balance in Hand updated, WAC recalculated
-- [ ] Concurrent test: 10 users create stock-outs for same item simultaneously, verify no negative stock
-- [ ] Backdate test: Create stock-in dated 2024-01-01, verify doesn't corrupt current WAC
+**Audit/Trigger Changes:**
+- [ ] Specific checks (status_change, void) before generic UPDATE
+- [ ] Use IS DISTINCT FROM for NULL-safe comparisons
+- [ ] Verify notes flow from UI to audit_logs
+- [ ] Test with NULL values (initial state, unassign)
+- [ ] Check trigger ordering (zz_ prefix for last)
 
-**Phase 4: Production Readiness**
-- [ ] Run `audit_wac_accuracy()`, verify all items <1% error
-- [ ] Simulate invoice void during dashboard load, verify no user-facing errors
-- [ ] Check pg_stat_activity during peak load, verify no long-running locks
-- [ ] Monitor trigger execution time: enable `auto_explain.log_triggers`, verify <100ms
+**Currency Display Changes:**
+- [ ] Use centralized formatCurrency utility
+- [ ] Amount: 2 decimals, Exchange Rate: 4 decimals
+- [ ] Show EUSD alongside every financial amount
+- [ ] Consistent currency symbols (MMK not Myanmar Kyat)
+- [ ] Test with various currencies (MMK, USD, THB)
 
----
-
-## Confidence Assessment
-
-| Pitfall Category | Confidence | Source Quality |
-|------------------|-----------|----------------|
-| Trigger Recursion | HIGH | Official PostgreSQL docs + 2026 production guides |
-| Full-History Recalc | HIGH | ERP system documentation + performance benchmarks |
-| Negative Stock | MEDIUM | Inventory system blogs + forum discussions |
-| Cascade Failure | HIGH | Microsoft Dynamics 365 official docs |
-| N+1 Queries | HIGH | PlanetScale blog + performance monitoring tools |
-| Rounding Errors | MEDIUM | Multi-currency accounting forums + ERP docs |
-| Stale Cache | HIGH | Next.js documentation + production patterns |
-| Exchange Rate Validation | MEDIUM | ERP system guides + accounting standards |
-| UI/UX Issues | LOW | General UX patterns, not domain-specific |
+**Stock-Out Workflow Changes:**
+- [ ] Pre-fill item, warehouse, quantity from QMHQ
+- [ ] Add "Return to QMHQ" link/breadcrumb
+- [ ] Link inventory transaction back to QMHQ
+- [ ] Show QMHQ context in stock-out form
+- [ ] Test round-trip: QMHQ → stock-out → back to QMHQ
 
 ---
 
-## Open Questions
+## Research Confidence
 
-**Needs investigation during implementation:**
-
-1. **Trigger execution order:** When invoice void fires multiple triggers (audit + WAC + PO status), what is guaranteed execution order in PostgreSQL? Can we rely on trigger names for ordering?
-
-2. **Materialized view refresh performance:** How long does `REFRESH MATERIALIZED VIEW CONCURRENTLY` take with 10,000 items × 20 warehouses? Is it safe to call on every transaction or should it be pg_cron scheduled?
-
-3. **Real-time vs polling:** For dashboard updates, is Supabase real-time subscription (WebSocket) more efficient than 60-second polling for this use case?
-
-4. **WAC precision requirements:** Does accounting standard require specific decimal precision for inventory valuation? Should we use DECIMAL(20,6) or higher?
-
-5. **Audit log growth:** With triggers on inventory_transactions firing on every stock-in/out, how fast does audit_logs table grow? Need partitioning strategy?
+| Area | Confidence | Notes |
+|------|------------|-------|
+| RLS Pitfalls | HIGH | Official PostgreSQL docs + Supabase guides + verified against existing migrations |
+| Number Input Pitfalls | MEDIUM | React-specific, multiple form library patterns. Verified against existing transaction-dialog.tsx code. |
+| Audit Trigger Pitfalls | HIGH | Verified against existing create_audit_log() function, trigger ordering confirmed in migrations |
+| Currency Standardization | MEDIUM | UX best practices, verified against existing formatCurrency usage. Database schema confirms 2/4 decimal pattern. |
+| Stock-Out UX | MEDIUM | General inventory UX patterns. Verified QMHQ detail page has item route but no stock-out action yet. |
 
 ---
 
-## Summary
+## Sources
 
-The most critical pitfalls when adding inventory dashboard, WAC display, and cascade recalculation to existing QM System:
+### RLS and PostgreSQL Policies
+- [Postgres RLS Implementation Guide - Best Practices, and Common Pitfalls](https://www.permit.io/blog/postgres-rls-implementation-guide)
+- [PostgreSQL: Documentation: CREATE POLICY](https://www.postgresql.org/docs/current/sql-createpolicy.html)
+- [Row Level Security | Supabase Docs](https://supabase.com/docs/guides/database/postgres/row-level-security)
+- [UPDATE RLS policy requires SELECT RLS policy too](https://github.com/supabase/supabase/issues/28559)
+- [Failing to update data because of row level security returns [] as response body](https://github.com/PostgREST/postgrest/discussions/1844)
 
-1. **Trigger recursion** (Critical) - Design trigger call graph before implementation, use `pg_trigger_depth()` guards
-2. **Full-history recalculation** (Critical) - Add proper indexes, consider incremental updates instead
-3. **Negative stock breaking WAC** (Critical) - Validate stock-out quantities including pending transactions
-4. **Invoice void cascade** (Critical) - Ensure PO status recalculates when invoices voided
-5. **N+1 queries** (Moderate) - Use materialized views or single aggregation queries
-6. **Multi-currency rounding** (Moderate) - Store high-precision intermediate values
-7. **Stale dashboard data** (Moderate) - Configure appropriate Next.js cache strategies
-8. **Missing exchange rate** (Moderate) - Validate foreign currency transactions require rate ≠ 1.0
+### React Number Inputs
+- [The difference between onBlur vs onChange for React text inputs](https://linguinecode.com/post/onblur-vs-onchange-react-text-inputs)
+- [Set formatted number value to a Controlled input](https://github.com/orgs/react-hook-form/discussions/9161)
+- [useController onBlur overwrites onChange value when used in same render](https://github.com/react-hook-form/react-hook-form/issues/7007)
 
-**Key principle:** Integration with existing system means testing CASCADE effects across ALL related tables (invoice → PO → QMHQ → Balance in Hand → Financial reports).
+### PostgreSQL Triggers and Audit Logging
+- [PostgreSQL Triggers in 2026: Design, Performance, and Production Reality](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/)
+- [PostgreSQL: Documentation: Trigger Functions](https://www.postgresql.org/docs/current/plpgsql-trigger.html)
+- [Postgres Audit Logging Guide](https://www.bytebase.com/blog/postgres-audit-logging/)
+- [Working with Postgres Audit Triggers](https://www.enterprisedb.com/postgres-tutorials/working-postgres-audit-triggers)
 
----
+### Currency Display Standards
+- [The UX of Currency Display — What's in a $ Sign?](https://medium.com/workday-design/the-ux-of-currency-display-whats-in-a-sign-6447cbc4fb88)
+- [The UX of currency conventions for a global audience](https://bootcamp.uxdesign.cc/the-ux-of-currency-conventions-for-a-global-audience-4098ff66b6ed)
+- [Mastering Currency Formats in UX Writing](https://www.numberanalytics.com/blog/ultimate-guide-currency-formats-ux-writing)
 
-**Research confidence:** HIGH for database/trigger pitfalls, MEDIUM for UI/caching issues
-
-**Research complete:** 2026-01-28
+### Inventory UX Patterns
+- [How to Handle Permanently & Temporarily Out-of-Stock Products for eComm](https://thegray.company/blog/permanently-temporarily-out-of-stock-products-ecommerce-seo-ux)
+- [How to Optimize Out of Stock Product Pages](https://cxl.com/blog/out-of-stock-product-pages/)
+- [Boost Sales: Tackling Out-of-Stock Issues with UX Experiments](https://www.quantummetric.com/blog/out-of-stock-ux-conducting-experiments-and-addressing-oos-retail)
