@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { QMRL, QMHQ, StatusConfig, Category, Department, ContactPerson, User as UserType } from "@/types/database";
 import { formatCurrency } from "@/lib/utils";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { HistoryTab } from "@/components/history";
 import { AttachmentsTab } from "@/components/files/attachments-tab";
 import { ClickableStatusBadge } from "@/components/status/clickable-status-badge";
@@ -565,10 +566,15 @@ export default function QMRLDetailPage() {
                               {qmhqItem.quantity} <span className="text-xs text-slate-400">units</span>
                             </p>
                           )}
-                          {(qmhqItem.route_type === "expense" || qmhqItem.route_type === "po") && qmhqItem.amount_eusd && (
-                            <p className={`text-lg font-mono font-bold ${routeColors?.color}`}>
-                              {formatCurrency(qmhqItem.amount_eusd)} <span className="text-xs text-slate-400">EUSD</span>
-                            </p>
+                          {(qmhqItem.route_type === "expense" || qmhqItem.route_type === "po") && qmhqItem.amount && (
+                            <CurrencyDisplay
+                              amount={qmhqItem.amount}
+                              currency={qmhqItem.currency || "USD"}
+                              exchangeRate={qmhqItem.exchange_rate || 1}
+                              amountEusd={qmhqItem.amount_eusd}
+                              size="sm"
+                              align="right"
+                            />
                           )}
                         </div>
                       </div>
