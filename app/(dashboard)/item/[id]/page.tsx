@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import { formatCurrency } from "@/lib/utils";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import {
   MOVEMENT_TYPE_CONFIG,
   STOCK_OUT_REASON_CONFIG,
@@ -224,18 +225,13 @@ export default function ItemDetailPage() {
         <DataTableColumnHeader column={column} title="Value at WAC" />
       ),
       cell: ({ row }) => (
-        <span className="font-mono text-slate-300">
-          {formatCurrency(row.getValue("total_value"))} {item?.wac_currency}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "total_value_eusd",
-      header: "Value (EUSD)",
-      cell: ({ row }) => (
-        <span className="font-mono text-emerald-400 font-medium">
-          {formatCurrency(row.getValue("total_value_eusd"))}
-        </span>
+        <CurrencyDisplay
+          amount={row.getValue("total_value")}
+          currency={item?.wac_currency || "USD"}
+          amountEusd={row.original.total_value_eusd}
+          size="sm"
+          align="right"
+        />
       ),
     },
   ];
@@ -465,7 +461,7 @@ export default function ItemDetailPage() {
         className="command-panel corner-accents animate-slide-up"
         style={{ animationDelay: "50ms" }}
       >
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           <div className="text-center p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
             <p className="text-xs text-emerald-400 uppercase tracking-wider mb-1">
               Total Stock
@@ -484,35 +480,31 @@ export default function ItemDetailPage() {
             </p>
           </div>
 
-          <div className="text-center p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <p className="text-xs text-amber-400 uppercase tracking-wider mb-1">
-              WAC
+          <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 flex flex-col items-center">
+            <p className="text-xs text-amber-400 uppercase tracking-wider mb-2">
+              WAC (Per Unit)
             </p>
-            <p className="text-xl font-mono font-bold text-amber-400">
-              {formatWAC(item.wac_amount, item.wac_currency)}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Rate: {formatExchangeRate(item.wac_exchange_rate)}
-            </p>
+            <CurrencyDisplay
+              amount={item.wac_amount}
+              currency={item.wac_currency || "USD"}
+              exchangeRate={item.wac_exchange_rate || 1}
+              amountEusd={item.wac_amount_eusd}
+              size="md"
+              showDashForEmpty
+            />
           </div>
 
-          <div className="text-center p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-            <p className="text-xs text-blue-400 uppercase tracking-wider mb-1">
+          <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 flex flex-col items-center">
+            <p className="text-xs text-blue-400 uppercase tracking-wider mb-2">
               Total Value
             </p>
-            <p className="text-xl font-mono font-bold text-blue-400">
-              {formatCurrency(totals.totalValue)}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">{item.wac_currency}</p>
-          </div>
-
-          <div className="text-center p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-            <p className="text-xs text-emerald-400 uppercase tracking-wider mb-1">
-              Value (EUSD)
-            </p>
-            <p className="text-xl font-mono font-bold text-emerald-400">
-              {formatCurrency(totals.totalValueEusd)}
-            </p>
+            <CurrencyDisplay
+              amount={totals.totalValue}
+              currency={item.wac_currency || "USD"}
+              amountEusd={totals.totalValueEusd}
+              size="md"
+              showDashForEmpty
+            />
           </div>
         </div>
       </div>
@@ -613,12 +605,17 @@ export default function ItemDetailPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
-                      WAC Amount
+                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">
+                      WAC (Per Unit)
                     </p>
-                    <p className="font-mono text-xl text-slate-200">
-                      {formatWAC(item.wac_amount, item.wac_currency)}
-                    </p>
+                    <CurrencyDisplay
+                      amount={item.wac_amount}
+                      currency={item.wac_currency || "USD"}
+                      exchangeRate={item.wac_exchange_rate || 1}
+                      amountEusd={item.wac_amount_eusd}
+                      size="lg"
+                      showDashForEmpty
+                    />
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
@@ -626,14 +623,6 @@ export default function ItemDetailPage() {
                     </p>
                     <p className="font-mono text-slate-200">
                       {formatExchangeRate(item.wac_exchange_rate)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
-                      WAC (EUSD)
-                    </p>
-                    <p className="font-mono text-xl text-emerald-400">
-                      {formatCurrency(item.wac_amount_eusd ?? 0)}
                     </p>
                   </div>
                 </div>
