@@ -9,8 +9,8 @@ Requirements for UX & Bug Fixes milestone.
 
 ### Attachment Management
 
-- [ ] **ATCH-01**: Users can delete their own file attachments from QMRL/QMHQ detail pages
-- [ ] **ATCH-02**: Admin and Quartermaster can delete any file attachment
+- [x] **ATCH-01**: Users can delete their own file attachments from QMRL/QMHQ detail pages
+- [x] **ATCH-02**: Admin and Quartermaster can delete any file attachment
 
 ### Number Input Behavior
 
@@ -32,9 +32,9 @@ Requirements for UX & Bug Fixes milestone.
 
 ### QMHQ Item Route Fulfillment
 
-- [ ] **FULF-01**: QMHQ item route stock-out only available from QMHQ detail page (not general stock-out)
-- [ ] **FULF-02**: Stock-out enforces maximum quantity (cannot exceed requested qty minus already fulfilled)
-- [ ] **FULF-03**: QMHQ detail shows fulfillment progress (fulfilled qty vs requested qty)
+- [x] **FULF-01**: QMHQ item route stock-out only available from QMHQ detail page (not general stock-out)
+- [x] **FULF-02**: Stock-out enforces maximum quantity (cannot exceed requested qty minus already fulfilled)
+- [x] **FULF-03**: QMHQ detail shows fulfillment progress (fulfilled qty vs requested qty)
 
 ### Edit Capability
 
@@ -152,8 +152,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ATCH-01 | Phase 13 | Pending |
-| ATCH-02 | Phase 13 | Pending |
+| ATCH-01 | Phase 13 | Complete |
+| ATCH-02 | Phase 13 | Complete |
 | NINP-01 | Phase 14 | Pending |
 | NINP-02 | Phase 14 | Pending |
 | NINP-03 | Phase 14 | Pending |
@@ -163,9 +163,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CURR-03 | Phase 14 | Pending |
 | HIST-01 | Phase 16 | Pending |
 | HIST-02 | Phase 16 | Pending |
-| FULF-01 | Phase 13 | Pending |
-| FULF-02 | Phase 13 | Pending |
-| FULF-03 | Phase 13 | Pending |
+| FULF-01 | Phase 13 | Complete |
+| FULF-02 | Phase 13 | Complete |
+| FULF-03 | Phase 13 | Complete |
 | EDIT-01 | Phase 15 | Pending |
 | EDIT-02 | Phase 15 | Pending |
 | EDIT-03 | Phase 15 | Pending |
@@ -189,4 +189,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-02-02 — v1.3 requirements added*
+*Last updated: 2026-02-02 — Phase 13 requirements complete*
