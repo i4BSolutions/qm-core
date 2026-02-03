@@ -1,702 +1,1051 @@
-# Domain Pitfalls: v1.3 UX & Bug Fixes
+# Domain Pitfalls: PO Smart Lifecycle & Three-Way Matching
 
-**Domain:** Internal ticket, expense, inventory management system (QM)
-**Researched:** 2026-02-02
-**Focus:** Bug fixes and UX improvements for existing features
+**Domain:** Purchase Order lifecycle management for existing QM System
+**Researched:** 2026-02-03
+**Focus:** Adding three-way matching status calculation, visual matching panels, progress bars, and lock mechanisms to existing PO system
 
 ## Executive Summary
 
-This research focuses on common pitfalls when fixing five specific bug categories in the QM system:
-1. RLS policy fixes (file_attachments delete policy)
-2. Number input behavior fixes (onBlur value changes)
-3. Audit display fixes (status change notes not appearing)
-4. Currency standardization (inconsistent EUSD display)
-5. Stock-out workflow enhancement (QMHQ detail page)
+This research identifies critical pitfalls when **adding** PO smart lifecycle features to an **existing system** with:
+- Existing PO status calculation (`calculate_po_status` function)
+- Invoice void cascade mechanisms
+- Inventory WAC triggers
+- Supabase RLS policies
+- Real-time UI updates
 
-These are "second-order" bugs — fixes that can introduce new bugs if not carefully implemented. The research identifies warning signs, prevention strategies, and which phases need deeper attention.
+The features being added:
+1. Enhanced three-way match status calculation (PO qty ↔ Invoice qty ↔ Stock-in qty)
+2. Visual matching panel (side-by-side comparison)
+3. Progress bar (% toward "Closed")
+4. Lock mechanism (block edits when Closed, except Admin)
+
+**Key insight:** Most pitfalls arise from **integration with existing triggers**, not the new features themselves.
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, security vulnerabilities, or major data integrity issues.
+Mistakes that cause data corruption, trigger recursion, or security vulnerabilities.
 
-### Pitfall 1: Missing WITH CHECK in RLS UPDATE Policies
+### Pitfall 1: Trigger Cascade Infinite Loops
 
 **What goes wrong:**
-RLS UPDATE policies require both `USING` (to check if you can access the row) and `WITH CHECK` (to validate the new row state). Missing `WITH CHECK` causes:
-- Silent failures where updates appear to work in app but fail at database level
-- Error: "new row violates row-level security policy"
-- Users with valid permissions unable to perform legitimate updates
+Adding new triggers that update `po_line_items.invoiced_quantity` or `received_quantity` creates infinite recursion with **existing triggers** that already maintain these fields.
 
 **Why it happens:**
-- PostgreSQL defaults to using `USING` clause for `WITH CHECK` if not specified, but this creates security gaps
-- Developers assume `USING` is sufficient for read+write checks
-- Documentation examples often show only `USING` clause
+The system **already has** these triggers:
+- `update_po_line_invoiced_quantity()` fires AFTER invoice line changes
+- `update_invoice_line_received_quantity()` fires AFTER inventory_in
+- `trigger_update_po_status()` fires AFTER po_line_items changes
 
-**Consequences:**
-- Admin cannot soft-delete files even with correct role
-- UPDATE operations fail with cryptic RLS errors
-- Security vulnerability: users might update rows they shouldn't based on new state
-
-**Prevention:**
-```sql
--- WRONG: Only USING clause
-CREATE POLICY file_attachments_update ON public.file_attachments
-  FOR UPDATE
-  USING (public.get_user_role() IN ('admin', 'quartermaster'));
-
--- CORRECT: Both USING and WITH CHECK
-CREATE POLICY file_attachments_update ON public.file_attachments
-  FOR UPDATE
-  USING (
-    -- Can I access this row in its current state?
-    public.get_user_role() IN ('admin', 'quartermaster')
-    OR uploaded_by = auth.uid()
-  )
-  WITH CHECK (
-    -- Is the new row state valid?
-    public.get_user_role() IN ('admin', 'quartermaster')
-    OR uploaded_by = auth.uid()
-  );
+Adding a **new** trigger that updates `po_line_items` creates:
+```
+Invoice change → update_po_line_invoiced_quantity → UPDATE po_line_items
+  → trigger_update_po_status → UPDATE purchase_orders
+  → NEW trigger updates po_line_items → LOOP BACK
 ```
 
-**Detection:**
-- UPDATE operations fail with "new row violates row-level security policy"
-- Users report "permission denied" even with correct roles
-- Soft-delete operations (setting `is_active = false`) fail unexpectedly
+**Consequences:**
+- PostgreSQL kills transaction after 32 recursion levels
+- Error: "maximum recursion depth exceeded"
+- All PO/invoice operations fail
+- Database becomes unusable until trigger is dropped
 
-**References:**
-- [Postgres RLS Implementation Guide](https://www.permit.io/blog/postgres-rls-implementation-guide)
-- [PostgreSQL CREATE POLICY Documentation](https://www.postgresql.org/docs/current/sql-createpolicy.html)
-- [Supabase RLS Guide](https://supabase.com/docs/guides/database/postgres/row-level-security)
+**Prevention:**
+1. **Never add new triggers that UPDATE the same tables existing triggers already update**
+2. Use `pg_trigger_depth()` to detect recursion levels:
+   ```sql
+   -- Check trigger depth before updating
+   IF pg_trigger_depth() > 1 THEN
+     RETURN NEW; -- Prevent nested trigger execution
+   END IF;
+   ```
+3. Use session variables as guards:
+   ```sql
+   -- Set guard before risky operation
+   PERFORM set_config('app.recursion_guard', 'true', true);
+
+   -- Check guard in trigger
+   IF current_setting('app.recursion_guard', true) = 'true' THEN
+     RETURN NEW;
+   END IF;
+   ```
+4. **Prefer VIEWS over triggers** for status calculations that read-only aggregate data
+
+**Detection:**
+- Warning sign: `UPDATE` statements inside triggers on the same table
+- Warning sign: Trigger fires on `AFTER UPDATE OF invoiced_quantity` and then updates `invoiced_quantity`
+- Test: Create invoice, void invoice, create another invoice → should complete instantly
+
+**Which phase:**
+- Phase 1: Status calculation enhancement (HIGH RISK)
+- Phase 4: Lock mechanism (MEDIUM RISK if lock updates trigger recalculation)
+
+**Sources:**
+- [PostgreSQL Triggers in 2026: Performance considerations](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/)
+- [Trigger recursion in PostgreSQL and how to deal with it](https://www.cybertec-postgresql.com/en/dealing-with-trigger-recursion-in-postgresql/)
 
 ---
 
-### Pitfall 2: UPDATE and INSERT Policies Require SELECT Policies
+### Pitfall 2: Race Conditions in Concurrent Status Calculation
 
 **What goes wrong:**
-Even with correct UPDATE/INSERT policies, operations fail if user cannot SELECT the rows. PostgreSQL needs to:
-- For UPDATE: SELECT the row before updating it
-- For INSERT: SELECT the newly inserted row to return it to client
+Two simultaneous operations (e.g., creating invoice + receiving stock) both read current `po_line_items` state, calculate status, and UPDATE, causing last-write-wins data loss.
 
 **Why it happens:**
-- Documentation emphasizes CRUD operations separately
-- Developers assume UPDATE policy is sufficient for updates
-- Implicit SELECT requirement not obvious from error messages
-
-**Consequences:**
-- UPDATE operations fail silently or return empty results
-- INSERT operations succeed but client receives empty response
-- Users see "no data" even though data was modified
-
-**Prevention:**
+The existing `calculate_po_status(p_po_id)` function uses:
 ```sql
--- Ensure SELECT policy exists alongside UPDATE/INSERT
-CREATE POLICY file_attachments_select ON public.file_attachments
-  FOR SELECT USING (
-    public.get_user_role() IN ('admin', 'quartermaster', 'inventory')
-    OR uploaded_by = auth.uid()
-  );
-
-CREATE POLICY file_attachments_update ON public.file_attachments
-  FOR UPDATE
-  USING (...)
-  WITH CHECK (...);
+SELECT SUM(quantity), SUM(invoiced_quantity), SUM(received_quantity)
+FROM po_line_items WHERE po_id = p_po_id;
 ```
 
-**Detection:**
-- UPDATE queries return `[]` instead of updated row
-- INSERT operations succeed but client sees no data
-- RLS-enabled tables show different behavior than RLS-disabled tables
+This is a **time-of-check, time-of-use (TOCTOU)** vulnerability. Between SELECT and UPDATE, another transaction can modify the same rows.
 
-**References:**
-- [UPDATE RLS policy requires SELECT RLS policy too](https://github.com/supabase/supabase/issues/28559)
-- [Failing to update data because of row level security](https://github.com/PostgREST/postgrest/discussions/1844)
+**Consequences:**
+- Invoice quantity = 50, stock-in quantity = 50 arrive simultaneously
+- Transaction A: reads invoiced=50, received=0 → status="awaiting_delivery"
+- Transaction B: reads invoiced=0, received=50 → status="partially_received"
+- Final status depends on which transaction commits last
+- **Business rule violated:** "Partially Invoiced takes priority over Partially Received" ignored
+
+**Prevention:**
+1. **Use row-level locking when reading data for status calculation:**
+   ```sql
+   SELECT SUM(quantity), SUM(invoiced_quantity), SUM(received_quantity)
+   FROM po_line_items
+   WHERE po_id = p_po_id
+   FOR UPDATE; -- Locks rows until transaction completes
+   ```
+
+2. **Use statement-level triggers instead of row-level** for aggregate calculations:
+   ```sql
+   -- WRONG: Row-level fires N times for N-row invoice
+   CREATE TRIGGER update_status AFTER INSERT ON invoice_line_items
+   FOR EACH ROW EXECUTE FUNCTION trigger_update_po_status();
+
+   -- BETTER: Statement-level fires once with transition tables
+   CREATE TRIGGER update_status AFTER INSERT ON invoice_line_items
+   FOR EACH STATEMENT EXECUTE FUNCTION trigger_update_po_status_batch();
+   ```
+
+3. **Make status updates atomic within single transaction:**
+   ```sql
+   -- In recalculate_po_on_invoice_void, the UPDATE of po_line_items
+   -- and subsequent status recalculation should happen in same transaction
+   -- (already the case, but verify new triggers don't break this)
+   ```
+
+4. **Use Serializable Isolation Level for critical operations:**
+   ```sql
+   BEGIN ISOLATION LEVEL SERIALIZABLE;
+   -- Perform multi-step three-way match
+   COMMIT;
+   ```
+
+**Detection:**
+- Warning sign: Flaky tests where status is sometimes correct, sometimes wrong
+- Warning sign: Logs show two status updates to same PO within milliseconds
+- Test: Use `pgbench` or similar to create 10 concurrent invoices for same PO
+- Monitoring: Track `pg_stat_database.xact_commit` vs `xact_rollback` for serialization failures
+
+**Which phase:**
+- Phase 1: Status calculation (CRITICAL)
+- Phase 3: Progress bar calculation (MEDIUM - read-only but depends on accurate status)
+
+**Sources:**
+- [Database Race Conditions: A System Security Guide](https://blog.doyensec.com/2024/07/11/database-race-conditions.html)
+- [How To Prevent Race Conditions in Database](https://medium.com/@doniantoro34/how-to-prevent-race-conditions-in-database-3aac965bf47b)
+- [Handling Race Conditions in Payment Systems](https://medium.com/@ankurnitp/handling-race-conditions-in-idempotent-operations-a-practical-guide-for-payment-systems-eb045b9ca7c4)
 
 ---
 
-### Pitfall 3: Trigger Conditional Logic Order Matters
+### Pitfall 3: Lock Mechanism Bypassed by Direct Database Updates
 
 **What goes wrong:**
-In audit trigger functions with multiple conditional branches, the order of IF statements determines which action gets logged. Wrong order causes:
-- Status changes logged as generic updates
-- Notes field not captured for status changes
-- Cascade effects not visible in audit trail
+Implementing lock checks only in **UI/API layer** allows direct database updates to bypass locks, violating business rules.
 
 **Why it happens:**
-- First matching condition wins, subsequent checks skipped
-- Generic UPDATE check comes before specific action checks
-- Developers add new conditions at bottom of function
+- Developer adds lock check: `if (po.status === 'closed' && userRole !== 'admin') throw error`
+- Works in UI, but Supabase allows direct database access via PostgREST
+- Triggers can also update locked records (e.g., invoice void cascade)
+- Edge Functions or batch scripts bypass UI validation
 
 **Consequences:**
-- Status change notes disappear (captured in wrong branch)
-- Audit history shows "Updated qmrl" instead of "Status changed from X to Y"
-- Users cannot see why status changed
+- "Closed" PO modified by non-admin via API call
+- Audit trail shows Admin locked PO, but changes still happened
+- Financial reconciliation broken (three-way match no longer matches)
 
 **Prevention:**
-```sql
--- WRONG: Generic UPDATE first
-IF TG_OP = 'UPDATE' THEN
-  -- This catches EVERYTHING, including status changes
-  audit_action := 'update';
-  -- ... log generic update
-END IF;
+1. **Implement lock checks as database triggers (NOT just UI):**
+   ```sql
+   CREATE OR REPLACE FUNCTION block_closed_po_edits()
+   RETURNS TRIGGER AS $$
+   DECLARE
+     user_role TEXT;
+   BEGIN
+     -- Check if PO is closed
+     IF NEW.status = 'closed' AND OLD.status = 'closed' THEN
+       -- Get current user role from Supabase auth
+       user_role := (SELECT role FROM users WHERE id = auth.uid());
 
-IF OLD.status_id IS DISTINCT FROM NEW.status_id THEN
-  -- Never reached because previous IF already handled it
-  audit_action := 'status_change';
-END IF;
+       -- Only admin can edit closed PO
+       IF user_role != 'admin' THEN
+         RAISE EXCEPTION 'Cannot modify closed Purchase Order (only Admin)';
+       END IF;
+     END IF;
 
--- CORRECT: Specific checks first, generic last
-IF TG_OP = 'UPDATE' THEN
-  -- Check for soft delete
-  IF OLD.is_active = TRUE AND NEW.is_active = FALSE THEN
-    audit_action := 'delete';
-    -- ... log soft delete
-    RETURN NEW;
-  END IF;
+     RETURN NEW;
+   END;
+   $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-  -- Check for void
-  IF (OLD.is_voided = FALSE) AND NEW.is_voided = TRUE THEN
-    audit_action := 'void';
-    -- ... log void with reason
-    RETURN NEW;
-  END IF;
+   CREATE TRIGGER block_closed_po_edits
+     BEFORE UPDATE ON purchase_orders
+     FOR EACH ROW
+     EXECUTE FUNCTION block_closed_po_edits();
+   ```
 
-  -- Check for status change
-  IF OLD.status_id IS DISTINCT FROM NEW.status_id THEN
-    audit_action := 'status_change';
-    -- ... log status change with notes
-    RETURN NEW;
-  END IF;
+2. **Add RLS policy for closed POs:**
+   ```sql
+   -- Prevent updates to closed POs except by admin
+   CREATE POLICY po_closed_admin_only ON purchase_orders
+     FOR UPDATE
+     USING (status != 'closed' OR get_user_role() = 'admin')
+     WITH CHECK (status != 'closed' OR get_user_role() = 'admin');
+   ```
 
-  -- LAST: Generic UPDATE for everything else
-  audit_action := 'update';
-  -- ... log generic update
-END IF;
-```
+3. **Whitelist legitimate bypass scenarios:**
+   - Invoice void cascade needs to update `invoiced_quantity` even when closed
+   - Solution: Use `SECURITY DEFINER` function that sets session variable before update:
+     ```sql
+     PERFORM set_config('app.allow_closed_po_update', 'true', true);
+     UPDATE po_line_items SET invoiced_quantity = ... WHERE ...;
+     PERFORM set_config('app.allow_closed_po_update', 'false', true);
+     ```
+
+4. **Document ALL paths that modify locked records:**
+   - UI → Server Action → Database
+   - Invoice void → Trigger cascade → PO line items
+   - Stock-in → Trigger → `received_quantity` update
+   - Admin override → Bypass lock check
 
 **Detection:**
-- Status changes appear as generic "Updated qmrl" entries
-- Notes field empty in history even though user entered notes
-- Specific action types (void, status_change, assignment_change) not appearing
+- Warning sign: Lock works in UI but can be bypassed via Supabase API explorer
+- Warning sign: Trigger updates fail with "Cannot modify closed PO" errors
+- Test: Set PO to "closed", call PostgREST API directly to modify → should fail
+- Audit: Query `audit_logs` for `entity_type='purchase_orders' AND field_name='status'` after close → should have no subsequent changes except admin
 
-**References:**
-- [PostgreSQL Triggers in 2026: Design, Performance, and Production Reality](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/)
-- [PostgreSQL Trigger Functions Documentation](https://www.postgresql.org/docs/current/plpgsql-trigger.html)
+**Which phase:**
+- Phase 4: Lock mechanism (CRITICAL)
+- Phase 5: Admin override (verification that locks work correctly)
+
+**Sources:**
+- [Supabase RLS Performance and Best Practices](https://supabase.com/docs/guides/troubleshooting/rls-performance-and-best-practices-Z5Jjwv)
+- [PostgreSQL Advisory Locks for Application-Level Concurrency Control](https://medium.com/@erkanyasun/postgresql-advisory-locks-a-powerful-tool-for-application-level-concurrency-control-8a147c06ec39)
 
 ---
 
-### Pitfall 4: Notes Not Passed to Audit Log Insert
+### Pitfall 4: Voided Invoice Exclusion Not Applied Consistently
 
 **What goes wrong:**
-User enters notes in status change dialog, but notes don't appear in audit log history. The note is collected in UI but never passed to the database UPDATE statement.
+New status calculation logic includes voided invoices in totals, breaking the existing invariant: "voided invoices don't count toward three-way match."
 
 **Why it happens:**
-- Status change happens via direct UPDATE to entity table
-- Audit trigger captures OLD/NEW state but not UI form data
-- No mechanism to pass user-provided notes from UI to trigger
+Existing system has `i.is_voided = false` check in `update_po_line_invoiced_quantity()`:
+```sql
+SELECT COALESCE(SUM(ili.quantity), 0)
+FROM invoice_line_items ili
+JOIN invoices i ON i.id = ili.invoice_id
+WHERE ili.po_line_item_id = target_po_line_id
+  AND ili.is_active = true
+  AND i.is_voided = false; -- CRITICAL: exclude voided
+```
+
+New developer adds visual matching panel query **without this check**:
+```sql
+-- WRONG: Includes voided invoices
+SELECT SUM(quantity) FROM invoice_line_items WHERE po_line_item_id = ?
+```
 
 **Consequences:**
-- Users cannot explain why they changed status
-- Audit trail lacks context for important decisions
-- Compliance/debugging requires asking users "why did you do this?"
+- UI shows invoice qty = 100 (includes voided invoice)
+- Database `invoiced_quantity` = 50 (excludes voided)
+- Progress bar shows 100% matched, but PO status = "partially_invoiced"
+- User confusion: "Why is this not closed? The numbers match!"
 
 **Prevention:**
+1. **Create database VIEW for three-way match calculations:**
+   ```sql
+   CREATE VIEW po_three_way_match AS
+   SELECT
+     pl.id AS po_line_id,
+     pl.po_id,
+     pl.quantity AS po_qty,
+     COALESCE(SUM(CASE
+       WHEN i.is_voided = false THEN ili.quantity
+       ELSE 0
+     END), 0) AS invoiced_qty,
+     pl.received_quantity AS received_qty,
+     -- Calculate match percentage
+     LEAST(
+       (invoiced_qty / NULLIF(pl.quantity, 0)) * 100,
+       (received_qty / NULLIF(pl.quantity, 0)) * 100
+     ) AS match_percentage
+   FROM po_line_items pl
+   LEFT JOIN invoice_line_items ili ON ili.po_line_item_id = pl.id AND ili.is_active = true
+   LEFT JOIN invoices i ON i.id = ili.invoice_id
+   WHERE pl.is_active = true
+   GROUP BY pl.id, pl.po_id, pl.quantity, pl.received_quantity;
+   ```
 
-**Option A: Add notes column to entity tables**
-```sql
--- Add notes column to qmrl, qmhq, etc.
-ALTER TABLE qmrl ADD COLUMN status_change_notes TEXT;
+   Then **all queries** (UI, status calculation, progress bar) use this VIEW instead of ad-hoc queries.
 
--- Update includes notes
-UPDATE qmrl SET
-  status_id = $1,
-  status_change_notes = $2,
-  updated_by = $3
-WHERE id = $4;
+2. **Add database constraint to enforce voided exclusion:**
+   ```sql
+   -- Ensure invoiced_quantity never includes voided amounts
+   -- (This is defensive; triggers should already enforce this)
+   ALTER TABLE po_line_items ADD CONSTRAINT check_invoiced_quantity_valid
+     CHECK (
+       invoiced_quantity <= quantity AND
+       invoiced_quantity >= 0
+     );
+   ```
 
--- Trigger captures status_change_notes
-IF OLD.status_id IS DISTINCT FROM NEW.status_id THEN
-  INSERT INTO audit_logs (..., notes)
-  VALUES (..., NEW.status_change_notes);
-END IF;
-```
+3. **Add integration test for voided invoice scenario:**
+   ```typescript
+   test('voided invoice excluded from three-way match', async () => {
+     const po = await createPO({ items: [{ qty: 100 }] });
+     const invoice = await createInvoice(po, { qty: 100 });
 
-**Option B: Separate audit_log INSERT from UI**
-```sql
--- Update entity
-UPDATE qmrl SET status_id = $1 WHERE id = $2;
+     // Before void: should be awaiting_delivery
+     expect(await getPOStatus(po.id)).toBe('awaiting_delivery');
 
--- Explicitly insert audit log entry with notes
-INSERT INTO audit_logs (
-  entity_type, entity_id, action,
-  field_name, old_value, new_value,
-  changes_summary, notes,
-  changed_by, changed_by_name, changed_at
-) VALUES (
-  'qmrl', $2, 'status_change',
-  'status_id', $3, $1,
-  'Status changed from "..." to "..."', $4, -- $4 is user notes
-  $5, $6, NOW()
-);
-```
+     // Void invoice
+     await voidInvoice(invoice.id);
 
-**Option C: Use JSONB context in trigger**
-```sql
--- Pass context via session variable
-SET LOCAL app.status_change_notes = 'User explanation here';
+     // After void: should be not_started
+     const status = await getPOStatus(po.id);
+     expect(status).toBe('not_started');
 
--- Trigger reads from session
-CREATE FUNCTION create_audit_log() AS $$
-DECLARE
-  user_notes TEXT;
-BEGIN
-  user_notes := current_setting('app.status_change_notes', true);
-
-  INSERT INTO audit_logs (..., notes)
-  VALUES (..., user_notes);
-END;
-$$;
-```
+     // Visual panel should also show 0 invoiced
+     const panel = await getMatchingPanel(po.id);
+     expect(panel.invoicedQty).toBe(0);
+   });
+   ```
 
 **Detection:**
-- Notes field in StatusChangeDialog but notes empty in HistoryTab
-- User reports "I entered a note but it's not showing"
-- Audit log entries have NULL notes even for important changes
+- Warning sign: `is_voided` check present in triggers but missing in UI queries
+- Warning sign: Frontend calculates totals differently than backend
+- Test: Create invoice → void invoice → check UI vs database values
+- Code review: Search for `invoice_line_items` queries without `is_voided = false` join
 
-**References:**
-- [Postgres Audit Logging Guide](https://www.bytebase.com/blog/postgres-audit-logging/)
-- [Working with Postgres Audit Triggers](https://www.enterprisedb.com/postgres-tutorials/working-postgres-audit-triggers)
+**Which phase:**
+- Phase 1: Status calculation enhancement (CRITICAL - must use voided exclusion)
+- Phase 2: Matching panel (CRITICAL - must show accurate numbers)
+- Phase 3: Progress bar (CRITICAL - calculation must match status)
+
+**Sources:**
+- [Three-Way Matching: Edge Cases for Split and Partial Deliveries](https://www.stampli.com/blog/invoice-management/3-way-invoice-matching/)
+- [Invoice Matching Automation Best Practices 2026](https://www.rillion.com/ap-automation-software/3-way-po-matching/)
 
 ---
 
 ## Moderate Pitfalls
 
-Mistakes that cause delays, inconsistent UX, or technical debt.
+Mistakes that cause delays, performance issues, or technical debt.
 
-### Pitfall 5: Controlled Number Input onBlur Timing Issues
-
-**What goes wrong:**
-Number inputs formatted on blur can overwrite user-entered values due to React state update timing. User types "1000", blur triggers, value becomes "1,000" or "1000.00", but state update conflicts with previous onChange.
-
-**Why it happens:**
-- onBlur fires before final onChange in some browsers (Firefox)
-- Formatting logic uses stale state value
-- parseFloat/toFixed applied to display value, not raw value
-
-**Consequences:**
-- User types "100", blur changes it to "0" or "100.00" unexpectedly
-- Cursor position jumps during typing if formatting on onChange
-- Value disappears or resets when switching fields
-
-**Prevention:**
-
-**Strategy 1: Store raw value, format for display only**
-```tsx
-// WRONG: Format on every change
-const [amount, setAmount] = useState("");
-<Input
-  value={amount}
-  onChange={(e) => setAmount(parseFloat(e.target.value).toFixed(2))}
-/>
-
-// CORRECT: Store raw, format on blur or display
-const [amount, setAmount] = useState(""); // raw string
-const [displayAmount, setDisplayAmount] = useState("");
-
-<Input
-  value={displayAmount || amount}
-  onChange={(e) => {
-    setAmount(e.target.value); // raw value
-    setDisplayAmount(e.target.value);
-  }}
-  onBlur={() => {
-    const num = parseFloat(amount);
-    if (!isNaN(num)) {
-      setDisplayAmount(num.toFixed(2));
-    }
-  }}
-  onFocus={() => setDisplayAmount(amount)} // Show raw on focus
-/>
-```
-
-**Strategy 2: Debounce formatting**
-```tsx
-const [amount, setAmount] = useState("");
-const debouncedFormat = useMemo(
-  () => debounce((val: string) => {
-    const num = parseFloat(val);
-    if (!isNaN(num)) setAmount(num.toFixed(2));
-  }, 500),
-  []
-);
-
-<Input
-  value={amount}
-  onChange={(e) => {
-    setAmount(e.target.value);
-    debouncedFormat(e.target.value);
-  }}
-/>
-```
-
-**Strategy 3: No formatting in controlled input**
-```tsx
-// Let database handle precision
-const [amount, setAmount] = useState("");
-
-<Input
-  type="number"
-  step="0.01"
-  value={amount}
-  onChange={(e) => setAmount(e.target.value)}
-  // Format only for display outside input
-/>
-
-<div>Preview: {formatCurrency(parseFloat(amount))}</div>
-```
-
-**Detection:**
-- User reports "number keeps changing when I click away"
-- Value becomes "0.00" after entering then leaving field
-- Cursor jumps to end while typing decimal values
-
-**References:**
-- [The difference between onBlur vs onChange for React text inputs](https://linguinecode.com/post/onblur-vs-onchange-react-text-inputs)
-- [Set formatted number value to a Controlled input](https://github.com/orgs/react-hook-form/discussions/9161)
-- [useController onBlur overwrites onChange value](https://github.com/react-hook-form/react-hook-form/issues/7007)
-
----
-
-### Pitfall 6: Inconsistent Currency Display Across Contexts
+### Pitfall 5: RLS Policy Performance Degradation on Complex Status Queries
 
 **What goes wrong:**
-EUSD display appears in some places but not others. Exchange rates formatted with different decimal places (sometimes 2, sometimes 4). Currency symbols used inconsistently ($, USD, MMK vs Myanmar Kyat).
+Adding visual matching panel with side-by-side comparison causes N+1 queries or slow page loads due to RLS policy re-evaluation for every row.
 
 **Why it happens:**
-- Multiple developers implementing similar features
-- No central formatCurrency utility enforcing standards
-- Copy-paste from different parts of codebase
-- Business rules unclear (when to show EUSD vs local currency)
-
-**Consequences:**
-- Users confused about actual vs equivalent amounts
-- Financial reports inconsistent
-- Audit trail shows different precision (2 vs 4 decimals)
-- International users see wrong currency conventions
-
-**Prevention:**
-
-**Strategy 1: Centralized formatting utility**
-```typescript
-// lib/utils/currency.ts
-export function formatAmount(amount: number, decimals: number = 2): string {
-  return amount.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
-
-export function formatCurrency(amount: number, currency: string = 'MMK'): string {
-  return `${formatAmount(amount, 2)} ${currency}`;
-}
-
-export function formatExchangeRate(rate: number): string {
-  return formatAmount(rate, 4); // Always 4 decimals
-}
-
-export function formatWithEUSD(
-  amount: number,
-  currency: string,
-  exchangeRate: number
-): string {
-  const eusd = amount / exchangeRate;
-  return `${formatCurrency(amount, currency)} (${formatAmount(eusd, 2)} EUSD)`;
-}
-```
-
-**Strategy 2: Consistent component pattern**
-```tsx
-// components/currency/currency-display.tsx
-interface CurrencyDisplayProps {
-  amount: number;
-  currency: string;
-  exchangeRate: number;
-  showEUSD?: boolean; // default true
-}
-
-export function CurrencyDisplay({
-  amount,
-  currency,
-  exchangeRate,
-  showEUSD = true
-}: CurrencyDisplayProps) {
-  const eusd = amount / exchangeRate;
-
-  return (
-    <div className="currency-display">
-      <span className="amount">{formatCurrency(amount, currency)}</span>
-      {showEUSD && (
-        <span className="eusd">({formatAmount(eusd, 2)} EUSD)</span>
-      )}
-    </div>
-  );
-}
-```
-
-**Strategy 3: Database-enforced precision**
+Supabase RLS policies are evaluated **per-row** when querying data. Complex policies like:
 ```sql
--- Schema enforces precision
-amount DECIMAL(15,2), -- Always 2 decimals
-exchange_rate DECIMAL(10,4), -- Always 4 decimals
-amount_eusd DECIMAL(15,2) GENERATED ALWAYS AS (
-  ROUND(amount / exchange_rate, 2)
-) STORED
+CREATE POLICY po_line_items_read ON po_line_items
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM purchase_orders po
+      JOIN qmhq q ON q.id = po.qmhq_id
+      JOIN qmrl r ON r.id = q.qmrl_id
+      WHERE po.id = po_line_items.po_id
+        AND (
+          r.requester_id = auth.uid() OR
+          q.assigned_to = auth.uid() OR
+          get_user_role() IN ('admin', 'finance', 'quartermaster')
+        )
+    )
+  );
 ```
 
-**Strategy 4: Design system tokens**
-```typescript
-// Enforce in component library
-const CURRENCY_RULES = {
-  amount: { decimals: 2, display: 'always' },
-  exchangeRate: { decimals: 4, display: 'always' },
-  eusd: { decimals: 2, display: 'always', label: 'EUSD' },
-} as const;
-```
+For a PO with 10 line items, this subquery runs **10 times** (once per row). Visual matching panel fetches:
+- PO line items (10 rows × RLS check)
+- Invoice line items (20 rows × RLS check)
+- Inventory transactions (30 rows × RLS check)
+= 60 RLS policy evaluations per page load
+
+**Consequences:**
+- Matching panel takes 2-3 seconds to load
+- Database CPU spikes to 80%+ on production
+- `EXPLAIN ANALYZE` shows sequential scans instead of index usage
+- Other users experience slowdown (shared database pool exhausted)
+
+**Prevention:**
+1. **Index columns used in RLS policies:**
+   ```sql
+   -- If RLS policy checks auth.uid() = requester_id
+   CREATE INDEX idx_qmrl_requester_id ON qmrl(requester_id);
+
+   -- If policy checks user role via JOIN
+   CREATE INDEX idx_users_id_role ON users(id, role);
+   ```
+
+2. **Use SECURITY DEFINER functions to bypass nested RLS checks:**
+   ```sql
+   -- Instead of RLS policy with subquery, create view with SECURITY DEFINER
+   CREATE OR REPLACE FUNCTION get_accessible_po_line_items(p_po_id UUID)
+   RETURNS TABLE(id UUID, quantity DECIMAL, invoiced_quantity DECIMAL, received_quantity DECIMAL)
+   LANGUAGE plpgsql
+   SECURITY DEFINER
+   SET search_path = pg_catalog, public
+   AS $$
+   BEGIN
+     -- Check permission once, then return all rows
+     IF NOT (
+       EXISTS (SELECT 1 FROM purchase_orders WHERE id = p_po_id AND ...) OR
+       get_user_role() = 'admin'
+     ) THEN
+       RAISE EXCEPTION 'Permission denied';
+     END IF;
+
+     -- No RLS re-check per row
+     RETURN QUERY
+     SELECT pl.id, pl.quantity, pl.invoiced_quantity, pl.received_quantity
+     FROM po_line_items pl
+     WHERE pl.po_id = p_po_id;
+   END;
+   $$;
+   ```
+
+3. **Use `IN` or `ANY` instead of joins in RLS WHERE clause:**
+   ```sql
+   -- SLOW: Joins in RLS policy
+   WHERE po_id IN (SELECT id FROM purchase_orders WHERE ...)
+
+   -- FASTER: Pre-compute accessible PO IDs in array
+   WHERE po_id = ANY(
+     (SELECT array_agg(id) FROM purchase_orders WHERE ...)::UUID[]
+   )
+   ```
+
+4. **Wrap functions in SELECT to cache results:**
+   ```sql
+   -- SLOW: Function called per row
+   WHERE created_by = auth.uid()
+
+   -- FASTER: Function called once, result cached
+   WHERE created_by = (SELECT auth.uid())
+   ```
+
+5. **Use `EXPLAIN (ANALYZE, BUFFERS)` to profile queries:**
+   ```sql
+   EXPLAIN (ANALYZE, BUFFERS)
+   SELECT * FROM po_line_items WHERE po_id = 'uuid';
+
+   -- Look for:
+   -- - "Seq Scan" instead of "Index Scan" → missing index
+   -- - High "Execution Time" → slow RLS policy
+   -- - "SubPlan" executed thousands of times → nested loop
+   ```
 
 **Detection:**
-- Same amount displayed as "1000.00" in one place, "1,000" in another
-- Exchange rates show "1.5" vs "1.5000" inconsistently
-- EUSD missing from transaction details but present in list view
-- Currency symbols vary ($ vs USD vs dollar icon)
+- Warning sign: `EXPLAIN` shows "SubPlan" or "InitPlan" with high loop counts
+- Warning sign: Query time increases linearly with number of line items (10 items = 1s, 100 items = 10s)
+- Monitoring: Enable `auto_explain.log_min_duration = 1000` in Supabase dashboard
+- Test: Load matching panel with 100-line-item PO → should complete <500ms
 
-**References:**
-- [The UX of Currency Display — What's in a $ Sign?](https://medium.com/workday-design/the-ux-of-currency-display-whats-in-a-sign-6447cbc4fb88)
-- [The UX of currency conventions for a global audience](https://bootcamp.uxdesign.cc/the-ux-of-currency-conventions-for-a-global-audience-4098ff66b6ed)
-- [Mastering Currency Formats in UX Writing](https://www.numberanalytics.com/blog/ultimate-guide-currency-formats-ux-writing)
+**Which phase:**
+- Phase 2: Matching panel (HIGH RISK - complex queries)
+- Phase 3: Progress bar (MEDIUM RISK - if calculated per-request vs cached)
+
+**Sources:**
+- [Supabase RLS Performance and Best Practices](https://supabase.com/docs/guides/troubleshooting/rls-performance-and-best-practices-Z5Jjwv)
+- [Optimizing RLS Performance with Supabase](https://medium.com/@antstack/optimizing-rls-performance-with-supabase-postgres-fa4e2b6e196d)
+- [Supabase Performance Advisors](https://supabase.com/docs/guides/database/database-advisors)
 
 ---
 
-### Pitfall 7: Stock-Out from Detail Page Context Loss
+### Pitfall 6: Partial Delivery / Split Invoice Tolerance Not Handled
 
 **What goes wrong:**
-Adding stock-out action to QMHQ detail page without proper context leads to:
-- User must re-enter item (already shown on page)
-- Warehouse not pre-selected even though QMHQ has warehouse
-- Quantity defaults to 0 instead of QMHQ quantity
-- No link back to originating QMHQ after stock-out completes
+Three-way match requires **exact** quantity match (PO qty = Invoice qty = Stock-in qty) but business reality allows:
+- Partial deliveries (100 ordered, 95 delivered, supplier says "5 backorder")
+- Split invoices (100 ordered, invoice for 50 now, 50 later)
+- Over-delivery (100 ordered, 105 delivered)
+- Rounding differences (10.5 units on PO, 10 units delivered)
 
 **Why it happens:**
-- Stock-out form designed for standalone use (inventory page)
-- Form doesn't accept URL parameters for pre-fill
-- No "return to QMHQ" flow after completing stock-out
-- Context (QMHQ ID, item, warehouse) not passed to stock-out page
+Existing `calculate_po_status` uses strict equality:
+```sql
+IF total_received >= total_ordered AND total_invoiced >= total_ordered THEN
+  RETURN 'closed'::po_status;
+END IF;
+```
+
+Real-world scenario:
+- PO qty = 100.00
+- Invoiced qty = 100.00
+- Received qty = 99.50 (warehouse counts 99.5 units)
+- Status = "partially_received" (never reaches "closed")
+- Accountant cannot close PO manually
 
 **Consequences:**
-- Poor UX: users re-enter information already on screen
-- Data entry errors: wrong item/quantity selected
-- Lost context: users unsure how to get back to QMHQ
-- Slow workflow: extra clicks and typing
+- POs stuck in "partially_received" forever
+- Manual intervention required for every PO
+- User frustration: "This is basically complete, why can't I close it?"
 
 **Prevention:**
+1. **Add configurable tolerance threshold:**
+   ```sql
+   -- Create settings table
+   CREATE TABLE system_settings (
+     key TEXT PRIMARY KEY,
+     value JSONB,
+     updated_at TIMESTAMPTZ DEFAULT NOW()
+   );
 
-**Strategy 1: Modal dialog on same page**
-```tsx
-// QMHQ detail page
-function QMHQDetailPage() {
-  const [showStockOut, setShowStockOut] = useState(false);
+   INSERT INTO system_settings (key, value) VALUES
+     ('po_matching_tolerance', '{"percentage": 2.0, "absolute": 1.0}');
 
-  return (
-    <>
-      <Button onClick={() => setShowStockOut(true)}>
-        Stock Out
-      </Button>
+   -- Use in status calculation
+   CREATE OR REPLACE FUNCTION calculate_po_status(p_po_id UUID)
+   RETURNS po_status AS $$
+   DECLARE
+     total_ordered DECIMAL(15,2);
+     total_invoiced DECIMAL(15,2);
+     total_received DECIMAL(15,2);
+     tolerance_pct DECIMAL(5,2);
+     tolerance_abs DECIMAL(15,2);
+   BEGIN
+     -- Get tolerance settings
+     SELECT
+       (value->>'percentage')::DECIMAL,
+       (value->>'absolute')::DECIMAL
+     INTO tolerance_pct, tolerance_abs
+     FROM system_settings
+     WHERE key = 'po_matching_tolerance';
 
-      <StockOutDialog
-        open={showStockOut}
-        onClose={() => setShowStockOut(false)}
-        // Pre-fill from QMHQ context
-        itemId={qmhq.item_id}
-        warehouseId={qmhq.warehouse_id}
-        quantity={qmhq.quantity}
-        qmhqId={qmhq.id} // Link back
-        onSuccess={() => {
-          setShowStockOut(false);
-          refreshQMHQ();
-        }}
-      />
-    </>
-  );
-}
-```
+     -- Get totals
+     SELECT SUM(quantity), SUM(invoiced_quantity), SUM(received_quantity)
+     INTO total_ordered, total_invoiced, total_received
+     FROM po_line_items WHERE po_id = p_po_id;
 
-**Strategy 2: URL parameters for pre-fill**
-```tsx
-// Navigate with context
-router.push(`/inventory/stock-out?` + new URLSearchParams({
-  itemId: qmhq.item_id,
-  warehouseId: qmhq.warehouse_id,
-  quantity: qmhq.quantity.toString(),
-  qmhqId: qmhq.id,
-  returnUrl: `/qmhq/${qmhq.id}`,
-}));
+     -- Check if matched within tolerance
+     IF (
+       ABS(total_received - total_ordered) <= GREATEST(
+         total_ordered * tolerance_pct / 100,
+         tolerance_abs
+       ) AND
+       ABS(total_invoiced - total_ordered) <= GREATEST(
+         total_ordered * tolerance_pct / 100,
+         tolerance_abs
+       )
+     ) THEN
+       RETURN 'closed'::po_status;
+     END IF;
 
-// Stock-out page reads params
-function StockOutPage() {
-  const searchParams = useSearchParams();
-  const [itemId, setItemId] = useState(searchParams.get('itemId') || '');
-  const returnUrl = searchParams.get('returnUrl');
+     -- ... rest of status logic
+   END;
+   $$;
+   ```
 
-  // After success
-  if (returnUrl) router.push(returnUrl);
-}
-```
+2. **Add admin UI to configure tolerance:**
+   - Settings page: `/admin/settings`
+   - Fields: "Matching tolerance (%)", "Matching tolerance (absolute units)"
+   - Default: 2% or 1.0 unit, whichever is greater
 
-**Strategy 3: Breadcrumb context**
-```tsx
-// Stock-out page shows origin
-<Breadcrumb>
-  <BreadcrumbItem href="/inventory">Inventory</BreadcrumbItem>
-  {qmhqId && (
-    <BreadcrumbItem href={`/qmhq/${qmhqId}`}>
-      QMHQ-2025-00042
-    </BreadcrumbItem>
-  )}
-  <BreadcrumbItem>Stock Out</BreadcrumbItem>
-</Breadcrumb>
-```
+3. **Add manual override for edge cases:**
+   ```sql
+   ALTER TABLE purchase_orders ADD COLUMN manual_close_reason TEXT;
+   ALTER TABLE purchase_orders ADD COLUMN manual_close_by UUID REFERENCES users(id);
+
+   -- Admin can force close with reason
+   UPDATE purchase_orders
+   SET status = 'closed',
+       manual_close_reason = 'Supplier confirmed backorder of 5 units',
+       manual_close_by = auth.uid()
+   WHERE id = ? AND get_user_role() = 'admin';
+   ```
+
+4. **Document business rules for tolerance:**
+   - Tolerance applies to **total PO**, not per line item
+   - Over-delivery within tolerance is acceptable (warn user, don't block)
+   - Under-delivery within tolerance requires approval note
+   - Tolerance does NOT apply to financial amounts (invoice total must match exactly or be less than PO)
 
 **Detection:**
-- User complains "why do I have to enter the item again?"
-- High error rate on stock-out (wrong item/warehouse selected)
-- Users click back button instead of using return link
-- Support tickets: "I did stock-out but can't find the QMHQ"
+- Warning sign: High percentage of POs stuck in "partially_received" status
+- Warning sign: Support tickets about "can't close PO with 99.5/100 received"
+- Monitoring: Query POs where `ABS(received_qty - ordered_qty) < 2` and `status != 'closed'`
+- User feedback: "This is good enough, let me close it!"
 
-**References:**
-- [How to Handle Out-of-Stock Products for eComm](https://thegray.company/blog/permanently-temporarily-out-of-stock-products-ecommerce-seo-ux)
-- [How to Optimize Out of Stock Product Pages](https://cxl.com/blog/out-of-stock-product-pages/)
-- [Boost Sales: Tackling Out-of-Stock Issues with UX Experiments](https://www.quantummetric.com/blog/out-of-stock-ux-conducting-experiments-and-addressing-oos-retail)
+**Which phase:**
+- Phase 1: Status calculation (MEDIUM RISK - add tolerance logic)
+- Phase 2: Matching panel (LOW RISK - just display variance)
+- Phase 4: Lock mechanism (MEDIUM RISK - should tolerance prevent lock?)
+
+**Sources:**
+- [Three-Way Matching Tolerance Settings (SAP)](https://community.sap.com/t5/enterprise-resource-planning-q-a/three-way-match-tolerance-settings/qaq-p/12590792)
+- [Handling Partial Deliveries in 3-Way Match](https://www.bill.com/learning/3-way-matching)
+- [Accounts Payable Variance Handling Best Practices 2026](https://learn.microsoft.com/en-us/dynamics365/finance/accounts-payable/accounts-payable-invoice-matching)
+
+---
+
+### Pitfall 7: Real-Time State Sync Fails During Concurrent Updates
+
+**What goes wrong:**
+User viewing matching panel sees stale data when another user creates invoice or receives stock in parallel, because Supabase Realtime subscription doesn't update fast enough.
+
+**Why it happens:**
+Supabase Realtime uses WebSocket connections that can:
+- Drop connections temporarily (network issues)
+- Have subscription delays (messages queued)
+- Experience race conditions (WebSocket connects but handlers not registered yet)
+- Fail to reconnect after page sleep/wake
+
+User A views matching panel → subscribes to `po_line_items` changes
+User B creates invoice → `invoiced_quantity` updates
+User A sees old value for 2-5 seconds (or never updates if connection dropped)
+
+**Consequences:**
+- User sees "0/100 invoiced" but database shows "50/100 invoiced"
+- User creates duplicate invoice thinking first one didn't work
+- Progress bar shows wrong percentage until page refresh
+- Loss of confidence in system accuracy
+
+**Prevention:**
+1. **Implement subscription lifecycle management:**
+   ```typescript
+   // components/po/matching-panel.tsx
+   useEffect(() => {
+     const channel = supabase
+       .channel(`po_${poId}`)
+       .on('postgres_changes', {
+         event: 'UPDATE',
+         schema: 'public',
+         table: 'po_line_items',
+         filter: `po_id=eq.${poId}`
+       }, (payload) => {
+         // Update local state
+         setLineItems(prev => /* merge payload */);
+       })
+       .subscribe((status) => {
+         if (status === 'SUBSCRIBED') {
+           setIsConnected(true);
+         }
+         if (status === 'CHANNEL_ERROR') {
+           // Retry with exponential backoff
+           retrySubscription();
+         }
+       });
+
+     // CRITICAL: Clean up on unmount
+     return () => {
+       channel.unsubscribe();
+     };
+   }, [poId]);
+   ```
+
+2. **Add optimistic UI updates with reconciliation:**
+   ```typescript
+   async function createInvoice(data) {
+     // 1. Optimistic update (instant UI feedback)
+     setLineItems(prev =>
+       prev.map(item =>
+         data.items.includes(item.id)
+           ? { ...item, invoiced_quantity: item.invoiced_quantity + data.qty }
+           : item
+       )
+     );
+
+     // 2. Actual API call
+     const result = await supabase.from('invoices').insert(data);
+
+     // 3. Reconcile with server state
+     if (result.error) {
+       // Revert optimistic update
+       fetchLineItems(); // Re-fetch from database
+     }
+   }
+   ```
+
+3. **Show connection status indicator:**
+   ```tsx
+   {!isConnected && (
+     <Banner variant="warning">
+       Live updates paused. <button onClick={refetch}>Refresh now</button>
+     </Banner>
+   )}
+   ```
+
+4. **Add manual refresh button:**
+   ```tsx
+   <Button onClick={() => refetch()} icon={RefreshIcon}>
+     Refresh data
+   </Button>
+   ```
+
+5. **Use polling as fallback for critical data:**
+   ```typescript
+   // Poll every 10 seconds if Realtime fails
+   useEffect(() => {
+     if (!isConnected) {
+       const interval = setInterval(() => {
+         refetch();
+       }, 10000);
+       return () => clearInterval(interval);
+     }
+   }, [isConnected]);
+   ```
+
+**Detection:**
+- Warning sign: `console.log` shows "WebSocket connection closed" errors
+- Warning sign: Subscription status goes `SUBSCRIBED → CLOSED → SUBSCRIBED` repeatedly
+- Test: Open matching panel, create invoice in another tab → should update within 1s
+- Test: Put laptop to sleep for 1 min, wake → subscription should reconnect
+- Monitoring: Track Realtime connection failures in Supabase dashboard
+
+**Which phase:**
+- Phase 2: Matching panel (HIGH RISK - users rely on real-time updates)
+- Phase 3: Progress bar (MEDIUM RISK - can show stale percentage)
+
+**Sources:**
+- [Production-ready listener for Supabase Realtime Postgres changes](https://medium.com/@dipiash/supabase-realtime-postgres-changes-in-node-js-2666009230b0)
+- [WebSocket Race Condition in Supabase JS Client](https://github.com/supabase/supabase-js/issues/1559)
+- [Supabase Realtime: Managing Subscriptions Best Practices](https://app.studyraid.com/en/read/8395/231602/managing-real-time-subscriptions)
+
+---
+
+### Pitfall 8: Audit Trail Gaps When Status Auto-Changes
+
+**What goes wrong:**
+PO status changes from "not_started" → "partially_invoiced" → "closed" but audit log only shows user actions (create invoice, create stock-in), not the **resulting status changes**.
+
+**Why it happens:**
+Existing `audit_triggers.sql` logs changes to `purchase_orders` table, but status changes happen via **trigger** (`trigger_update_po_status`), not user UPDATE.
+
+Existing audit trigger fires AFTER UPDATE:
+```sql
+CREATE TRIGGER audit_purchase_orders
+  AFTER UPDATE ON purchase_orders
+  FOR EACH ROW
+  EXECUTE FUNCTION create_audit_log();
+```
+
+But this captures the UPDATE that sets `status`, not the **context** of why it changed (invoice creation? stock-in?).
+
+**Consequences:**
+- Audit log shows: "PO-2025-00001 status changed to 'closed'" with `changed_by = NULL`
+- Missing context: Which invoice caused the closure?
+- Compliance issue: Cannot trace why PO was closed
+- User confusion: "I didn't close this, who did?"
+
+**Prevention:**
+1. **Enhance audit logging to capture cascade context:**
+   ```sql
+   -- Similar to existing invoice_void_cascade_audit.sql (041)
+   CREATE OR REPLACE FUNCTION audit_po_status_change()
+   RETURNS TRIGGER AS $$
+   DECLARE
+     trigger_context TEXT;
+     context_user_id UUID;
+     context_user_name TEXT;
+   BEGIN
+     -- Only log status changes
+     IF NEW.status != OLD.status THEN
+
+       -- Determine what triggered the status change
+       -- Check if there's a recent invoice creation
+       SELECT
+         'Invoice ' || invoice_number || ' created',
+         created_by
+       INTO trigger_context, context_user_id
+       FROM invoices
+       WHERE po_id IN (SELECT id FROM purchase_orders WHERE id = NEW.id)
+       ORDER BY created_at DESC
+       LIMIT 1;
+
+       -- If no invoice, check for stock-in
+       IF trigger_context IS NULL THEN
+         SELECT
+           'Stock-in completed',
+           created_by
+         INTO trigger_context, context_user_id
+         FROM inventory_transactions
+         WHERE invoice_id IN (
+           SELECT id FROM invoices WHERE po_id IN (SELECT id FROM purchase_orders WHERE id = NEW.id)
+         )
+         ORDER BY created_at DESC
+         LIMIT 1;
+       END IF;
+
+       -- Get user name
+       IF context_user_id IS NOT NULL THEN
+         SELECT full_name INTO context_user_name FROM users WHERE id = context_user_id;
+       END IF;
+
+       -- Insert audit log with context
+       INSERT INTO audit_logs (
+         entity_type, entity_id, action,
+         field_name, old_value, new_value,
+         changes_summary,
+         changed_by, changed_by_name, changed_at
+       ) VALUES (
+         'purchase_orders',
+         NEW.id,
+         'status_change',
+         'status',
+         OLD.status::TEXT,
+         NEW.status::TEXT,
+         'PO ' || NEW.po_number || ' status changed from "' ||
+           OLD.status::TEXT || '" to "' || NEW.status::TEXT || '"' ||
+           COALESCE(' due to: ' || trigger_context, ''),
+         context_user_id,
+         context_user_name,
+         NOW()
+       );
+     END IF;
+
+     RETURN NEW;
+   END;
+   $$ LANGUAGE plpgsql;
+
+   CREATE TRIGGER zz_audit_po_status_change
+     AFTER UPDATE ON purchase_orders
+     FOR EACH ROW
+     EXECUTE FUNCTION audit_po_status_change();
+   ```
+
+2. **Use session variables to pass context through trigger chain:**
+   ```sql
+   -- Before creating invoice, set context
+   PERFORM set_config('app.audit_context', 'creating_invoice', true);
+   INSERT INTO invoices ...;
+
+   -- Trigger can read context
+   audit_context := current_setting('app.audit_context', true);
+   ```
+
+3. **Add timeline view to show causal chain:**
+   ```
+   15:30:00 - User "John" created Invoice INV-2025-00123
+   15:30:01 - PO-2025-00001 status changed to "partially_invoiced" (due to invoice creation)
+   15:35:00 - User "Jane" completed stock-in for INV-2025-00123
+   15:35:01 - PO-2025-00001 status changed to "closed" (due to stock-in completion)
+   ```
+
+**Detection:**
+- Warning sign: Audit logs for `purchase_orders` show `changed_by = NULL`
+- Warning sign: Status change events without corresponding user action
+- Test: Create invoice → check audit log for PO status change with invoice context
+- Audit: Query `SELECT * FROM audit_logs WHERE entity_type='purchase_orders' AND changed_by IS NULL`
+
+**Which phase:**
+- Phase 1: Status calculation (MEDIUM RISK - status changes but no audit)
+- Phase 4: Lock mechanism (LOW RISK - lock event should be audited with reason)
+
+**Sources:**
+- Existing implementation: `supabase/migrations/041_invoice_void_cascade_audit.sql`
+- [Love, Death & Triggers: Audit Logging Best Practices](https://blog.gitguardian.com/love-death-triggers/)
 
 ---
 
 ## Minor Pitfalls
 
-Mistakes that cause annoyance but are easily fixable.
+Mistakes that cause annoyance but are fixable without major rework.
 
-### Pitfall 8: IS DISTINCT FROM vs = for NULL Comparisons
+### Pitfall 9: Progress Bar Calculation Mismatch with Status Logic
 
 **What goes wrong:**
-Trigger conditions use `=` or `!=` for comparisons, missing changes when values are NULL. `NULL = NULL` is `NULL` (not TRUE), so condition never matches.
+Progress bar shows "95% complete" but PO status is "partially_invoiced" (not "closed"), confusing users about when PO actually closes.
 
 **Why it happens:**
-- SQL beginners use `=` habitually from other languages
-- NULL behavior counterintuitive
-- Copy-paste from examples that don't handle NULL
+Developer calculates progress bar percentage using simple average:
+```typescript
+const progress = (
+  (invoicedQty / orderedQty) * 100 +
+  (receivedQty / orderedQty) * 100
+) / 2; // Average of two percentages
+```
 
-**Consequences:**
-- Status changes not logged when old status is NULL (initial state)
-- Assignment changes missed when unassigning (new value NULL)
-- Audit trail incomplete for NULL transitions
-
-**Prevention:**
+But status calculation uses **different logic** (business rule: "Partially Invoiced takes priority"):
 ```sql
--- WRONG: Misses NULL cases
-IF OLD.status_id != NEW.status_id THEN
-  -- Never true if either is NULL
-END IF;
-
--- CORRECT: Handles NULL properly
-IF OLD.status_id IS DISTINCT FROM NEW.status_id THEN
-  -- True if values differ OR one is NULL
+-- Status calculation prioritizes invoiced over received
+IF total_invoiced > 0 AND total_invoiced < total_ordered THEN
+  RETURN 'partially_invoiced';
 END IF;
 ```
 
+Result:
+- Invoiced: 50/100 (50%)
+- Received: 100/100 (100%)
+- Progress bar: (50% + 100%) / 2 = **75%**
+- Status: "partially_invoiced" (not 75% toward "closed")
+
+**Consequences:**
+- User sees 75% complete, expects PO to close soon
+- But PO won't close until invoiced reaches 100%
+- Support tickets: "Why is this stuck at 75%?"
+
+**Prevention:**
+1. **Match progress calculation to status logic:**
+   ```typescript
+   // Progress should reflect MINIMUM of invoice/received progress
+   // (because both must reach 100% to close)
+   const invoiceProgress = (invoicedQty / orderedQty) * 100;
+   const receiveProgress = (receivedQty / orderedQty) * 100;
+   const progress = Math.min(invoiceProgress, receiveProgress);
+   ```
+
+2. **Show breakdown instead of single progress bar:**
+   ```tsx
+   <div>
+     <Label>Invoice Progress</Label>
+     <ProgressBar value={invoiceProgress} />
+
+     <Label>Receiving Progress</Label>
+     <ProgressBar value={receiveProgress} />
+
+     <Label>Overall Match</Label>
+     <ProgressBar value={Math.min(invoiceProgress, receiveProgress)} />
+   </div>
+   ```
+
+3. **Add tooltip explaining calculation:**
+   ```tsx
+   <Tooltip>
+     Progress shows minimum of invoice and receiving completion.
+     PO closes when BOTH reach 100%.
+   </Tooltip>
+   ```
+
+4. **Use same calculation function for status AND progress:**
+   ```typescript
+   // lib/utils/po-calculations.ts
+   export function calculatePOProgress(po: PO): {
+     invoiceProgress: number;
+     receiveProgress: number;
+     overallProgress: number;
+     nextMilestone: string;
+   } {
+     const invoiceProgress = (po.invoicedQty / po.orderedQty) * 100;
+     const receiveProgress = (po.receivedQty / po.orderedQty) * 100;
+
+     return {
+       invoiceProgress,
+       receiveProgress,
+       overallProgress: Math.min(invoiceProgress, receiveProgress),
+       nextMilestone: invoiceProgress < 100
+         ? 'Create invoice'
+         : 'Receive stock'
+     };
+   }
+   ```
+
 **Detection:**
-- Initial status changes not appearing in history
-- "Unassigned" actions not logged
-- Audit logs missing entries for specific transitions
+- Warning sign: Progress bar reaches 100% but status is not "closed"
+- Warning sign: User reports mismatch between progress bar and status
+- Test: Create PO, invoice 50%, receive 100% → progress should be 50% (not 75%)
+
+**Which phase:**
+- Phase 3: Progress bar (MEDIUM RISK - user-facing confusion)
 
 ---
 
-### Pitfall 9: Soft Delete Breaks Referential Queries
+### Pitfall 10: Lock UI Indicator Not Synced with Database Lock State
 
 **What goes wrong:**
-Setting `is_active = false` (soft delete) but queries still join to soft-deleted records. User sees:
-- Deleted statuses appearing in dropdowns
-- Voided transactions in totals
-- Inactive items in inventory counts
+UI shows lock icon and "Closed - No edits allowed" but form fields are still editable (or vice versa), confusing users.
 
 **Why it happens:**
-- Queries written before soft-delete implemented
-- Developer forgets to add `WHERE is_active = true`
-- Aggregate queries (SUM, COUNT) don't filter soft-deleted
+- Lock check happens on form submit, not on field interaction
+- Or: Lock state fetched once on page load, not updated when status changes
+- Or: Optimistic UI shows locked state before database confirms
 
 **Consequences:**
-- Financial totals include voided transactions
-- Status dropdowns show deleted statuses
-- Inventory counts include deleted items
+- User spends 5 minutes editing closed PO, clicks Save → error "Cannot edit closed PO"
+- Wasted time, user frustration
+- Support tickets: "Why can I type if it's locked?"
 
 **Prevention:**
-```sql
--- WRONG: Includes soft-deleted
-SELECT SUM(amount) FROM financial_transactions WHERE qmhq_id = $1;
+1. **Disable fields immediately based on lock state:**
+   ```tsx
+   const isLocked = po.status === 'closed' && userRole !== 'admin';
 
--- CORRECT: Exclude soft-deleted
-SELECT SUM(amount)
-FROM financial_transactions
-WHERE qmhq_id = $1
-  AND is_active = true
-  AND (is_voided IS NULL OR is_voided = false);
-```
+   <Input
+     disabled={isLocked}
+     value={quantity}
+     onChange={setQuantity}
+   />
+
+   {isLocked && (
+     <Tooltip>
+       This PO is closed. Only admins can edit.
+     </Tooltip>
+   )}
+   ```
+
+2. **Show prominent lock banner:**
+   ```tsx
+   {isLocked && (
+     <Banner variant="info" icon={LockIcon}>
+       This Purchase Order is closed and cannot be modified.
+       {userRole === 'admin' && (
+         <Button onClick={enableEdit}>Override (Admin)</Button>
+       )}
+     </Banner>
+   )}
+   ```
+
+3. **Re-check lock state before save:**
+   ```typescript
+   async function savePO() {
+     // Re-fetch current status (in case another user closed it)
+     const { data: currentPO } = await supabase
+       .from('purchase_orders')
+       .select('status')
+       .eq('id', poId)
+       .single();
+
+     if (currentPO.status === 'closed' && userRole !== 'admin') {
+       showError('This PO was closed by another user. Refresh to see changes.');
+       return;
+     }
+
+     // Proceed with save
+   }
+   ```
+
+4. **Use consistent lock state source:**
+   ```typescript
+   // WRONG: Different lock checks in different places
+   const isLocked = po.status === 'closed'; // Header
+   const canEdit = po.status !== 'closed'; // Form
+
+   // RIGHT: Single source of truth
+   const lockState = usePOLockState(po);
+   const isLocked = lockState.isLocked;
+   const canEdit = lockState.canEdit;
+   const lockReason = lockState.reason; // "Closed by system" or "Admin override"
+   ```
 
 **Detection:**
-- User reports "deleted status still showing in dropdown"
-- Financial totals don't match after voiding transaction
-- Items with 0 stock still appearing in warehouse list
+- Warning sign: Fields editable but submit fails with lock error
+- Warning sign: Lock icon shows but no actual validation
+- Test: Close PO → immediately try to edit → fields should be disabled
 
----
-
-### Pitfall 10: Exchange Rate Defaults to 0 Instead of 1
-
-**What goes wrong:**
-New transaction forms initialize exchange rate to 0, causing:
-- Division by zero in EUSD calculation
-- Error: "exchange rate must be greater than 0"
-- NaN or Infinity displayed
-
-**Why it happens:**
-- useState("") or useState(0) for numeric fields
-- Form validation triggers before user enters value
-- Backend expects number but receives empty string
-
-**Consequences:**
-- User sees "Invalid EUSD" immediately on opening form
-- Cannot calculate preview until exchange rate entered
-- Confusion: "I haven't entered anything yet, why is it erroring?"
-
-**Prevention:**
-```tsx
-// WRONG: Defaults to 0 or empty
-const [exchangeRate, setExchangeRate] = useState("");
-const eusd = amount / (parseFloat(exchangeRate) || 0); // Division by zero
-
-// CORRECT: Default to 1 for same-currency
-const [exchangeRate, setExchangeRate] = useState("1.0000");
-const eusd = amount / (parseFloat(exchangeRate) || 1); // Safe fallback
-
-// Better: Intelligent default based on currency
-const [currency, setCurrency] = useState("MMK");
-const [exchangeRate, setExchangeRate] = useState(
-  getDefaultExchangeRate(currency) // 1.0000 for MMK, fetch for others
-);
-```
-
-**Detection:**
-- Form shows "0 EUSD" or "NaN EUSD" on load
-- Console errors: "Cannot divide by zero"
-- Users must enter exchange rate even for same-currency transactions
+**Which phase:**
+- Phase 4: Lock mechanism (LOW RISK - UI polish issue, not data integrity)
 
 ---
 
@@ -704,93 +1053,86 @@ const [exchangeRate, setExchangeRate] = useState(
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| RLS Policy Fixes | Missing WITH CHECK clause, no SELECT policy | Audit all UPDATE policies, add WITH CHECK mirroring USING. Verify SELECT policy exists for all tables with UPDATE/INSERT policies. |
-| Number Input Fixes | onBlur overwrites onChange, formatting timing | Use separate display vs raw value state. Format only on blur or display, not during typing. Test in Firefox (onBlur timing differs). |
-| Audit Display Fixes | Trigger conditional order, notes not captured | Place specific checks (status_change, void) before generic UPDATE. Verify notes flow from UI → UPDATE → trigger → audit_logs. |
-| Currency Standardization | Inconsistent decimals, missing EUSD | Create centralized formatCurrency utilities. Use CurrencyDisplay component. Enforce precision in database schema. Add Storybook examples. |
-| Stock-Out Enhancement | Context loss, no pre-fill, no return link | Use dialog on same page OR pass URL params. Pre-fill item/warehouse/quantity from QMHQ. Add "Return to QMHQ" breadcrumb/link. |
+| **Phase 1: Status Calculation Enhancement** | Trigger recursion (Pitfall 1), Race conditions (Pitfall 2), Voided exclusion (Pitfall 4) | Use `pg_trigger_depth()`, add `FOR UPDATE` locks, create VIEW with voided exclusion |
+| **Phase 2: Matching Panel** | RLS performance (Pitfall 5), Realtime sync (Pitfall 7) | Index RLS columns, use SECURITY DEFINER functions, implement subscription cleanup |
+| **Phase 3: Progress Bar** | Calculation mismatch (Pitfall 9) | Use same logic as status calculation, show breakdown, add tooltips |
+| **Phase 4: Lock Mechanism** | Lock bypass (Pitfall 3), Audit gaps (Pitfall 8), UI sync (Pitfall 10) | Database triggers for lock, cascade audit logging, disable fields when locked |
+| **Phase 5: Admin Override** | Verify all previous phases work correctly, audit override actions | Integration tests, audit logs with reason |
 
 ---
 
-## Quality Checklist
+## Integration Testing Checklist
 
-Before merging any fix in this milestone:
+Before deploying to production, verify these scenarios:
 
-**RLS Policy Changes:**
-- [ ] UPDATE policy has both USING and WITH CHECK
-- [ ] WITH CHECK conditions mirror USING (or stricter)
-- [ ] SELECT policy exists for tables with UPDATE/INSERT
-- [ ] Test with non-admin user role
-- [ ] Verify soft-delete works (is_active = false)
+### Concurrent Operations
+- [ ] Create invoice + receive stock simultaneously → status calculates correctly
+- [ ] Two users void two invoices for same PO → both succeed, status recalculates once
+- [ ] Close PO while another user is editing → lock prevents edit
 
-**Number Input Changes:**
-- [ ] Separate raw value from display value
-- [ ] Format on blur or display, not onChange
-- [ ] Prevent negative numbers with onKeyDown
-- [ ] Test in Firefox (onBlur timing differs)
-- [ ] Default exchange rate to 1.0, not 0
+### Cascade Scenarios
+- [ ] Void invoice → `invoiced_quantity` decreases → status recalculates → audit logs cascade
+- [ ] Cancel stock-in → `received_quantity` decreases → status recalculates
+- [ ] Delete invoice line item → PO totals update → status changes
 
-**Audit/Trigger Changes:**
-- [ ] Specific checks (status_change, void) before generic UPDATE
-- [ ] Use IS DISTINCT FROM for NULL-safe comparisons
-- [ ] Verify notes flow from UI to audit_logs
-- [ ] Test with NULL values (initial state, unassign)
-- [ ] Check trigger ordering (zz_ prefix for last)
+### Lock Mechanism
+- [ ] Close PO → cannot edit PO header, line items, or linked invoices (except admin)
+- [ ] Admin override → edit works, audit log records override with reason
+- [ ] Void invoice for closed PO → allowed (whitelisted bypass)
 
-**Currency Display Changes:**
-- [ ] Use centralized formatCurrency utility
-- [ ] Amount: 2 decimals, Exchange Rate: 4 decimals
-- [ ] Show EUSD alongside every financial amount
-- [ ] Consistent currency symbols (MMK not Myanmar Kyat)
-- [ ] Test with various currencies (MMK, USD, THB)
+### Performance
+- [ ] Load matching panel with 100 line items → <500ms
+- [ ] Create invoice with 50 line items → status updates within 1s
+- [ ] Realtime subscription updates within 2s of database change
 
-**Stock-Out Workflow Changes:**
-- [ ] Pre-fill item, warehouse, quantity from QMHQ
-- [ ] Add "Return to QMHQ" link/breadcrumb
-- [ ] Link inventory transaction back to QMHQ
-- [ ] Show QMHQ context in stock-out form
-- [ ] Test round-trip: QMHQ → stock-out → back to QMHQ
+### Edge Cases
+- [ ] PO with 99.5/100 received → closes if within tolerance
+- [ ] Voided invoice → excluded from all calculations (status, progress, matching panel)
+- [ ] Partial delivery + split invoice → status reflects partial state correctly
 
 ---
 
-## Research Confidence
+## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| RLS Pitfalls | HIGH | Official PostgreSQL docs + Supabase guides + verified against existing migrations |
-| Number Input Pitfalls | MEDIUM | React-specific, multiple form library patterns. Verified against existing transaction-dialog.tsx code. |
-| Audit Trigger Pitfalls | HIGH | Verified against existing create_audit_log() function, trigger ordering confirmed in migrations |
-| Currency Standardization | MEDIUM | UX best practices, verified against existing formatCurrency usage. Database schema confirms 2/4 decimal pattern. |
-| Stock-Out UX | MEDIUM | General inventory UX patterns. Verified QMHQ detail page has item route but no stock-out action yet. |
+| Trigger recursion prevention | HIGH | Well-documented patterns, existing codebase uses similar patterns |
+| Race condition prevention | MEDIUM | PostgreSQL locking is robust, but testing concurrent scenarios is hard |
+| Lock mechanism security | HIGH | Database triggers + RLS provide defense in depth |
+| RLS performance optimization | MEDIUM | Context7 docs are comprehensive, but query profiling needed per deployment |
+| Tolerance handling | LOW | Business rules for tolerance not fully specified in project context |
+| Realtime sync reliability | MEDIUM | Supabase Realtime is generally stable, but edge cases (network issues) need handling |
+| Audit completeness | HIGH | Existing audit system is comprehensive, just needs extension |
 
 ---
 
 ## Sources
 
-### RLS and PostgreSQL Policies
-- [Postgres RLS Implementation Guide - Best Practices, and Common Pitfalls](https://www.permit.io/blog/postgres-rls-implementation-guide)
-- [PostgreSQL: Documentation: CREATE POLICY](https://www.postgresql.org/docs/current/sql-createpolicy.html)
-- [Row Level Security | Supabase Docs](https://supabase.com/docs/guides/database/postgres/row-level-security)
-- [UPDATE RLS policy requires SELECT RLS policy too](https://github.com/supabase/supabase/issues/28559)
-- [Failing to update data because of row level security returns [] as response body](https://github.com/PostgREST/postgrest/discussions/1844)
+**Three-Way Matching Implementation:**
+- [The Pitfalls of 3-Way Matching in AP](https://fiscaltec.com/pitfalls-of-3-way-matching-in-ap/)
+- [Most Common Issues Associated with Three-Way Invoice Matching Process](https://www.linkedin.com/pulse/most-common-issues-associated-three-way-invoice-fataneh-farhadzadeh)
+- [3-Way Invoice Matching: How to Build a Bulletproof Workflow](https://www.stampli.com/blog/invoice-management/3-way-invoice-matching/)
+- [Three-Way Matching Tolerance Settings](https://community.sap.com/t5/enterprise-resource-planning-q-a/three-way-match-tolerance-settings/qaq-p/12590792)
 
-### React Number Inputs
-- [The difference between onBlur vs onChange for React text inputs](https://linguinecode.com/post/onblur-vs-onchange-react-text-inputs)
-- [Set formatted number value to a Controlled input](https://github.com/orgs/react-hook-form/discussions/9161)
-- [useController onBlur overwrites onChange value when used in same render](https://github.com/react-hook-form/react-hook-form/issues/7007)
+**Database Locking and Concurrency:**
+- [PostgreSQL Advisory Locks: A Powerful Tool for Application-Level Concurrency Control](https://medium.com/@erkanyasun/postgresql-advisory-locks-a-powerful-tool-for-application-level-concurrency-control-8a147c06ec39)
+- [Database Lock Best Practices 2025](https://www.shadecoder.com/topics/database-locking-a-comprehensive-guide-for-2025)
+- [Database Race Conditions: A System Security Guide](https://blog.doyensec.com/2024/07/11/database-race-conditions.html)
+- [How To Prevent Race Conditions in Database](https://medium.com/@doniantoro34/how-to-prevent-race-conditions-in-database-3aac965bf47b)
 
-### PostgreSQL Triggers and Audit Logging
+**PostgreSQL Triggers:**
 - [PostgreSQL Triggers in 2026: Design, Performance, and Production Reality](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/)
-- [PostgreSQL: Documentation: Trigger Functions](https://www.postgresql.org/docs/current/plpgsql-trigger.html)
-- [Postgres Audit Logging Guide](https://www.bytebase.com/blog/postgres-audit-logging/)
-- [Working with Postgres Audit Triggers](https://www.enterprisedb.com/postgres-tutorials/working-postgres-audit-triggers)
+- [Trigger recursion in PostgreSQL and how to deal with it](https://www.cybertec-postgresql.com/en/dealing-with-trigger-recursion-in-postgresql/)
+- [More on Postgres trigger performance](https://www.cybertec-postgresql.com/en/more-on-postgres-trigger-performance/)
+- [Love, Death & Triggers](https://blog.gitguardian.com/love-death-triggers/)
 
-### Currency Display Standards
-- [The UX of Currency Display — What's in a $ Sign?](https://medium.com/workday-design/the-ux-of-currency-display-whats-in-a-sign-6447cbc4fb88)
-- [The UX of currency conventions for a global audience](https://bootcamp.uxdesign.cc/the-ux-of-currency-conventions-for-a-global-audience-4098ff66b6ed)
-- [Mastering Currency Formats in UX Writing](https://www.numberanalytics.com/blog/ultimate-guide-currency-formats-ux-writing)
+**Supabase RLS Performance:**
+- [Supabase RLS Performance and Best Practices](https://supabase.com/docs/guides/troubleshooting/rls-performance-and-best-practices-Z5Jjwv)
+- [Optimizing RLS Performance with Supabase](https://medium.com/@antstack/optimizing-rls-performance-with-supabase-postgres-fa4e2b6e196d)
+- [Performance and Security Advisors](https://supabase.com/docs/guides/database/database-advisors)
+- [Debugging performance issues](https://supabase.com/docs/guides/database/debugging-performance)
 
-### Inventory UX Patterns
-- [How to Handle Permanently & Temporarily Out-of-Stock Products for eComm](https://thegray.company/blog/permanently-temporarily-out-of-stock-products-ecommerce-seo-ux)
-- [How to Optimize Out of Stock Product Pages](https://cxl.com/blog/out-of-stock-product-pages/)
-- [Boost Sales: Tackling Out-of-Stock Issues with UX Experiments](https://www.quantummetric.com/blog/out-of-stock-ux-conducting-experiments-and-addressing-oos-retail)
+**Supabase Realtime:**
+- [Production-ready listener for Supabase Realtime Postgres changes](https://medium.com/@dipiash/supabase-realtime-postgres-changes-in-node-js-2666009230b0)
+- [WebSocket Race Condition in Supabase JS Client](https://github.com/supabase/supabase-js/issues/1559)
+- [Supabase Realtime: Managing Subscriptions](https://app.studyraid.com/en/read/8395/231602/managing-real-time-subscriptions)
