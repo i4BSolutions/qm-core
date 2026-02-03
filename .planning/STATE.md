@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-03)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 17 - Complete Three-Way Match Calculation
 Plan: —
-Status: Defining requirements
-Last activity: 2026-02-03 — Milestone v1.4 started
+Status: Roadmap created, awaiting plan-phase
+Last activity: 2026-02-03 — Roadmap v1.4 created
 
 ## Milestone History
 
@@ -56,6 +56,15 @@ Last activity: 2026-02-03 — Milestone v1.4 started
 - CDN worker for PDF.js
 - Server component role check with client refresh
 
+## v1.4 Roadmap Summary
+
+**Phases:** 3 (17, 18, 19)
+**Requirements:** 28 total mapped
+**Structure:**
+- Phase 17: Database foundation (12 requirements) — must complete first
+- Phase 18: Visual Matching Panel (6 requirements) — can run after 17
+- Phase 19: Progress Bar & Lock (10 requirements) — can run after 17 (parallel with 18)
+
 ## Accumulated Context
 
 ### Decisions
@@ -71,15 +80,16 @@ None yet.
 **Tech Debt:** PO Edit page does not exist at /po/[id]/edit (Edit button links to 404)
 - Pre-existing issue discovered during v1.3 audit
 - Either create edit page or document PO as immutable after creation
+- Note: v1.4 LM requirements specify lock on Closed PO edits — may need to address edit page first
 
 **Future Enhancement:** Auto stock-out trigger currently handles only legacy single-item QMHQ. Multi-item trigger enhancement needed for future phase to loop through qmhq_items table.
 
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Defining v1.4 requirements
-Resume: Continue with requirements → roadmap
+Stopped at: Roadmap created for v1.4
+Resume: Run `/gsd:plan-phase 17` to create execution plan for database foundation phase
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-03 — v1.4 milestone started*
+*Last updated: 2026-02-03 — v1.4 roadmap created*
