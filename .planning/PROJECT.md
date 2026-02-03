@@ -34,9 +34,15 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - QMHQ fulfillment progress tracking
 - Permission-gated Edit buttons on detail pages
 
-## Next Milestone: TBD
+## Current Milestone: v1.4 PO Smart Lifecycle
 
-Run `/gsd:new-milestone` to define next goals.
+**Goal:** Fix PO status to use true three-way matching (PO ↔ Invoice ↔ Stock-in) and add visual lifecycle components.
+
+**Target features:**
+- Three-way match status calculation (PO qty = Invoice qty = Stock-in qty)
+- Visual matching panel (side-by-side comparison on PO detail)
+- Progress bar showing completion percentage toward "Closed"
+- Lock mechanism (block edits when Closed, except Admin)
 
 ## Requirements
 
@@ -84,7 +90,11 @@ Run `/gsd:new-milestone` to define next goals.
 
 ### Active
 
-(None — run `/gsd:new-milestone` to define next goals)
+<!-- V1.4 Features -->
+- [ ] PO status uses three-way match (PO ↔ Invoice ↔ Stock-in)
+- [ ] Visual matching panel on PO detail page
+- [ ] Progress bar showing completion toward "Closed"
+- [ ] Lock mechanism when PO status = Closed
 
 ### Out of Scope
 
@@ -101,6 +111,7 @@ Run `/gsd:new-milestone` to define next goals.
 - v1.1 Enhancement — Bug fixes, files, dashboard, UX (shipped 2026-01-28)
 - v1.2 Inventory & Financial Accuracy — WAC, inventory dashboard, void cascade (shipped 2026-01-31)
 - v1.3 UX & Bug Fixes — Input behavior, currency display, edit buttons, audit notes (shipped 2026-02-02)
+- v1.4 PO Smart Lifecycle — Three-way match status, matching panel, progress bar, lock mechanism (in progress)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -148,4 +159,4 @@ Run `/gsd:new-milestone` to define next goals.
   - Either create edit page or document PO as immutable after creation
 
 ---
-*Last updated: 2026-02-02 after v1.3 milestone shipped*
+*Last updated: 2026-02-03 after v1.4 milestone started*
