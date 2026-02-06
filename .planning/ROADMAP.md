@@ -191,6 +191,12 @@ Plans:
 **Goal**: Users can create new items inline during PO entry and contact person is enforced for financial routes
 **Depends on**: Phase 21
 **Requirements**: POCR-01, AUTH-01, CONT-01, CONT-02
+**Plans**: 3 plans
+
+Plans:
+- [ ] 22-01-PLAN.md — Inline item creation in PO line items via ItemDialog
+- [ ] 22-02-PLAN.md — Contact person validation for Expense and PO routes
+- [ ] 22-03-PLAN.md — Multi-tab session handling with cross-tab logout sync
 
 **Success Criteria:**
 1. User can create new item inline from PO line item selector without leaving PO form
@@ -227,4 +233,4 @@ Plans:
 | 19. QMHQ Creation Workflow Enhancement | v1.4 | 1/1 | Complete | 2026-02-06 |
 | 20. Number Display Formatting | v1.4 | 1/1 | Complete | 2026-02-06 |
 | 21. Item Enhancements | v1.4 | 2/2 | Complete | 2026-02-06 |
-| 22. PO Inline Item Creation & Validation | v1.4 | 0/? | Pending | — |
+| 22. PO Inline Item Creation & Validation | v1.4 | 0/3 | Pending | — |
