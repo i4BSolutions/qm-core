@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-06)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Between milestones — v1.3 shipped, ready to plan next milestone
+**Current focus:** v1.4 UX Enhancements & Workflow Improvements
 
 ## Current Position
 
-Phase: 16 - Audit Notes Feature (last completed)
-Plan: Complete
-Status: v1.3 shipped, v1.4 abandoned
-Last activity: 2026-02-06 — v1.4 milestone abandoned
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-06 — Milestone v1.4 started
 
 ## Milestone History
 
@@ -77,9 +77,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Abandoned v1.4 milestone (PO Smart Lifecycle)
-Resume: Run `/gsd:new-milestone` to start next milestone planning
+Stopped at: Defining v1.4 requirements
+Resume: Continue with requirements definition
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-06 — v1.4 abandoned, reset to post-v1.3 state*
+*Last updated: 2026-02-06 — v1.4 milestone started*

@@ -34,15 +34,21 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - QMHQ fulfillment progress tracking
 - Permission-gated Edit buttons on detail pages
 
-## Current Milestone: v1.4 PO Smart Lifecycle
+## Current Milestone: v1.4 UX Enhancements & Workflow Improvements
 
-**Goal:** Fix PO status to use true three-way matching (PO ↔ Invoice ↔ Stock-in) and add visual lifecycle components.
+**Goal:** Improve file attachment workflows, enhance number display formatting, and streamline item/PO creation with inline capabilities.
 
 **Target features:**
-- Three-way match status calculation (PO qty = Invoice qty = Stock-in qty)
-- Visual matching panel (side-by-side comparison on PO detail)
-- Progress bar showing completion percentage toward "Closed"
-- Lock mechanism (block edits when Closed, except Admin)
+- File upload in QMRL create form
+- Fix attachment delete errors on QMRL/QMHQ detail pages
+- Side panel showing QMRL detail during QMHQ creation
+- Thousand separators on amount inputs
+- Responsive display for large amounts
+- Item price reference field (displayed in PO line item selector)
+- Auto-generated item codes ([CAT]-[NNNN] format)
+- Inline item creation during PO line item entry
+- Fix multi-tab auth issues
+- Mandatory contact person for Money-Out and PO routes
 
 ## Requirements
 
@@ -91,10 +97,16 @@ Users can reliably create purchase orders, receive inventory, and track request 
 ### Active
 
 <!-- V1.4 Features -->
-- [ ] PO status uses three-way match (PO ↔ Invoice ↔ Stock-in)
-- [ ] Visual matching panel on PO detail page
-- [ ] Progress bar showing completion toward "Closed"
-- [ ] Lock mechanism when PO status = Closed
+- [ ] File upload in QMRL create form
+- [ ] Fix attachment delete errors on QMRL/QMHQ detail pages
+- [ ] Side panel showing QMRL detail during QMHQ creation
+- [ ] Thousand separators on amount inputs
+- [ ] Responsive display for large amounts
+- [ ] Item price reference field (displayed in PO line item selector)
+- [ ] Auto-generated item codes ([CAT]-[NNNN] format)
+- [ ] Inline item creation during PO line item entry
+- [ ] Fix multi-tab auth issues
+- [ ] Mandatory contact person for Money-Out and PO routes
 
 ### Out of Scope
 
@@ -111,7 +123,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.1 Enhancement — Bug fixes, files, dashboard, UX (shipped 2026-01-28)
 - v1.2 Inventory & Financial Accuracy — WAC, inventory dashboard, void cascade (shipped 2026-01-31)
 - v1.3 UX & Bug Fixes — Input behavior, currency display, edit buttons, audit notes (shipped 2026-02-02)
-- v1.4 PO Smart Lifecycle — Three-way match status, matching panel, progress bar, lock mechanism (in progress)
+- v1.4 UX Enhancements & Workflow Improvements — Attachments, number formatting, inline creation, multi-tab auth (in progress)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -159,4 +171,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
   - Either create edit page or document PO as immutable after creation
 
 ---
-*Last updated: 2026-02-03 after v1.4 milestone started*
+*Last updated: 2026-02-06 after v1.4 milestone redefined*
