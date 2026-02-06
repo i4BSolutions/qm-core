@@ -1664,6 +1664,18 @@ export type Database = {
           error?: string
         }
       }
+      soft_delete_file_attachment: {
+        Args: {
+          p_file_id: string
+          p_user_id: string
+        }
+        Returns: {
+          success: boolean
+          error?: string
+          entity_type?: string
+          entity_id?: string
+        }
+      }
     }
     Enums: {
       entity_type: "qmrl" | "qmhq" | "item"

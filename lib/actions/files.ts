@@ -165,11 +165,7 @@ export async function deleteFile(
     }
 
     // Use RPC function for soft-delete (bypasses RLS with explicit auth checks)
-    const rpcCall = supabase.rpc as (
-      fn: string,
-      args: Record<string, unknown>
-    ) => ReturnType<typeof supabase.rpc>;
-    const { data, error: rpcError } = await rpcCall(
+    const { data, error: rpcError } = await supabase.rpc(
       'soft_delete_file_attachment',
       {
         p_file_id: fileId,
