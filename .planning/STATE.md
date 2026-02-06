@@ -2,17 +2,17 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-03)
+See: .planning/PROJECT.md (updated 2026-02-06)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** v1.4 PO Smart Lifecycle — Three-way match status, progress bar, lock mechanism
+**Current focus:** Between milestones — v1.3 shipped, ready to plan next milestone
 
 ## Current Position
 
-Phase: 17 - Complete Three-Way Match Calculation
-Plan: —
-Status: Roadmap created, awaiting plan-phase
-Last activity: 2026-02-06 — Phase 18 (Visual Matching Panel) removed
+Phase: 16 - Audit Notes Feature (last completed)
+Plan: Complete
+Status: v1.3 shipped, v1.4 abandoned
+Last activity: 2026-02-06 — v1.4 milestone abandoned
 
 ## Milestone History
 
@@ -56,14 +56,6 @@ Last activity: 2026-02-06 — Phase 18 (Visual Matching Panel) removed
 - CDN worker for PDF.js
 - Server component role check with client refresh
 
-## v1.4 Roadmap Summary
-
-**Phases:** 2 (17, 18)
-**Requirements:** 22 total mapped
-**Structure:**
-- Phase 17: Database foundation (12 requirements) — must complete first
-- Phase 18: Progress Bar & Lock (10 requirements) — runs after 17
-
 ## Accumulated Context
 
 ### Decisions
@@ -72,23 +64,22 @@ See PROJECT.md Key Decisions table for full log.
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
 **Tech Debt:** PO Edit page does not exist at /po/[id]/edit (Edit button links to 404)
 - Pre-existing issue discovered during v1.3 audit
 - Either create edit page or document PO as immutable after creation
-- Note: v1.4 LM requirements specify lock on Closed PO edits — may need to address edit page first
 
 **Future Enhancement:** Auto stock-out trigger currently handles only legacy single-item QMHQ. Multi-item trigger enhancement needed for future phase to loop through qmhq_items table.
 
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Removed Phase 18 (Visual Matching Panel)
-Resume: Run `/gsd:plan-phase 17` to create execution plan for database foundation phase
+Stopped at: Abandoned v1.4 milestone (PO Smart Lifecycle)
+Resume: Run `/gsd:new-milestone` to start next milestone planning
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-06 — Phase 18 (Visual Matching Panel) removed, Phase 19 renumbered to 18*
+*Last updated: 2026-02-06 — v1.4 abandoned, reset to post-v1.3 state*

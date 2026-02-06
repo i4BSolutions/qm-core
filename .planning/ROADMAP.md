@@ -6,7 +6,6 @@
 - **v1.1 Enhancement** - Phases 1-6 (shipped 2026-01-28)
 - **v1.2 Inventory & Financial Accuracy** - Phases 7-12 (shipped 2026-01-31)
 - **v1.3 UX & Bug Fixes** - Phases 13-16 (shipped 2026-02-02)
-- **v1.4 PO Smart Lifecycle** - Phases 17-18 (in progress)
 
 ## Phases
 
@@ -107,38 +106,7 @@
 
 </details>
 
-### v1.4 PO Smart Lifecycle (In Progress)
-
-**Milestone Goal:** PO status accurately reflects three-way match state (PO qty = Invoice qty = Stock-in qty) with visual lifecycle components and lock enforcement when Closed.
-
-#### Phase 17: Complete Three-Way Match Calculation
-**Goal**: Stock-in triggers cascade to update received_quantity on invoice and PO lines, enabling accurate PO status calculation
-**Depends on**: Phase 16
-**Requirements**: DB-01, DB-02, DB-03, DB-04, DB-05, DB-06, SR-01, SR-02, SR-03, SR-04, SR-05, SR-06
-**Success Criteria** (what must be TRUE):
-  1. Stock-in transaction automatically updates invoice_line_items.received_quantity for the linked invoice line
-  2. Invoice line update cascades to update po_line_items.received_quantity
-  3. PO status transitions correctly through Not Started -> Partially Invoiced -> Awaiting Delivery -> Partially Received -> Closed based on three-way match state
-  4. Voided invoices are excluded from all matching calculations (PO status, quantities)
-  5. Concurrent stock-in operations do not cause race conditions or incorrect status
-**Plans**: TBD
-
-#### Phase 18: Progress Bar & Lock Indicators
-**Goal**: Visual progress toward Closed status and lock enforcement when PO is Closed
-**Depends on**: Phase 17
-**Requirements**: PB-01, PB-02, PB-03, PB-04, LM-01, LM-02, LM-03, LM-04, LM-05, LM-06
-**Success Criteria** (what must be TRUE):
-  1. Progress bar shows percentage completion toward Closed status with dual bars (invoiced % and received %)
-  2. Progress bar includes legend explaining bar segments
-  3. Closed PO displays lock indicator badge and alert banner explaining locked state
-  4. Closed PO cannot be edited at database level (trigger enforcement, not just UI)
-  5. Admin can reopen a Closed PO with required reason that is captured in audit log
-**Plans**: TBD
-
 ## Progress
-
-**Execution Order:**
-Phases execute in numeric order: 17 -> 18
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -159,5 +127,3 @@ Phases execute in numeric order: 17 -> 18
 | 14. Currency & Number Input Standardization | v1.3 | 7/7 | Complete | 2026-02-02 |
 | 15. Edit Capability | v1.3 | 1/1 | Complete | 2026-02-02 |
 | 16. Audit Notes Feature | v1.3 | 1/1 | Complete | 2026-02-02 |
-| 17. Complete Three-Way Match Calculation | v1.4 | 0/TBD | Not Started | - |
-| 18. Progress Bar & Lock Indicators | v1.4 | 0/TBD | Not Started | - |
