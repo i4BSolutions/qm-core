@@ -140,7 +140,8 @@ export async function uploadFile(
  * The actual storage object is NOT deleted - it will be cleaned up
  * by the cleanup-expired-files Edge Function after the 30-day grace period.
  *
- * RLS policies verify that only admin/quartermaster roles can delete files.
+ * Uses an RPC function with SECURITY DEFINER to bypass RLS and perform
+ * explicit authorization checks (admin/quartermaster, uploader, or entity access).
  *
  * @param fileId - The UUID of the file_attachments record to soft-delete
  * @returns FileOperationResult with success or error message
@@ -163,36 +164,33 @@ export async function deleteFile(
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Step 1: Fetch entity info BEFORE soft delete (while row is still visible)
-    // This avoids the RLS issue where SELECT policy blocks soft-deleted rows
-    const { data: fileData, error: fetchError } = await supabase
-      .from('file_attachments')
-      .select('entity_type, entity_id')
-      .eq('id', fileId)
-      .single();
+    // Use RPC function for soft-delete (bypasses RLS with explicit auth checks)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error: rpcError } = await (supabase.rpc as any)(
+      'soft_delete_file_attachment',
+      {
+        p_file_id: fileId,
+        p_user_id: user.id,
+      }
+    );
 
-    if (fetchError || !fileData) {
-      return { success: false, error: 'File not found or access denied' };
+    if (rpcError) {
+      return { success: false, error: `Delete failed: ${rpcError.message}` };
     }
 
-    // Step 2: Perform soft delete WITHOUT chained select
-    // (RLS UPDATE policy allows owner or admin/quartermaster)
-    const { error: updateError } = await supabase
-      .from('file_attachments')
-      .update({
-        deleted_at: new Date().toISOString(),
-        deleted_by: user.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', fileId);
+    // Parse RPC response
+    const result = data as { success: boolean; error?: string; entity_type?: string; entity_id?: string };
 
-    if (updateError) {
-      return { success: false, error: `Delete failed: ${updateError.message}` };
+    if (!result.success) {
+      return { success: false, error: result.error || 'Delete failed' };
     }
 
-    // Step 3: Use pre-fetched data for revalidation
+    // Revalidate the entity page
     // Note: Storage object NOT deleted - cleanup job handles after 30 days
-    revalidatePath(`/${fileData.entity_type}/${fileData.entity_id}`);
+    if (result.entity_type && result.entity_id) {
+      revalidatePath(`/${result.entity_type}/${result.entity_id}`);
+    }
+
     return { success: true, data: undefined };
   } catch (error) {
     return {
