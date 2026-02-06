@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 ## Current Position
 
-Phase: 17 - Attachment Delete Fixes
+Phase: 18 - QMRL Create Attachments
 Plan: 01 of 1 (complete)
 Status: Phase complete
-Last activity: 2026-02-06 — Completed 17-01-PLAN.md
+Last activity: 2026-02-06 - Completed 18-01-PLAN.md
 
 ```
-v1.4 Progress: [###                 ] 17% (1/6 phases)
+v1.4 Progress: [######              ] 33% (2/6 phases)
 ```
 
 ## v1.4 Phase Summary
@@ -23,7 +23,7 @@ v1.4 Progress: [###                 ] 17% (1/6 phases)
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
 | 17 | Attachment delete fixes | ATCH-02, ATCH-03 | Complete |
-| 18 | QMRL create attachments | ATCH-01 | Pending |
+| 18 | QMRL create attachments | ATCH-01 | Complete |
 | 19 | QMHQ creation workflow | QMHQ-01 | Pending |
 | 20 | Number display formatting | NUMD-01, NUMD-02 | Pending |
 | 21 | Item enhancements | ITEM-01, ITEM-02, ITEM-03 | Pending |
@@ -79,6 +79,8 @@ See PROJECT.md Key Decisions table for full log.
 
 **Phase 17:** Use fetch-before-update pattern for soft-delete with RLS (avoid SELECT policy conflicts after deleted_at is set)
 
+**Phase 18:** Upload-After-Create pattern with sessionStorage progress tracking; non-blocking uploads with immediate navigation
+
 ### Pending Todos
 
 None.
@@ -94,9 +96,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 17 execution complete, verified
-Resume: Run `/gsd:discuss-phase 18` or `/gsd:plan-phase 18` for next phase
+Stopped at: Phase 18 complete (QMRL create attachments)
+Resume: Run `/gsd:discuss-phase 19` or `/gsd:plan-phase 19` for QMHQ creation workflow
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-06 — Phase 17 complete (attachment delete fixes)*
+*Last updated: 2026-02-06 - Phase 18 complete (QMRL create attachments)*
