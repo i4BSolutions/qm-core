@@ -24,9 +24,9 @@ Requirements for v1.4 UX Enhancements & Workflow Improvements. Each maps to road
 
 ### Items
 
-- [ ] **ITEM-01**: User can add price reference note when creating an item
-- [ ] **ITEM-02**: Item price reference displays in PO line item selector
-- [ ] **ITEM-03**: Item codes auto-generate as [CAT]-[NNNN] format from category
+- [x] **ITEM-01**: User can add price reference note when creating an item
+- [x] **ITEM-02**: Item price reference displays in PO line item selector
+- [x] **ITEM-03**: Item codes auto-generate as SKU-[CAT]-[XXXX] format from category
 
 ### PO Creation
 
@@ -75,9 +75,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QMHQ-01 | Phase 19 | Complete |
 | NUMD-01 | Phase 20 | Complete |
 | NUMD-02 | Phase 20 | Complete |
-| ITEM-01 | Phase 21 | Pending |
-| ITEM-02 | Phase 21 | Pending |
-| ITEM-03 | Phase 21 | Pending |
+| ITEM-01 | Phase 21 | Complete |
+| ITEM-02 | Phase 21 | Complete |
+| ITEM-03 | Phase 21 | Complete |
 | POCR-01 | Phase 22 | Pending |
 | AUTH-01 | Phase 22 | Pending |
 | CONT-01 | Phase 22 | Pending |

@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Phase: 21 - Item Enhancements
-Plan: 02 of 3 (complete)
-Status: In progress
+Plan: 02 of 2 (complete)
+Status: Phase complete
 Last activity: 2026-02-06 - Completed 21-02-PLAN.md
 
 ```
-v1.4 Progress: [###############     ] 76% (4.6/6 phases)
+v1.4 Progress: [################    ] 83% (5/6 phases)
 ```
 
 ## v1.4 Phase Summary
@@ -26,7 +26,7 @@ v1.4 Progress: [###############     ] 76% (4.6/6 phases)
 | 18 | QMRL create attachments | ATCH-01 | Complete |
 | 19 | QMHQ creation workflow | QMHQ-01 | Complete |
 | 20 | Number display formatting | NUMD-01, NUMD-02 | Complete |
-| 21 | Item enhancements | ITEM-01, ITEM-02, ITEM-03 | Plan 02 complete |
+| 21 | Item enhancements | ITEM-01, ITEM-02, ITEM-03 | Complete |
 | 22 | PO inline creation & validation | POCR-01, AUTH-01, CONT-01, CONT-02 | Pending |
 
 ## Milestone History
@@ -85,9 +85,7 @@ See PROJECT.md Key Decisions table for full log.
 
 **Phase 20:** Use react-number-format NumericFormat for automatic thousand separator handling; AmountInput/ExchangeRateInput components; CurrencyDisplay truncation with min-w-0
 
-**Phase 21-01:** SKU format SKU-[CAT]-[XXXX] where CAT is first letter of each word uppercase; Tooltip component with max-w-xs for overflow prevention
-
-**Phase 21-02:** Code-first item display (SKU - Name) across all selectors; Price reference and category required for new items only; Tooltip on PO line item selector for price reference
+**Phase 21:** SKU format SKU-[CAT]-[XXXX] where CAT is first letter of each word uppercase; Tooltip component with max-w-xs; Code-first display (SKU - Name) across all selectors; Price reference and category required for new items only
 
 ### Pending Todos
 
@@ -104,9 +102,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 21 Plan 02 complete (Price reference UI and code-first display)
-Resume: Run `/gsd:execute-plan .planning/phases/21-item-enhancements/21-03-PLAN.md` for next plan
+Stopped at: Phase 21 complete (Item enhancements)
+Resume: Run `/gsd:discuss-phase 22` or `/gsd:plan-phase 22` for PO inline creation & validation
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-06 - Phase 21 Plan 02 complete (Item UI enhancements)*
+*Last updated: 2026-02-06 - Phase 21 complete (Item enhancements)*
