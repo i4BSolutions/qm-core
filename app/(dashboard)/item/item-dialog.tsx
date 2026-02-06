@@ -21,7 +21,7 @@ import type { Item, Category } from "@/types/database";
 
 interface ItemDialogProps {
   open: boolean;
-  onClose: (refresh?: boolean) => void;
+  onClose: (refresh?: boolean, newItem?: Item) => void;
   item: Item | null;
 }
 
@@ -36,6 +36,7 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -80,7 +81,18 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
       setPhotoPreview(null);
       setPhotoFile(null);
     }
+    setHasChanges(false);
   }, [item, open]);
+
+  // Track changes
+  useEffect(() => {
+    if (!open) return;
+
+    const initialEmpty = !item && !formData.name && !formData.category_id && !formData.price_reference && !photoFile;
+    const hasEdits = !!(formData.name || formData.category_id || formData.price_reference || photoFile);
+
+    setHasChanges(!initialEmpty && hasEdits);
+  }, [formData, photoFile, item, open]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -190,7 +202,11 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
           onClose(true);
         }
       } else {
-        const { error } = await supabase.from("items").insert(data);
+        const { data: newItem, error } = await supabase
+          .from("items")
+          .insert(data)
+          .select()
+          .single();
 
         if (error) {
           toast({
@@ -204,7 +220,7 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
             description: "Item created.",
             variant: "success",
           });
-          onClose(true);
+          onClose(true, newItem as Item);
         }
       }
     } catch (err) {
@@ -218,8 +234,16 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
     setIsLoading(false);
   };
 
+  const handleClose = () => {
+    if (hasChanges && !isLoading) {
+      const confirmed = window.confirm("You have unsaved changes. Discard them?");
+      if (!confirmed) return;
+    }
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={() => onClose()}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{item ? "Edit Item" : "Add Item"}</DialogTitle>
@@ -352,7 +376,7 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => onClose()}
+              onClick={handleClose}
               disabled={isLoading}
             >
               Cancel
