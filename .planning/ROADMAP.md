@@ -144,6 +144,10 @@ Plans:
 **Goal**: Users see full QMRL context when creating QMHQ without leaving the creation flow
 **Depends on**: Phase 17
 **Requirements**: QMHQ-01
+**Plans**: 1 plan
+
+Plans:
+- [ ] 19-01-PLAN.md — QMRL context panel with responsive layout and attachment preview
 
 **Success Criteria:**
 1. User sees side panel showing QMRL details when creating QMHQ
@@ -211,7 +215,7 @@ Plans:
 | 16. Audit Notes Feature | v1.3 | 1/1 | Complete | 2026-02-02 |
 | 17. Attachment Delete Fixes | v1.4 | 1/1 | Complete | 2026-02-06 |
 | 18. QMRL Create Attachments | v1.4 | 1/1 | Complete | 2026-02-06 |
-| 19. QMHQ Creation Workflow Enhancement | v1.4 | 0/? | Pending | — |
+| 19. QMHQ Creation Workflow Enhancement | v1.4 | 0/1 | In Progress | — |
 | 20. Number Display Formatting | v1.4 | 0/? | Pending | — |
 | 21. Item Enhancements | v1.4 | 0/? | Pending | — |
 | 22. PO Inline Item Creation & Validation | v1.4 | 0/? | Pending | — |
