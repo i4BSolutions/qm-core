@@ -1664,7 +1664,7 @@ export type Database = {
           error?: string
         }
       }
-      soft_delete_file_attachment: {
+      delete_file_attachment: {
         Args: {
           p_file_id: string
           p_user_id: string
@@ -1674,6 +1674,7 @@ export type Database = {
           error?: string
           entity_type?: string
           entity_id?: string
+          storage_path?: string
         }
       }
     }

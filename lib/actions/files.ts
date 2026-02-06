@@ -135,15 +135,13 @@ export async function uploadFile(
 }
 
 /**
- * Soft-deletes a file attachment by setting deleted_at timestamp.
- *
- * The actual storage object is NOT deleted - it will be cleaned up
- * by the cleanup-expired-files Edge Function after the 30-day grace period.
+ * Hard-deletes a file attachment from both database and storage.
  *
  * Uses an RPC function with SECURITY DEFINER to bypass RLS and perform
  * explicit authorization checks (admin/quartermaster, uploader, or entity access).
+ * After database deletion, removes the file from Supabase Storage.
  *
- * @param fileId - The UUID of the file_attachments record to soft-delete
+ * @param fileId - The UUID of the file_attachments record to delete
  * @returns FileOperationResult with success or error message
  *
  * @example
@@ -164,9 +162,9 @@ export async function deleteFile(
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Use RPC function for soft-delete (bypasses RLS with explicit auth checks)
+    // Use RPC function for hard-delete (bypasses RLS with explicit auth checks)
     const { data, error: rpcError } = await supabase.rpc(
-      'soft_delete_file_attachment',
+      'delete_file_attachment',
       {
         p_file_id: fileId,
         p_user_id: user.id,
@@ -178,14 +176,21 @@ export async function deleteFile(
     }
 
     // Parse RPC response
-    const result = data as { success: boolean; error?: string; entity_type?: string; entity_id?: string };
+    const result = data as { success: boolean; error?: string; entity_type?: string; entity_id?: string; storage_path?: string };
 
     if (!result.success) {
       return { success: false, error: result.error || 'Delete failed' };
     }
 
+    // Delete from storage (fire and forget - DB record already deleted)
+    if (result.storage_path) {
+      await supabase.storage
+        .from('attachments')
+        .remove([result.storage_path])
+        .catch((err) => console.error('Storage delete failed:', err));
+    }
+
     // Revalidate the entity page
-    // Note: Storage object NOT deleted - cleanup job handles after 30 days
     if (result.entity_type && result.entity_id) {
       revalidatePath(`/${result.entity_type}/${result.entity_id}`);
     }
