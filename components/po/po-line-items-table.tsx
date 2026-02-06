@@ -31,6 +31,7 @@ interface LineItemFormData {
   item_name: string;
   item_sku?: string;
   item_unit?: string;
+  item_price_reference?: string;
   quantity: number;
   unit_price: number;
 }
@@ -115,13 +116,27 @@ export function EditableLineItemsTable({
                 <td className="py-2 px-3 min-w-[200px]">
                   {item.item_id ? (
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm">
-                        <code className="font-mono text-amber-400 mr-2">
-                          {item.item_sku || "---"}
-                        </code>
-                        <span className="text-slate-400 mr-2">-</span>
-                        <span className="text-slate-200">{item.item_name}</span>
-                      </div>
+                      <TooltipProvider delayDuration={300}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm cursor-default">
+                              <code className="font-mono text-amber-400 mr-2">
+                                {item.item_sku || "---"}
+                              </code>
+                              <span className="text-slate-400 mr-2">-</span>
+                              <span className="text-slate-200">{item.item_name}</span>
+                            </div>
+                          </TooltipTrigger>
+                          {item.item_price_reference && (
+                            <TooltipContent side="top" className="max-w-xs">
+                              <p className="text-xs">
+                                <span className="text-slate-400">Price Ref: </span>
+                                <span className="text-slate-200">{item.item_price_reference}</span>
+                              </p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
                       <Button
                         type="button"
                         variant="ghost"
@@ -131,6 +146,7 @@ export function EditableLineItemsTable({
                           onUpdateItem(item.id, "item_name", "");
                           onUpdateItem(item.id, "item_sku", "");
                           onUpdateItem(item.id, "item_unit", "");
+                          onUpdateItem(item.id, "item_price_reference", "");
                         }}
                         disabled={disabled}
                         className="h-8 px-2 text-slate-400 hover:text-slate-200"
@@ -151,6 +167,7 @@ export function EditableLineItemsTable({
                             onUpdateItem(item.id, "item_name", selectedItem.name);
                             onUpdateItem(item.id, "item_sku", selectedItem.sku || "");
                             onUpdateItem(item.id, "item_unit", selectedItem.default_unit || "");
+                            onUpdateItem(item.id, "item_price_reference", selectedItem.price_reference || "");
                           }
                         }}
                         disabled={disabled}

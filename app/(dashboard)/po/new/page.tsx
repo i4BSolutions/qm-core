@@ -39,6 +39,7 @@ interface LineItemFormData {
   item_name: string;
   item_sku?: string;
   item_unit?: string;
+  item_price_reference?: string;
   quantity: number;
   unit_price: number;
 }
