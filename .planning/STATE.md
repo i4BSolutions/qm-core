@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Phase: 21 - Item Enhancements
-Plan: 01 of 3 (complete)
+Plan: 02 of 3 (complete)
 Status: In progress
-Last activity: 2026-02-06 - Completed 21-01-PLAN.md
+Last activity: 2026-02-06 - Completed 21-02-PLAN.md
 
 ```
-v1.4 Progress: [##############      ] 71% (4.3/6 phases)
+v1.4 Progress: [###############     ] 76% (4.6/6 phases)
 ```
 
 ## v1.4 Phase Summary
@@ -26,7 +26,7 @@ v1.4 Progress: [##############      ] 71% (4.3/6 phases)
 | 18 | QMRL create attachments | ATCH-01 | Complete |
 | 19 | QMHQ creation workflow | QMHQ-01 | Complete |
 | 20 | Number display formatting | NUMD-01, NUMD-02 | Complete |
-| 21 | Item enhancements | ITEM-01, ITEM-02, ITEM-03 | Plan 01 complete |
+| 21 | Item enhancements | ITEM-01, ITEM-02, ITEM-03 | Plan 02 complete |
 | 22 | PO inline creation & validation | POCR-01, AUTH-01, CONT-01, CONT-02 | Pending |
 
 ## Milestone History
@@ -87,6 +87,8 @@ See PROJECT.md Key Decisions table for full log.
 
 **Phase 21-01:** SKU format SKU-[CAT]-[XXXX] where CAT is first letter of each word uppercase; Tooltip component with max-w-xs for overflow prevention
 
+**Phase 21-02:** Code-first item display (SKU - Name) across all selectors; Price reference and category required for new items only; Tooltip on PO line item selector for price reference
+
 ### Pending Todos
 
 None.
@@ -102,9 +104,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 21 Plan 01 complete (Database foundation for item enhancements)
-Resume: Run `/gsd:execute-plan .planning/phases/21-item-enhancements/21-02-PLAN.md` for next plan
+Stopped at: Phase 21 Plan 02 complete (Price reference UI and code-first display)
+Resume: Run `/gsd:execute-plan .planning/phases/21-item-enhancements/21-03-PLAN.md` for next plan
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-06 - Phase 21 Plan 01 complete (Item SKU & price reference foundation)*
+*Last updated: 2026-02-06 - Phase 21 Plan 02 complete (Item UI enhancements)*
