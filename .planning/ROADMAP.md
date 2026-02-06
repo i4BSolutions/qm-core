@@ -159,6 +159,10 @@ Plans:
 **Goal**: Financial amounts display with thousand separators and fit within containers
 **Depends on**: Phase 17
 **Requirements**: NUMD-01, NUMD-02
+**Plans**: 1 plan
+
+Plans:
+- [ ] 20-01-PLAN.md — AmountInput/ExchangeRateInput components with thousand separators
 
 **Success Criteria:**
 1. Amount input fields show thousand separators as user types (1000 -> 1,000)
@@ -216,6 +220,6 @@ Plans:
 | 17. Attachment Delete Fixes | v1.4 | 1/1 | Complete | 2026-02-06 |
 | 18. QMRL Create Attachments | v1.4 | 1/1 | Complete | 2026-02-06 |
 | 19. QMHQ Creation Workflow Enhancement | v1.4 | 1/1 | Complete | 2026-02-06 |
-| 20. Number Display Formatting | v1.4 | 0/? | Pending | — |
+| 20. Number Display Formatting | v1.4 | 0/1 | Pending | — |
 | 21. Item Enhancements | v1.4 | 0/? | Pending | — |
 | 22. PO Inline Item Creation & Validation | v1.4 | 0/? | Pending | — |
