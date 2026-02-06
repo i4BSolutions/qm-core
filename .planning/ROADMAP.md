@@ -6,7 +6,7 @@
 - **v1.1 Enhancement** - Phases 1-6 (shipped 2026-01-28)
 - **v1.2 Inventory & Financial Accuracy** - Phases 7-12 (shipped 2026-01-31)
 - **v1.3 UX & Bug Fixes** - Phases 13-16 (shipped 2026-02-02)
-- **v1.4 PO Smart Lifecycle** - Phases 17-19 (in progress)
+- **v1.4 PO Smart Lifecycle** - Phases 17-18 (in progress)
 
 ## Phases
 
@@ -123,19 +123,7 @@
   5. Concurrent stock-in operations do not cause race conditions or incorrect status
 **Plans**: TBD
 
-#### Phase 18: Visual Matching Panel
-**Goal**: Users can see side-by-side comparison of PO vs Invoice vs Stock-in quantities on PO detail page
-**Depends on**: Phase 17
-**Requirements**: VMP-01, VMP-02, VMP-03, VMP-04, VMP-05, VMP-06
-**Success Criteria** (what must be TRUE):
-  1. PO detail page displays three-column matching panel (PO qty | Invoiced qty | Received qty)
-  2. Each PO line item shows its matching detail with expandable accordion
-  3. User can see "Available to Invoice" quantity (Ordered - Already Invoiced)
-  4. Multiple partial invoices against same PO line are shown with individual quantities
-  5. Color coding visually distinguishes invoiced (amber) vs received (emerald) quantities
-**Plans**: TBD
-
-#### Phase 19: Progress Bar & Lock Indicators
+#### Phase 18: Progress Bar & Lock Indicators
 **Goal**: Visual progress toward Closed status and lock enforcement when PO is Closed
 **Depends on**: Phase 17
 **Requirements**: PB-01, PB-02, PB-03, PB-04, LM-01, LM-02, LM-03, LM-04, LM-05, LM-06
@@ -150,7 +138,7 @@
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 17 -> 18 -> 19 (Note: 18 and 19 can execute in parallel after 17)
+Phases execute in numeric order: 17 -> 18
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -172,5 +160,4 @@ Phases execute in numeric order: 17 -> 18 -> 19 (Note: 18 and 19 can execute in 
 | 15. Edit Capability | v1.3 | 1/1 | Complete | 2026-02-02 |
 | 16. Audit Notes Feature | v1.3 | 1/1 | Complete | 2026-02-02 |
 | 17. Complete Three-Way Match Calculation | v1.4 | 0/TBD | Not Started | - |
-| 18. Visual Matching Panel | v1.4 | 0/TBD | Not Started | - |
-| 19. Progress Bar & Lock Indicators | v1.4 | 0/TBD | Not Started | - |
+| 18. Progress Bar & Lock Indicators | v1.4 | 0/TBD | Not Started | - |

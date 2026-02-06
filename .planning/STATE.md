@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-03)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** v1.4 PO Smart Lifecycle — Three-way match status, matching panel, progress bar, lock mechanism
+**Current focus:** v1.4 PO Smart Lifecycle — Three-way match status, progress bar, lock mechanism
 
 ## Current Position
 
 Phase: 17 - Complete Three-Way Match Calculation
 Plan: —
 Status: Roadmap created, awaiting plan-phase
-Last activity: 2026-02-03 — Roadmap v1.4 created
+Last activity: 2026-02-06 — Phase 18 (Visual Matching Panel) removed
 
 ## Milestone History
 
@@ -58,12 +58,11 @@ Last activity: 2026-02-03 — Roadmap v1.4 created
 
 ## v1.4 Roadmap Summary
 
-**Phases:** 3 (17, 18, 19)
-**Requirements:** 28 total mapped
+**Phases:** 2 (17, 18)
+**Requirements:** 22 total mapped
 **Structure:**
 - Phase 17: Database foundation (12 requirements) — must complete first
-- Phase 18: Visual Matching Panel (6 requirements) — can run after 17
-- Phase 19: Progress Bar & Lock (10 requirements) — can run after 17 (parallel with 18)
+- Phase 18: Progress Bar & Lock (10 requirements) — runs after 17
 
 ## Accumulated Context
 
@@ -86,10 +85,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-03
-Stopped at: Roadmap created for v1.4
+Last session: 2026-02-06
+Stopped at: Removed Phase 18 (Visual Matching Panel)
 Resume: Run `/gsd:plan-phase 17` to create execution plan for database foundation phase
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-03 — v1.4 roadmap created*
+*Last updated: 2026-02-06 — Phase 18 (Visual Matching Panel) removed, Phase 19 renumbered to 18*
