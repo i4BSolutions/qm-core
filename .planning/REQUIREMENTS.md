@@ -15,7 +15,7 @@ Requirements for v1.4 UX Enhancements & Workflow Improvements. Each maps to road
 
 ### QMHQ Workflow
 
-- [ ] **QMHQ-01**: User sees full QMRL detail in side panel when creating QMHQ
+- [x] **QMHQ-01**: User sees full QMRL detail in side panel when creating QMHQ
 
 ### Number Display
 
@@ -72,7 +72,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ATCH-01 | Phase 18 | Complete |
 | ATCH-02 | Phase 17 | Complete |
 | ATCH-03 | Phase 17 | Complete |
-| QMHQ-01 | Phase 19 | Pending |
+| QMHQ-01 | Phase 19 | Complete |
 | NUMD-01 | Phase 20 | Pending |
 | NUMD-02 | Phase 20 | Pending |
 | ITEM-01 | Phase 21 | Pending |
