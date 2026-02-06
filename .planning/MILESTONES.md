@@ -1,5 +1,36 @@
 # Project Milestones: QM System
 
+## v1.4 UX Enhancements & Workflow Improvements (Shipped: 2026-02-06)
+
+**Delivered:** File upload in QMRL create form, attachment delete fixes, QMRL context panel during QMHQ creation, thousand separators on amounts, item price reference with tooltip, auto-generated SKU codes, inline item creation in PO, multi-tab session handling, and contact person validation for financial routes.
+
+**Phases completed:** 17-22 (9 plans total)
+
+**Key accomplishments:**
+
+- Fixed attachment delete with fetch-before-update pattern (RLS compatibility)
+- Added staged file upload to QMRL create form with background processing
+- Built QMRL context panel for QMHQ creation (responsive desktop/mobile)
+- Created AmountInput/ExchangeRateInput components with thousand separators
+- Added item price reference field with tooltip display in PO line item selector
+- Implemented auto-generated SKU codes (SKU-[CAT]-[XXXX]) with random category codes
+- Added inline item creation in PO line items table
+- Built cross-tab session sync with BroadcastChannel and Safari fallback
+- Added contact person validation for Expense and PO routes
+
+**Stats:**
+
+- 51 files modified (+9,619/-902 lines)
+- ~34,000+ lines of TypeScript
+- 6 phases, 9 plans
+- 1 day from start to ship
+
+**Git range:** `638ce66` → `1aa55d3`
+
+**What's next:** TBD — run `/gsd:new-milestone` to define next goals
+
+---
+
 ## v1.3 UX & Bug Fixes (Shipped: 2026-02-02)
 
 **Delivered:** Consistent input behavior, standardized currency display, permission-gated edit buttons, and status change notes in audit history.

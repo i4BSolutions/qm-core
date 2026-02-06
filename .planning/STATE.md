@@ -5,31 +5,36 @@
 See: .planning/PROJECT.md (updated 2026-02-06)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** v1.4 UX Enhancements & Workflow Improvements
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 22 - PO Inline Creation & Validation
-Plan: 03 of 3 (complete)
-Status: Milestone complete
-Last activity: 2026-02-06 - Completed 22-03-PLAN.md
+Phase: N/A
+Plan: N/A
+Status: Ready to plan
+Last activity: 2026-02-06 - v1.4 milestone shipped
 
 ```
-v1.4 Progress: [####################] 100% (6/6 phases)
+v1.4 Progress: [####################] 100% SHIPPED
 ```
-
-## v1.4 Phase Summary
-
-| Phase | Goal | Requirements | Status |
-|-------|------|--------------|--------|
-| 17 | Attachment delete fixes | ATCH-02, ATCH-03 | Complete |
-| 18 | QMRL create attachments | ATCH-01 | Complete |
-| 19 | QMHQ creation workflow | QMHQ-01 | Complete |
-| 20 | Number display formatting | NUMD-01, NUMD-02 | Complete |
-| 21 | Item enhancements | ITEM-01, ITEM-02, ITEM-03 | Complete |
-| 22 | PO inline creation & validation | POCR-01, AUTH-01, CONT-01, CONT-02 | Complete |
 
 ## Milestone History
+
+### v1.4 UX Enhancements & Workflow Improvements (Shipped 2026-02-06)
+
+**Velocity:**
+- Total plans: 9
+- Phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22
+- Duration: 1 day
+
+**Key Patterns Established:**
+- Fetch-Before-Update pattern for soft-delete with RLS
+- Upload-After-Create pattern with sessionStorage progress tracking
+- Context Panel pattern for responsive desktop/mobile layout
+- Formatted Input components (react-number-format wrappers)
+- Dialog Callback pattern with return value for inline creation
+- Cross-Tab Sync with BroadcastChannel and Safari fallback
+- Blur Validation pattern with onOpenChange handlers
 
 ### v1.3 UX & Bug Fixes (Shipped 2026-02-02)
 
@@ -77,21 +82,7 @@ v1.4 Progress: [####################] 100% (6/6 phases)
 
 See PROJECT.md Key Decisions table for full log.
 
-**Phase 17:** Use fetch-before-update pattern for soft-delete with RLS (avoid SELECT policy conflicts after deleted_at is set)
-
-**Phase 18:** Upload-After-Create pattern with sessionStorage progress tracking; non-blocking uploads with immediate navigation
-
-**Phase 19:** QmrlContextPanel component with responsive desktop/mobile layout; panel resets to visible on each QMHQ creation step
-
-**Phase 20:** Use react-number-format NumericFormat for automatic thousand separator handling; AmountInput/ExchangeRateInput components; CurrencyDisplay truncation with min-w-0
-
-**Phase 21:** SKU format SKU-[CAT]-[XXXX] where CAT is first letter of each word uppercase; Tooltip component with max-w-xs; Code-first display (SKU - Name) across all selectors; Price reference and category required for new items only
-
-**Phase 22-01:** Dialog callback pattern with return value (onClose with optional newItem parameter); Pending ID pattern for tracking which row triggered creation; Discard confirmation using window.confirm() with hasChanges tracking
-
-**Phase 22-02:** Contact person validation only for financial routes (expense, po); Blur validation pattern with onOpenChange handler; Scroll-to-error with useRef and scrollIntoView; Guard validation in Step 2 for data integrity
-
-**Phase 22-03:** visibilitychange event for tab focus session refresh; BroadcastChannel with Safari fallback for cross-tab logout sync; Session expired modal with Stay on Page option for unsaved work; checkForUnsavedWork helper for draft detection
+(Reset for next milestone - v1.4 decisions archived to milestones/v1.4-ROADMAP.md)
 
 ### Pending Todos
 
@@ -108,9 +99,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 22 complete (PO Inline Creation & Validation)
-Resume: Run `/gsd:audit-milestone` to verify requirements before archiving, or `/gsd:complete-milestone` to archive directly
+Stopped at: v1.4 milestone shipped
+Resume: Run `/gsd:new-milestone` to define v1.5 goals
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-06 - Phase 22 complete (PO Inline Creation & Validation)*
+*Last updated: 2026-02-06 - v1.4 milestone shipped*

@@ -8,14 +8,14 @@ An internal ticket, expense, and inventory management platform serving as a Sing
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-## Current State (v1.3 Shipped)
+## Current State (v1.4 Shipped)
 
 **Tech Stack:**
 - Next.js 14+ with App Router, TypeScript strict mode
 - Supabase for auth, database, and file storage
 - Tailwind CSS with dark theme support
 - ~34,000+ lines of TypeScript
-- 48 database migrations with RLS policies
+- 50 database migrations with RLS policies
 
 **Shipped Features:**
 - Email OTP authentication with 7-role RBAC
@@ -24,31 +24,26 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Invoice creation with quantity validation and void cascade
 - Inventory stock-in/out with WAC valuation (multi-currency)
 - File attachments with drag-drop upload, preview, and ZIP download
+- File upload in QMRL create form with staged upload pattern
 - Live management dashboard with KPIs and alerts
 - Inventory dashboard with transaction history and filters
 - Warehouse detail with per-item WAC and EUSD values
 - Quick status changes via clickable badges with optional notes
 - Complete audit logging with cascade effects
 - Standardized currency display (original + EUSD)
-- Number input utilities (no auto-format on blur)
+- Number input with thousand separators (AmountInput/ExchangeRateInput)
 - QMHQ fulfillment progress tracking
+- QMRL context panel during QMHQ creation
 - Permission-gated Edit buttons on detail pages
-
-## Current Milestone: v1.4 UX Enhancements & Workflow Improvements
-
-**Goal:** Improve file attachment workflows, enhance number display formatting, and streamline item/PO creation with inline capabilities.
-
-**Target features:**
-- File upload in QMRL create form
-- Fix attachment delete errors on QMRL/QMHQ detail pages
-- Side panel showing QMRL detail during QMHQ creation
-- Thousand separators on amount inputs
-- Responsive display for large amounts
-- Item price reference field (displayed in PO line item selector)
-- Auto-generated item codes ([CAT]-[NNNN] format)
+- Item price reference with tooltip in PO line item selector
+- Auto-generated SKU codes (SKU-[CAT]-[XXXX] format)
 - Inline item creation during PO line item entry
-- Fix multi-tab auth issues
-- Mandatory contact person for Money-Out and PO routes
+- Multi-tab session handling with cross-tab logout sync
+- Contact person validation for Expense and PO routes
+
+## Next Milestone Goals
+
+TBD - Run `/gsd:new-milestone` to define v1.5 goals
 
 ## Requirements
 
@@ -94,19 +89,21 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - ✓ Status change notes captured in audit history — v1.3
 - ✓ Permission-gated Edit buttons on detail pages — v1.3
 
+<!-- V1.4 Features -->
+- ✓ File upload in QMRL create form — v1.4
+- ✓ Attachment delete errors fixed on QMRL/QMHQ detail pages — v1.4
+- ✓ Side panel showing QMRL detail during QMHQ creation — v1.4
+- ✓ Thousand separators on amount inputs — v1.4
+- ✓ Responsive display for large amounts — v1.4
+- ✓ Item price reference field with tooltip in PO line item selector — v1.4
+- ✓ Auto-generated item codes (SKU-[CAT]-[XXXX] format) — v1.4
+- ✓ Inline item creation during PO line item entry — v1.4
+- ✓ Multi-tab session handling without auth errors — v1.4
+- ✓ Mandatory contact person for Expense and PO routes — v1.4
+
 ### Active
 
-<!-- V1.4 Features -->
-- [ ] File upload in QMRL create form
-- [ ] Fix attachment delete errors on QMRL/QMHQ detail pages
-- [ ] Side panel showing QMRL detail during QMHQ creation
-- [ ] Thousand separators on amount inputs
-- [ ] Responsive display for large amounts
-- [ ] Item price reference field (displayed in PO line item selector)
-- [ ] Auto-generated item codes ([CAT]-[NNNN] format)
-- [ ] Inline item creation during PO line item entry
-- [ ] Fix multi-tab auth issues
-- [ ] Mandatory contact person for Money-Out and PO routes
+(None - run `/gsd:new-milestone` to define v1.5 requirements)
 
 ### Out of Scope
 
@@ -114,7 +111,6 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Per-item low stock thresholds — global default (10) works
 - Transaction editing after creation — audit integrity
 - File attachments on PO/Invoice — QMRL/QMHQ scope first
-- Create form file uploads — entity must exist first
 
 ## Context
 
@@ -123,7 +119,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.1 Enhancement — Bug fixes, files, dashboard, UX (shipped 2026-01-28)
 - v1.2 Inventory & Financial Accuracy — WAC, inventory dashboard, void cascade (shipped 2026-01-31)
 - v1.3 UX & Bug Fixes — Input behavior, currency display, edit buttons, audit notes (shipped 2026-02-02)
-- v1.4 UX Enhancements & Workflow Improvements — Attachments, number formatting, inline creation, multi-tab auth (in progress)
+- v1.4 UX Enhancements & Workflow Improvements — Attachments, number formatting, inline creation, multi-tab auth (shipped 2026-02-06)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -171,4 +167,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
   - Either create edit page or document PO as immutable after creation
 
 ---
-*Last updated: 2026-02-06 after v1.4 milestone redefined*
+*Last updated: 2026-02-06 after v1.4 milestone shipped*
