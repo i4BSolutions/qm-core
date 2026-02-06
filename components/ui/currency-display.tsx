@@ -20,6 +20,8 @@ export interface CurrencyDisplayProps {
   className?: string;
   /** Align text (for table cells) */
   align?: "left" | "right";
+  /** Truncate long values with ellipsis and show full value on hover */
+  truncate?: boolean;
 }
 
 export function CurrencyDisplay({
@@ -31,6 +33,7 @@ export function CurrencyDisplay({
   showDashForEmpty = false,
   className,
   align = "left",
+  truncate = false,
 }: CurrencyDisplayProps) {
   // Handle empty/null amounts
   const displayAmount = amount ?? 0;
@@ -72,15 +75,32 @@ export function CurrencyDisplay({
 
   const styles = sizeStyles[size];
 
+  const primaryText = `${formatCurrency(displayAmount)} ${currency}`;
+  const secondaryText = `${formatCurrency(eusdValue)} EUSD`;
+
   return (
-    <div className={cn("flex flex-col", align === "right" && "items-end", className)}>
+    <div className={cn("flex flex-col min-w-0", align === "right" && "items-end", className)}>
       {/* Original currency - primary line */}
-      <span className={cn("font-mono text-slate-200", styles.primary)}>
-        {formatCurrency(displayAmount)} {currency}
+      <span
+        className={cn(
+          "font-mono text-slate-200",
+          styles.primary,
+          truncate && "truncate max-w-full"
+        )}
+        title={truncate ? primaryText : undefined}
+      >
+        {primaryText}
       </span>
       {/* EUSD equivalent - secondary line (smaller, muted) */}
-      <span className={cn("font-mono text-slate-400", styles.secondary)}>
-        {formatCurrency(eusdValue)} EUSD
+      <span
+        className={cn(
+          "font-mono text-slate-400",
+          styles.secondary,
+          truncate && "truncate max-w-full"
+        )}
+        title={truncate ? secondaryText : undefined}
+      >
+        {secondaryText}
       </span>
     </div>
   );
@@ -94,13 +114,29 @@ export interface CurrencyInlineProps {
   amount: number | null | undefined;
   currency: string;
   className?: string;
+  /** Truncate long values with ellipsis and show full value on hover */
+  truncate?: boolean;
 }
 
-export function CurrencyInline({ amount, currency, className }: CurrencyInlineProps) {
+export function CurrencyInline({
+  amount,
+  currency,
+  className,
+  truncate = false,
+}: CurrencyInlineProps) {
   const displayAmount = amount ?? 0;
+  const text = `${formatCurrency(displayAmount)} ${currency}`;
+
   return (
-    <span className={cn("font-mono text-slate-200", className)}>
-      {formatCurrency(displayAmount)} {currency}
+    <span
+      className={cn(
+        "font-mono text-slate-200",
+        truncate && "truncate block max-w-full",
+        className
+      )}
+      title={truncate ? text : undefined}
+    >
+      {text}
     </span>
   );
 }
