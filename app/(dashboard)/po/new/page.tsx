@@ -59,7 +59,7 @@ function POCreateContent() {
   // Reference data
   const [qmhqs, setQmhqs] = useState<QMHQWithBalance[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [items, setItems] = useState<Pick<Item, "id" | "name" | "sku" | "default_unit">[]>([]);
+  const [items, setItems] = useState<Pick<Item, "id" | "name" | "sku" | "default_unit" | "price_reference">[]>([]);
   const [contactPersons, setContactPersons] = useState<Pick<ContactPerson, "id" | "name" | "position">[]>([]);
 
   // Form state
@@ -101,7 +101,7 @@ function POCreateContent() {
         .order("name"),
       supabase
         .from("items")
-        .select("id, name, sku, default_unit")
+        .select("id, name, sku, default_unit, price_reference")
         .eq("is_active", true)
         .order("name"),
       supabase

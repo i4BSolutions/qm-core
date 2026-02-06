@@ -10,6 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
 import { AmountInput } from "@/components/ui/amount-input";
 import { MiniProgressBar } from "./po-progress-bar";
@@ -29,7 +35,7 @@ interface LineItemFormData {
 
 interface EditableLineItemsTableProps {
   items: LineItemFormData[];
-  availableItems: Pick<Item, "id" | "name" | "sku" | "default_unit">[];
+  availableItems: Pick<Item, "id" | "name" | "sku" | "default_unit" | "price_reference">[];
   onAddItem: () => void;
   onRemoveItem: (id: string) => void;
   onUpdateItem: (id: string, field: keyof LineItemFormData, value: unknown) => void;
@@ -81,13 +87,12 @@ export function EditableLineItemsTable({
                 <td className="py-2 px-3 min-w-[200px]">
                   {item.item_id ? (
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-slate-200">
-                        {item.item_name}
-                        {item.item_sku && (
-                          <code className="text-xs text-amber-400 ml-2">
-                            ({item.item_sku})
-                          </code>
-                        )}
+                      <div className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm">
+                        <code className="font-mono text-amber-400 mr-2">
+                          {item.item_sku || "---"}
+                        </code>
+                        <span className="text-slate-400 mr-2">-</span>
+                        <span className="text-slate-200">{item.item_name}</span>
                       </div>
                       <Button
                         type="button"
@@ -125,12 +130,31 @@ export function EditableLineItemsTable({
                         <SelectValue placeholder="Select item..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableItems.map((avail) => (
-                          <SelectItem key={avail.id} value={avail.id}>
-                            {avail.name}
-                            {avail.sku && ` (${avail.sku})`}
-                          </SelectItem>
-                        ))}
+                        <TooltipProvider delayDuration={300}>
+                          {availableItems.map((avail) => (
+                            <Tooltip key={avail.id}>
+                              <TooltipTrigger asChild>
+                                <SelectItem value={avail.id} className="cursor-pointer">
+                                  <span className="flex items-center gap-2">
+                                    <code className="font-mono text-amber-400 text-xs">
+                                      {avail.sku || "---"}
+                                    </code>
+                                    <span className="text-slate-400">-</span>
+                                    <span>{avail.name}</span>
+                                  </span>
+                                </SelectItem>
+                              </TooltipTrigger>
+                              {avail.price_reference && (
+                                <TooltipContent side="right" className="max-w-xs">
+                                  <p className="text-xs">
+                                    <span className="text-slate-400">Price Ref: </span>
+                                    <span className="text-slate-200">{avail.price_reference}</span>
+                                  </p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          ))}
+                        </TooltipProvider>
                       </SelectContent>
                     </Select>
                   )}
@@ -309,15 +333,14 @@ export function ReadonlyLineItemsTable({
                     <div className="w-8 h-8 rounded bg-slate-700/50 flex items-center justify-center">
                       <Package className="h-4 w-4 text-slate-400" />
                     </div>
-                    <div>
-                      <p className="text-slate-200 font-medium">
+                    <div className="flex items-center gap-2">
+                      <code className="font-mono text-amber-400 text-xs">
+                        {item.item_sku || item.item?.sku || "---"}
+                      </code>
+                      <span className="text-slate-500">-</span>
+                      <span className="text-slate-200 font-medium">
                         {item.item_name || item.item?.name || "Unknown Item"}
-                      </p>
-                      {(item.item_sku || item.item?.sku) && (
-                        <code className="text-xs text-amber-400">
-                          {item.item_sku || item.item?.sku}
-                        </code>
-                      )}
+                      </span>
                     </div>
                   </div>
                 </td>
