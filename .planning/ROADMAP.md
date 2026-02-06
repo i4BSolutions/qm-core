@@ -155,20 +155,20 @@ Plans:
 3. ✓ Side panel remains visible throughout multi-step QMHQ creation
 4. ✓ Panel can be collapsed/expanded without losing QMHQ form state
 
-### Phase 20: Number Display Formatting
+### Phase 20: Number Display Formatting ✓
 **Goal**: Financial amounts display with thousand separators and fit within containers
 **Depends on**: Phase 17
 **Requirements**: NUMD-01, NUMD-02
-**Plans**: 1 plan
+**Plans**: 1 plan (completed)
 
 Plans:
-- [ ] 20-01-PLAN.md — AmountInput/ExchangeRateInput components with thousand separators
+- [x] 20-01-PLAN.md — AmountInput/ExchangeRateInput components with thousand separators
 
 **Success Criteria:**
-1. Amount input fields show thousand separators as user types (1000 -> 1,000)
-2. Separators are stripped before form submission (clean numeric values)
-3. Large amounts (millions/billions) display responsively without overflow
-4. Currency display components handle long values without breaking layout
+1. ✓ Amount input fields show thousand separators as user types (1000 -> 1,000)
+2. ✓ Separators are stripped before form submission (clean numeric values)
+3. ✓ Large amounts (millions/billions) display responsively without overflow
+4. ✓ Currency display components handle long values without breaking layout
 
 ### Phase 21: Item Enhancements
 **Goal**: Items support price reference notes and auto-generated codes based on category
@@ -220,6 +220,6 @@ Plans:
 | 17. Attachment Delete Fixes | v1.4 | 1/1 | Complete | 2026-02-06 |
 | 18. QMRL Create Attachments | v1.4 | 1/1 | Complete | 2026-02-06 |
 | 19. QMHQ Creation Workflow Enhancement | v1.4 | 1/1 | Complete | 2026-02-06 |
-| 20. Number Display Formatting | v1.4 | 0/1 | Pending | — |
+| 20. Number Display Formatting | v1.4 | 1/1 | Complete | 2026-02-06 |
 | 21. Item Enhancements | v1.4 | 0/? | Pending | — |
 | 22. PO Inline Item Creation & Validation | v1.4 | 0/? | Pending | — |

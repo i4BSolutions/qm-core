@@ -19,8 +19,8 @@ Requirements for v1.4 UX Enhancements & Workflow Improvements. Each maps to road
 
 ### Number Display
 
-- [ ] **NUMD-01**: Amount input fields display thousand separators
-- [ ] **NUMD-02**: Large amount values display responsively within containers
+- [x] **NUMD-01**: Amount input fields display thousand separators
+- [x] **NUMD-02**: Large amount values display responsively within containers
 
 ### Items
 
@@ -73,8 +73,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ATCH-02 | Phase 17 | Complete |
 | ATCH-03 | Phase 17 | Complete |
 | QMHQ-01 | Phase 19 | Complete |
-| NUMD-01 | Phase 20 | Pending |
-| NUMD-02 | Phase 20 | Pending |
+| NUMD-01 | Phase 20 | Complete |
+| NUMD-02 | Phase 20 | Complete |
 | ITEM-01 | Phase 21 | Pending |
 | ITEM-02 | Phase 21 | Pending |
 | ITEM-03 | Phase 21 | Pending |
