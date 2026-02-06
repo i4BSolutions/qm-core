@@ -1,0 +1,93 @@
+# Requirements: QM System
+
+**Defined:** 2026-02-06
+**Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
+
+## v1.4 Requirements
+
+Requirements for v1.4 UX Enhancements & Workflow Improvements. Each maps to roadmap phases.
+
+### Attachments
+
+- [ ] **ATCH-01**: User can upload files when creating a QMRL (in create form)
+- [ ] **ATCH-02**: User can delete attachments on QMRL detail page without errors
+- [ ] **ATCH-03**: User can delete attachments on QMHQ detail page without errors
+
+### QMHQ Workflow
+
+- [ ] **QMHQ-01**: User sees full QMRL detail in side panel when creating QMHQ
+
+### Number Display
+
+- [ ] **NUMD-01**: Amount input fields display thousand separators
+- [ ] **NUMD-02**: Large amount values display responsively within containers
+
+### Items
+
+- [ ] **ITEM-01**: User can add price reference note when creating an item
+- [ ] **ITEM-02**: Item price reference displays in PO line item selector
+- [ ] **ITEM-03**: Item codes auto-generate as [CAT]-[NNNN] format from category
+
+### PO Creation
+
+- [ ] **POCR-01**: User can create new items inline during PO line item entry
+
+### Multi-Tab
+
+- [ ] **AUTH-01**: User can use system across multiple browser tabs without auth errors
+
+### Contact Person
+
+- [ ] **CONT-01**: Money-Out transactions (Expense route) require contact person
+- [ ] **CONT-02**: PO route transactions require contact person
+
+## Future Requirements
+
+Deferred from original v1.4 PO Smart Lifecycle scope.
+
+### PO Lifecycle
+
+- **POLC-01**: PO status uses three-way match (PO qty = Invoice qty = Stock-in qty)
+- **POLC-02**: Visual matching panel on PO detail page (side-by-side comparison)
+- **POLC-03**: Progress bar showing completion percentage toward "Closed"
+- **POLC-04**: Lock mechanism when PO status = Closed (block edits except Admin)
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| PO Edit page creation | Tech debt - document PO as immutable after creation |
+| Real-time WebSocket updates | Polling sufficient for current usage |
+| File attachments on PO/Invoice | QMRL/QMHQ scope first |
+| Per-item low stock thresholds | Global default (10) works |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| ATCH-01 | TBD | Pending |
+| ATCH-02 | TBD | Pending |
+| ATCH-03 | TBD | Pending |
+| QMHQ-01 | TBD | Pending |
+| NUMD-01 | TBD | Pending |
+| NUMD-02 | TBD | Pending |
+| ITEM-01 | TBD | Pending |
+| ITEM-02 | TBD | Pending |
+| ITEM-03 | TBD | Pending |
+| POCR-01 | TBD | Pending |
+| AUTH-01 | TBD | Pending |
+| CONT-01 | TBD | Pending |
+| CONT-02 | TBD | Pending |
+
+**Coverage:**
+- v1.4 requirements: 13 total
+- Mapped to phases: 0
+- Unmapped: 13
+
+---
+*Requirements defined: 2026-02-06*
+*Last updated: 2026-02-06 after initial definition*
