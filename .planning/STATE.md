@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 ## Current Position
 
-Phase: 19 - QMHQ Creation Workflow Enhancement
+Phase: 20 - Number Display Formatting
 Plan: 01 of 1 (complete)
 Status: Phase complete
-Last activity: 2026-02-06 - Completed 19-01-PLAN.md
+Last activity: 2026-02-06 - Completed 20-01-PLAN.md
 
 ```
-v1.4 Progress: [##########          ] 50% (3/6 phases)
+v1.4 Progress: [#############       ] 67% (4/6 phases)
 ```
 
 ## v1.4 Phase Summary
@@ -25,7 +25,7 @@ v1.4 Progress: [##########          ] 50% (3/6 phases)
 | 17 | Attachment delete fixes | ATCH-02, ATCH-03 | Complete |
 | 18 | QMRL create attachments | ATCH-01 | Complete |
 | 19 | QMHQ creation workflow | QMHQ-01 | Complete |
-| 20 | Number display formatting | NUMD-01, NUMD-02 | Pending |
+| 20 | Number display formatting | NUMD-01, NUMD-02 | Complete |
 | 21 | Item enhancements | ITEM-01, ITEM-02, ITEM-03 | Pending |
 | 22 | PO inline creation & validation | POCR-01, AUTH-01, CONT-01, CONT-02 | Pending |
 
@@ -83,6 +83,8 @@ See PROJECT.md Key Decisions table for full log.
 
 **Phase 19:** QmrlContextPanel component with responsive desktop/mobile layout; panel resets to visible on each QMHQ creation step
 
+**Phase 20:** Use react-number-format NumericFormat for automatic thousand separator handling; AmountInput/ExchangeRateInput components; CurrencyDisplay truncation with min-w-0
+
 ### Pending Todos
 
 None.
@@ -98,9 +100,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 19 complete (QMHQ creation workflow enhancement)
-Resume: Run `/gsd:discuss-phase 20` or `/gsd:plan-phase 20` for number display formatting
+Stopped at: Phase 20 complete (Number display formatting)
+Resume: Run `/gsd:discuss-phase 21` or `/gsd:plan-phase 21` for Item enhancements
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-06 - Phase 19 complete (QMHQ creation workflow enhancement)*
+*Last updated: 2026-02-06 - Phase 20 complete (Number display formatting)*
