@@ -171,16 +171,21 @@ Plans:
 4. ✓ Currency display components handle long values without breaking layout
 
 ### Phase 21: Item Enhancements
-**Goal**: Items support price reference notes and auto-generated codes based on category
+**Goal**: Items support price reference notes and auto-generated SKU codes based on category
 **Depends on**: Phase 20
 **Requirements**: ITEM-01, ITEM-02, ITEM-03
+**Plans**: 2 plans
+
+Plans:
+- [ ] 21-01-PLAN.md — Database migration (price_reference, SKU trigger, backfill) + Tooltip component
+- [ ] 21-02-PLAN.md — UI updates (Item Dialog, Item List, PO Line Items)
 
 **Success Criteria:**
 1. User can enter price reference note when creating/editing an item
-2. Price reference displays in PO line item selector for informed selection
-3. Item codes auto-generate as [CAT]-[NNNN] format when category is selected
-4. Auto-generated code can be overridden by user if needed
-5. Code uniqueness is validated before item creation
+2. Price reference displays in PO line item selector as tooltip on hover
+3. Item codes auto-generate as SKU-[CAT]-[XXXX] format on item save
+4. Code cannot be overridden by user (immutable once generated)
+5. Category is required for new item creation
 
 ### Phase 22: PO Inline Item Creation & Validation
 **Goal**: Users can create new items inline during PO entry and contact person is enforced for financial routes
@@ -221,5 +226,5 @@ Plans:
 | 18. QMRL Create Attachments | v1.4 | 1/1 | Complete | 2026-02-06 |
 | 19. QMHQ Creation Workflow Enhancement | v1.4 | 1/1 | Complete | 2026-02-06 |
 | 20. Number Display Formatting | v1.4 | 1/1 | Complete | 2026-02-06 |
-| 21. Item Enhancements | v1.4 | 0/? | Pending | — |
+| 21. Item Enhancements | v1.4 | 0/2 | Pending | — |
 | 22. PO Inline Item Creation & Validation | v1.4 | 0/? | Pending | — |
