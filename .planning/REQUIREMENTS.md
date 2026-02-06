@@ -10,8 +10,8 @@ Requirements for v1.4 UX Enhancements & Workflow Improvements. Each maps to road
 ### Attachments
 
 - [x] **ATCH-01**: User can upload files when creating a QMRL (in create form)
-- [ ] **ATCH-02**: User can delete attachments on QMRL detail page without errors
-- [ ] **ATCH-03**: User can delete attachments on QMHQ detail page without errors
+- [x] **ATCH-02**: User can delete attachments on QMRL detail page without errors
+- [x] **ATCH-03**: User can delete attachments on QMHQ detail page without errors
 
 ### QMHQ Workflow
 
@@ -30,16 +30,16 @@ Requirements for v1.4 UX Enhancements & Workflow Improvements. Each maps to road
 
 ### PO Creation
 
-- [ ] **POCR-01**: User can create new items inline during PO line item entry
+- [x] **POCR-01**: User can create new items inline during PO line item entry
 
 ### Multi-Tab
 
-- [ ] **AUTH-01**: User can use system across multiple browser tabs without auth errors
+- [x] **AUTH-01**: User can use system across multiple browser tabs without auth errors
 
 ### Contact Person
 
-- [ ] **CONT-01**: Money-Out transactions (Expense route) require contact person
-- [ ] **CONT-02**: PO route transactions require contact person
+- [x] **CONT-01**: Money-Out transactions (Expense route) require contact person
+- [x] **CONT-02**: PO route transactions require contact person
 
 ## Future Requirements
 
@@ -78,10 +78,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ITEM-01 | Phase 21 | Complete |
 | ITEM-02 | Phase 21 | Complete |
 | ITEM-03 | Phase 21 | Complete |
-| POCR-01 | Phase 22 | Pending |
-| AUTH-01 | Phase 22 | Pending |
-| CONT-01 | Phase 22 | Pending |
-| CONT-02 | Phase 22 | Pending |
+| POCR-01 | Phase 22 | Complete |
+| AUTH-01 | Phase 22 | Complete |
+| CONT-01 | Phase 22 | Complete |
+| CONT-02 | Phase 22 | Complete |
 
 **Coverage:**
 - v1.4 requirements: 13 total

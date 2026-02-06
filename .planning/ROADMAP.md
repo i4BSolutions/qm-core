@@ -6,7 +6,7 @@
 - **v1.1 Enhancement** - Phases 1-6 (shipped 2026-01-28)
 - **v1.2 Inventory & Financial Accuracy** - Phases 7-12 (shipped 2026-01-31)
 - **v1.3 UX & Bug Fixes** - Phases 13-16 (shipped 2026-02-02)
-- **v1.4 UX Enhancements & Workflow Improvements** - Phases 17-22 (in progress)
+- **v1.4 UX Enhancements & Workflow Improvements** - Phases 17-22 (shipped 2026-02-06)
 
 ## Phases
 
@@ -108,7 +108,7 @@
 </details>
 
 <details open>
-<summary>v1.4 UX Enhancements & Workflow Improvements (Phases 17-22) - IN PROGRESS</summary>
+<summary>v1.4 UX Enhancements & Workflow Improvements (Phases 17-22) - SHIPPED 2026-02-06</summary>
 
 ### Phase 17: Attachment Delete Fixes ✓
 **Goal**: Users can delete attachments on QMRL and QMHQ detail pages without errors
@@ -187,23 +187,23 @@ Plans:
 4. ✓ Code cannot be overridden by user (immutable once generated)
 5. ✓ Category is required for new item creation
 
-### Phase 22: PO Inline Item Creation & Validation
+### Phase 22: PO Inline Item Creation & Validation ✓
 **Goal**: Users can create new items inline during PO entry and contact person is enforced for financial routes
 **Depends on**: Phase 21
 **Requirements**: POCR-01, AUTH-01, CONT-01, CONT-02
-**Plans**: 3 plans
+**Plans**: 3 plans (completed)
 
 Plans:
-- [ ] 22-01-PLAN.md — Inline item creation in PO line items via ItemDialog
-- [ ] 22-02-PLAN.md — Contact person validation for Expense and PO routes
-- [ ] 22-03-PLAN.md — Multi-tab session handling with cross-tab logout sync
+- [x] 22-01-PLAN.md — Inline item creation in PO line items via ItemDialog
+- [x] 22-02-PLAN.md — Contact person validation for Expense and PO routes
+- [x] 22-03-PLAN.md — Multi-tab session handling with cross-tab logout sync
 
 **Success Criteria:**
-1. User can create new item inline from PO line item selector without leaving PO form
-2. Newly created item immediately appears in selector and can be added to PO
-3. User can work across multiple browser tabs without authentication errors
-4. Money-Out transactions (Expense route) require contact person before save
-5. PO route transactions require contact person before save
+1. ✓ User can create new item inline from PO line item selector without leaving PO form
+2. ✓ Newly created item immediately appears in selector and can be added to PO
+3. ✓ User can work across multiple browser tabs without authentication errors
+4. ✓ Money-Out transactions (Expense route) require contact person before save
+5. ✓ PO route transactions require contact person before save
 
 </details>
 
@@ -233,4 +233,4 @@ Plans:
 | 19. QMHQ Creation Workflow Enhancement | v1.4 | 1/1 | Complete | 2026-02-06 |
 | 20. Number Display Formatting | v1.4 | 1/1 | Complete | 2026-02-06 |
 | 21. Item Enhancements | v1.4 | 2/2 | Complete | 2026-02-06 |
-| 22. PO Inline Item Creation & Validation | v1.4 | 0/3 | Pending | — |
+| 22. PO Inline Item Creation & Validation | v1.4 | 3/3 | Complete | 2026-02-06 |

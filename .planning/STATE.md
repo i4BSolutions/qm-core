@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 Phase: 22 - PO Inline Creation & Validation
 Plan: 03 of 3 (complete)
-Status: Phase complete
+Status: Milestone complete
 Last activity: 2026-02-06 - Completed 22-03-PLAN.md
 
 ```
@@ -109,7 +109,7 @@ None.
 
 Last session: 2026-02-06
 Stopped at: Phase 22 complete (PO Inline Creation & Validation)
-Resume: v1.4 complete - ready for v1.5 planning
+Resume: Run `/gsd:audit-milestone` to verify requirements before archiving, or `/gsd:complete-milestone` to archive directly
 
 ---
 *State initialized: 2026-01-27*
