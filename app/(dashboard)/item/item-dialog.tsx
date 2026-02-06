@@ -31,6 +31,7 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
   const [formData, setFormData] = useState({
     name: "",
     category_id: "",
+    price_reference: "",
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
       setFormData({
         name: item.name || "",
         category_id: item.category_id || "",
+        price_reference: item.price_reference || "",
       });
       setExistingPhotoUrl(item.photo_url || null);
       setPhotoPreview(item.photo_url || null);
@@ -72,6 +74,7 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
       setFormData({
         name: "",
         category_id: "",
+        price_reference: "",
       });
       setExistingPhotoUrl(null);
       setPhotoPreview(null);
@@ -163,6 +166,7 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
         name: formData.name,
         category_id: formData.category_id || null,
         photo_url: photoUrl,
+        price_reference: formData.price_reference || null,
       };
 
       if (item) {
@@ -245,7 +249,9 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
 
             {/* Category */}
             <div className="grid gap-2">
-              <Label>Category</Label>
+              <Label>
+                Category {!item && <span className="text-red-400">*</span>}
+              </Label>
               <InlineCreateSelect
                 value={formData.category_id}
                 onValueChange={(value) =>
@@ -259,19 +265,36 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
               />
             </div>
 
-            {/* SKU (read-only, shown for existing items) */}
+            {/* Price Reference */}
+            <div className="grid gap-2">
+              <Label htmlFor="price_reference">
+                Price Reference {!item && <span className="text-red-400">*</span>}
+              </Label>
+              <Input
+                id="price_reference"
+                value={formData.price_reference}
+                onChange={(e) =>
+                  setFormData({ ...formData, price_reference: e.target.value })
+                }
+                placeholder="e.g., $50-75 retail, bulk discount available"
+                maxLength={100}
+              />
+              <p className="text-xs text-slate-400">
+                {formData.price_reference.length}/100 characters - helps purchasing team
+              </p>
+            </div>
+
+            {/* Item Code (SKU - read-only, shown for existing items) */}
             {item?.sku && (
               <div className="grid gap-2">
-                <Label htmlFor="sku">Product Code (SKU)</Label>
-                <Input
-                  id="sku"
-                  value={item.sku}
-                  readOnly
-                  disabled
-                  className="bg-slate-800/50 border-slate-700 font-mono text-brand-400"
-                />
+                <Label>Item Code</Label>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-slate-800/70 border border-slate-700">
+                  <code className="text-lg font-mono font-semibold text-brand-400">
+                    {item.sku}
+                  </code>
+                </div>
                 <p className="text-xs text-slate-400">
-                  Auto-generated product code
+                  Auto-generated based on category
                 </p>
               </div>
             )}
@@ -334,7 +357,7 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !formData.name}>
+            <Button type="submit" disabled={isLoading || !formData.name || !formData.price_reference || (!item && !formData.category_id)}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
