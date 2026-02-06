@@ -34,7 +34,9 @@ import {
   type POForInvoice,
   type InvoiceLineItemFormData,
 } from "@/components/invoice";
-import { formatCurrency, handleExchangeRateKeyDown, handleQuantityKeyDown, handleAmountKeyDown } from "@/lib/utils";
+import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
+import { AmountInput } from "@/components/ui/amount-input";
+import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import { calculateAvailableQuantity } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
@@ -535,14 +537,10 @@ function InvoiceCreateContent() {
                     <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
                       Exchange Rate (to EUSD) *
                     </label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
+                    <ExchangeRateInput
                       value={exchangeRate}
-                      onChange={(e) => setExchangeRate(e.target.value)}
-                      onKeyDown={handleExchangeRateKeyDown}
-                      placeholder="1.0000"
-                      className="bg-slate-800/50 border-slate-700 font-mono"
+                      onValueChange={setExchangeRate}
+                      className="bg-slate-800/50 border-slate-700"
                     />
                   </div>
                 </div>
@@ -659,15 +657,12 @@ function InvoiceCreateContent() {
                               </div>
                               <div>
                                 <label className="text-xs text-slate-500 block mb-1">Unit Price</label>
-                                <Input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={item.unit_price === 0 ? "" : item.unit_price}
-                                  onChange={(e) =>
-                                    handleUpdateLineItem(item.id, "unit_price", parseFloat(e.target.value) || 0)
+                                <AmountInput
+                                  value={item.unit_price === 0 ? "" : String(item.unit_price)}
+                                  onValueChange={(val) =>
+                                    handleUpdateLineItem(item.id, "unit_price", parseFloat(val) || 0)
                                   }
-                                  onKeyDown={handleAmountKeyDown}
-                                  className="w-28 text-right font-mono bg-slate-800 border-slate-700"
+                                  className="w-28 text-right bg-slate-800 border-slate-700"
                                 />
                               </div>
                               <div>

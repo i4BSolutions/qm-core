@@ -31,12 +31,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  formatCurrency,
-  handleQuantityKeyDown,
-  handleAmountKeyDown,
-  handleExchangeRateKeyDown,
-} from "@/lib/utils";
+import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
+import { AmountInput } from "@/components/ui/amount-input";
+import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { MOVEMENT_TYPE_CONFIG } from "@/lib/utils/inventory";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -790,18 +787,15 @@ function StockInContent() {
                                   <label className="text-xs text-slate-500 block mb-1">
                                     Unit Cost
                                   </label>
-                                  <Input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={line.unit_cost}
-                                    onChange={(e) =>
+                                  <AmountInput
+                                    value={String(line.unit_cost)}
+                                    onValueChange={(val) =>
                                       handleUpdateLineUnitCost(
                                         line.id,
-                                        parseFloat(e.target.value) || 0
+                                        parseFloat(val) || 0
                                       )
                                     }
-                                    onKeyDown={handleAmountKeyDown}
-                                    className="w-28 text-right font-mono bg-slate-800 border-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    className="w-28 text-right bg-slate-800 border-slate-700"
                                   />
                                 </div>
                                 <div>
@@ -888,13 +882,10 @@ function StockInContent() {
               <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
                 Unit Cost * (for WAC calculation)
               </label>
-              <Input
-                type="text"
-                inputMode="decimal"
+              <AmountInput
                 value={manualUnitCost}
-                onChange={(e) => setManualUnitCost(e.target.value)}
-                onKeyDown={handleAmountKeyDown}
-                className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                onValueChange={setManualUnitCost}
+                className="bg-slate-800/50 border-slate-700"
               />
             </div>
           </div>
@@ -923,14 +914,11 @@ function StockInContent() {
               <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
                 Exchange Rate *
               </label>
-              <Input
-                type="text"
-                inputMode="decimal"
+              <ExchangeRateInput
                 value={exchangeRate}
-                onChange={(e) => setExchangeRate(e.target.value)}
-                onKeyDown={handleExchangeRateKeyDown}
+                onValueChange={setExchangeRate}
                 disabled={currency === 'USD'}
-                className={`bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${currency === 'USD' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`bg-slate-800/50 border-slate-700 ${currency === 'USD' ? 'opacity-50 cursor-not-allowed' : ''}`}
               />
               <p className="text-xs text-slate-500 mt-1">
                 {currency === 'USD' ? 'USD rate is always 1.0' : `1 EUSD = ${exchangeRate || '1'} ${currency}`}

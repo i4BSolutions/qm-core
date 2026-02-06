@@ -23,7 +23,9 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { createClient } from "@/lib/supabase/client";
-import { formatCurrency, handleAmountKeyDown, handleExchangeRateKeyDown } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
+import { AmountInput } from "@/components/ui/amount-input";
+import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import {
   Loader2,
   TrendingUp,
@@ -313,15 +315,11 @@ export function TransactionDialog({
               <Label htmlFor="amount" className="text-slate-300">
                 Amount <span className="text-red-400">*</span>
               </Label>
-              <Input
+              <AmountInput
                 id="amount"
-                type="text"
-                inputMode="decimal"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                onKeyDown={handleAmountKeyDown}
-                placeholder="0.00"
-                className="bg-slate-800/50 border-slate-700 text-slate-200 font-mono"
+                onValueChange={setAmount}
+                className="bg-slate-800/50 border-slate-700 text-slate-200"
               />
             </div>
 
@@ -345,15 +343,11 @@ export function TransactionDialog({
               <Label htmlFor="exchange_rate" className="text-slate-300">
                 Exchange Rate <span className="text-red-400">*</span>
               </Label>
-              <Input
+              <ExchangeRateInput
                 id="exchange_rate"
-                type="text"
-                inputMode="decimal"
                 value={exchangeRate}
-                onChange={(e) => setExchangeRate(e.target.value)}
-                onKeyDown={handleExchangeRateKeyDown}
-                placeholder="1.0000"
-                className="bg-slate-800/50 border-slate-700 text-slate-200 font-mono"
+                onValueChange={setExchangeRate}
+                className="bg-slate-800/50 border-slate-700 text-slate-200"
               />
             </div>
           </div>

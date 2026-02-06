@@ -30,12 +30,9 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/providers/auth-provider";
 import { QmrlContextPanel } from "@/components/qmhq/qmrl-context-panel";
-import {
-  formatCurrency,
-  handleQuantityKeyDown,
-  handleAmountKeyDown,
-  handleExchangeRateKeyDown,
-} from "@/lib/utils";
+import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
+import { AmountInput } from "@/components/ui/amount-input";
+import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import type { Item } from "@/types/database";
 
 // Route configuration
@@ -572,14 +569,11 @@ export default function QMHQRouteDetailsPage() {
                         <Label htmlFor="amount" className="data-label">
                           Amount <span className="text-red-400">*</span>
                         </Label>
-                        <Input
+                        <AmountInput
                           id="amount"
-                          type="text"
-                          inputMode="decimal"
                           value={amount}
-                          onChange={(e) => setAmount(e.target.value)}
-                          onKeyDown={handleAmountKeyDown}
-                          className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          onValueChange={setAmount}
+                          className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200"
                         />
                       </div>
 
@@ -603,14 +597,11 @@ export default function QMHQRouteDetailsPage() {
                         <Label htmlFor="exchange_rate" className="data-label">
                           Exchange Rate <span className="text-red-400">*</span>
                         </Label>
-                        <Input
+                        <ExchangeRateInput
                           id="exchange_rate"
-                          type="text"
-                          inputMode="decimal"
                           value={exchangeRate}
-                          onChange={(e) => setExchangeRate(e.target.value)}
-                          onKeyDown={handleExchangeRateKeyDown}
-                          className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          onValueChange={setExchangeRate}
+                          className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200"
                         />
                         <p className="text-xs text-slate-400">Rate to convert to EUSD (1 EUSD = X {currency})</p>
                       </div>
@@ -668,14 +659,11 @@ export default function QMHQRouteDetailsPage() {
                         <Label htmlFor="amount" className="data-label">
                           Budget Amount <span className="text-red-400">*</span>
                         </Label>
-                        <Input
+                        <AmountInput
                           id="amount"
-                          type="text"
-                          inputMode="decimal"
                           value={amount}
-                          onChange={(e) => setAmount(e.target.value)}
-                          onKeyDown={handleAmountKeyDown}
-                          className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          onValueChange={setAmount}
+                          className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200"
                         />
                       </div>
 
@@ -699,14 +687,11 @@ export default function QMHQRouteDetailsPage() {
                         <Label htmlFor="exchange_rate" className="data-label">
                           Exchange Rate <span className="text-red-400">*</span>
                         </Label>
-                        <Input
+                        <ExchangeRateInput
                           id="exchange_rate"
-                          type="text"
-                          inputMode="decimal"
                           value={exchangeRate}
-                          onChange={(e) => setExchangeRate(e.target.value)}
-                          onKeyDown={handleExchangeRateKeyDown}
-                          className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          onValueChange={setExchangeRate}
+                          className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200"
                         />
                         <p className="text-xs text-slate-400">Rate to convert to EUSD</p>
                       </div>
