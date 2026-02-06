@@ -254,6 +254,18 @@ export default function QMHQRouteDetailsPage() {
       }
     }
 
+    // Contact person validation for financial routes
+    if (route === "expense" || route === "po") {
+      if (!draftData.contact_person_id) {
+        toast({
+          title: "Validation Error",
+          description: "Contact person is required for financial routes. Please go back and select one.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     const supabase = createClient();
 
