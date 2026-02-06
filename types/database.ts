@@ -233,6 +233,7 @@ export type Database = {
           is_active: boolean | null
           name: string
           photo_url: string | null
+          price_reference: string | null
           sku: string | null
           updated_at: string | null
           updated_by: string | null
@@ -252,6 +253,7 @@ export type Database = {
           is_active?: boolean | null
           name: string
           photo_url?: string | null
+          price_reference?: string | null
           sku?: string | null
           updated_at?: string | null
           updated_by?: string | null
@@ -271,6 +273,7 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           photo_url?: string | null
+          price_reference?: string | null
           sku?: string | null
           updated_at?: string | null
           updated_by?: string | null
