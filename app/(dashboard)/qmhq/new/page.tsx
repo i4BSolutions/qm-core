@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -33,6 +33,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/providers/auth-provider";
 import { InlineCreateSelect } from "@/components/forms/inline-create-select";
 import { QmrlContextPanel } from "@/components/qmhq/qmrl-context-panel";
+import { cn } from "@/lib/utils";
 import type { StatusConfig, Category, ContactPerson, User as UserType, QMRL } from "@/types/database";
 
 // Route type configuration
@@ -79,6 +80,11 @@ function NewQMHQContent() {
     }
     return true;
   });
+
+  // Contact person validation state
+  const [contactPersonTouched, setContactPersonTouched] = useState(false);
+  const [contactPersonError, setContactPersonError] = useState<string | null>(null);
+  const contactPersonRef = useRef<HTMLDivElement>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -182,6 +188,18 @@ function NewQMHQContent() {
     setIsLoading(false);
   };
 
+  const validateContactPerson = (): boolean => {
+    // Only required for expense and po routes
+    if (formData.route_type === 'expense' || formData.route_type === 'po') {
+      if (!formData.contact_person_id) {
+        setContactPersonError("Contact person is required for financial routes");
+        return false;
+      }
+    }
+    setContactPersonError(null);
+    return true;
+  };
+
   const handleNext = () => {
     // Validation
     if (!formData.line_name) {
@@ -209,6 +227,24 @@ function NewQMHQContent() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Validate contact person for financial routes
+    if (formData.route_type === 'expense' || formData.route_type === 'po') {
+      setContactPersonTouched(true);
+      const isValid = validateContactPerson();
+      if (!isValid) {
+        contactPersonRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+        toast({
+          title: "Validation Error",
+          description: "Please select a contact person for financial routes.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // Store form data in sessionStorage for page 2
@@ -386,13 +422,39 @@ function NewQMHQContent() {
               </div>
 
               <div className="grid grid-cols-2 gap-6">
-                <div className="grid gap-2">
-                  <Label htmlFor="contact_person_id" className="data-label">Contact Person</Label>
+                <div ref={contactPersonRef} className="grid gap-2">
+                  <Label htmlFor="contact_person_id" className="data-label">
+                    Contact Person
+                    {(formData.route_type === 'expense' || formData.route_type === 'po') && (
+                      <span className="text-red-400"> *</span>
+                    )}
+                  </Label>
                   <Select
                     value={formData.contact_person_id || "none"}
-                    onValueChange={(value) => setFormData({ ...formData, contact_person_id: value === "none" ? "" : value })}
+                    onValueChange={(value) => {
+                      setFormData({ ...formData, contact_person_id: value === "none" ? "" : value });
+                      if (contactPersonTouched) {
+                        // Clear error when user selects a value
+                        if (value && value !== "none") {
+                          setContactPersonError(null);
+                        } else if (formData.route_type === 'expense' || formData.route_type === 'po') {
+                          setContactPersonError("Contact person is required for financial routes");
+                        }
+                      }
+                    }}
+                    onOpenChange={(open) => {
+                      if (!open && !formData.contact_person_id) {
+                        setContactPersonTouched(true);
+                        if (formData.route_type === 'expense' || formData.route_type === 'po') {
+                          validateContactPerson();
+                        }
+                      }
+                    }}
                   >
-                    <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                    <SelectTrigger className={cn(
+                      "bg-slate-800/50 border-slate-700",
+                      contactPersonTouched && contactPersonError && "border-red-400"
+                    )}>
                       <SelectValue placeholder="Select contact person" />
                     </SelectTrigger>
                     <SelectContent>
@@ -409,6 +471,12 @@ function NewQMHQContent() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {contactPersonTouched && contactPersonError && (
+                    <p className="text-sm text-red-400 flex items-center gap-1 mt-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {contactPersonError}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid gap-2">
@@ -489,7 +557,12 @@ function NewQMHQContent() {
                   return (
                     <div
                       key={route.value}
-                      onClick={() => setFormData({ ...formData, route_type: route.value })}
+                      onClick={() => {
+                        setFormData({ ...formData, route_type: route.value });
+                        // Clear contact person error when switching routes
+                        setContactPersonError(null);
+                        setContactPersonTouched(false);
+                      }}
                       className={getRouteCardClasses(route.value)}
                     >
                       {/* Selection indicator */}

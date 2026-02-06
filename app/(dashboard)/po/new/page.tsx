@@ -160,6 +160,20 @@ function POCreateContent() {
     );
   };
 
+  const handleItemCreated = (newItem: Item) => {
+    // Add new item to available items list
+    setItems((prev) => [
+      ...prev,
+      {
+        id: newItem.id,
+        name: newItem.name,
+        sku: newItem.sku || null,
+        default_unit: newItem.default_unit || null,
+        price_reference: newItem.price_reference || null,
+      },
+    ]);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || !user) return;
@@ -539,6 +553,7 @@ function POCreateContent() {
             onAddItem={handleAddLineItem}
             onRemoveItem={handleRemoveLineItem}
             onUpdateItem={handleUpdateLineItem}
+            onItemCreated={handleItemCreated}
             currency={currency}
           />
         </div>

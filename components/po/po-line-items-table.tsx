@@ -1,6 +1,7 @@
 "use client";
 
-import { Trash2, Package, Plus, Minus } from "lucide-react";
+import { useState } from "react";
+import { Trash2, Package, Plus, Minus, Plus as PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +21,7 @@ import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
 import { AmountInput } from "@/components/ui/amount-input";
 import { MiniProgressBar } from "./po-progress-bar";
 import { calculateLineItemProgress } from "@/lib/utils/po-status";
+import { ItemDialog } from "@/app/(dashboard)/item/item-dialog";
 import type { POLineItem, Item } from "@/types/database";
 
 // For creating/editing - uses local state
@@ -39,6 +41,7 @@ interface EditableLineItemsTableProps {
   onAddItem: () => void;
   onRemoveItem: (id: string) => void;
   onUpdateItem: (id: string, field: keyof LineItemFormData, value: unknown) => void;
+  onItemCreated?: (newItem: Item) => void;
   currency?: string;
   disabled?: boolean;
 }
@@ -49,13 +52,38 @@ export function EditableLineItemsTable({
   onAddItem,
   onRemoveItem,
   onUpdateItem,
+  onItemCreated,
   currency = "MMK",
   disabled = false,
 }: EditableLineItemsTableProps) {
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [pendingLineId, setPendingLineId] = useState<string | null>(null);
+
   const subtotal = items.reduce(
     (sum, item) => sum + item.quantity * item.unit_price,
     0
   );
+
+  const handleItemCreated = (newItem: Item) => {
+    if (pendingLineId) {
+      onUpdateItem(pendingLineId, "item_id", newItem.id);
+      onUpdateItem(pendingLineId, "item_name", newItem.name);
+      onUpdateItem(pendingLineId, "item_sku", newItem.sku || "");
+      onUpdateItem(pendingLineId, "item_unit", newItem.default_unit || "");
+    }
+    onItemCreated?.(newItem);
+    setCreateDialogOpen(false);
+    setPendingLineId(null);
+  };
+
+  const handleCreateDialogClose = (refresh?: boolean, newItem?: Item) => {
+    if (newItem) {
+      handleItemCreated(newItem);
+    } else {
+      setCreateDialogOpen(false);
+      setPendingLineId(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -111,52 +139,68 @@ export function EditableLineItemsTable({
                       </Button>
                     </div>
                   ) : (
-                    <Select
-                      value=""
-                      onValueChange={(value) => {
-                        const selectedItem = availableItems.find(
-                          (i) => i.id === value
-                        );
-                        if (selectedItem) {
-                          onUpdateItem(item.id, "item_id", value);
-                          onUpdateItem(item.id, "item_name", selectedItem.name);
-                          onUpdateItem(item.id, "item_sku", selectedItem.sku || "");
-                          onUpdateItem(item.id, "item_unit", selectedItem.default_unit || "");
-                        }
-                      }}
-                      disabled={disabled}
-                    >
-                      <SelectTrigger className="w-full bg-slate-800 border-slate-700">
-                        <SelectValue placeholder="Select item..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <TooltipProvider delayDuration={300}>
-                          {availableItems.map((avail) => (
-                            <Tooltip key={avail.id}>
-                              <TooltipTrigger asChild>
-                                <SelectItem value={avail.id} className="cursor-pointer">
-                                  <span className="flex items-center gap-2">
-                                    <code className="font-mono text-amber-400 text-xs">
-                                      {avail.sku || "---"}
-                                    </code>
-                                    <span className="text-slate-400">-</span>
-                                    <span>{avail.name}</span>
-                                  </span>
-                                </SelectItem>
-                              </TooltipTrigger>
-                              {avail.price_reference && (
-                                <TooltipContent side="right" className="max-w-xs">
-                                  <p className="text-xs">
-                                    <span className="text-slate-400">Price Ref: </span>
-                                    <span className="text-slate-200">{avail.price_reference}</span>
-                                  </p>
-                                </TooltipContent>
-                              )}
-                            </Tooltip>
-                          ))}
-                        </TooltipProvider>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select
+                        value=""
+                        onValueChange={(value) => {
+                          const selectedItem = availableItems.find(
+                            (i) => i.id === value
+                          );
+                          if (selectedItem) {
+                            onUpdateItem(item.id, "item_id", value);
+                            onUpdateItem(item.id, "item_name", selectedItem.name);
+                            onUpdateItem(item.id, "item_sku", selectedItem.sku || "");
+                            onUpdateItem(item.id, "item_unit", selectedItem.default_unit || "");
+                          }
+                        }}
+                        disabled={disabled}
+                      >
+                        <SelectTrigger className="flex-1 bg-slate-800 border-slate-700">
+                          <SelectValue placeholder="Select item..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <TooltipProvider delayDuration={300}>
+                            {availableItems.map((avail) => (
+                              <Tooltip key={avail.id}>
+                                <TooltipTrigger asChild>
+                                  <SelectItem value={avail.id} className="cursor-pointer">
+                                    <span className="flex items-center gap-2">
+                                      <code className="font-mono text-amber-400 text-xs">
+                                        {avail.sku || "---"}
+                                      </code>
+                                      <span className="text-slate-400">-</span>
+                                      <span>{avail.name}</span>
+                                    </span>
+                                  </SelectItem>
+                                </TooltipTrigger>
+                                {avail.price_reference && (
+                                  <TooltipContent side="right" className="max-w-xs">
+                                    <p className="text-xs">
+                                      <span className="text-slate-400">Price Ref: </span>
+                                      <span className="text-slate-200">{avail.price_reference}</span>
+                                    </p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            ))}
+                          </TooltipProvider>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setPendingLineId(item.id);
+                          setCreateDialogOpen(true);
+                        }}
+                        disabled={disabled}
+                        className="shrink-0 border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10"
+                        title="Create new item"
+                      >
+                        <PlusIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
                   )}
                 </td>
                 <td className="py-2 px-3">
@@ -270,6 +314,12 @@ export function EditableLineItemsTable({
       >
         + Add Line Item
       </Button>
+
+      <ItemDialog
+        open={createDialogOpen}
+        onClose={handleCreateDialogClose}
+        item={null}
+      />
     </div>
   );
 }
