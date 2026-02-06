@@ -129,6 +129,10 @@ Plans:
 **Goal**: Users can upload files during QMRL creation before the entity is saved
 **Depends on**: Phase 17
 **Requirements**: ATCH-01
+**Plans**: 1 plan
+
+Plans:
+- [ ] 18-01-PLAN.md - Staged file upload with Upload-After-Create pattern
 
 **Success Criteria:**
 1. User sees file upload area in QMRL create form
@@ -206,7 +210,7 @@ Plans:
 | 15. Edit Capability | v1.3 | 1/1 | Complete | 2026-02-02 |
 | 16. Audit Notes Feature | v1.3 | 1/1 | Complete | 2026-02-02 |
 | 17. Attachment Delete Fixes | v1.4 | 1/1 | Complete | 2026-02-06 |
-| 18. QMRL Create Attachments | v1.4 | 0/? | Pending | — |
+| 18. QMRL Create Attachments | v1.4 | 0/1 | Pending | — |
 | 19. QMHQ Creation Workflow Enhancement | v1.4 | 0/? | Pending | — |
 | 20. Number Display Formatting | v1.4 | 0/? | Pending | — |
 | 21. Item Enhancements | v1.4 | 0/? | Pending | — |
