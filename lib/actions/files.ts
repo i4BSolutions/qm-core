@@ -165,8 +165,11 @@ export async function deleteFile(
     }
 
     // Use RPC function for soft-delete (bypasses RLS with explicit auth checks)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error: rpcError } = await (supabase.rpc as any)(
+    const rpcCall = supabase.rpc as (
+      fn: string,
+      args: Record<string, unknown>
+    ) => ReturnType<typeof supabase.rpc>;
+    const { data, error: rpcError } = await rpcCall(
       'soft_delete_file_attachment',
       {
         p_file_id: fileId,
