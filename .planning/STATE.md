@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 ## Current Position
 
-Phase: 20 - Number Display Formatting
-Plan: 01 of 1 (complete)
-Status: Phase complete
-Last activity: 2026-02-06 - Completed 20-01-PLAN.md
+Phase: 21 - Item Enhancements
+Plan: 01 of 3 (complete)
+Status: In progress
+Last activity: 2026-02-06 - Completed 21-01-PLAN.md
 
 ```
-v1.4 Progress: [#############       ] 67% (4/6 phases)
+v1.4 Progress: [##############      ] 71% (4.3/6 phases)
 ```
 
 ## v1.4 Phase Summary
@@ -26,7 +26,7 @@ v1.4 Progress: [#############       ] 67% (4/6 phases)
 | 18 | QMRL create attachments | ATCH-01 | Complete |
 | 19 | QMHQ creation workflow | QMHQ-01 | Complete |
 | 20 | Number display formatting | NUMD-01, NUMD-02 | Complete |
-| 21 | Item enhancements | ITEM-01, ITEM-02, ITEM-03 | Pending |
+| 21 | Item enhancements | ITEM-01, ITEM-02, ITEM-03 | Plan 01 complete |
 | 22 | PO inline creation & validation | POCR-01, AUTH-01, CONT-01, CONT-02 | Pending |
 
 ## Milestone History
@@ -85,6 +85,8 @@ See PROJECT.md Key Decisions table for full log.
 
 **Phase 20:** Use react-number-format NumericFormat for automatic thousand separator handling; AmountInput/ExchangeRateInput components; CurrencyDisplay truncation with min-w-0
 
+**Phase 21-01:** SKU format SKU-[CAT]-[XXXX] where CAT is first letter of each word uppercase; Tooltip component with max-w-xs for overflow prevention
+
 ### Pending Todos
 
 None.
@@ -100,9 +102,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 20 complete (Number display formatting)
-Resume: Run `/gsd:discuss-phase 21` or `/gsd:plan-phase 21` for Item enhancements
+Stopped at: Phase 21 Plan 01 complete (Database foundation for item enhancements)
+Resume: Run `/gsd:execute-plan .planning/phases/21-item-enhancements/21-02-PLAN.md` for next plan
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-06 - Phase 20 complete (Number display formatting)*
+*Last updated: 2026-02-06 - Phase 21 Plan 01 complete (Item SKU & price reference foundation)*
