@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/providers/auth-provider";
+import { QmrlContextPanel } from "@/components/qmhq/qmrl-context-panel";
 import {
   formatCurrency,
   handleQuantityKeyDown,
@@ -83,6 +84,15 @@ export default function QMHQRouteDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftData, setDraftData] = useState<DraftData | null>(null);
+
+  // Panel state: starts visible on desktop (>= 768px), closed on mobile
+  // No sessionStorage persistence - resets per step per user decision
+  const [isPanelOpen, setIsPanelOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
 
   // Item route state
   const [items, setItems] = useState<Item[]>([]);
@@ -405,401 +415,414 @@ export default function QMHQRouteDetailsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 relative">
+    <div className="relative">
       {/* Grid overlay */}
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
 
-      {/* Header */}
-      <div className="relative flex items-start gap-4 animate-fade-in">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleBack}
-          className="mt-1 hover:bg-amber-500/10 hover:text-amber-500"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className={`flex items-center gap-2 px-3 py-1 rounded border ${colors.badge}`}>
-              <Icon className={`h-4 w-4 ${colors.icon}`} />
-              <span className="text-xs font-semibold uppercase tracking-widest">
-                Step 2 of 2
-              </span>
+      {/* Main layout: form + panel */}
+      <div className="md:grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_384px] gap-6">
+        {/* Form Section */}
+        <div className="space-y-8">
+          {/* Header */}
+          <div className="relative flex items-start gap-4 animate-fade-in">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleBack}
+              className="mt-1 hover:bg-amber-500/10 hover:text-amber-500"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`flex items-center gap-2 px-3 py-1 rounded border ${colors.badge}`}>
+                  <Icon className={`h-4 w-4 ${colors.icon}`} />
+                  <span className="text-xs font-semibold uppercase tracking-widest">
+                    Step 2 of 2
+                  </span>
+                </div>
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-200">
+                {config.label} Details
+              </h1>
+              <p className="mt-1 text-slate-400">
+                {draftData?.line_name && (
+                  <>
+                    Line: <span className="text-slate-200">{draftData.line_name}</span>
+                  </>
+                )}
+              </p>
             </div>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-200">
-            {config.label} Details
-          </h1>
-          <p className="mt-1 text-slate-400">
-            {draftData?.line_name && (
+
+          {/* Route-specific Form */}
+          <div className="space-y-6">
+            {/* Item Route Form */}
+            {route === "item" && (
               <>
-                Line: <span className="text-slate-200">{draftData.line_name}</span>
+                <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
+                  <div className="section-header">
+                    <Package className={`h-4 w-4 ${colors.icon}`} />
+                    <h2>Item Selection</h2>
+                  </div>
+
+                  <div className="space-y-4">
+                    {selectedItems.map((selectedItem, index) => (
+                      <div key={selectedItem.id} className="grid grid-cols-12 gap-3 p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
+                        {/* Item Number */}
+                        <div className="col-span-12 sm:col-span-1 flex items-center">
+                          <span className="text-xs font-mono text-slate-500 uppercase">#{index + 1}</span>
+                        </div>
+
+                        {/* Item Select */}
+                        <div className="col-span-12 sm:col-span-7 space-y-1">
+                          <Label className="data-label text-xs">Item</Label>
+                          <Select
+                            value={selectedItem.item_id}
+                            onValueChange={(value) => handleUpdateItem(selectedItem.id, 'item_id', value)}
+                          >
+                            <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                              <SelectValue placeholder="Select item" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {items.map((item) => (
+                                <SelectItem key={item.id} value={item.id}>
+                                  <div className="flex items-center gap-2">
+                                    {item.sku && (
+                                      <code className="text-amber-400 text-xs">{item.sku}</code>
+                                    )}
+                                    <span className="text-slate-200">{item.name}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Quantity */}
+                        <div className="col-span-6 sm:col-span-3 space-y-1">
+                          <Label className="data-label text-xs">Quantity</Label>
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            value={selectedItem.quantity}
+                            onChange={(e) => handleUpdateItem(selectedItem.id, 'quantity', e.target.value)}
+                            onKeyDown={handleQuantityKeyDown}
+                            className="bg-slate-800/50 border-slate-700 focus:border-blue-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                        </div>
+
+                        {/* Remove Button */}
+                        <div className="col-span-6 sm:col-span-1 flex items-end justify-end sm:justify-center">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveItem(selectedItem.id)}
+                            disabled={selectedItems.length === 1}
+                            className="h-9 w-9 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Add Item Button */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddItem}
+                      className="w-full border-dashed border-slate-600 text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-blue-500/5"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Another Item
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Info Panel */}
+                <div className="command-panel animate-slide-up bg-blue-500/5 border-blue-500/20" style={{ animationDelay: "200ms" }}>
+                  <div className="flex items-start gap-3">
+                    <Info className="h-5 w-5 text-blue-400 mt-0.5" />
+                    <div>
+                      <h3 className="font-medium text-slate-200 mb-1">Item Route Info</h3>
+                      <p className="text-sm text-slate-400">
+                        This is an item request. Select the items and quantities needed.
+                        Stock out will be processed separately from the QMHQ detail page.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </>
             )}
-          </p>
-        </div>
-      </div>
 
-      {/* Route-specific Form */}
-      <div className="space-y-6">
-        {/* Item Route Form */}
-        {route === "item" && (
-          <>
-            <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
-              <div className="section-header">
-                <Package className={`h-4 w-4 ${colors.icon}`} />
-                <h2>Item Selection</h2>
-              </div>
-
-              <div className="space-y-4">
-                {selectedItems.map((selectedItem, index) => (
-                  <div key={selectedItem.id} className="grid grid-cols-12 gap-3 p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
-                    {/* Item Number */}
-                    <div className="col-span-12 sm:col-span-1 flex items-center">
-                      <span className="text-xs font-mono text-slate-500 uppercase">#{index + 1}</span>
-                    </div>
-
-                    {/* Item Select */}
-                    <div className="col-span-12 sm:col-span-7 space-y-1">
-                      <Label className="data-label text-xs">Item</Label>
-                      <Select
-                        value={selectedItem.item_id}
-                        onValueChange={(value) => handleUpdateItem(selectedItem.id, 'item_id', value)}
-                      >
-                        <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                          <SelectValue placeholder="Select item" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {items.map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
-                              <div className="flex items-center gap-2">
-                                {item.sku && (
-                                  <code className="text-amber-400 text-xs">{item.sku}</code>
-                                )}
-                                <span className="text-slate-200">{item.name}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Quantity */}
-                    <div className="col-span-6 sm:col-span-3 space-y-1">
-                      <Label className="data-label text-xs">Quantity</Label>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        value={selectedItem.quantity}
-                        onChange={(e) => handleUpdateItem(selectedItem.id, 'quantity', e.target.value)}
-                        onKeyDown={handleQuantityKeyDown}
-                        className="bg-slate-800/50 border-slate-700 focus:border-blue-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
-
-                    {/* Remove Button */}
-                    <div className="col-span-6 sm:col-span-1 flex items-end justify-end sm:justify-center">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveItem(selectedItem.id)}
-                        disabled={selectedItems.length === 1}
-                        className="h-9 w-9 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Add Item Button */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleAddItem}
-                  className="w-full border-dashed border-slate-600 text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-blue-500/5"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Another Item
-                </Button>
-              </div>
-            </div>
-
-            {/* Info Panel */}
-            <div className="command-panel animate-slide-up bg-blue-500/5 border-blue-500/20" style={{ animationDelay: "200ms" }}>
-              <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-blue-400 mt-0.5" />
-                <div>
-                  <h3 className="font-medium text-slate-200 mb-1">Item Route Info</h3>
-                  <p className="text-sm text-slate-400">
-                    This is an item request. Select the items and quantities needed.
-                    Stock out will be processed separately from the QMHQ detail page.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Expense Route Form */}
-        {route === "expense" && (
-          <>
-            <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
-              <div className="section-header">
-                <Wallet className={`h-4 w-4 ${colors.icon}`} />
-                <h2>Expense Details</h2>
-              </div>
-
-              <div className="space-y-5">
-                <div className="grid grid-cols-3 gap-6">
-                  <div className="grid gap-2">
-                    <Label htmlFor="amount" className="data-label">
-                      Amount <span className="text-red-400">*</span>
-                    </Label>
-                    <Input
-                      id="amount"
-                      type="text"
-                      inputMode="decimal"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      onKeyDown={handleAmountKeyDown}
-                      className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="currency" className="data-label">Currency</Label>
-                    <Select value={currency} onValueChange={setCurrency}>
-                      <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {currencies.map((c) => (
-                          <SelectItem key={c.value} value={c.value}>
-                            {c.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="exchange_rate" className="data-label">
-                      Exchange Rate <span className="text-red-400">*</span>
-                    </Label>
-                    <Input
-                      id="exchange_rate"
-                      type="text"
-                      inputMode="decimal"
-                      value={exchangeRate}
-                      onChange={(e) => setExchangeRate(e.target.value)}
-                      onKeyDown={handleExchangeRateKeyDown}
-                      className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <p className="text-xs text-slate-400">Rate to convert to EUSD (1 EUSD = X {currency})</p>
-                  </div>
-                </div>
-
-                {/* EUSD Calculation */}
-                <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Calculator className="h-5 w-5 text-emerald-400" />
-                      <span className="text-sm text-slate-300">Calculated EUSD Amount</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-2xl font-mono font-bold text-emerald-400">
-                        {formatCurrency(calculatedEusd)}
-                      </span>
-                      <span className="text-emerald-400 font-medium">EUSD</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-2">
-                    Formula: {formatCurrency(parseFloat(amount) || 0)} {currency} ÷ {exchangeRate || "1"} = {formatCurrency(calculatedEusd)} EUSD
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Info Panel */}
-            <div className="command-panel animate-slide-up bg-emerald-500/5 border-emerald-500/20" style={{ animationDelay: "200ms" }}>
-              <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-emerald-400 mt-0.5" />
-                <div>
-                  <h3 className="font-medium text-slate-200 mb-1">Expense Route Info</h3>
-                  <p className="text-sm text-slate-400">
-                    The Expense route tracks direct money transactions (Money In / Money Out).
-                    All amounts are converted to EUSD for standardized reporting.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* PO Route Form */}
-        {route === "po" && (
-          <>
-            <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
-              <div className="section-header">
-                <ShoppingCart className={`h-4 w-4 ${colors.icon}`} />
-                <h2>Budget Allocation</h2>
-              </div>
-
-              <div className="space-y-5">
-                <div className="grid grid-cols-3 gap-6">
-                  <div className="grid gap-2">
-                    <Label htmlFor="amount" className="data-label">
-                      Budget Amount <span className="text-red-400">*</span>
-                    </Label>
-                    <Input
-                      id="amount"
-                      type="text"
-                      inputMode="decimal"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      onKeyDown={handleAmountKeyDown}
-                      className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="currency" className="data-label">Currency</Label>
-                    <Select value={currency} onValueChange={setCurrency}>
-                      <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {currencies.map((c) => (
-                          <SelectItem key={c.value} value={c.value}>
-                            {c.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="exchange_rate" className="data-label">
-                      Exchange Rate <span className="text-red-400">*</span>
-                    </Label>
-                    <Input
-                      id="exchange_rate"
-                      type="text"
-                      inputMode="decimal"
-                      value={exchangeRate}
-                      onChange={(e) => setExchangeRate(e.target.value)}
-                      onKeyDown={handleExchangeRateKeyDown}
-                      className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <p className="text-xs text-slate-400">Rate to convert to EUSD</p>
-                  </div>
-                </div>
-
-                {/* EUSD Calculation */}
-                <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Calculator className="h-5 w-5 text-purple-400" />
-                      <span className="text-sm text-slate-300">Budget in EUSD</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-2xl font-mono font-bold text-purple-400">
-                        {formatCurrency(calculatedEusd)}
-                      </span>
-                      <span className="text-purple-400 font-medium">EUSD</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Balance Preview */}
-                <div className="grid grid-cols-3 gap-4 p-4 rounded-lg bg-slate-800/50 border border-slate-700">
-                  <div className="text-center">
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Total Money In</p>
-                    <p className="text-lg font-mono text-emerald-400">0.00 EUSD</p>
-                  </div>
-                  <div className="text-center border-x border-slate-700">
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">PO Committed</p>
-                    <p className="text-lg font-mono text-amber-400">0.00 EUSD</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Balance in Hand</p>
-                    <p className="text-lg font-mono text-purple-400">0.00 EUSD</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Info Panel */}
-            <div className="command-panel animate-slide-up bg-purple-500/5 border-purple-500/20" style={{ animationDelay: "200ms" }}>
-              <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-purple-400 mt-0.5" />
-                <div>
-                  <h3 className="font-medium text-slate-200 mb-1">PO Route Info</h3>
-                  <p className="text-sm text-slate-400">
-                    The PO route is for procurement via Purchase Orders. You&apos;ll set a budget here,
-                    then create Money In transactions and Purchase Orders. The system tracks Balance in Hand
-                    (Money In - PO Committed).
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Warning */}
-            <div className="command-panel animate-slide-up bg-amber-500/5 border-amber-500/20" style={{ animationDelay: "300ms" }}>
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5" />
-                <div>
-                  <h3 className="font-medium text-slate-200 mb-1">Important</h3>
-                  <p className="text-sm text-slate-400">
-                    You cannot create Purchase Orders until Money In transactions have been recorded.
-                    Balance in Hand must be sufficient to cover PO amounts.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Actions */}
-        <div className="flex justify-between items-center pt-4 animate-slide-up" style={{ animationDelay: "400ms" }}>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleBack}
-            disabled={isSubmitting}
-            className="border-slate-700 hover:bg-slate-800 text-slate-300"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className={`min-w-[160px] ${
-              config.color === "blue"
-                ? "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
-                : config.color === "emerald"
-                ? "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400"
-                : "bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400"
-            }`}
-          >
-            {isSubmitting ? (
+            {/* Expense Route Form */}
+            {route === "expense" && (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <Plus className="mr-2 h-4 w-4" />
-                Create QMHQ
+                <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
+                  <div className="section-header">
+                    <Wallet className={`h-4 w-4 ${colors.icon}`} />
+                    <h2>Expense Details</h2>
+                  </div>
+
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-3 gap-6">
+                      <div className="grid gap-2">
+                        <Label htmlFor="amount" className="data-label">
+                          Amount <span className="text-red-400">*</span>
+                        </Label>
+                        <Input
+                          id="amount"
+                          type="text"
+                          inputMode="decimal"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          onKeyDown={handleAmountKeyDown}
+                          className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="currency" className="data-label">Currency</Label>
+                        <Select value={currency} onValueChange={setCurrency}>
+                          <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currencies.map((c) => (
+                              <SelectItem key={c.value} value={c.value}>
+                                {c.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="exchange_rate" className="data-label">
+                          Exchange Rate <span className="text-red-400">*</span>
+                        </Label>
+                        <Input
+                          id="exchange_rate"
+                          type="text"
+                          inputMode="decimal"
+                          value={exchangeRate}
+                          onChange={(e) => setExchangeRate(e.target.value)}
+                          onKeyDown={handleExchangeRateKeyDown}
+                          className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <p className="text-xs text-slate-400">Rate to convert to EUSD (1 EUSD = X {currency})</p>
+                      </div>
+                    </div>
+
+                    {/* EUSD Calculation */}
+                    <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Calculator className="h-5 w-5 text-emerald-400" />
+                          <span className="text-sm text-slate-300">Calculated EUSD Amount</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-2xl font-mono font-bold text-emerald-400">
+                            {formatCurrency(calculatedEusd)}
+                          </span>
+                          <span className="text-emerald-400 font-medium">EUSD</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2">
+                        Formula: {formatCurrency(parseFloat(amount) || 0)} {currency} / {exchangeRate || "1"} = {formatCurrency(calculatedEusd)} EUSD
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info Panel */}
+                <div className="command-panel animate-slide-up bg-emerald-500/5 border-emerald-500/20" style={{ animationDelay: "200ms" }}>
+                  <div className="flex items-start gap-3">
+                    <Info className="h-5 w-5 text-emerald-400 mt-0.5" />
+                    <div>
+                      <h3 className="font-medium text-slate-200 mb-1">Expense Route Info</h3>
+                      <p className="text-sm text-slate-400">
+                        The Expense route tracks direct money transactions (Money In / Money Out).
+                        All amounts are converted to EUSD for standardized reporting.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </>
             )}
-          </Button>
+
+            {/* PO Route Form */}
+            {route === "po" && (
+              <>
+                <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
+                  <div className="section-header">
+                    <ShoppingCart className={`h-4 w-4 ${colors.icon}`} />
+                    <h2>Budget Allocation</h2>
+                  </div>
+
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-3 gap-6">
+                      <div className="grid gap-2">
+                        <Label htmlFor="amount" className="data-label">
+                          Budget Amount <span className="text-red-400">*</span>
+                        </Label>
+                        <Input
+                          id="amount"
+                          type="text"
+                          inputMode="decimal"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          onKeyDown={handleAmountKeyDown}
+                          className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="currency" className="data-label">Currency</Label>
+                        <Select value={currency} onValueChange={setCurrency}>
+                          <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currencies.map((c) => (
+                              <SelectItem key={c.value} value={c.value}>
+                                {c.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="exchange_rate" className="data-label">
+                          Exchange Rate <span className="text-red-400">*</span>
+                        </Label>
+                        <Input
+                          id="exchange_rate"
+                          type="text"
+                          inputMode="decimal"
+                          value={exchangeRate}
+                          onChange={(e) => setExchangeRate(e.target.value)}
+                          onKeyDown={handleExchangeRateKeyDown}
+                          className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <p className="text-xs text-slate-400">Rate to convert to EUSD</p>
+                      </div>
+                    </div>
+
+                    {/* EUSD Calculation */}
+                    <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Calculator className="h-5 w-5 text-purple-400" />
+                          <span className="text-sm text-slate-300">Budget in EUSD</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-2xl font-mono font-bold text-purple-400">
+                            {formatCurrency(calculatedEusd)}
+                          </span>
+                          <span className="text-purple-400 font-medium">EUSD</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Balance Preview */}
+                    <div className="grid grid-cols-3 gap-4 p-4 rounded-lg bg-slate-800/50 border border-slate-700">
+                      <div className="text-center">
+                        <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Total Money In</p>
+                        <p className="text-lg font-mono text-emerald-400">0.00 EUSD</p>
+                      </div>
+                      <div className="text-center border-x border-slate-700">
+                        <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">PO Committed</p>
+                        <p className="text-lg font-mono text-amber-400">0.00 EUSD</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Balance in Hand</p>
+                        <p className="text-lg font-mono text-purple-400">0.00 EUSD</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info Panel */}
+                <div className="command-panel animate-slide-up bg-purple-500/5 border-purple-500/20" style={{ animationDelay: "200ms" }}>
+                  <div className="flex items-start gap-3">
+                    <Info className="h-5 w-5 text-purple-400 mt-0.5" />
+                    <div>
+                      <h3 className="font-medium text-slate-200 mb-1">PO Route Info</h3>
+                      <p className="text-sm text-slate-400">
+                        The PO route is for procurement via Purchase Orders. You&apos;ll set a budget here,
+                        then create Money In transactions and Purchase Orders. The system tracks Balance in Hand
+                        (Money In - PO Committed).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Warning */}
+                <div className="command-panel animate-slide-up bg-amber-500/5 border-amber-500/20" style={{ animationDelay: "300ms" }}>
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5" />
+                    <div>
+                      <h3 className="font-medium text-slate-200 mb-1">Important</h3>
+                      <p className="text-sm text-slate-400">
+                        You cannot create Purchase Orders until Money In transactions have been recorded.
+                        Balance in Hand must be sufficient to cover PO amounts.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-between items-center pt-4 animate-slide-up" style={{ animationDelay: "400ms" }}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleBack}
+                disabled={isSubmitting}
+                className="border-slate-700 hover:bg-slate-800 text-slate-300"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+
+              <Button
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className={`min-w-[160px] ${
+                  config.color === "blue"
+                    ? "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
+                    : config.color === "emerald"
+                    ? "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400"
+                    : "bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400"
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create QMHQ
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
+
+        {/* QMRL Context Panel */}
+        <QmrlContextPanel
+          qmrlId={draftData?.qmrl_id || null}
+          isOpen={isPanelOpen}
+          onToggle={() => setIsPanelOpen(prev => !prev)}
+        />
       </div>
     </div>
   );
