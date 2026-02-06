@@ -163,24 +163,36 @@ export async function deleteFile(
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Soft delete (RLS will verify admin/quartermaster role)
-    const { data, error } = await supabase
+    // Step 1: Fetch entity info BEFORE soft delete (while row is still visible)
+    // This avoids the RLS issue where SELECT policy blocks soft-deleted rows
+    const { data: fileData, error: fetchError } = await supabase
+      .from('file_attachments')
+      .select('entity_type, entity_id')
+      .eq('id', fileId)
+      .single();
+
+    if (fetchError || !fileData) {
+      return { success: false, error: 'File not found or access denied' };
+    }
+
+    // Step 2: Perform soft delete WITHOUT chained select
+    // (RLS UPDATE policy allows owner or admin/quartermaster)
+    const { error: updateError } = await supabase
       .from('file_attachments')
       .update({
         deleted_at: new Date().toISOString(),
         deleted_by: user.id,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', fileId)
-      .select('entity_type, entity_id')
-      .single();
+      .eq('id', fileId);
 
-    if (error) {
-      return { success: false, error: `Delete failed: ${error.message}` };
+    if (updateError) {
+      return { success: false, error: `Delete failed: ${updateError.message}` };
     }
 
+    // Step 3: Use pre-fetched data for revalidation
     // Note: Storage object NOT deleted - cleanup job handles after 30 days
-    revalidatePath(`/${data.entity_type}/${data.entity_id}`);
+    revalidatePath(`/${fileData.entity_type}/${fileData.entity_id}`);
     return { success: true, data: undefined };
   } catch (error) {
     return {
