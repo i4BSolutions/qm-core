@@ -70,8 +70,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ATCH-01 | Phase 18 | Pending |
-| ATCH-02 | Phase 17 | Pending |
-| ATCH-03 | Phase 17 | Pending |
+| ATCH-02 | Phase 17 | Complete |
+| ATCH-03 | Phase 17 | Complete |
 | QMHQ-01 | Phase 19 | Pending |
 | NUMD-01 | Phase 20 | Pending |
 | NUMD-02 | Phase 20 | Pending |
