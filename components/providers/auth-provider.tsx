@@ -84,6 +84,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearSessionMarkers();
     setUser(null);
     setSupabaseUser(null);
+
+    // Broadcast to other tabs
+    try {
+      const channel = new BroadcastChannel('qm-auth');
+      channel.postMessage({ type: 'SIGNED_OUT' });
+      channel.close();
+    } catch {
+      // BroadcastChannel not supported - graceful degradation
+    }
+
     router.push("/login");
   }, [router]);
 
@@ -314,6 +324,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setIsLoading(false);
   }, []);
+
+  // Cross-tab logout sync via BroadcastChannel
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+
+    try {
+      channel = new BroadcastChannel('qm-auth');
+
+      channel.onmessage = (event) => {
+        if (event.data.type === 'SIGNED_OUT') {
+          // Another tab signed out - sync this tab
+          clearSessionMarkers();
+          setUser(null);
+          setSupabaseUser(null);
+          router.push('/login');
+        } else if (event.data.type === 'SIGNED_IN') {
+          // Another tab signed in - refresh user data
+          refreshUser();
+        }
+      };
+    } catch (e) {
+      // BroadcastChannel not supported (Safari) - graceful degradation
+      console.log('BroadcastChannel not available for cross-tab sync');
+    }
+
+    return () => {
+      try {
+        channel?.close();
+      } catch {}
+    };
+  }, [router, refreshUser]);
 
   const value = useMemo<AuthContextType>(() => ({
     user,
