@@ -114,6 +114,10 @@
 **Goal**: Users can delete attachments on QMRL and QMHQ detail pages without errors
 **Depends on**: Phase 16
 **Requirements**: ATCH-02, ATCH-03
+**Plans**: 1 plan
+
+Plans:
+- [ ] 17-01-PLAN.md - Fix deleteFile query pattern (fetch before update)
 
 **Success Criteria:**
 1. User can delete own attachment on QMRL detail page without RLS or database errors
@@ -201,7 +205,7 @@
 | 14. Currency & Number Input Standardization | v1.3 | 7/7 | Complete | 2026-02-02 |
 | 15. Edit Capability | v1.3 | 1/1 | Complete | 2026-02-02 |
 | 16. Audit Notes Feature | v1.3 | 1/1 | Complete | 2026-02-02 |
-| 17. Attachment Delete Fixes | v1.4 | 0/? | Pending | — |
+| 17. Attachment Delete Fixes | v1.4 | 0/1 | Planned | — |
 | 18. QMRL Create Attachments | v1.4 | 0/? | Pending | — |
 | 19. QMHQ Creation Workflow Enhancement | v1.4 | 0/? | Pending | — |
 | 20. Number Display Formatting | v1.4 | 0/? | Pending | — |
