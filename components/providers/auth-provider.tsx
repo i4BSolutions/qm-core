@@ -5,6 +5,15 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { User } from "@/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 // Session timeout: 6 hours
 const SESSION_TIMEOUT_MS = 6 * 60 * 60 * 1000;
@@ -64,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   const router = useRouter();
 
   const signOut = useCallback(async () => {
@@ -191,6 +201,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Check for unsaved work in sessionStorage
+  const checkForUnsavedWork = (): boolean => {
+    try {
+      return !!(
+        sessionStorage.getItem('qmhq_draft') ||
+        sessionStorage.getItem('qmhq_route_data') ||
+        sessionStorage.getItem('po_draft')
+      );
+    } catch {
+      return false;
+    }
+  };
+
   // Activity tracking
   useEffect(() => {
     if (!supabaseUser) return;
@@ -220,6 +243,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       events.forEach(e => window.removeEventListener(e, updateActivity));
       clearInterval(interval);
+    };
+  }, [supabaseUser, signOut]);
+
+  // Tab visibility handling - refresh session when tab becomes active
+  useEffect(() => {
+    if (!supabaseUser) return;
+
+    let isRefreshing = false; // Prevent re-entrancy
+
+    const handleVisibilityChange = async () => {
+      // Only act when tab becomes visible
+      if (document.visibilityState !== 'visible') return;
+      if (isRefreshing) return;
+
+      isRefreshing = true;
+
+      try {
+        const supabase = createClient();
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error || !session) {
+          // Session invalid - check for unsaved work
+          const hasUnsavedWork = checkForUnsavedWork();
+
+          if (hasUnsavedWork) {
+            setShowSessionExpiredModal(true);
+          } else {
+            await signOut();
+          }
+        } else {
+          // Session valid - update activity marker
+          try {
+            localStorage.setItem(ACTIVITY_KEY, Date.now().toString());
+          } catch {}
+        }
+      } catch (err) {
+        console.error('Session check failed:', err);
+      } finally {
+        isRefreshing = false;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [supabaseUser, signOut]);
 
@@ -258,6 +327,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={value}>
       {children}
+
+      {/* Session expired modal */}
+      <Dialog open={showSessionExpiredModal} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Session Expired</DialogTitle>
+            <DialogDescription>
+              Your session has expired. You have unsaved changes that will be lost.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Clear draft data and sign out
+                try {
+                  sessionStorage.removeItem('qmhq_draft');
+                  sessionStorage.removeItem('qmhq_route_data');
+                  sessionStorage.removeItem('po_draft');
+                } catch {}
+                setShowSessionExpiredModal(false);
+                signOut();
+              }}
+            >
+              Discard & Login
+            </Button>
+            <Button
+              onClick={() => setShowSessionExpiredModal(false)}
+            >
+              Stay on Page
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AuthContext.Provider>
   );
 }
