@@ -9,10 +9,25 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 17 - Attachment Delete Fixes
 Plan: —
-Status: Defining requirements
-Last activity: 2026-02-06 — Milestone v1.4 started
+Status: Roadmap created, awaiting plan
+Last activity: 2026-02-06 — Roadmap for v1.4 created (phases 17-22)
+
+```
+v1.4 Progress: [                    ] 0% (0/6 phases)
+```
+
+## v1.4 Phase Summary
+
+| Phase | Goal | Requirements | Status |
+|-------|------|--------------|--------|
+| 17 | Attachment delete fixes | ATCH-02, ATCH-03 | Pending |
+| 18 | QMRL create attachments | ATCH-01 | Pending |
+| 19 | QMHQ creation workflow | QMHQ-01 | Pending |
+| 20 | Number display formatting | NUMD-01, NUMD-02 | Pending |
+| 21 | Item enhancements | ITEM-01, ITEM-02, ITEM-03 | Pending |
+| 22 | PO inline creation & validation | POCR-01, AUTH-01, CONT-01, CONT-02 | Pending |
 
 ## Milestone History
 
@@ -77,9 +92,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Defining v1.4 requirements
-Resume: Continue with requirements definition
+Stopped at: Roadmap created for v1.4
+Resume: Run `/gsd:plan-phase 17` to create plan for Phase 17
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-06 — v1.4 milestone started*
+*Last updated: 2026-02-06 — v1.4 roadmap created (phases 17-22)*

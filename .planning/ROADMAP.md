@@ -6,6 +6,7 @@
 - **v1.1 Enhancement** - Phases 1-6 (shipped 2026-01-28)
 - **v1.2 Inventory & Financial Accuracy** - Phases 7-12 (shipped 2026-01-31)
 - **v1.3 UX & Bug Fixes** - Phases 13-16 (shipped 2026-02-02)
+- **v1.4 UX Enhancements & Workflow Improvements** - Phases 17-22 (in progress)
 
 ## Phases
 
@@ -106,6 +107,79 @@
 
 </details>
 
+<details open>
+<summary>v1.4 UX Enhancements & Workflow Improvements (Phases 17-22) - IN PROGRESS</summary>
+
+### Phase 17: Attachment Delete Fixes
+**Goal**: Users can delete attachments on QMRL and QMHQ detail pages without errors
+**Depends on**: Phase 16
+**Requirements**: ATCH-02, ATCH-03
+
+**Success Criteria:**
+1. User can delete own attachment on QMRL detail page without RLS or database errors
+2. User can delete own attachment on QMHQ detail page without RLS or database errors
+3. Admin/Quartermaster can delete any attachment on both pages without errors
+4. Deleted attachments are removed from UI immediately after successful deletion
+
+### Phase 18: QMRL Create Attachments
+**Goal**: Users can upload files during QMRL creation before the entity is saved
+**Depends on**: Phase 17
+**Requirements**: ATCH-01
+
+**Success Criteria:**
+1. User sees file upload area in QMRL create form
+2. User can select and preview files before submitting form
+3. Files are uploaded and linked to QMRL after entity creation succeeds
+4. Failed file uploads do not block QMRL creation (graceful degradation)
+
+### Phase 19: QMHQ Creation Workflow Enhancement
+**Goal**: Users see full QMRL context when creating QMHQ without leaving the creation flow
+**Depends on**: Phase 17
+**Requirements**: QMHQ-01
+
+**Success Criteria:**
+1. User sees side panel showing QMRL details when creating QMHQ
+2. Side panel displays QMRL title, description, status, category, and key fields
+3. Side panel remains visible throughout multi-step QMHQ creation
+4. Panel can be collapsed/expanded without losing QMHQ form state
+
+### Phase 20: Number Display Formatting
+**Goal**: Financial amounts display with thousand separators and fit within containers
+**Depends on**: Phase 17
+**Requirements**: NUMD-01, NUMD-02
+
+**Success Criteria:**
+1. Amount input fields show thousand separators as user types (1000 -> 1,000)
+2. Separators are stripped before form submission (clean numeric values)
+3. Large amounts (millions/billions) display responsively without overflow
+4. Currency display components handle long values without breaking layout
+
+### Phase 21: Item Enhancements
+**Goal**: Items support price reference notes and auto-generated codes based on category
+**Depends on**: Phase 20
+**Requirements**: ITEM-01, ITEM-02, ITEM-03
+
+**Success Criteria:**
+1. User can enter price reference note when creating/editing an item
+2. Price reference displays in PO line item selector for informed selection
+3. Item codes auto-generate as [CAT]-[NNNN] format when category is selected
+4. Auto-generated code can be overridden by user if needed
+5. Code uniqueness is validated before item creation
+
+### Phase 22: PO Inline Item Creation & Validation
+**Goal**: Users can create new items inline during PO entry and contact person is enforced for financial routes
+**Depends on**: Phase 21
+**Requirements**: POCR-01, AUTH-01, CONT-01, CONT-02
+
+**Success Criteria:**
+1. User can create new item inline from PO line item selector without leaving PO form
+2. Newly created item immediately appears in selector and can be added to PO
+3. User can work across multiple browser tabs without authentication errors
+4. Money-Out transactions (Expense route) require contact person before save
+5. PO route transactions require contact person before save
+
+</details>
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -127,3 +201,9 @@
 | 14. Currency & Number Input Standardization | v1.3 | 7/7 | Complete | 2026-02-02 |
 | 15. Edit Capability | v1.3 | 1/1 | Complete | 2026-02-02 |
 | 16. Audit Notes Feature | v1.3 | 1/1 | Complete | 2026-02-02 |
+| 17. Attachment Delete Fixes | v1.4 | 0/? | Pending | — |
+| 18. QMRL Create Attachments | v1.4 | 0/? | Pending | — |
+| 19. QMHQ Creation Workflow Enhancement | v1.4 | 0/? | Pending | — |
+| 20. Number Display Formatting | v1.4 | 0/? | Pending | — |
+| 21. Item Enhancements | v1.4 | 0/? | Pending | — |
+| 22. PO Inline Item Creation & Validation | v1.4 | 0/? | Pending | — |

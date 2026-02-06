@@ -69,25 +69,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ATCH-01 | TBD | Pending |
-| ATCH-02 | TBD | Pending |
-| ATCH-03 | TBD | Pending |
-| QMHQ-01 | TBD | Pending |
-| NUMD-01 | TBD | Pending |
-| NUMD-02 | TBD | Pending |
-| ITEM-01 | TBD | Pending |
-| ITEM-02 | TBD | Pending |
-| ITEM-03 | TBD | Pending |
-| POCR-01 | TBD | Pending |
-| AUTH-01 | TBD | Pending |
-| CONT-01 | TBD | Pending |
-| CONT-02 | TBD | Pending |
+| ATCH-01 | Phase 18 | Pending |
+| ATCH-02 | Phase 17 | Pending |
+| ATCH-03 | Phase 17 | Pending |
+| QMHQ-01 | Phase 19 | Pending |
+| NUMD-01 | Phase 20 | Pending |
+| NUMD-02 | Phase 20 | Pending |
+| ITEM-01 | Phase 21 | Pending |
+| ITEM-02 | Phase 21 | Pending |
+| ITEM-03 | Phase 21 | Pending |
+| POCR-01 | Phase 22 | Pending |
+| AUTH-01 | Phase 22 | Pending |
+| CONT-01 | Phase 22 | Pending |
+| CONT-02 | Phase 22 | Pending |
 
 **Coverage:**
 - v1.4 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13
+- Mapped to phases: 13
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-06*
-*Last updated: 2026-02-06 after initial definition*
+*Last updated: 2026-02-06 — Roadmap phases 17-22 assigned*
