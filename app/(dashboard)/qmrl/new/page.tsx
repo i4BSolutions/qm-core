@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, Loader2, FileText, Building2, Users, ClipboardList, AlertCircle } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, FileText, Building2, Users, ClipboardList, AlertCircle, Paperclip } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,9 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import { InlineCreateSelect } from "@/components/forms/inline-create-select";
+import { useStagedFiles } from "@/lib/hooks/use-staged-files";
+import { FileDropzonePreview } from "@/components/files/file-dropzone-preview";
+import { uploadFile } from "@/lib/actions/files";
 import type { StatusConfig, Category, Department, ContactPerson, User as UserType } from "@/types/database";
 
 type ContactPersonWithDepartment = ContactPerson & {
@@ -59,6 +62,9 @@ export default function NewQMRLPage() {
   const [statuses, setStatuses] = useState<StatusConfig[]>([]);
   const [contactPersons, setContactPersons] = useState<ContactPersonWithDepartment[]>([]);
   const [users, setUsers] = useState<UserType[]>([]);
+
+  // Staged files for upload after QMRL creation
+  const { files: stagedFiles, addFiles, removeFile, getFilesForUpload } = useStagedFiles();
 
   // Get the selected contact person's department
   const selectedContactPerson = contactPersons.find(cp => cp.id === formData.contact_person_id);
@@ -182,14 +188,64 @@ export default function NewQMRLPage() {
       return;
     }
 
+    // Upload staged files (non-blocking, graceful degradation)
+    const filesToUpload = getFilesForUpload();
+    if (filesToUpload.length > 0) {
+      // Store intent for feedback on detail page
+      sessionStorage.setItem(`pending-uploads-${data.id}`, JSON.stringify({
+        total: filesToUpload.length,
+        completed: 0,
+        failed: 0,
+      }));
+
+      // Start uploads in background (don't await - navigate immediately)
+      uploadStagedFilesSequentially(filesToUpload, data.id);
+    }
+
     toast({
       title: "Success",
-      description: "Request letter created successfully.",
+      description: filesToUpload.length > 0
+        ? "Request letter created. Uploading files..."
+        : "Request letter created successfully.",
       variant: "success",
     });
 
     router.push(`/qmrl/${data.id}`);
   };
+
+  /**
+   * Uploads files sequentially in background after QMRL creation.
+   * Updates sessionStorage with progress for the detail page to read.
+   */
+  async function uploadStagedFilesSequentially(files: File[], entityId: string) {
+    let completed = 0;
+    let failed = 0;
+
+    for (const file of files) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const result = await uploadFile(formData, 'qmrl', entityId);
+
+        if (result.success) {
+          completed++;
+        } else {
+          failed++;
+          console.error(`Upload failed for ${file.name}:`, result.error);
+        }
+      } catch (error) {
+        failed++;
+        console.error(`Upload error for ${file.name}:`, error);
+      }
+
+      // Update sessionStorage with progress (detail page will read this)
+      sessionStorage.setItem(`pending-uploads-${entityId}`, JSON.stringify({
+        total: files.length,
+        completed,
+        failed,
+      }));
+    }
+  }
 
   if (isLoading) {
     return (
@@ -462,8 +518,31 @@ export default function NewQMRLPage() {
           </div>
         </div>
 
+        {/* Section 5: Attachments */}
+        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "500ms" }}>
+          <div className="section-header">
+            <Paperclip className="h-4 w-4 text-amber-500" />
+            <h2>Attachments</h2>
+            {stagedFiles.length > 0 && (
+              <span className="ml-auto text-xs text-slate-400">
+                {stagedFiles.length} file{stagedFiles.length !== 1 ? 's' : ''} selected
+              </span>
+            )}
+          </div>
+
+          <FileDropzonePreview
+            files={stagedFiles}
+            onFilesAdd={addFiles}
+            onFileRemove={removeFile}
+            disabled={isSubmitting}
+          />
+          <p className="text-xs text-slate-400 mt-2">
+            Files will be uploaded after the request is created
+          </p>
+        </div>
+
         {/* Actions */}
-        <div className="flex justify-end gap-4 pt-4 animate-slide-up" style={{ animationDelay: "500ms" }}>
+        <div className="flex justify-end gap-4 pt-4 animate-slide-up" style={{ animationDelay: "600ms" }}>
           <Link href="/qmrl">
             <Button type="button" variant="outline" disabled={isSubmitting} className="border-slate-700 hover:bg-slate-800">
               Cancel

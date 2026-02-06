@@ -36,6 +36,7 @@ import { AttachmentsTab } from "@/components/files/attachments-tab";
 import { ClickableStatusBadge } from "@/components/status/clickable-status-badge";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useToast } from "@/components/ui/use-toast";
 
 interface QMRLWithRelations extends QMRL {
   status?: StatusConfig | null;
@@ -71,6 +72,7 @@ export default function QMRLDetailPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { can } = usePermissions();
+  const { toast } = useToast();
   const [qmrl, setQmrl] = useState<QMRLWithRelations | null>(null);
   const [relatedQmhq, setRelatedQmhq] = useState<QMHQWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -146,6 +148,48 @@ export default function QMRLDetailPage() {
       fetchQMRL(params.id as string);
     }
   }, [params.id, fetchQMRL]);
+
+  // Check for pending upload status from create page
+  useEffect(() => {
+    if (!qmrl?.id) return;
+
+    const checkPendingUploads = () => {
+      const pendingKey = `pending-uploads-${qmrl.id}`;
+      const pending = sessionStorage.getItem(pendingKey);
+
+      if (pending) {
+        try {
+          const { total, completed, failed } = JSON.parse(pending);
+          sessionStorage.removeItem(pendingKey);
+
+          if (failed > 0) {
+            toast({
+              title: "Some files failed to upload",
+              description: `${completed} of ${total} file${total !== 1 ? 's' : ''} uploaded successfully. You can retry from the Attachments tab.`,
+              variant: "destructive",
+            });
+          } else if (completed > 0 && completed === total) {
+            toast({
+              title: "Files uploaded",
+              description: `${completed} file${completed !== 1 ? 's' : ''} attached successfully.`,
+              variant: "success",
+            });
+          }
+
+          // Refresh file count
+          fetchQMRL(qmrl.id);
+        } catch (e) {
+          sessionStorage.removeItem(pendingKey);
+        }
+      }
+    };
+
+    // Check immediately and after a delay (uploads may still be in progress)
+    checkPendingUploads();
+    const timer = setTimeout(checkPendingUploads, 3000);
+
+    return () => clearTimeout(timer);
+  }, [qmrl?.id, toast, fetchQMRL]);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
