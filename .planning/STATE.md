@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Phase: 17 - Attachment Delete Fixes
-Plan: —
-Status: Roadmap created, awaiting plan
-Last activity: 2026-02-06 — Roadmap for v1.4 created (phases 17-22)
+Plan: 01 of 1 (complete)
+Status: Phase complete
+Last activity: 2026-02-06 — Completed 17-01-PLAN.md
 
 ```
-v1.4 Progress: [                    ] 0% (0/6 phases)
+v1.4 Progress: [###                 ] 17% (1/6 phases)
 ```
 
 ## v1.4 Phase Summary
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| 17 | Attachment delete fixes | ATCH-02, ATCH-03 | Pending |
+| 17 | Attachment delete fixes | ATCH-02, ATCH-03 | Complete |
 | 18 | QMRL create attachments | ATCH-01 | Pending |
 | 19 | QMHQ creation workflow | QMHQ-01 | Pending |
 | 20 | Number display formatting | NUMD-01, NUMD-02 | Pending |
@@ -77,6 +77,8 @@ v1.4 Progress: [                    ] 0% (0/6 phases)
 
 See PROJECT.md Key Decisions table for full log.
 
+**Phase 17:** Use fetch-before-update pattern for soft-delete with RLS (avoid SELECT policy conflicts after deleted_at is set)
+
 ### Pending Todos
 
 None.
@@ -92,9 +94,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Roadmap created for v1.4
-Resume: Run `/gsd:plan-phase 17` to create plan for Phase 17
+Stopped at: Completed Phase 17 Plan 01
+Resume file: None
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-06 — v1.4 roadmap created (phases 17-22)*
+*Last updated: 2026-02-06 — Phase 17 complete (attachment delete fixes)*
