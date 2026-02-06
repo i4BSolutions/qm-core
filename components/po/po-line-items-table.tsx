@@ -65,6 +65,9 @@ export function EditableLineItemsTable({
     0
   );
 
+  // Get IDs of already selected items to filter from dropdown
+  const selectedItemIds = new Set(items.map(i => i.item_id).filter(Boolean));
+
   const handleItemCreated = (newItem: Item) => {
     if (pendingLineId) {
       onUpdateItem(pendingLineId, "item_id", newItem.id);
@@ -177,7 +180,9 @@ export function EditableLineItemsTable({
                         </SelectTrigger>
                         <SelectContent>
                           <TooltipProvider delayDuration={300}>
-                            {availableItems.map((avail) => (
+                            {availableItems
+                              .filter((avail) => !selectedItemIds.has(avail.id))
+                              .map((avail) => (
                               <Tooltip key={avail.id}>
                                 <TooltipTrigger asChild>
                                   <SelectItem value={avail.id} className="cursor-pointer">
