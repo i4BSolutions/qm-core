@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 ## Current Position
 
-Phase: 21 - Item Enhancements
-Plan: 02 of 2 (complete)
-Status: Phase complete
-Last activity: 2026-02-06 - Completed 21-02-PLAN.md
+Phase: 22 - PO Inline Creation & Validation
+Plan: 02 of 3 (complete)
+Status: In progress
+Last activity: 2026-02-06 - Completed 22-02-PLAN.md
 
 ```
-v1.4 Progress: [################    ] 83% (5/6 phases)
+v1.4 Progress: [#################   ] 90% (5.7/6 phases)
 ```
 
 ## v1.4 Phase Summary
@@ -87,6 +87,10 @@ See PROJECT.md Key Decisions table for full log.
 
 **Phase 21:** SKU format SKU-[CAT]-[XXXX] where CAT is first letter of each word uppercase; Tooltip component with max-w-xs; Code-first display (SKU - Name) across all selectors; Price reference and category required for new items only
 
+**Phase 22-01:** Dialog callback pattern with return value (onClose with optional newItem parameter); Pending ID pattern for tracking which row triggered creation; Discard confirmation using window.confirm() with hasChanges tracking
+
+**Phase 22-02:** Contact person validation only for financial routes (expense, po); Blur validation pattern with onOpenChange handler; Scroll-to-error with useRef and scrollIntoView; Guard validation in Step 2 for data integrity
+
 ### Pending Todos
 
 None.
@@ -102,9 +106,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 21 complete (Item enhancements)
-Resume: Run `/gsd:discuss-phase 22` or `/gsd:plan-phase 22` for PO inline creation & validation
+Stopped at: Completed 22-02-PLAN.md (Contact person validation)
+Resume: Run `/gsd:execute-phase 22 03` for inline contact person creation
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-06 - Phase 21 complete (Item enhancements)*
+*Last updated: 2026-02-06 - Completed 22-02-PLAN.md*
