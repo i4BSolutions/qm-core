@@ -9,7 +9,7 @@ Requirements for v1.4 UX Enhancements & Workflow Improvements. Each maps to road
 
 ### Attachments
 
-- [ ] **ATCH-01**: User can upload files when creating a QMRL (in create form)
+- [x] **ATCH-01**: User can upload files when creating a QMRL (in create form)
 - [ ] **ATCH-02**: User can delete attachments on QMRL detail page without errors
 - [ ] **ATCH-03**: User can delete attachments on QMHQ detail page without errors
 
@@ -69,7 +69,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ATCH-01 | Phase 18 | Pending |
+| ATCH-01 | Phase 18 | Complete |
 | ATCH-02 | Phase 17 | Complete |
 | ATCH-03 | Phase 17 | Complete |
 | QMHQ-01 | Phase 19 | Pending |
