@@ -41,7 +41,7 @@ export default function ItemsPage() {
       const { data, error: queryError } = await supabase
         .from("items")
         .select(`
-          id, name, sku, photo_url, category_id,
+          id, name, sku, photo_url, category_id, price_reference,
           category_rel:categories(id, name, color)
         `)
         .eq("is_active", true)
@@ -139,11 +139,11 @@ export default function ItemsPage() {
     {
       accessorKey: "sku",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="SKU" />
+        <DataTableColumnHeader column={column} title="Code" />
       ),
       cell: ({ row }) => (
-        <code className="rounded bg-slate-800 px-2 py-0.5 text-xs font-mono text-brand-400">
-          {row.getValue("sku") || "—"}
+        <code className="rounded bg-slate-800 px-2 py-1 text-sm font-mono font-semibold text-brand-400">
+          {row.getValue("sku") || "---"}
         </code>
       ),
     },
@@ -162,12 +162,26 @@ export default function ItemsPage() {
       ),
     },
     {
+      accessorKey: "price_reference",
+      header: "Price Reference",
+      cell: ({ row }) => {
+        const ref = row.getValue("price_reference") as string | null;
+        return ref ? (
+          <span className="text-sm text-slate-300 truncate max-w-[200px] block" title={ref}>
+            {ref}
+          </span>
+        ) : (
+          <span className="text-slate-500">-</span>
+        );
+      },
+    },
+    {
       accessorKey: "category_rel",
       header: "Category",
       cell: ({ row }) => {
         const category = row.original.category_rel as Category | null;
         if (!category) {
-          return <span className="text-slate-400">—</span>;
+          return <span className="text-slate-500">-</span>;
         }
         return (
           <Badge
