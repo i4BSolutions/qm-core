@@ -5,17 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** v1.5 UX Polish & Collaboration
+**Current focus:** v1.5 UX Polish & Collaboration (Phase 23: Comments System)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-07 — Milestone v1.5 started
+Phase: 23 of 26 (Comments System)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-02-07 — v1.5 roadmap created
 
 ```
 v1.5 Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
+Overall: [████████████████████░░░░] 85% (22/26 phases from v1.0-v1.4 complete)
 ```
 
 ## Milestone History
@@ -24,7 +25,7 @@ v1.5 Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 **Velocity:**
 - Total plans: 9
-- Phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22
+- Phases: 20 -> 21 -> 22
 - Duration: 1 day
 
 **Key Patterns Established:**
@@ -40,7 +41,7 @@ v1.5 Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 **Velocity:**
 - Total plans: 11
-- Phases: 13 -> 14 -> 15 -> 16
+- Phases: 17 -> 18 -> 19
 - Duration: 1 day
 
 **Key Patterns Established:**
@@ -53,7 +54,8 @@ v1.5 Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 **Velocity:**
 - Total plans: 14
-- Phases: 7 -> 7.1 -> 8 -> 9 -> 10 -> 11 -> 12
+- Phases: 11 -> 12 -> 13 -> 14 -> 15 -> 16
+- Duration: 3 days
 
 **Key Patterns Established:**
 - EUSD-only display pattern (dropped MMK columns)
@@ -82,26 +84,35 @@ v1.5 Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 See PROJECT.md Key Decisions table for full log.
 
-(Reset for next milestone - v1.4 decisions archived to milestones/v1.4-ROADMAP.md)
+Recent decisions affecting v1.5 work:
+- [v1.4]: RPC creates audit before entity update (enables trigger deduplication)
+- [v1.4]: 2-second window for audit deduplication
+- [v1.3]: CurrencyDisplay two-line format (original + EUSD)
+- [v1.2]: Invoice has no Edit button (void functionality serves as modification)
 
 ### Pending Todos
 
-None.
+None yet (v1.5 roadmap just created).
 
 ### Blockers/Concerns
 
-**Tech Debt:** PO Edit page does not exist at /po/[id]/edit (Edit button links to 404)
+**Known Tech Debt:** PO Edit page does not exist at /po/[id]/edit (Edit button links to 404)
 - Pre-existing issue discovered during v1.3 audit
 - Either create edit page or document PO as immutable after creation
+- Deferred to post-v1.5
 
-**Future Enhancement:** Auto stock-out trigger currently handles only legacy single-item QMHQ. Multi-item trigger enhancement needed for future phase to loop through qmhq_items table.
+**v1.5 Research Flags (from research/SUMMARY.md):**
+- Phase 23: RLS performance optimization required (LEAKPROOF functions, partial indexes)
+- Phase 25: UX validation needed for disabled states and loading feedback
+- Phase 26: Edge case handling for multi-currency scenarios
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: v1.5 milestone started, defining requirements
-Resume: Continue with requirements definition or research
+Stopped at: Roadmap created for v1.5 milestone
+Resume: Ready to plan Phase 23 Comments System
+Next step: Run `/gsd:plan-phase 23` to begin planning
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-07 - v1.5 milestone started*
+*Last updated: 2026-02-07 - v1.5 roadmap created*

@@ -86,37 +86,37 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| COMM-01 | TBD | Pending |
-| COMM-02 | TBD | Pending |
-| COMM-03 | TBD | Pending |
-| COMM-04 | TBD | Pending |
-| COMM-05 | TBD | Pending |
-| COMM-06 | TBD | Pending |
-| COMM-07 | TBD | Pending |
-| COMM-08 | TBD | Pending |
-| COMM-09 | TBD | Pending |
-| TYPO-01 | TBD | Pending |
-| TYPO-02 | TBD | Pending |
-| TYPO-03 | TBD | Pending |
-| SLCT-01 | TBD | Pending |
-| SLCT-02 | TBD | Pending |
-| SLCT-03 | TBD | Pending |
-| SLCT-04 | TBD | Pending |
-| SLCT-05 | TBD | Pending |
-| SLCT-06 | TBD | Pending |
-| SLCT-07 | TBD | Pending |
-| CURR-01 | TBD | Pending |
-| CURR-02 | TBD | Pending |
-| CURR-03 | TBD | Pending |
-| CURR-04 | TBD | Pending |
-| CURR-05 | TBD | Pending |
-| CURR-06 | TBD | Pending |
+| COMM-01 | Phase 23 | Pending |
+| COMM-02 | Phase 23 | Pending |
+| COMM-03 | Phase 23 | Pending |
+| COMM-04 | Phase 23 | Pending |
+| COMM-05 | Phase 23 | Pending |
+| COMM-06 | Phase 23 | Pending |
+| COMM-07 | Phase 23 | Pending |
+| COMM-08 | Phase 23 | Pending |
+| COMM-09 | Phase 23 | Pending |
+| TYPO-01 | Phase 24 | Pending |
+| TYPO-02 | Phase 24 | Pending |
+| TYPO-03 | Phase 24 | Pending |
+| SLCT-01 | Phase 25 | Pending |
+| SLCT-02 | Phase 25 | Pending |
+| SLCT-03 | Phase 25 | Pending |
+| SLCT-04 | Phase 25 | Pending |
+| SLCT-05 | Phase 25 | Pending |
+| SLCT-06 | Phase 25 | Pending |
+| SLCT-07 | Phase 25 | Pending |
+| CURR-01 | Phase 26 | Pending |
+| CURR-02 | Phase 26 | Pending |
+| CURR-03 | Phase 26 | Pending |
+| CURR-04 | Phase 26 | Pending |
+| CURR-05 | Phase 26 | Pending |
+| CURR-06 | Phase 26 | Pending |
 
 **Coverage:**
 - v1.5 requirements: 25 total
-- Mapped to phases: 0
-- Unmapped: 25 (pending roadmap creation)
+- Mapped to phases: 25 (100% coverage)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 after initial definition*
+*Last updated: 2026-02-07 after roadmap creation*
