@@ -10,13 +10,13 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 23 of 26 (Comments System)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-07 — Completed 23-02-PLAN.md
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-02-07 — Completed 23-03-PLAN.md (Comments Integration)
 
 ```
-v1.5 Progress: [██░░░░░░░░░░░░░░░░░░] 10% (estimate)
-Overall: [████████████████████░░░░] 85% (22/26 phases from v1.0-v1.4 complete)
+v1.5 Progress: [███░░░░░░░░░░░░░░░░░] 15% (1 phase complete)
+Overall: [████████████████████░░░░] 88% (23/26 phases complete)
 ```
 
 ## Milestone History
@@ -85,6 +85,7 @@ Overall: [████████████████████░░░�
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting v1.5 work:
+- [23-03]: Comments placed after Tabs (always visible, not in tabs per user decision)
 - [23-02]: Optimistic UI updates for comments (add/delete immediately update local state)
 - [23-02]: Toast notifications for comment actions (consistent with PO/Invoice patterns)
 - [23-01]: Comments use single-level threading (replies cannot have replies)
@@ -114,10 +115,10 @@ None yet (v1.5 roadmap just created).
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 23-02-PLAN.md
+Stopped at: Completed 23-03-PLAN.md (Phase 23 complete)
 Resume file: None
-Next step: Continue to 23-03 (Comments Integration)
+Next step: Phase 24 (Notifications System) or user-directed work
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-07 - Completed 23-02 (Comment UI Components)*
+*Last updated: 2026-02-07 - Completed Phase 23 (Comments System)*
