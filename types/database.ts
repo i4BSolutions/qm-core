@@ -1904,6 +1904,45 @@ export type FileAttachmentInsert = TablesInsert<"file_attachments">
 export type FileAttachmentUpdate = TablesUpdate<"file_attachments">
 
 // ============================================
+// Comment Types
+// ============================================
+
+/**
+ * Entity types that support comments
+ */
+export type CommentEntityType = 'qmrl' | 'qmhq' | 'po' | 'invoice';
+
+/**
+ * Base Comment interface
+ */
+export interface Comment {
+  id: string;
+  entity_type: CommentEntityType;
+  entity_id: string;
+  parent_id: string | null;
+  content: string;
+  author_id: string;
+  deleted_at: string | null;
+  deleted_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Extended type with author relation for UI display
+ */
+export interface CommentWithAuthor extends Comment {
+  author: Pick<User, 'id' | 'full_name' | 'avatar_url'>;
+}
+
+/**
+ * Grouped comment with replies for threaded display
+ */
+export interface CommentWithReplies extends CommentWithAuthor {
+  replies: CommentWithAuthor[];
+}
+
+// ============================================
 // Audit Log Types
 // ============================================
 
