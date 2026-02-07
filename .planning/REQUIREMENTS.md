@@ -1,0 +1,122 @@
+# Requirements: QM System v1.5
+
+**Defined:** 2026-02-07
+**Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
+
+## v1.5 Requirements
+
+Requirements for v1.5 UX Polish & Collaboration milestone. Each maps to roadmap phases.
+
+### Comments
+
+- [ ] **COMM-01**: User can add comments on QMRL detail page
+- [ ] **COMM-02**: User can add comments on QMHQ detail page
+- [ ] **COMM-03**: User can add comments on PO detail page
+- [ ] **COMM-04**: User can add comments on Invoice detail page
+- [ ] **COMM-05**: User can reply to a comment (one level only)
+- [ ] **COMM-06**: User can delete own comments (soft delete)
+- [ ] **COMM-07**: Comment displays author name and timestamp
+- [ ] **COMM-08**: Comments ordered chronologically (oldest first)
+- [ ] **COMM-09**: Comments follow existing entity RLS visibility rules
+
+### Responsive Typography
+
+- [ ] **TYPO-01**: Large amounts on cards use fluid font scaling (CSS clamp)
+- [ ] **TYPO-02**: Very large numbers (15+ digits) truncate with tooltip showing full value
+- [ ] **TYPO-03**: Amount display responsive on mobile breakpoints
+
+### Two-Step Selector
+
+- [ ] **SLCT-01**: PO line item creation shows category selector first
+- [ ] **SLCT-02**: Item selector filters by selected category
+- [ ] **SLCT-03**: Category selector is searchable
+- [ ] **SLCT-04**: Item selector is searchable
+- [ ] **SLCT-05**: Changing category resets item selection
+- [ ] **SLCT-06**: Item selector shows loading state while fetching
+- [ ] **SLCT-07**: Item selector shows empty state when no items in category
+
+### Currency Unification
+
+- [ ] **CURR-01**: Money-out currency inherits from first money-in transaction
+- [ ] **CURR-02**: Money-out exchange rate inherits from first money-in transaction
+- [ ] **CURR-03**: QMHQ detail page shows Org + EUSD amounts
+- [ ] **CURR-04**: QMHQ list cards show Org + EUSD amounts
+- [ ] **CURR-05**: Money-out form shows remaining balance (money_in - sum of money_out)
+- [ ] **CURR-06**: Validation prevents money-out exceeding available balance
+
+## Future Requirements
+
+Deferred to later milestones. Tracked but not in current roadmap.
+
+### Comments Enhancements
+
+- **COMM-10**: Real-time comment updates via Supabase subscriptions
+- **COMM-11**: Comment count badge on detail page tabs
+- **COMM-12**: @mention users in comments with notifications
+
+### Typography Enhancements
+
+- **TYPO-04**: Number abbreviation (K/M/B) with toggle option
+
+### Selector Enhancements
+
+- **SLCT-08**: Recently used categories shown at top of list
+
+### Currency Enhancements
+
+- **CURR-07**: Inherited currency indicator badge on form fields
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| Multi-level comment threading | Visual complexity, harder to follow discussions |
+| Edit comments | Breaks audit integrity, could hide context of replies |
+| @mention notifications | Requires notification system infrastructure (defer to v1.6+) |
+| Comment reactions/upvotes | Not relevant for internal management tool |
+| Auto-abbreviation without toggle | Loses trust in financial context |
+| Manual currency override on money-out | Defeats unification purpose, complicates balance calculation |
+| Inline item creation from two-step selector | Breaks selector focus, inline creation exists elsewhere |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| COMM-01 | TBD | Pending |
+| COMM-02 | TBD | Pending |
+| COMM-03 | TBD | Pending |
+| COMM-04 | TBD | Pending |
+| COMM-05 | TBD | Pending |
+| COMM-06 | TBD | Pending |
+| COMM-07 | TBD | Pending |
+| COMM-08 | TBD | Pending |
+| COMM-09 | TBD | Pending |
+| TYPO-01 | TBD | Pending |
+| TYPO-02 | TBD | Pending |
+| TYPO-03 | TBD | Pending |
+| SLCT-01 | TBD | Pending |
+| SLCT-02 | TBD | Pending |
+| SLCT-03 | TBD | Pending |
+| SLCT-04 | TBD | Pending |
+| SLCT-05 | TBD | Pending |
+| SLCT-06 | TBD | Pending |
+| SLCT-07 | TBD | Pending |
+| CURR-01 | TBD | Pending |
+| CURR-02 | TBD | Pending |
+| CURR-03 | TBD | Pending |
+| CURR-04 | TBD | Pending |
+| CURR-05 | TBD | Pending |
+| CURR-06 | TBD | Pending |
+
+**Coverage:**
+- v1.5 requirements: 25 total
+- Mapped to phases: 0
+- Unmapped: 25 (pending roadmap creation)
+
+---
+*Requirements defined: 2026-02-07*
+*Last updated: 2026-02-07 after initial definition*
