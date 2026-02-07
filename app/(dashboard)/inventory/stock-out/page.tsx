@@ -33,6 +33,7 @@ import {
   requiresDestinationWarehouse,
   formatStockQuantity,
 } from "@/lib/utils/inventory";
+import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
 import type {
@@ -74,6 +75,7 @@ export default function StockOutPage() {
   const [qmhqItemsInfo, setQmhqItemsInfo] = useState<Map<string, { requested: number; issued: number }>>(new Map());
 
   // Form state
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [selectedItemId, setSelectedItemId] = useState("");
   const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
   const [quantity, setQuantity] = useState<string>("");
@@ -530,28 +532,19 @@ export default function StockOutPage() {
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-              Item *
-            </label>
-            <Select value={selectedItemId} onValueChange={setSelectedItemId}>
-              <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                <SelectValue placeholder="Select item to issue..." />
-              </SelectTrigger>
-              <SelectContent>
-                {items.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{item.name}</span>
-                      {item.sku && (
-                        <code className="text-xs text-amber-400">
-                          {item.sku}
-                        </code>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CategoryItemSelector
+              categoryId={selectedCategoryId}
+              itemId={selectedItemId}
+              onCategoryChange={(catId) => {
+                setSelectedCategoryId(catId);
+                setSelectedItemId("");
+                setItemWarehouses([]);
+              }}
+              onItemChange={(itmId) => {
+                setSelectedItemId(itmId);
+              }}
+              disabled={isSubmitting}
+            />
           </div>
 
           {/* Item Info */}

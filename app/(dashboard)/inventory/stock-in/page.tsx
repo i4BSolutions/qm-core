@@ -36,6 +36,7 @@ import { AmountInput } from "@/components/ui/amount-input";
 import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { MOVEMENT_TYPE_CONFIG } from "@/lib/utils/inventory";
+import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
 import type {
@@ -112,6 +113,7 @@ function StockInContent() {
   const [stockInLines, setStockInLines] = useState<StockInLineItem[]>([]);
 
   // Manual mode state
+  const [manualCategoryId, setManualCategoryId] = useState("");
   const [manualItemId, setManualItemId] = useState("");
   const [manualQuantity, setManualQuantity] = useState<string>("");
   const [manualUnitCost, setManualUnitCost] = useState<string>("");
@@ -529,7 +531,11 @@ function StockInContent() {
         <div className="grid grid-cols-2 gap-4">
           <button
             type="button"
-            onClick={() => setSourceMode("invoice")}
+            onClick={() => {
+              setSourceMode("invoice");
+              setManualCategoryId("");
+              setManualItemId("");
+            }}
             className={`p-4 rounded-lg border text-left transition-all ${
               sourceMode === "invoice"
                 ? "bg-amber-500/10 border-amber-500/50"
@@ -835,28 +841,18 @@ function StockInContent() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Item *
-              </label>
-              <Select value={manualItemId} onValueChange={setManualItemId}>
-                <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                  <SelectValue placeholder="Select item..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {items.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{item.name}</span>
-                        {item.sku && (
-                          <code className="text-xs text-amber-400">
-                            {item.sku}
-                          </code>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CategoryItemSelector
+                categoryId={manualCategoryId}
+                itemId={manualItemId}
+                onCategoryChange={(catId) => {
+                  setManualCategoryId(catId);
+                  setManualItemId("");
+                }}
+                onItemChange={(itmId) => {
+                  setManualItemId(itmId);
+                }}
+                disabled={isSubmitting}
+              />
             </div>
 
             <div>
