@@ -41,9 +41,15 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Multi-tab session handling with cross-tab logout sync
 - Contact person validation for Expense and PO routes
 
-## Next Milestone Goals
+## Current Milestone: v1.5 UX Polish & Collaboration
 
-TBD - Run `/gsd:new-milestone` to define v1.5 goals
+**Goal:** Improve amount display responsiveness, add team collaboration via comments, streamline PO item selection with category filtering, and unify QMHQ currency handling.
+
+**Target features:**
+- Large amount responsiveness on cards (auto-shrinking font for 15+ digit numbers)
+- Comments with threaded replies on QMRL, QMHQ, PO, and Invoice detail pages
+- Two-step PO line item selector (category → item with search)
+- Unified currency for QMHQ money-in/out with Org + EUSD display
 
 ## Requirements
 
@@ -103,7 +109,15 @@ TBD - Run `/gsd:new-milestone` to define v1.5 goals
 
 ### Active
 
-(None - run `/gsd:new-milestone` to define v1.5 requirements)
+<!-- V1.5 Features -->
+- [ ] Large amount responsiveness on cards with auto-shrinking font
+- [ ] Comment threads on QMRL/QMHQ/PO/Invoice detail pages
+- [ ] One level of reply support for comments
+- [ ] Delete own comments (no edit)
+- [ ] Two-step PO line item selector (category → item)
+- [ ] Searchable category and item selectors in PO creation
+- [ ] QMHQ money-out inherits currency from money-in
+- [ ] Org + EUSD display on QMHQ detail pages and list cards
 
 ### Out of Scope
 
@@ -120,6 +134,7 @@ TBD - Run `/gsd:new-milestone` to define v1.5 goals
 - v1.2 Inventory & Financial Accuracy — WAC, inventory dashboard, void cascade (shipped 2026-01-31)
 - v1.3 UX & Bug Fixes — Input behavior, currency display, edit buttons, audit notes (shipped 2026-02-02)
 - v1.4 UX Enhancements & Workflow Improvements — Attachments, number formatting, inline creation, multi-tab auth (shipped 2026-02-06)
+- v1.5 UX Polish & Collaboration — Amount responsiveness, comments, PO item selector, currency unification (in progress)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -167,4 +182,4 @@ TBD - Run `/gsd:new-milestone` to define v1.5 goals
   - Either create edit page or document PO as immutable after creation
 
 ---
-*Last updated: 2026-02-06 after v1.4 milestone shipped*
+*Last updated: 2026-02-07 after v1.5 milestone started*
