@@ -113,24 +113,24 @@ Plans:
 
 #### Phase 26: Currency Unification
 
-**Goal**: QMHQ money-out inherits currency from money-in with balance tracking and validation
+**Goal**: QMHQ transactions inherit locked currency from parent QMHQ with balance tracking and validation warning
 
 **Depends on**: None (independent but benefits from established patterns)
 
 **Requirements**: CURR-01, CURR-02, CURR-03, CURR-04, CURR-05, CURR-06
 
 **Success Criteria** (what must be TRUE):
-  1. Money-out currency and exchange rate auto-populate from first money-in transaction
-  2. QMHQ detail pages and list cards show amounts in both org currency and EUSD
-  3. Money-out form displays remaining balance (money_in - sum of money_out)
-  4. Validation prevents money-out from exceeding available balance
-  5. Currency inheritance works correctly when creating PO from QMHQ
+  1. Money-in/out currency locked to QMHQ currency with visual indicator
+  2. Exchange rate defaults from QMHQ but remains editable per transaction
+  3. QMHQ detail pages and list cards show amounts in both org currency and EUSD
+  4. Money-out form displays remaining balance (static, not real-time)
+  5. Validation warns (not blocks) when money-out exceeds available balance
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 26-01: TBD during phase planning
-- [ ] 26-02: TBD during phase planning
+- [ ] 26-01-PLAN.md — TransactionDialog currency inheritance and balance validation
+- [ ] 26-02-PLAN.md — Dual currency display on QMHQ detail and list pages
 
 ## Progress
 
@@ -142,4 +142,4 @@ Phases execute in numeric order: 23 → 24 → 25 → 26
 | 23. Comments System | v1.5 | 3/3 | ✓ Complete | 2026-02-07 |
 | 24. Responsive Typography | v1.5 | 2/2 | ✓ Complete | 2026-02-07 |
 | 25. Two-Step Selectors | v1.5 | 2/2 | ✓ Complete | 2026-02-08 |
-| 26. Currency Unification | v1.5 | 0/0 | Not started | - |
+| 26. Currency Unification | v1.5 | 0/2 | Planned | - |
