@@ -91,7 +91,7 @@ Plans:
 - [x] 24-01-PLAN.md — Fluid font utilities and formatCompactCurrency
 - [x] 24-02-PLAN.md — Enhanced CurrencyDisplay and card updates
 
-#### Phase 25: Two-Step Selectors
+#### ✅ Phase 25: Two-Step Selectors (Completed 2026-02-08)
 
 **Goal**: PO line item selection uses category-first filtering to reduce item list complexity
 
@@ -100,16 +100,16 @@ Plans:
 **Requirements**: SLCT-01, SLCT-02, SLCT-03, SLCT-04, SLCT-05, SLCT-06, SLCT-07
 
 **Success Criteria** (what must be TRUE):
-  1. User selects category first in PO line item creation, then item selector filters by that category
-  2. Both category and item selectors are searchable with clear visual states
-  3. Changing category resets item selection and shows appropriate loading/empty states
-  4. User can successfully create PO line items with category → item workflow
+  1. ✓ User selects category first in PO line item creation, then item selector filters by that category
+  2. ✓ Both category and item selectors are searchable with clear visual states
+  3. ✓ Changing category resets item selection and shows appropriate loading/empty states
+  4. ✓ User can successfully create PO line items with category → item workflow
 
 **Plans**: 2 plans
 
 Plans:
-- [ ] 25-01-PLAN.md — Create reusable CategoryItemSelector component
-- [ ] 25-02-PLAN.md — Integrate into PO line items, stock-in, and stock-out pages
+- [x] 25-01-PLAN.md — Create reusable CategoryItemSelector component
+- [x] 25-02-PLAN.md — Integrate into PO line items, stock-in, and stock-out pages
 
 #### Phase 26: Currency Unification
 
@@ -141,5 +141,5 @@ Phases execute in numeric order: 23 → 24 → 25 → 26
 |-------|-----------|----------------|--------|-----------|
 | 23. Comments System | v1.5 | 3/3 | ✓ Complete | 2026-02-07 |
 | 24. Responsive Typography | v1.5 | 2/2 | ✓ Complete | 2026-02-07 |
-| 25. Two-Step Selectors | v1.5 | 0/2 | Ready for execution | - |
+| 25. Two-Step Selectors | v1.5 | 2/2 | ✓ Complete | 2026-02-08 |
 | 26. Currency Unification | v1.5 | 0/0 | Not started | - |

@@ -27,13 +27,13 @@ Requirements for v1.5 UX Polish & Collaboration milestone. Each maps to roadmap 
 
 ### Two-Step Selector
 
-- [ ] **SLCT-01**: PO line item creation shows category selector first
-- [ ] **SLCT-02**: Item selector filters by selected category
-- [ ] **SLCT-03**: Category selector is searchable
-- [ ] **SLCT-04**: Item selector is searchable
-- [ ] **SLCT-05**: Changing category resets item selection
-- [ ] **SLCT-06**: Item selector shows loading state while fetching
-- [ ] **SLCT-07**: Item selector shows empty state when no items in category
+- [x] **SLCT-01**: PO line item creation shows category selector first
+- [x] **SLCT-02**: Item selector filters by selected category
+- [x] **SLCT-03**: Category selector is searchable
+- [x] **SLCT-04**: Item selector is searchable
+- [x] **SLCT-05**: Changing category resets item selection
+- [x] **SLCT-06**: Item selector shows loading state while fetching
+- [x] **SLCT-07**: Item selector shows empty state when no items in category
 
 ### Currency Unification
 
@@ -98,13 +98,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TYPO-01 | Phase 24 | Complete |
 | TYPO-02 | Phase 24 | Complete |
 | TYPO-03 | Phase 24 | Complete |
-| SLCT-01 | Phase 25 | Pending |
-| SLCT-02 | Phase 25 | Pending |
-| SLCT-03 | Phase 25 | Pending |
-| SLCT-04 | Phase 25 | Pending |
-| SLCT-05 | Phase 25 | Pending |
-| SLCT-06 | Phase 25 | Pending |
-| SLCT-07 | Phase 25 | Pending |
+| SLCT-01 | Phase 25 | Complete |
+| SLCT-02 | Phase 25 | Complete |
+| SLCT-03 | Phase 25 | Complete |
+| SLCT-04 | Phase 25 | Complete |
+| SLCT-05 | Phase 25 | Complete |
+| SLCT-06 | Phase 25 | Complete |
+| SLCT-07 | Phase 25 | Complete |
 | CURR-01 | Phase 26 | Pending |
 | CURR-02 | Phase 26 | Pending |
 | CURR-03 | Phase 26 | Pending |
@@ -119,4 +119,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 - Phase 24 (Responsive Typography) requirements complete*
+*Last updated: 2026-02-08 - Phase 25 (Two-Step Selectors) requirements complete*
