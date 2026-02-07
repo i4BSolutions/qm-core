@@ -32,6 +32,7 @@ import { canCreateInvoice } from "@/lib/utils/po-status";
 import { calculatePOProgress, canEditPO, canCancelPO } from "@/lib/utils/po-status";
 import { HistoryTab } from "@/components/history";
 import { usePermissions } from "@/lib/hooks/use-permissions";
+import { CommentsSection } from "@/components/comments";
 import type {
   PurchaseOrder,
   POLineItem,
@@ -643,6 +644,9 @@ export default function PODetailPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Comments Section */}
+      <CommentsSection entityType="po" entityId={poId} />
     </div>
   );
 }

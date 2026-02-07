@@ -38,6 +38,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { HistoryTab } from "@/components/history";
 import { voidInvoice } from "@/lib/actions/invoice-actions";
 import { useToast } from "@/components/ui/use-toast";
+import { CommentsSection } from "@/components/comments";
 import type {
   Invoice,
   InvoiceLineItem,
@@ -822,6 +823,9 @@ export default function InvoiceDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Comments Section */}
+      <CommentsSection entityType="invoice" entityId={invoiceId} />
 
       {/* Void Dialog */}
       <VoidInvoiceDialog
