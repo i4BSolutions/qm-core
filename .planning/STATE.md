@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** v1.5 UX Polish & Collaboration (Phase 23 complete, Phase 24 complete)
+**Current focus:** v1.5 UX Polish & Collaboration (Phase 23 complete, Phase 24 complete, Phase 25 complete)
 
 ## Current Position
 
-Phase: 25 of 26 (Two-Step Selectors)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-07 — Completed 25-01-PLAN.md (CategoryItemSelector component)
+Phase: 25 of 26 (Two-Step Selectors) - COMPLETE
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-07 — Completed 25-02-PLAN.md (CategoryItemSelector integration)
 
 ```
-v1.5 Progress: [████████████░░░░░░░░] 60% (2.5/4 phases complete)
-Overall: [█████████████████████░░░] 93% (24.5/26 phases complete)
+v1.5 Progress: [███████████████░░░░░] 75% (3/4 phases complete)
+Overall: [██████████████████████░░] 96% (25/26 phases complete)
 ```
 
 ## Milestone History
@@ -85,6 +85,9 @@ Overall: [█████████████████████░░�
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting v1.5 work:
+- [25-02]: CategoryItemSelector replaces all flat item dropdowns app-wide
+- [25-02]: category_id added to LineItemFormData for PO line items
+- [25-02]: Change button clears both category and item selections
 - [25-01]: On-demand loading for items (categories prefetch, items lazy-load on category change)
 - [25-01]: AbortController cancels in-flight item requests on rapid category switching
 - [25-01]: Empty categories (no active items) hidden from dropdown
@@ -118,16 +121,15 @@ None yet (v1.5 roadmap just created).
 
 **v1.5 Research Flags (from research/SUMMARY.md):**
 - Phase 23: RLS performance optimization required (LEAKPROOF functions, partial indexes)
-- Phase 25: UX validation needed for disabled states and loading feedback
 - Phase 26: Edge case handling for multi-currency scenarios
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 25-01-PLAN.md
+Stopped at: Completed 25-02-PLAN.md
 Resume file: None
-Next step: Execute 25-02-PLAN.md to integrate CategoryItemSelector across pages
+Next step: Execute Phase 26 (Multi-Currency Support) to complete v1.5
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-07 - Completed Phase 25 Plan 01 (CategoryItemSelector component)*
+*Last updated: 2026-02-07 - Completed Phase 25 (Two-Step Selectors)*
