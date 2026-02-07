@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** v1.5 UX Polish & Collaboration (Phase 23 complete, Phase 24 complete, Phase 25 complete)
+**Current focus:** v1.5 UX Polish & Collaboration (Phase 23-25 complete, Phase 26 in progress)
 
 ## Current Position
 
-Phase: 25 of 26 (Two-Step Selectors) ✓ COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase complete and verified
-Last activity: 2026-02-08 — Phase 25 executed and verified
+Phase: 26 of 26 (Currency Unification)
+Plan: 2 of 4 in current phase
+Status: In progress
+Last activity: 2026-02-08 — Completed 26-02-PLAN.md
 
 ```
-v1.5 Progress: [███████████████░░░░░] 75% (3/4 phases complete)
-Overall: [██████████████████████░░] 96% (25/26 phases complete)
+v1.5 Progress: [█████████████████░░░] 85% (3.5/4 phases)
+Overall: [██████████████████████░░] 98% (25.5/26 phases)
 ```
 
 ## Milestone History
@@ -85,6 +85,8 @@ Overall: [██████████████████████░�
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting v1.5 work:
+- [26-02]: Transaction list retains +/- prefix and color coding while showing dual currency
+- [26-02]: Org currency primary, EUSD secondary matches CurrencyDisplay convention
 - [25-02]: CategoryItemSelector replaces all flat item dropdowns app-wide
 - [25-02]: category_id added to LineItemFormData for PO line items
 - [25-02]: Change button clears both category and item selections
@@ -126,10 +128,10 @@ None yet (v1.5 roadmap just created).
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Phase 25 complete and verified
+Stopped at: Completed 26-02-PLAN.md
 Resume file: None
-Next step: Run `/gsd:discuss-phase 26` or `/gsd:plan-phase 26` for Currency Unification
+Next step: Execute 26-03-PLAN.md (PO dual currency)
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-08 - Completed Phase 25 (Two-Step Selectors)*
+*Last updated: 2026-02-08 - Completed 26-02 (QMHQ Dual Currency Display)*
