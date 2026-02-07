@@ -1007,10 +1007,14 @@ export default function QMHQDetailPage() {
                                 ? "text-emerald-400"
                                 : "text-amber-400"
                             }`}>
-                              {tx.transaction_type === "money_in" ? "+" : "-"}{formatCurrency(tx.amount_eusd ?? 0)} EUSD
+                              {tx.transaction_type === "money_in" ? "+" : "-"}{formatCurrency(tx.amount ?? 0)} {tx.currency || "MMK"}
                             </p>
-                            <p className="text-xs text-slate-400">
-                              {formatCurrency(tx.amount ?? 0)} {tx.currency}
+                            <p className={`text-sm font-mono ${
+                              tx.transaction_type === "money_in"
+                                ? "text-emerald-400/70"
+                                : "text-amber-400/70"
+                            }`}>
+                              {tx.transaction_type === "money_in" ? "+" : "-"}{formatCurrency(tx.amount_eusd ?? 0)} EUSD
                             </p>
                           </div>
                           <Button

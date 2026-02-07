@@ -421,6 +421,21 @@ export function TransactionDialog({
             </span>
           </div>
 
+          {/* Balance Display - Money Out only */}
+          {transactionType === "money_out" && qmhqData && (
+            <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400">Available Balance</span>
+                <span className="text-lg font-mono text-purple-400">
+                  {formatCurrency(qmhqData.balance_in_hand ?? 0)} EUSD
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Current Balance in Hand from money received
+              </p>
+            </div>
+          )}
+
           {/* Transaction Date */}
           <div className="grid gap-2">
             <Label className="text-slate-300">
