@@ -143,3 +143,12 @@ export {
   parseExchangeRate,
   parseQuantity,
 } from "./number-input";
+
+// Compact number formatting utilities
+export {
+  formatCompactNumber,
+  formatCompactCurrency,
+  ABBREVIATION_THRESHOLDS,
+  type DisplayContext,
+  type CompactFormatResult,
+} from "./format-compact";
