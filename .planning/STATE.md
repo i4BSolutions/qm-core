@@ -9,14 +9,14 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 
 ## Current Position
 
-Phase: 24 of 26 (Responsive Typography) ✓ COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase complete and verified
-Last activity: 2026-02-07 — Phase 24 executed and verified
+Phase: 25 of 26 (Two-Step Selectors)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-07 — Completed 25-01-PLAN.md (CategoryItemSelector component)
 
 ```
-v1.5 Progress: [██████████░░░░░░░░░░] 50% (2/4 phases complete)
-Overall: [█████████████████████░░░] 92% (24/26 phases complete)
+v1.5 Progress: [████████████░░░░░░░░] 60% (2.5/4 phases complete)
+Overall: [█████████████████████░░░] 93% (24.5/26 phases complete)
 ```
 
 ## Milestone History
@@ -85,6 +85,9 @@ Overall: [█████████████████████░░�
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting v1.5 work:
+- [25-01]: On-demand loading for items (categories prefetch, items lazy-load on category change)
+- [25-01]: AbortController cancels in-flight item requests on rapid category switching
+- [25-01]: Empty categories (no active items) hidden from dropdown
 - [24-02]: Tooltip shows only primary currency (focused tooltip content)
 - [24-02]: Desktop-only tooltips (hidden md:block for touch devices)
 - [24-02]: Zero displays as "0.00 CURRENCY" not dash (zero is valid amount)
@@ -121,10 +124,10 @@ None yet (v1.5 roadmap just created).
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Phase 24 complete and verified
+Stopped at: Completed 25-01-PLAN.md
 Resume file: None
-Next step: Run `/gsd:discuss-phase 25` or `/gsd:plan-phase 25` for Two-Step Selectors
+Next step: Execute 25-02-PLAN.md to integrate CategoryItemSelector across pages
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-07 - Completed Phase 24 (Responsive Typography)*
+*Last updated: 2026-02-07 - Completed Phase 25 Plan 01 (CategoryItemSelector component)*
