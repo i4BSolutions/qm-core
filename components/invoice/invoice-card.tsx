@@ -93,6 +93,8 @@ export function InvoiceCard({ invoice, animationDelay = 0 }: InvoiceCardProps) {
               amountEusd={invoice.total_amount_eusd}
               size="sm"
               align="right"
+              context="card"
+              fluid
             />
           </div>
         </div>

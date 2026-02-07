@@ -84,6 +84,8 @@ export function POCard({ po, animationDelay = 0 }: POCardProps) {
               amountEusd={po.total_amount_eusd}
               size="sm"
               align="right"
+              context="card"
+              fluid
             />
           </div>
         </div>
