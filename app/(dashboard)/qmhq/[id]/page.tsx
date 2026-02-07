@@ -453,28 +453,36 @@ export default function QMHQDetailPage() {
               <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">
                 QMHQ Amount
               </p>
-              <p className="text-xl font-mono font-bold text-slate-200">
-                {formatCurrency(qmhq.amount_eusd ?? 0)}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">EUSD</p>
+              <CurrencyDisplay
+                amountEusd={qmhq.amount_eusd ?? 0}
+                size="lg"
+                context="card"
+                fluid
+              />
             </div>
 
             {/* Yet to Receive */}
             <div className="text-center p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
               <p className="text-xs text-cyan-400 uppercase tracking-wider mb-2">Yet to Receive</p>
-              <p className="text-xl font-mono font-bold text-cyan-400">
-                {formatCurrency(Math.max(0, (qmhq.amount_eusd ?? 0) - moneyInTotal))}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">EUSD</p>
+              <CurrencyDisplay
+                amountEusd={Math.max(0, (qmhq.amount_eusd ?? 0) - moneyInTotal)}
+                size="lg"
+                context="card"
+                fluid
+                className="text-cyan-400"
+              />
             </div>
 
             {/* Money In */}
             <div className="text-center p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
               <p className="text-xs text-emerald-400 uppercase tracking-wider mb-2">Money In</p>
-              <p className="text-xl font-mono font-bold text-emerald-400">
-                {formatCurrency(moneyInTotal)}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">EUSD</p>
+              <CurrencyDisplay
+                amountEusd={moneyInTotal}
+                size="lg"
+                context="card"
+                fluid
+                className="text-emerald-400"
+              />
             </div>
 
             {/* Money Out */}
@@ -482,10 +490,13 @@ export default function QMHQDetailPage() {
               <p className="text-xs text-amber-400 uppercase tracking-wider mb-2">
                 {qmhq.route_type === "po" ? "PO Committed" : "Money Out"}
               </p>
-              <p className="text-xl font-mono font-bold text-amber-400">
-                {formatCurrency(qmhq.route_type === "po" ? (qmhq.total_po_committed ?? 0) : moneyOutTotal)}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">EUSD</p>
+              <CurrencyDisplay
+                amountEusd={qmhq.route_type === "po" ? (qmhq.total_po_committed ?? 0) : moneyOutTotal}
+                size="lg"
+                context="card"
+                fluid
+                className="text-amber-400"
+              />
             </div>
 
             {/* Balance in Hand */}
@@ -493,10 +504,13 @@ export default function QMHQDetailPage() {
               <p className="text-xs text-purple-400 uppercase tracking-wider mb-2">
                 Balance in Hand
               </p>
-              <p className="text-xl font-mono font-bold text-purple-400">
-                {formatCurrency(moneyInTotal - (qmhq.route_type === "po" ? (qmhq.total_po_committed ?? 0) : moneyOutTotal))}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">EUSD</p>
+              <CurrencyDisplay
+                amountEusd={moneyInTotal - (qmhq.route_type === "po" ? (qmhq.total_po_committed ?? 0) : moneyOutTotal)}
+                size="lg"
+                context="card"
+                fluid
+                className="text-purple-400"
+              />
             </div>
           </div>
         </div>
