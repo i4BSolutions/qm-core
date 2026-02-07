@@ -105,11 +105,11 @@ Plans:
   3. Changing category resets item selection and shows appropriate loading/empty states
   4. User can successfully create PO line items with category → item workflow
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 25-01: TBD during phase planning
-- [ ] 25-02: TBD during phase planning
+- [ ] 25-01-PLAN.md — Create reusable CategoryItemSelector component
+- [ ] 25-02-PLAN.md — Integrate into PO line items, stock-in, and stock-out pages
 
 #### Phase 26: Currency Unification
 
@@ -141,5 +141,5 @@ Phases execute in numeric order: 23 → 24 → 25 → 26
 |-------|-----------|----------------|--------|-----------|
 | 23. Comments System | v1.5 | 3/3 | ✓ Complete | 2026-02-07 |
 | 24. Responsive Typography | v1.5 | 2/2 | ✓ Complete | 2026-02-07 |
-| 25. Two-Step Selectors | v1.5 | 0/0 | Not started | - |
+| 25. Two-Step Selectors | v1.5 | 0/2 | Ready for execution | - |
 | 26. Currency Unification | v1.5 | 0/0 | Not started | - |
