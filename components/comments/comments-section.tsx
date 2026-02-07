@@ -67,13 +67,9 @@ export function CommentsSection({ entityType, entityId }: CommentsSectionProps) 
     setIsDeleting(true);
 
     const supabase = createClient();
+    // Use RPC function to bypass RLS issues with UPDATE
     const { error } = await supabase
-      .from("comments")
-      .update({
-        deleted_at: new Date().toISOString(),
-        deleted_by: user.id,
-      })
-      .eq("id", deleteTarget.id);
+      .rpc("soft_delete_comment", { comment_id: deleteTarget.id });
 
     if (error) {
       console.error("Failed to delete comment:", error);
