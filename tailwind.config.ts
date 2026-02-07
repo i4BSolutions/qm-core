@@ -89,6 +89,14 @@ const config: Config = {
         "display-md": ["2.25rem", { lineHeight: "1.2", letterSpacing: "-0.01em" }],
         "display-sm": ["1.875rem", { lineHeight: "1.25", letterSpacing: "-0.01em" }],
         "display-xs": ["1.5rem", { lineHeight: "1.3", letterSpacing: "-0.01em" }],
+
+        // Fluid amount sizes - scale smoothly with viewport
+        // Formula: clamp(min, preferred, max)
+        // Min 12px (0.75rem) for accessibility, scales with viewport
+        "fluid-amount-sm": ["clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem)", { lineHeight: "1.25" }],
+        "fluid-amount-base": ["clamp(0.875rem, 0.8rem + 0.375vw, 1rem)", { lineHeight: "1.25" }],
+        "fluid-amount-lg": ["clamp(1rem, 0.9rem + 0.5vw, 1.25rem)", { lineHeight: "1.25" }],
+        "fluid-amount-xl": ["clamp(1.125rem, 1rem + 0.625vw, 1.5rem)", { lineHeight: "1.2" }],
       },
       borderRadius: {
         lg: "var(--radius)",
