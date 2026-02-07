@@ -85,6 +85,9 @@ Overall: [██████████████████████░�
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting v1.5 work:
+- [26-01]: Currency locked with Lock icon + Inherited badge per established pattern
+- [26-01]: Warning toast variant added (amber styling) for soft validation
+- [26-01]: Balance warning is soft validation - allows submission per user decision
 - [26-02]: Transaction list retains +/- prefix and color coding while showing dual currency
 - [26-02]: Org currency primary, EUSD secondary matches CurrencyDisplay convention
 - [25-02]: CategoryItemSelector replaces all flat item dropdowns app-wide
