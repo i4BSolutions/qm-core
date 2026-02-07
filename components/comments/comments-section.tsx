@@ -67,9 +67,8 @@ export function CommentsSection({ entityType, entityId }: CommentsSectionProps) 
     setIsDeleting(true);
 
     const supabase = createClient();
-    // Use RPC function for hard delete
-    const { error } = await supabase
-      .rpc("delete_comment", { comment_id: deleteTarget.id });
+    // Use RPC function for hard delete (type assertion needed until types regenerated)
+    const { error } = await (supabase as unknown as { rpc: (fn: string, params: { comment_id: string }) => Promise<{ error: Error | null }> }).rpc("delete_comment", { comment_id: deleteTarget.id });
 
     if (error) {
       console.error("Failed to delete comment:", error);
