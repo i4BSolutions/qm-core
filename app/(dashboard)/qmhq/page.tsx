@@ -427,6 +427,8 @@ export default function QMHQPage() {
                                   amountEusd={qmhq.amount_eusd}
                                   size="sm"
                                   align="right"
+                                  context="card"
+                                  fluid
                                 />
                               </div>
                             </div>
@@ -543,6 +545,8 @@ export default function QMHQPage() {
                           amountEusd={qmhq.amount_eusd}
                           size="sm"
                           align="right"
+                          context="card"
+                          fluid
                         />
                       ) : (
                         <span className="text-slate-500">—</span>
