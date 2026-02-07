@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** v1.5 UX Polish & Collaboration (Phase 23 complete, Phase 24 next)
+**Current focus:** v1.5 UX Polish & Collaboration (Phase 23 complete, Phase 24 complete)
 
 ## Current Position
 
 Phase: 24 of 26 (Responsive Typography)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-07 — Completed 24-01-PLAN.md
+Plan: 2 of 2 in current phase (COMPLETE)
+Status: Phase complete
+Last activity: 2026-02-07 - Completed 24-02-PLAN.md
 
 ```
-v1.5 Progress: [███████░░░░░░░░░░░░░] 35% (1.5/4 phases in progress)
-Overall: [████████████████████░░░░] 89% (23.5/26 phases in progress)
+v1.5 Progress: [██████████░░░░░░░░░░] 50% (2/4 phases complete)
+Overall: [█████████████████████░░░] 92% (24/26 phases complete)
 ```
 
 ## Milestone History
@@ -85,6 +85,9 @@ Overall: [████████████████████░░░�
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting v1.5 work:
+- [24-02]: Tooltip shows only primary currency (focused tooltip content)
+- [24-02]: Desktop-only tooltips (hidden md:block for touch devices)
+- [24-02]: Zero displays as "0.00 CURRENCY" not dash (zero is valid amount)
 - [24-01]: CSS clamp() for fluid font scaling (smooth viewport-responsive sizing)
 - [24-01]: Intl.NumberFormat compact notation for K/M/B formatting
 - [24-01]: Context-dependent thresholds (card 1M, table 1B, detail never)
@@ -118,10 +121,10 @@ None yet (v1.5 roadmap just created).
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 24-01-PLAN.md
+Stopped at: Completed 24-02-PLAN.md (Phase 24 complete)
 Resume file: None
-Next step: Execute 24-02-PLAN.md (CurrencyDisplay Component)
+Next step: Execute Phase 25 (Form UX Improvements)
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-07 - Completed 24-01 (Fluid Typography Foundation)*
+*Last updated: 2026-02-07 - Completed 24-02 (CurrencyDisplay Component)*
