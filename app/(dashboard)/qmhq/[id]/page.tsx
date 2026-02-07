@@ -454,6 +454,8 @@ export default function QMHQDetailPage() {
                 QMHQ Amount
               </p>
               <CurrencyDisplay
+                amount={qmhq.amount ?? 0}
+                currency={qmhq.currency || "MMK"}
                 amountEusd={qmhq.amount_eusd ?? 0}
                 size="lg"
                 context="card"
@@ -465,7 +467,8 @@ export default function QMHQDetailPage() {
             <div className="text-center p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
               <p className="text-xs text-cyan-400 uppercase tracking-wider mb-2">Yet to Receive</p>
               <CurrencyDisplay
-                amountEusd={Math.max(0, (qmhq.amount_eusd ?? 0) - moneyInTotal)}
+                amount={Math.max(0, (qmhq.amount_eusd ?? 0) - moneyInTotal)}
+                currency="EUSD"
                 size="lg"
                 context="card"
                 fluid
@@ -477,7 +480,8 @@ export default function QMHQDetailPage() {
             <div className="text-center p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
               <p className="text-xs text-emerald-400 uppercase tracking-wider mb-2">Money In</p>
               <CurrencyDisplay
-                amountEusd={moneyInTotal}
+                amount={moneyInTotal}
+                currency="EUSD"
                 size="lg"
                 context="card"
                 fluid
@@ -491,7 +495,8 @@ export default function QMHQDetailPage() {
                 {qmhq.route_type === "po" ? "PO Committed" : "Money Out"}
               </p>
               <CurrencyDisplay
-                amountEusd={qmhq.route_type === "po" ? (qmhq.total_po_committed ?? 0) : moneyOutTotal}
+                amount={qmhq.route_type === "po" ? (qmhq.total_po_committed ?? 0) : moneyOutTotal}
+                currency="EUSD"
                 size="lg"
                 context="card"
                 fluid
@@ -505,7 +510,8 @@ export default function QMHQDetailPage() {
                 Balance in Hand
               </p>
               <CurrencyDisplay
-                amountEusd={moneyInTotal - (qmhq.route_type === "po" ? (qmhq.total_po_committed ?? 0) : moneyOutTotal)}
+                amount={moneyInTotal - (qmhq.route_type === "po" ? (qmhq.total_po_committed ?? 0) : moneyOutTotal)}
+                currency="EUSD"
                 size="lg"
                 context="card"
                 fluid
