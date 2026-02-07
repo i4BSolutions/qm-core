@@ -7,7 +7,7 @@
 - ✅ **v1.2 Inventory & Financial Accuracy** - Phases 11-16 (shipped 2026-01-31)
 - ✅ **v1.3 UX & Bug Fixes** - Phases 17-19 (shipped 2026-02-02)
 - ✅ **v1.4 UX Enhancements & Workflow Improvements** - Phases 20-22 (shipped 2026-02-06)
-- 🚧 **v1.5 UX Polish & Collaboration** - Phases 23-26 (in progress)
+- ✅ **v1.5 UX Polish & Collaboration** - Phases 23-26 (shipped 2026-02-08)
 
 ## Phases
 
@@ -46,7 +46,7 @@ Phases 20-22 delivered file upload in QMRL form, QMRL context panel, thousand se
 
 </details>
 
-### 🚧 v1.5 UX Polish & Collaboration (In Progress)
+### ✅ v1.5 UX Polish & Collaboration (Shipped 2026-02-08)
 
 **Milestone Goal:** Improve amount display responsiveness, add team collaboration via comments, streamline PO item selection with category filtering, and unify QMHQ currency handling.
 
@@ -111,7 +111,7 @@ Plans:
 - [x] 25-01-PLAN.md — Create reusable CategoryItemSelector component
 - [x] 25-02-PLAN.md — Integrate into PO line items, stock-in, and stock-out pages
 
-#### Phase 26: Currency Unification
+#### ✅ Phase 26: Currency Unification (Completed 2026-02-08)
 
 **Goal**: QMHQ transactions inherit locked currency from parent QMHQ with balance tracking and validation warning
 
@@ -120,17 +120,17 @@ Plans:
 **Requirements**: CURR-01, CURR-02, CURR-03, CURR-04, CURR-05, CURR-06
 
 **Success Criteria** (what must be TRUE):
-  1. Money-in/out currency locked to QMHQ currency with visual indicator
-  2. Exchange rate defaults from QMHQ but remains editable per transaction
-  3. QMHQ detail pages and list cards show amounts in both org currency and EUSD
-  4. Money-out form displays remaining balance (static, not real-time)
-  5. Validation warns (not blocks) when money-out exceeds available balance
+  1. ✓ Money-in/out currency locked to QMHQ currency with visual indicator
+  2. ✓ Exchange rate defaults from QMHQ but remains editable per transaction
+  3. ✓ QMHQ detail pages and list cards show amounts in both org currency and EUSD
+  4. ✓ Money-out form displays remaining balance (static, not real-time)
+  5. ✓ Validation warns (not blocks) when money-out exceeds available balance
 
 **Plans**: 2 plans
 
 Plans:
-- [ ] 26-01-PLAN.md — TransactionDialog currency inheritance and balance validation
-- [ ] 26-02-PLAN.md — Dual currency display on QMHQ detail and list pages
+- [x] 26-01-PLAN.md — TransactionDialog currency inheritance and balance validation
+- [x] 26-02-PLAN.md — Dual currency display on QMHQ detail and list pages
 
 ## Progress
 
@@ -142,4 +142,4 @@ Phases execute in numeric order: 23 → 24 → 25 → 26
 | 23. Comments System | v1.5 | 3/3 | ✓ Complete | 2026-02-07 |
 | 24. Responsive Typography | v1.5 | 2/2 | ✓ Complete | 2026-02-07 |
 | 25. Two-Step Selectors | v1.5 | 2/2 | ✓ Complete | 2026-02-08 |
-| 26. Currency Unification | v1.5 | 0/2 | Planned | - |
+| 26. Currency Unification | v1.5 | 2/2 | ✓ Complete | 2026-02-08 |

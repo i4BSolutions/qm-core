@@ -37,12 +37,12 @@ Requirements for v1.5 UX Polish & Collaboration milestone. Each maps to roadmap 
 
 ### Currency Unification
 
-- [ ] **CURR-01**: Money-out currency inherits from first money-in transaction
-- [ ] **CURR-02**: Money-out exchange rate inherits from first money-in transaction
-- [ ] **CURR-03**: QMHQ detail page shows Org + EUSD amounts
-- [ ] **CURR-04**: QMHQ list cards show Org + EUSD amounts
-- [ ] **CURR-05**: Money-out form shows remaining balance (money_in - sum of money_out)
-- [ ] **CURR-06**: Validation prevents money-out exceeding available balance
+- [x] **CURR-01**: Money-in/out currency inherits from parent QMHQ (locked with visual indicator)
+- [x] **CURR-02**: Exchange rate defaults from parent QMHQ but remains editable
+- [x] **CURR-03**: QMHQ detail page shows Org + EUSD amounts
+- [x] **CURR-04**: QMHQ list cards show Org + EUSD amounts
+- [x] **CURR-05**: Money-out form shows remaining balance (balance_in_hand from QMHQ)
+- [x] **CURR-06**: Validation warns (not blocks) when money-out exceeds available balance
 
 ## Future Requirements
 
@@ -105,12 +105,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SLCT-05 | Phase 25 | Complete |
 | SLCT-06 | Phase 25 | Complete |
 | SLCT-07 | Phase 25 | Complete |
-| CURR-01 | Phase 26 | Pending |
-| CURR-02 | Phase 26 | Pending |
-| CURR-03 | Phase 26 | Pending |
-| CURR-04 | Phase 26 | Pending |
-| CURR-05 | Phase 26 | Pending |
-| CURR-06 | Phase 26 | Pending |
+| CURR-01 | Phase 26 | Complete |
+| CURR-02 | Phase 26 | Complete |
+| CURR-03 | Phase 26 | Complete |
+| CURR-04 | Phase 26 | Complete |
+| CURR-05 | Phase 26 | Complete |
+| CURR-06 | Phase 26 | Complete |
 
 **Coverage:**
 - v1.5 requirements: 25 total
@@ -119,4 +119,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-08 - Phase 25 (Two-Step Selectors) requirements complete*
+*Last updated: 2026-02-08 - Phase 26 (Currency Unification) requirements complete — v1.5 Milestone Complete*
