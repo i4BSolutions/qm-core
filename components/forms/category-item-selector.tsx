@@ -92,6 +92,7 @@ export function CategoryItemSelector({
         itemsAbortController.current.abort();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load items when category changes
@@ -101,6 +102,7 @@ export function CategoryItemSelector({
     } else {
       setItems([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryId]);
 
   /**
