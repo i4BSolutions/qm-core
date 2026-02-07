@@ -65,11 +65,12 @@ Phases 20-22 delivered file upload in QMRL form, QMRL context panel, thousand se
   4. Comments display author name, timestamp, and chronological ordering
   5. Comments follow existing entity RLS rules (user sees only what entity permissions allow)
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 23-01: TBD during phase planning
-- [ ] 23-02: TBD during phase planning
+- [ ] 23-01-PLAN.md — Database schema, RLS policies, TypeScript types
+- [ ] 23-02-PLAN.md — Comments UI components (section, card, input, dialog)
+- [ ] 23-03-PLAN.md — Integration into QMRL/QMHQ/PO/Invoice detail pages
 
 #### Phase 24: Responsive Typography
 
@@ -137,7 +138,7 @@ Phases execute in numeric order: 23 → 24 → 25 → 26
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 23. Comments System | v1.5 | 0/0 | Not started | - |
+| 23. Comments System | v1.5 | 0/3 | Planned | - |
 | 24. Responsive Typography | v1.5 | 0/0 | Not started | - |
 | 25. Two-Step Selectors | v1.5 | 0/0 | Not started | - |
 | 26. Currency Unification | v1.5 | 0/0 | Not started | - |
