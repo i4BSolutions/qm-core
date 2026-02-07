@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 23 of 26 (Comments System)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-07 — v1.5 roadmap created
+Plan: 1 of TBD in current phase
+Status: In progress
+Last activity: 2026-02-07 — Completed 23-01-PLAN.md
 
 ```
-v1.5 Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
+v1.5 Progress: [█░░░░░░░░░░░░░░░░░░░] 5% (estimate)
 Overall: [████████████████████░░░░] 85% (22/26 phases from v1.0-v1.4 complete)
 ```
 
@@ -85,6 +85,9 @@ Overall: [████████████████████░░░�
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting v1.5 work:
+- [23-01]: Comments use single-level threading (replies cannot have replies)
+- [23-01]: Soft-delete protected by has_replies check (prevents orphaning)
+- [23-01]: Comment visibility mirrors parent entity access (finance/inventory can comment on any entity)
 - [v1.4]: RPC creates audit before entity update (enables trigger deduplication)
 - [v1.4]: 2-second window for audit deduplication
 - [v1.3]: CurrencyDisplay two-line format (original + EUSD)
@@ -109,10 +112,10 @@ None yet (v1.5 roadmap just created).
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Roadmap created for v1.5 milestone
-Resume: Ready to plan Phase 23 Comments System
-Next step: Run `/gsd:plan-phase 23` to begin planning
+Stopped at: Completed 23-01-PLAN.md
+Resume file: None
+Next step: Continue to next plan in Phase 23 (if any) or proceed to Phase 24
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-07 - v1.5 roadmap created*
+*Last updated: 2026-02-07 - Completed 23-01 (Comments Database Foundation)*
