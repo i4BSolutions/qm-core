@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import Image from "next/image";
 import {
   Dialog,
@@ -34,6 +34,7 @@ import {
   Upload,
   X,
   ImageIcon,
+  Lock,
 } from "lucide-react";
 
 // Currency options
@@ -66,6 +67,14 @@ export function TransactionDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // QMHQ data for currency inheritance
+  const [qmhqData, setQmhqData] = useState<{
+    currency: string;
+    exchange_rate: number;
+    balance_in_hand: number;
+  } | null>(null);
+  const [isLoadingQmhq, setIsLoadingQmhq] = useState(false);
+
   // Form state
   const [transactionType, setTransactionType] = useState<"money_in" | "money_out">("money_in");
   const [amount, setAmount] = useState("");
@@ -84,6 +93,33 @@ export function TransactionDialog({
     return Math.round((amountNum / rateNum) * 100) / 100;
   }, [amount, exchangeRate]);
 
+  // Fetch QMHQ data when dialog opens for currency inheritance
+  useEffect(() => {
+    if (open && qmhqId) {
+      const fetchQmhqData = async () => {
+        setIsLoadingQmhq(true);
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("qmhq")
+          .select("currency, exchange_rate, balance_in_hand")
+          .eq("id", qmhqId)
+          .single();
+
+        if (data) {
+          setQmhqData({
+            currency: data.currency || "MMK",
+            exchange_rate: data.exchange_rate || 1,
+            balance_in_hand: data.balance_in_hand || 0,
+          });
+          setCurrency(data.currency || "MMK");
+          setExchangeRate(String(data.exchange_rate || 1));
+        }
+        setIsLoadingQmhq(false);
+      };
+      fetchQmhqData();
+    }
+  }, [open, qmhqId]);
+
   const resetForm = () => {
     setTransactionType("money_in");
     setAmount("");
@@ -93,6 +129,7 @@ export function TransactionDialog({
     setNotes("");
     setAttachmentFile(null);
     setAttachmentPreview(null);
+    setQmhqData(null);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -324,9 +361,15 @@ export function TransactionDialog({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="currency" className="text-slate-300">Currency</Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger className="bg-slate-800/50 border-slate-700">
+              <Label htmlFor="currency" className="text-slate-300 flex items-center gap-2">
+                Currency
+                <span className="flex items-center gap-1 text-xs text-amber-500 font-normal">
+                  <Lock className="h-3 w-3" />
+                  Inherited
+                </span>
+              </Label>
+              <Select value={currency} onValueChange={() => {}} disabled={true}>
+                <SelectTrigger className="bg-slate-800/50 border-slate-700 opacity-70 cursor-not-allowed">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -337,6 +380,7 @@ export function TransactionDialog({
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-slate-400">Currency is set by the parent QMHQ</p>
             </div>
 
             <div className="grid gap-2">
