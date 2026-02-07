@@ -2,6 +2,16 @@
 
 import { formatCurrency, calculateEUSD } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import {
+  formatCompactCurrency,
+  ABBREVIATION_THRESHOLDS,
+  type DisplayContext,
+} from "@/lib/utils/format-compact";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 export interface CurrencyDisplayProps {
   /** The amount in original currency */
@@ -14,7 +24,7 @@ export interface CurrencyDisplayProps {
   amountEusd?: number | null;
   /** Size variant */
   size?: "sm" | "md" | "lg";
-  /** Show dashes when amount is null/undefined/0 */
+  /** Show dashes when amount is null/undefined (NOT zero) */
   showDashForEmpty?: boolean;
   /** Additional className for container */
   className?: string;
@@ -22,6 +32,10 @@ export interface CurrencyDisplayProps {
   align?: "left" | "right";
   /** Truncate long values with ellipsis and show full value on hover */
   truncate?: boolean;
+  /** Display context determines abbreviation threshold */
+  context?: DisplayContext;
+  /** Enable fluid font scaling with viewport-responsive sizes */
+  fluid?: boolean;
 }
 
 export function CurrencyDisplay({
@@ -34,10 +48,12 @@ export function CurrencyDisplay({
   className,
   align = "left",
   truncate = false,
+  context = "detail",
+  fluid = false,
 }: CurrencyDisplayProps) {
-  // Handle empty/null amounts
+  // Handle empty/null amounts (zero is NOT empty per user decision)
   const displayAmount = amount ?? 0;
-  const isEmpty = amount === null || amount === undefined || amount === 0;
+  const isEmpty = amount === null || amount === undefined;
 
   if (isEmpty && showDashForEmpty) {
     return (
@@ -57,53 +73,95 @@ export function CurrencyDisplay({
   // Calculate EUSD if not pre-calculated
   const eusdValue = amountEusd ?? calculateEUSD(displayAmount, exchangeRate);
 
-  // Size-based styling
-  const sizeStyles = {
-    sm: {
-      primary: "text-sm",
-      secondary: "text-xs",
-    },
-    md: {
-      primary: "text-base",
-      secondary: "text-sm",
-    },
-    lg: {
-      primary: "text-lg font-semibold",
-      secondary: "text-sm",
-    },
-  };
+  // Get threshold from context
+  const threshold = ABBREVIATION_THRESHOLDS[context];
+
+  // Format both amounts using compact currency formatter
+  const primaryFormatted = formatCompactCurrency(displayAmount, currency, threshold);
+  const eusdFormatted = formatCompactCurrency(eusdValue, "EUSD", threshold);
+
+  // Determine if negative
+  const isNegative = displayAmount < 0;
+
+  // Size-based styling (fixed sizes vs fluid)
+  const sizeStyles = fluid
+    ? {
+        sm: {
+          primary: "text-fluid-amount-sm",
+          secondary: "text-[calc(theme(fontSize.fluid-amount-sm)*0.85)]",
+        },
+        md: {
+          primary: "text-fluid-amount-base",
+          secondary: "text-fluid-amount-sm",
+        },
+        lg: {
+          primary: "text-fluid-amount-lg font-semibold",
+          secondary: "text-fluid-amount-sm",
+        },
+      }
+    : {
+        sm: {
+          primary: "text-sm",
+          secondary: "text-xs",
+        },
+        md: {
+          primary: "text-base",
+          secondary: "text-sm",
+        },
+        lg: {
+          primary: "text-lg font-semibold",
+          secondary: "text-sm",
+        },
+      };
 
   const styles = sizeStyles[size];
 
-  const primaryText = `${formatCurrency(displayAmount)} ${currency}`;
-  const secondaryText = `${formatCurrency(eusdValue)} EUSD`;
-
-  return (
+  // Build the content
+  const content = (
     <div className={cn("flex flex-col min-w-0", align === "right" && "items-end", className)}>
       {/* Original currency - primary line */}
       <span
         className={cn(
-          "font-mono text-slate-200",
+          "font-mono",
+          isNegative ? "text-red-400" : "text-slate-200",
           styles.primary,
-          truncate && "truncate max-w-full"
+          truncate && "truncate max-w-full",
+          primaryFormatted.isAbbreviated && "cursor-help"
         )}
-        title={truncate ? primaryText : undefined}
+        title={truncate && !primaryFormatted.isAbbreviated ? primaryFormatted.display : undefined}
       >
-        {primaryText}
+        {primaryFormatted.display}
       </span>
       {/* EUSD equivalent - secondary line (smaller, muted) */}
       <span
         className={cn(
-          "font-mono text-slate-400",
+          "font-mono",
+          isNegative ? "text-red-400/70" : "text-slate-400",
           styles.secondary,
           truncate && "truncate max-w-full"
         )}
-        title={truncate ? secondaryText : undefined}
+        title={truncate && !eusdFormatted.isAbbreviated ? eusdFormatted.display : undefined}
       >
-        {secondaryText}
+        {eusdFormatted.display}
       </span>
     </div>
   );
+
+  // Wrap with tooltip if abbreviated (desktop only per user decision)
+  if (primaryFormatted.isAbbreviated) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {content}
+        </TooltipTrigger>
+        <TooltipContent className="hidden md:block font-mono">
+          {primaryFormatted.fullValue}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return content;
 }
 
 /**
