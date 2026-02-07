@@ -43,6 +43,7 @@ import { AttachmentsTab } from "@/components/files/attachments-tab";
 import type { FileAttachmentWithUploader } from "@/lib/actions/files";
 import { ClickableStatusBadge } from "@/components/status/clickable-status-badge";
 import { FulfillmentProgressBar } from "@/components/qmhq/fulfillment-progress-bar";
+import { CommentsSection } from "@/components/comments";
 import type {
   QMHQ,
   StatusConfig,
@@ -1154,6 +1155,9 @@ export default function QMHQDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Comments Section */}
+      <CommentsSection entityType="qmhq" entityId={qmhq.id} />
 
       {/* Transaction Dialog */}
       {(qmhq.route_type === "expense" || qmhq.route_type === "po") && user && (

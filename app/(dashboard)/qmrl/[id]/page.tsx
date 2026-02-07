@@ -37,6 +37,7 @@ import { ClickableStatusBadge } from "@/components/status/clickable-status-badge
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePermissions } from "@/lib/hooks/use-permissions";
 import { useToast } from "@/components/ui/use-toast";
+import { CommentsSection } from "@/components/comments";
 
 interface QMRLWithRelations extends QMRL {
   status?: StatusConfig | null;
@@ -655,6 +656,9 @@ export default function QMRLDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Comments Section - always visible at bottom per user decision */}
+      <CommentsSection entityType="qmrl" entityId={qmrl.id} />
     </div>
   );
 }
