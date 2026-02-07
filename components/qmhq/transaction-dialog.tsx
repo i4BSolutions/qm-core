@@ -215,6 +215,22 @@ export function TransactionDialog({
       return;
     }
 
+    // Balance warning for money-out (warning only, not block)
+    if (transactionType === "money_out" && qmhqData) {
+      const availableBalance = qmhqData.balance_in_hand ?? 0;
+      if (calculatedEusd > availableBalance) {
+        const excessAmount = Math.round((calculatedEusd - availableBalance) * 100) / 100;
+        const formattedAvailable = Math.round(availableBalance * 100) / 100;
+
+        toast({
+          title: "Balance Warning",
+          description: `Amount exceeds balance by ${formatCurrency(excessAmount)} EUSD (Available: ${formatCurrency(formattedAvailable)} EUSD)`,
+          variant: "warning",
+        });
+        // Note: Intentionally NOT returning - per user decision, this is a warning, not a block
+      }
+    }
+
     setIsSubmitting(true);
     const supabase = createClient();
 
