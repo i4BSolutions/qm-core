@@ -50,7 +50,7 @@ Phases 20-22 delivered file upload in QMRL form, QMRL context panel, thousand se
 
 **Milestone Goal:** Improve amount display responsiveness, add team collaboration via comments, streamline PO item selection with category filtering, and unify QMHQ currency handling.
 
-#### Phase 23: Comments System
+#### ✅ Phase 23: Comments System (Completed 2026-02-07)
 
 **Goal**: Users can collaborate via threaded comments on QMRL, QMHQ, PO, and Invoice detail pages with role-based visibility
 
@@ -59,18 +59,18 @@ Phases 20-22 delivered file upload in QMRL form, QMRL context panel, thousand se
 **Requirements**: COMM-01, COMM-02, COMM-03, COMM-04, COMM-05, COMM-06, COMM-07, COMM-08, COMM-09
 
 **Success Criteria** (what must be TRUE):
-  1. User can add comments on any QMRL/QMHQ/PO/Invoice detail page
-  2. User can reply to existing comments (one level only)
-  3. User can delete own comments with soft delete preservation
-  4. Comments display author name, timestamp, and chronological ordering
-  5. Comments follow existing entity RLS rules (user sees only what entity permissions allow)
+  1. ✓ User can add comments on any QMRL/QMHQ/PO/Invoice detail page
+  2. ✓ User can reply to existing comments (one level only)
+  3. ✓ User can delete own comments with soft delete preservation
+  4. ✓ Comments display author name, timestamp, and chronological ordering
+  5. ✓ Comments follow existing entity RLS rules (user sees only what entity permissions allow)
 
 **Plans**: 3 plans
 
 Plans:
-- [ ] 23-01-PLAN.md — Database schema, RLS policies, TypeScript types
-- [ ] 23-02-PLAN.md — Comments UI components (section, card, input, dialog)
-- [ ] 23-03-PLAN.md — Integration into QMRL/QMHQ/PO/Invoice detail pages
+- [x] 23-01-PLAN.md — Database schema, RLS policies, TypeScript types
+- [x] 23-02-PLAN.md — Comments UI components (section, card, input, dialog)
+- [x] 23-03-PLAN.md — Integration into QMRL/QMHQ/PO/Invoice detail pages
 
 #### Phase 24: Responsive Typography
 
@@ -138,7 +138,7 @@ Phases execute in numeric order: 23 → 24 → 25 → 26
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 23. Comments System | v1.5 | 0/3 | Planned | - |
+| 23. Comments System | v1.5 | 3/3 | ✓ Complete | 2026-02-07 |
 | 24. Responsive Typography | v1.5 | 0/0 | Not started | - |
 | 25. Two-Step Selectors | v1.5 | 0/0 | Not started | - |
 | 26. Currency Unification | v1.5 | 0/0 | Not started | - |

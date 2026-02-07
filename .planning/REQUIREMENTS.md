@@ -9,15 +9,15 @@ Requirements for v1.5 UX Polish & Collaboration milestone. Each maps to roadmap 
 
 ### Comments
 
-- [ ] **COMM-01**: User can add comments on QMRL detail page
-- [ ] **COMM-02**: User can add comments on QMHQ detail page
-- [ ] **COMM-03**: User can add comments on PO detail page
-- [ ] **COMM-04**: User can add comments on Invoice detail page
-- [ ] **COMM-05**: User can reply to a comment (one level only)
-- [ ] **COMM-06**: User can delete own comments (soft delete)
-- [ ] **COMM-07**: Comment displays author name and timestamp
-- [ ] **COMM-08**: Comments ordered chronologically (oldest first)
-- [ ] **COMM-09**: Comments follow existing entity RLS visibility rules
+- [x] **COMM-01**: User can add comments on QMRL detail page
+- [x] **COMM-02**: User can add comments on QMHQ detail page
+- [x] **COMM-03**: User can add comments on PO detail page
+- [x] **COMM-04**: User can add comments on Invoice detail page
+- [x] **COMM-05**: User can reply to a comment (one level only)
+- [x] **COMM-06**: User can delete own comments (soft delete)
+- [x] **COMM-07**: Comment displays author name and timestamp
+- [x] **COMM-08**: Comments ordered chronologically (oldest first)
+- [x] **COMM-09**: Comments follow existing entity RLS visibility rules
 
 ### Responsive Typography
 
@@ -86,15 +86,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| COMM-01 | Phase 23 | Pending |
-| COMM-02 | Phase 23 | Pending |
-| COMM-03 | Phase 23 | Pending |
-| COMM-04 | Phase 23 | Pending |
-| COMM-05 | Phase 23 | Pending |
-| COMM-06 | Phase 23 | Pending |
-| COMM-07 | Phase 23 | Pending |
-| COMM-08 | Phase 23 | Pending |
-| COMM-09 | Phase 23 | Pending |
+| COMM-01 | Phase 23 | Complete |
+| COMM-02 | Phase 23 | Complete |
+| COMM-03 | Phase 23 | Complete |
+| COMM-04 | Phase 23 | Complete |
+| COMM-05 | Phase 23 | Complete |
+| COMM-06 | Phase 23 | Complete |
+| COMM-07 | Phase 23 | Complete |
+| COMM-08 | Phase 23 | Complete |
+| COMM-09 | Phase 23 | Complete |
 | TYPO-01 | Phase 24 | Pending |
 | TYPO-02 | Phase 24 | Pending |
 | TYPO-03 | Phase 24 | Pending |
