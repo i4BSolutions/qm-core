@@ -5,13 +5,6 @@ import { Trash2, Package, Plus, Minus, Plus as PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -22,11 +15,13 @@ import { AmountInput } from "@/components/ui/amount-input";
 import { MiniProgressBar } from "./po-progress-bar";
 import { calculateLineItemProgress } from "@/lib/utils/po-status";
 import { ItemDialog } from "@/app/(dashboard)/item/item-dialog";
+import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import type { POLineItem, Item } from "@/types/database";
 
 // For creating/editing - uses local state
 interface LineItemFormData {
   id: string;
+  category_id: string | null;
   item_id: string | null;
   item_name: string;
   item_sku?: string;
@@ -116,7 +111,7 @@ export function EditableLineItemsTable({
                 key={item.id}
                 className="border-b border-slate-700/50 hover:bg-slate-800/30"
               >
-                <td className="py-2 px-3 min-w-[200px]">
+                <td className="py-2 px-3 min-w-[280px]">
                   {item.item_id ? (
                     <div className="flex items-center gap-2">
                       <TooltipProvider delayDuration={300}>
@@ -145,6 +140,7 @@ export function EditableLineItemsTable({
                         variant="ghost"
                         size="sm"
                         onClick={() => {
+                          onUpdateItem(item.id, "category_id", null);
                           onUpdateItem(item.id, "item_id", null);
                           onUpdateItem(item.id, "item_name", "");
                           onUpdateItem(item.id, "item_sku", "");
@@ -159,55 +155,26 @@ export function EditableLineItemsTable({
                     </div>
                   ) : (
                     <div className="flex gap-2">
-                      <Select
-                        value=""
-                        onValueChange={(value) => {
-                          const selectedItem = availableItems.find(
-                            (i) => i.id === value
-                          );
-                          if (selectedItem) {
-                            onUpdateItem(item.id, "item_id", value);
-                            onUpdateItem(item.id, "item_name", selectedItem.name);
-                            onUpdateItem(item.id, "item_sku", selectedItem.sku || "");
-                            onUpdateItem(item.id, "item_unit", selectedItem.default_unit || "");
-                            onUpdateItem(item.id, "item_price_reference", selectedItem.price_reference || "");
-                          }
-                        }}
-                        disabled={disabled}
-                      >
-                        <SelectTrigger className="flex-1 bg-slate-800 border-slate-700">
-                          <SelectValue placeholder="Select item..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <TooltipProvider delayDuration={300}>
-                            {availableItems
-                              .filter((avail) => !selectedItemIds.has(avail.id))
-                              .map((avail) => (
-                              <Tooltip key={avail.id}>
-                                <TooltipTrigger asChild>
-                                  <SelectItem value={avail.id} className="cursor-pointer">
-                                    <span className="flex items-center gap-2">
-                                      <code className="font-mono text-amber-400 text-xs">
-                                        {avail.sku || "---"}
-                                      </code>
-                                      <span className="text-slate-400">-</span>
-                                      <span>{avail.name}</span>
-                                    </span>
-                                  </SelectItem>
-                                </TooltipTrigger>
-                                {avail.price_reference && (
-                                  <TooltipContent side="right" className="max-w-xs">
-                                    <p className="text-xs">
-                                      <span className="text-slate-400">Price Ref: </span>
-                                      <span className="text-slate-200">{avail.price_reference}</span>
-                                    </p>
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            ))}
-                          </TooltipProvider>
-                        </SelectContent>
-                      </Select>
+                      <div className="flex-1">
+                        <CategoryItemSelector
+                          categoryId={item.category_id || ""}
+                          itemId=""
+                          onCategoryChange={(catId) => {
+                            onUpdateItem(item.id, "category_id", catId);
+                          }}
+                          onItemChange={(itmId) => {
+                            const selectedItem = availableItems.find(i => i.id === itmId);
+                            if (selectedItem) {
+                              onUpdateItem(item.id, "item_id", itmId);
+                              onUpdateItem(item.id, "item_name", selectedItem.name);
+                              onUpdateItem(item.id, "item_sku", selectedItem.sku || "");
+                              onUpdateItem(item.id, "item_unit", selectedItem.default_unit || "");
+                              onUpdateItem(item.id, "item_price_reference", selectedItem.price_reference || "");
+                            }
+                          }}
+                          disabled={disabled}
+                        />
+                      </div>
                       <Button
                         type="button"
                         variant="outline"
@@ -217,7 +184,7 @@ export function EditableLineItemsTable({
                           setCreateDialogOpen(true);
                         }}
                         disabled={disabled}
-                        className="shrink-0 border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10"
+                        className="shrink-0 border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 self-start"
                         title="Create new item"
                       >
                         <PlusIcon className="h-4 w-4" />

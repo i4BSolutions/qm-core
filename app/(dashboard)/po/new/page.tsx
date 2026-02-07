@@ -35,6 +35,7 @@ import type { QMHQ, Supplier, Item, ContactPerson } from "@/types/database";
 // Line item form data
 interface LineItemFormData {
   id: string;
+  category_id: string | null;
   item_id: string | null;
   item_name: string;
   item_sku?: string;
@@ -75,7 +76,7 @@ function POCreateContent() {
   const [authorizedSignerName, setAuthorizedSignerName] = useState("");
   const [notes, setNotes] = useState("");
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([
-    { id: crypto.randomUUID(), item_id: null, item_name: "", quantity: 1, unit_price: 0 },
+    { id: crypto.randomUUID(), category_id: null, item_id: null, item_name: "", quantity: 1, unit_price: 0 },
   ]);
 
   useEffect(() => {
@@ -143,7 +144,7 @@ function POCreateContent() {
   const handleAddLineItem = () => {
     setLineItems([
       ...lineItems,
-      { id: crypto.randomUUID(), item_id: null, item_name: "", quantity: 1, unit_price: 0 },
+      { id: crypto.randomUUID(), category_id: null, item_id: null, item_name: "", quantity: 1, unit_price: 0 },
     ]);
   };
 
