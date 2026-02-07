@@ -21,9 +21,9 @@ Requirements for v1.5 UX Polish & Collaboration milestone. Each maps to roadmap 
 
 ### Responsive Typography
 
-- [ ] **TYPO-01**: Large amounts on cards use fluid font scaling (CSS clamp)
-- [ ] **TYPO-02**: Very large numbers (15+ digits) truncate with tooltip showing full value
-- [ ] **TYPO-03**: Amount display responsive on mobile breakpoints
+- [x] **TYPO-01**: Large amounts on cards use fluid font scaling (CSS clamp)
+- [x] **TYPO-02**: Very large numbers (1M+) abbreviate with K/M/B and show full value on hover
+- [x] **TYPO-03**: Amount display responsive on mobile breakpoints
 
 ### Two-Step Selector
 
@@ -95,9 +95,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COMM-07 | Phase 23 | Complete |
 | COMM-08 | Phase 23 | Complete |
 | COMM-09 | Phase 23 | Complete |
-| TYPO-01 | Phase 24 | Pending |
-| TYPO-02 | Phase 24 | Pending |
-| TYPO-03 | Phase 24 | Pending |
+| TYPO-01 | Phase 24 | Complete |
+| TYPO-02 | Phase 24 | Complete |
+| TYPO-03 | Phase 24 | Complete |
 | SLCT-01 | Phase 25 | Pending |
 | SLCT-02 | Phase 25 | Pending |
 | SLCT-03 | Phase 25 | Pending |
@@ -119,4 +119,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 after roadmap creation*
+*Last updated: 2026-02-07 - Phase 24 (Responsive Typography) requirements complete*

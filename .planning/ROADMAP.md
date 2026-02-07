@@ -72,7 +72,7 @@ Plans:
 - [x] 23-02-PLAN.md — Comments UI components (section, card, input, dialog)
 - [x] 23-03-PLAN.md — Integration into QMRL/QMHQ/PO/Invoice detail pages
 
-#### Phase 24: Responsive Typography
+#### ✅ Phase 24: Responsive Typography (Completed 2026-02-07)
 
 **Goal**: Amount displays adapt to viewport and number size without overflow or loss of precision
 
@@ -81,15 +81,15 @@ Plans:
 **Requirements**: TYPO-01, TYPO-02, TYPO-03
 
 **Success Criteria** (what must be TRUE):
-  1. Large amounts on cards use fluid font scaling that adapts to container size
-  2. Very large numbers (1M+) abbreviate with K/M/B notation and show full value on hover
-  3. Amount displays remain readable and properly formatted across mobile/tablet/desktop breakpoints
+  1. ✓ Large amounts on cards use fluid font scaling that adapts to container size
+  2. ✓ Very large numbers (1M+) abbreviate with K/M/B notation and show full value on hover
+  3. ✓ Amount displays remain readable and properly formatted across mobile/tablet/desktop breakpoints
 
 **Plans**: 2 plans
 
 Plans:
-- [ ] 24-01-PLAN.md — Fluid font utilities and formatCompactCurrency
-- [ ] 24-02-PLAN.md — Enhanced CurrencyDisplay and card updates
+- [x] 24-01-PLAN.md — Fluid font utilities and formatCompactCurrency
+- [x] 24-02-PLAN.md — Enhanced CurrencyDisplay and card updates
 
 #### Phase 25: Two-Step Selectors
 
@@ -140,6 +140,6 @@ Phases execute in numeric order: 23 → 24 → 25 → 26
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 23. Comments System | v1.5 | 3/3 | ✓ Complete | 2026-02-07 |
-| 24. Responsive Typography | v1.5 | 0/2 | Planned | - |
+| 24. Responsive Typography | v1.5 | 2/2 | ✓ Complete | 2026-02-07 |
 | 25. Two-Step Selectors | v1.5 | 0/0 | Not started | - |
 | 26. Currency Unification | v1.5 | 0/0 | Not started | - |
