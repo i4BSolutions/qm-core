@@ -72,7 +72,14 @@
       "Bash(then touch \"C:\\\\Users\\\\User\\\\Documents\\\\qm-core\\\\.planning\\\\research\\\\SUMMARY.md\")",
       "Bash(fi)",
       "Bash(dir:*)",
-      "Bash(git -C \"C:/Users/User/Documents/qm-core\" check-ignore -q .planning)"
+      "Bash(git -C \"C:/Users/User/Documents/qm-core\" check-ignore -q .planning)",
+      "Bash(claude:*)",
+      "Bash(npm -g uninstall:*)",
+      "Bash(export SUPABASE_DB_PASSWORD='s8LGl8cyw2ka27PW')",
+      "Bash(PGPASSWORD='s8LGl8cyw2ka27PW' psql \"postgresql://postgres.vfmodxydmunqgbkjolpz:s8LGl8cyw2ka27PW@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres\" -f supabase/migrations/051_comments.sql)",
+      "Bash(__NEW_LINE_4451d3f94f638d2e__ mv supabase/migrations/038_fix_file_delete_rpc.sql.bak supabase/migrations/038_fix_file_delete_rpc.sql)",
+      "Bash(__NEW_LINE_ff0f6dbdd0809444__ mv supabase/migrations/038_fix_file_delete_rpc.sql.bak supabase/migrations/038_fix_file_delete_rpc.sql)",
+      "Bash(git checkout:*)"
     ]
   }
 }

@@ -14,6 +14,8 @@ export interface AmountInputProps {
   decimalScale?: number;
   /** Whether to always show fixed decimal places (default: false) */
   fixedDecimalScale?: boolean;
+  /** Maximum allowed value (default: 9999999999999.99 for DECIMAL(15,2)) */
+  max?: number;
   /** Placeholder text */
   placeholder?: string;
   /** Whether the input is disabled */
@@ -36,6 +38,7 @@ const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
       onValueChange,
       decimalScale = 2,
       fixedDecimalScale = false,
+      max = 9999999999999.99, // DECIMAL(15,2) max value
       placeholder = "0.00",
       disabled,
       id,
@@ -49,10 +52,19 @@ const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
       onValueChange(values.value);
     };
 
+    const isAllowed = (values: NumberFormatValues) => {
+      const { floatValue } = values;
+      // Allow empty value
+      if (floatValue === undefined) return true;
+      // Check against max
+      return floatValue <= max;
+    };
+
     return (
       <NumericFormat
         value={value}
         onValueChange={handleValueChange}
+        isAllowed={isAllowed}
         thousandSeparator=","
         decimalScale={decimalScale}
         fixedDecimalScale={fixedDecimalScale}
