@@ -82,13 +82,14 @@ Plans:
 
 **Success Criteria** (what must be TRUE):
   1. Large amounts on cards use fluid font scaling that adapts to container size
-  2. Very large numbers (15+ digits) truncate with ellipsis and show full value on hover
+  2. Very large numbers (1M+) abbreviate with K/M/B notation and show full value on hover
   3. Amount displays remain readable and properly formatted across mobile/tablet/desktop breakpoints
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 24-01: TBD during phase planning
+- [ ] 24-01-PLAN.md — Fluid font utilities and formatCompactCurrency
+- [ ] 24-02-PLAN.md — Enhanced CurrencyDisplay and card updates
 
 #### Phase 25: Two-Step Selectors
 
@@ -139,6 +140,6 @@ Phases execute in numeric order: 23 → 24 → 25 → 26
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 23. Comments System | v1.5 | 3/3 | ✓ Complete | 2026-02-07 |
-| 24. Responsive Typography | v1.5 | 0/0 | Not started | - |
+| 24. Responsive Typography | v1.5 | 0/2 | Planned | - |
 | 25. Two-Step Selectors | v1.5 | 0/0 | Not started | - |
 | 26. Currency Unification | v1.5 | 0/0 | Not started | - |
