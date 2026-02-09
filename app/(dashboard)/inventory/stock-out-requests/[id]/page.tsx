@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   ExternalLink,
   Ban,
+  ArrowUpFromLine,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import { LineItemTable } from "@/components/stock-out-requests/line-item-table";
 import type { LineItemWithApprovals } from "@/components/stock-out-requests/line-item-table";
 import { ApprovalDialog } from "@/components/stock-out-requests/approval-dialog";
 import { RejectionDialog } from "@/components/stock-out-requests/rejection-dialog";
+import { ExecutionDialog } from "@/components/stock-out-requests/execution-dialog";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -133,9 +135,12 @@ export default function StockOutRequestDetailPage() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
   const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
+  const [isExecutionDialogOpen, setIsExecutionDialogOpen] = useState(false);
+  const [hasPendingExecutions, setHasPendingExecutions] = useState(false);
 
   // Permission checks
   const canApprove = user?.role === "admin" || user?.role === "quartermaster" || user?.role === "inventory";
+  const canExecute = user?.role === "admin" || user?.role === "inventory";
   const isRequester = user?.id === request?.requester_id;
   const canCancel = isRequester && request?.status === "pending";
 
@@ -264,6 +269,35 @@ export default function StockOutRequestDetailPage() {
       if (approvalsError) throw approvalsError;
 
       setApprovals((approvalsData || []) as ApprovalWithUser[]);
+
+      // Check if there are pending execution records
+      // Get all line item IDs
+      const allLineItemIds = itemsWithTotals.map((item) => item.id);
+
+      if (allLineItemIds.length > 0) {
+        // Get approved approvals
+        const { data: approvedApprovalsData } = await supabase
+          .from("stock_out_approvals")
+          .select("id")
+          .in("line_item_id", allLineItemIds)
+          .eq("decision", "approved")
+          .eq("is_active", true);
+
+        const approvedApprovalIds = (approvedApprovalsData || []).map((a) => a.id);
+
+        if (approvedApprovalIds.length > 0) {
+          // Check for pending inventory transactions
+          const { count: pendingCount } = await supabase
+            .from("inventory_transactions")
+            .select("*", { count: "exact", head: true })
+            .in("stock_out_approval_id", approvedApprovalIds)
+            .eq("status", "pending");
+
+          setHasPendingExecutions((pendingCount ?? 0) > 0);
+        } else {
+          setHasPendingExecutions(false);
+        }
+      }
     } catch (error: any) {
       console.error("Error fetching request data:", error);
       toast.error(error.message || "Failed to load request data");
@@ -391,6 +425,15 @@ export default function StockOutRequestDetailPage() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3">
+          {canExecute && hasPendingExecutions && (
+            <Button
+              onClick={() => setIsExecutionDialogOpen(true)}
+              className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400"
+            >
+              <ArrowUpFromLine className="w-4 h-4 mr-2" />
+              Execute Stock-Out
+            </Button>
+          )}
           {canCancel && (
             <Button
               onClick={handleCancelRequest}
@@ -650,6 +693,14 @@ export default function StockOutRequestDetailPage() {
         onOpenChange={setIsRejectionDialogOpen}
         lineItems={lineItems.filter((item) => selectedIds.has(item.id))}
         onSuccess={handleDialogSuccess}
+      />
+
+      {/* Execution Dialog */}
+      <ExecutionDialog
+        open={isExecutionDialogOpen}
+        onOpenChange={setIsExecutionDialogOpen}
+        requestId={requestId}
+        onSuccess={fetchData}
       />
     </div>
   );
