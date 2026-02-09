@@ -509,6 +509,231 @@ export type Database = {
           },
         ]
       }
+      stock_out_approvals: {
+        Row: {
+          id: string
+          line_item_id: string
+          approval_number: string | null
+          approved_quantity: number
+          decision: string
+          rejection_reason: string | null
+          decided_by: string
+          decided_at: string
+          is_active: boolean | null
+          created_by: string | null
+          updated_by: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          line_item_id: string
+          approval_number?: string | null
+          approved_quantity: number
+          decision: string
+          rejection_reason?: string | null
+          decided_by: string
+          decided_at?: string
+          is_active?: boolean | null
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          line_item_id?: string
+          approval_number?: string | null
+          approved_quantity?: number
+          decision?: string
+          rejection_reason?: string | null
+          decided_by?: string
+          decided_at?: string
+          is_active?: boolean | null
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_out_approvals_line_item_id_fkey"
+            columns: ["line_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_out_line_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_out_approvals_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_out_approvals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_out_approvals_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_out_line_items: {
+        Row: {
+          id: string
+          request_id: string
+          item_id: string
+          requested_quantity: number
+          status: Database["public"]["Enums"]["sor_line_item_status"]
+          item_name: string | null
+          item_sku: string | null
+          is_active: boolean | null
+          created_by: string | null
+          updated_by: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          request_id: string
+          item_id: string
+          requested_quantity: number
+          status?: Database["public"]["Enums"]["sor_line_item_status"]
+          item_name?: string | null
+          item_sku?: string | null
+          is_active?: boolean | null
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          request_id?: string
+          item_id?: string
+          requested_quantity?: number
+          status?: Database["public"]["Enums"]["sor_line_item_status"]
+          item_name?: string | null
+          item_sku?: string | null
+          is_active?: boolean | null
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_out_line_items_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "stock_out_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_out_line_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_out_line_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_out_line_items_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_out_requests: {
+        Row: {
+          id: string
+          request_number: string | null
+          status: Database["public"]["Enums"]["sor_request_status"]
+          reason: Database["public"]["Enums"]["stock_out_reason"]
+          notes: string | null
+          qmhq_id: string | null
+          requester_id: string
+          is_active: boolean | null
+          created_by: string | null
+          updated_by: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          request_number?: string | null
+          status?: Database["public"]["Enums"]["sor_request_status"]
+          reason: Database["public"]["Enums"]["stock_out_reason"]
+          notes?: string | null
+          qmhq_id?: string | null
+          requester_id: string
+          is_active?: boolean | null
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          request_number?: string | null
+          status?: Database["public"]["Enums"]["sor_request_status"]
+          reason?: Database["public"]["Enums"]["stock_out_reason"]
+          notes?: string | null
+          qmhq_id?: string | null
+          requester_id?: string
+          is_active?: boolean | null
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_out_requests_qmhq_id_fkey"
+            columns: ["qmhq_id"]
+            isOneToOne: false
+            referencedRelation: "qmhq"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_out_requests_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_out_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_out_requests_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_url: string | null
@@ -1351,6 +1576,7 @@ export type Database = {
           invoice_id: string | null
           invoice_line_item_id: string | null
           qmhq_id: string | null
+          stock_out_approval_id: string | null
           status: Database["public"]["Enums"]["inventory_transaction_status"] | null
           transaction_date: string | null
           reference_no: string | null
@@ -1377,6 +1603,7 @@ export type Database = {
           invoice_id?: string | null
           invoice_line_item_id?: string | null
           qmhq_id?: string | null
+          stock_out_approval_id?: string | null
           status?: Database["public"]["Enums"]["inventory_transaction_status"] | null
           transaction_date?: string | null
           reference_no?: string | null
@@ -1403,6 +1630,7 @@ export type Database = {
           invoice_id?: string | null
           invoice_line_item_id?: string | null
           qmhq_id?: string | null
+          stock_out_approval_id?: string | null
           status?: Database["public"]["Enums"]["inventory_transaction_status"] | null
           transaction_date?: string | null
           reference_no?: string | null
@@ -1456,6 +1684,13 @@ export type Database = {
             columns: ["qmhq_id"]
             isOneToOne: false
             referencedRelation: "qmhq"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transactions_stock_out_approval_id_fkey"
+            columns: ["stock_out_approval_id"]
+            isOneToOne: false
+            referencedRelation: "stock_out_approvals"
             referencedColumns: ["id"]
           },
           {
@@ -1786,6 +2021,21 @@ export type Database = {
         | "lost"
         | "transfer"
         | "adjustment"
+      sor_line_item_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "cancelled"
+        | "partially_executed"
+        | "executed"
+      sor_request_status:
+        | "pending"
+        | "partially_approved"
+        | "approved"
+        | "rejected"
+        | "cancelled"
+        | "partially_executed"
+        | "executed"
       inventory_transaction_status: "pending" | "completed" | "cancelled"
       transaction_type: "money_in" | "money_out"
       audit_action:
