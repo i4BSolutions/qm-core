@@ -19,6 +19,8 @@ import { usePermissions } from "@/lib/hooks/use-permissions";
 import { HistoryTab } from "@/components/history/history-tab";
 import { LineItemTable } from "@/components/stock-out-requests/line-item-table";
 import type { LineItemWithApprovals } from "@/components/stock-out-requests/line-item-table";
+import { ApprovalDialog } from "@/components/stock-out-requests/approval-dialog";
+import { RejectionDialog } from "@/components/stock-out-requests/rejection-dialog";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -129,6 +131,8 @@ export default function StockOutRequestDetailPage() {
   const [activeTab, setActiveTab] = useState("details");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
+  const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
 
   // Permission checks
   const canApprove = user?.role === "admin" || user?.role === "quartermaster" || user?.role === "inventory";
@@ -271,6 +275,28 @@ export default function StockOutRequestDetailPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  /**
+   * Handle opening approval dialog
+   */
+  const handleApproveClick = () => {
+    setIsApprovalDialogOpen(true);
+  };
+
+  /**
+   * Handle opening rejection dialog
+   */
+  const handleRejectClick = () => {
+    setIsRejectionDialogOpen(true);
+  };
+
+  /**
+   * Handle successful approval/rejection - refetch data and clear selection
+   */
+  const handleDialogSuccess = async () => {
+    setSelectedIds(new Set());
+    await fetchData();
+  };
 
   /**
    * Handle cancel request
@@ -491,14 +517,8 @@ export default function StockOutRequestDetailPage() {
               canApprove={canApprove}
               selectedIds={selectedIds}
               onSelectionChange={setSelectedIds}
-              onApproveClick={() => {
-                // Will be implemented in Task 2
-                toast.info("Approval dialog coming in next task");
-              }}
-              onRejectClick={() => {
-                // Will be implemented in Task 2
-                toast.info("Rejection dialog coming in next task");
-              }}
+              onApproveClick={handleApproveClick}
+              onRejectClick={handleRejectClick}
             />
           </div>
         </TabsContent>
@@ -613,6 +633,24 @@ export default function StockOutRequestDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Approval Dialog */}
+      <ApprovalDialog
+        open={isApprovalDialogOpen}
+        onOpenChange={setIsApprovalDialogOpen}
+        lineItems={lineItems.filter((item) => selectedIds.has(item.id))}
+        requestId={requestId}
+        requestReason={request.reason}
+        onSuccess={handleDialogSuccess}
+      />
+
+      {/* Rejection Dialog */}
+      <RejectionDialog
+        open={isRejectionDialogOpen}
+        onOpenChange={setIsRejectionDialogOpen}
+        lineItems={lineItems.filter((item) => selectedIds.has(item.id))}
+        onSuccess={handleDialogSuccess}
+      />
     </div>
   );
 }
