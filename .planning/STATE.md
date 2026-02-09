@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** v1.6 Stock-Out Approval & Data Integrity
+**Current focus:** Phase 27 - Stock-Out Approval DB Foundation
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-09 — Milestone v1.6 started
+Phase: 27 of 31 (Stock-Out Approval DB Foundation)
+Plan: Not yet planned
+Status: Ready to plan
+Last activity: 2026-02-09 — v1.6 roadmap created with 5 phases covering 25 requirements
 
 ```
-v1.5 Progress: [████████████████████] 100% (4/4 phases complete)
-Overall: [████████████████████████] 100% (26/26 phases complete)
+v1.6 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/5 phases complete)
+Overall: [████████████████░░░░] 84% (26/31 phases complete)
 ```
 
 ## Milestone History
@@ -101,11 +101,38 @@ Overall: [███████████████████████�
 
 See PROJECT.md Key Decisions table for full log.
 
+Recent decisions affecting current work:
+- v1.5: Currency inheritance with Lock badge - Prevents accidental currency mismatch in transactions
+- v1.5: Context-dependent abbreviation thresholds - Respects financial precision (card: 1M, table: 1B, detail: never)
+- v1.4: RPC creates audit before entity update - Enables trigger deduplication to prevent duplicates
+- v1.3: CurrencyDisplay two-line format - Original currency + EUSD equivalent clearly visible
+
 ### Pending Todos
 
 None.
 
 ### Blockers/Concerns
+
+**Phase 27 considerations:**
+- Stock validation race condition must be handled at both request creation AND approval time
+- Partial approval requires careful schema design (requested_qty + approved_qty fields)
+- QMHQ integration strategy decision needed: auto-create approved requests vs manual linking
+
+**Phase 28 considerations:**
+- Stock-out form must enforce qty <= approved_qty, not requested_qty
+- QMHQ item route needs integration point to create stock-out request
+
+**Phase 29 considerations:**
+- FK constraint changes require careful migration sequencing
+- Pre-flight RPC must count only active (is_active = true) references
+
+**Phase 30 considerations:**
+- Auth middleware must check is_active on every request, not just login
+- Session invalidation approach needs validation (middleware vs Supabase API)
+
+**Phase 31 considerations:**
+- Extract reusable pattern from existing QmrlContextPanel (640 lines)
+- Avoid N+1 queries by fetching slider data in parent Server Component
 
 **Known Tech Debt:** PO Edit page does not exist at /po/[id]/edit (Edit button links to 404)
 - Pre-existing issue discovered during v1.3 audit
@@ -114,10 +141,10 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Defining v1.6 requirements
+Stopped at: Roadmap created for v1.6 milestone with 5 phases
 Resume file: None
-Next step: Define requirements and create roadmap
+Next step: Run /gsd:plan-phase 27 to begin phase planning
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-09 - Milestone v1.6 started*
+*Last updated: 2026-02-09 - v1.6 roadmap created*

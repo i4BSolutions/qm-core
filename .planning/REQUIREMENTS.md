@@ -85,38 +85,45 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SOAR-01 | TBD | Pending |
-| SOAR-02 | TBD | Pending |
-| SOAR-03 | TBD | Pending |
-| SOAR-04 | TBD | Pending |
-| SOAR-05 | TBD | Pending |
-| SOAR-06 | TBD | Pending |
-| SOAR-07 | TBD | Pending |
-| SOAR-08 | TBD | Pending |
-| SOAR-09 | TBD | Pending |
-| SOAR-10 | TBD | Pending |
-| SOAR-11 | TBD | Pending |
-| DPRT-01 | TBD | Pending |
-| DPRT-02 | TBD | Pending |
-| DPRT-03 | TBD | Pending |
-| DPRT-04 | TBD | Pending |
-| DPRT-05 | TBD | Pending |
-| DPRT-06 | TBD | Pending |
-| DPRT-07 | TBD | Pending |
-| UMGT-01 | TBD | Pending |
-| UMGT-02 | TBD | Pending |
-| UMGT-03 | TBD | Pending |
-| CSLR-01 | TBD | Pending |
-| CSLR-02 | TBD | Pending |
-| CSLR-03 | TBD | Pending |
-| CSLR-04 | TBD | Pending |
-| CSLR-05 | TBD | Pending |
+| SOAR-01 | Phase 27 | Pending |
+| SOAR-02 | Phase 28 | Pending |
+| SOAR-03 | Phase 28 | Pending |
+| SOAR-04 | Phase 27 | Pending |
+| SOAR-05 | Phase 28 | Pending |
+| SOAR-06 | Phase 28 | Pending |
+| SOAR-07 | Phase 28 | Pending |
+| SOAR-08 | Phase 28 | Pending |
+| SOAR-09 | Phase 27 | Pending |
+| SOAR-10 | Phase 27 | Pending |
+| SOAR-11 | Phase 27 | Pending |
+| DPRT-01 | Phase 29 | Pending |
+| DPRT-02 | Phase 29 | Pending |
+| DPRT-03 | Phase 29 | Pending |
+| DPRT-04 | Phase 29 | Pending |
+| DPRT-05 | Phase 29 | Pending |
+| DPRT-06 | Phase 29 | Pending |
+| DPRT-07 | Phase 29 | Pending |
+| UMGT-01 | Phase 30 | Pending |
+| UMGT-02 | Phase 30 | Pending |
+| UMGT-03 | Phase 30 | Pending |
+| CSLR-01 | Phase 31 | Pending |
+| CSLR-02 | Phase 31 | Pending |
+| CSLR-03 | Phase 31 | Pending |
+| CSLR-04 | Phase 31 | Pending |
+| CSLR-05 | Phase 31 | Pending |
 
 **Coverage:**
 - v1.6 requirements: 25 total
-- Mapped to phases: 0
-- Unmapped: 25
+- Mapped to phases: 25
+- Unmapped: 0
+
+**Requirement Distribution by Phase:**
+- Phase 27 (Stock-Out Approval DB Foundation): 5 requirements
+- Phase 28 (Stock-Out Request & Approval UI): 7 requirements
+- Phase 29 (Deletion Protection): 7 requirements
+- Phase 30 (User Deactivation): 3 requirements
+- Phase 31 (Context Sliders): 5 requirements
 
 ---
 *Requirements defined: 2026-02-09*
-*Last updated: 2026-02-09 after initial definition*
+*Last updated: 2026-02-09 - Roadmap created, all requirements mapped*

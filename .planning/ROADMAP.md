@@ -8,6 +8,7 @@
 - ✅ **v1.3 UX & Bug Fixes** - Phases 17-19 (shipped 2026-02-02)
 - ✅ **v1.4 UX Enhancements & Workflow Improvements** - Phases 20-22 (shipped 2026-02-06)
 - ✅ **v1.5 UX Polish & Collaboration** - Phases 23-26 (shipped 2026-02-09)
+- 🚧 **v1.6 Stock-Out Approval & Data Integrity** - Phases 27-31 (in progress)
 
 ## Phases
 
@@ -53,7 +54,94 @@ Phases 23-26 delivered threaded comments on all detail pages, fluid font scaling
 
 </details>
 
+### 🚧 v1.6 Stock-Out Approval & Data Integrity (In Progress)
+
+**Milestone Goal:** Add request/approval workflow before stock-out operations, protect referenced entities from deletion, enable user deactivation, and provide contextual side sliders for related data visibility.
+
+#### Phase 27: Stock-Out Approval DB Foundation
+**Goal**: Database schema and business logic ready to support stock-out approval workflow
+**Depends on**: Phase 26 (v1.5 complete)
+**Requirements**: SOAR-01, SOAR-04, SOAR-09, SOAR-10, SOAR-11
+**Success Criteria** (what must be TRUE):
+  1. stock_out_requests table exists with workflow status tracking (Pending, Approved, Rejected)
+  2. Stock validation RPC checks available inventory at both request and approval time
+  3. RLS policies prevent unauthorized users from approving or viewing others' requests
+  4. Audit trigger logs all stock-out request state changes (create, approval, rejection, cancellation)
+  5. TypeScript types generated from schema and available for UI development
+**Plans**: TBD
+
+Plans:
+- [ ] 27-01: [TBD during planning]
+
+#### Phase 28: Stock-Out Request & Approval UI
+**Goal**: Users can request stock-out and admins can approve/reject with partial approval support
+**Depends on**: Phase 27
+**Requirements**: SOAR-01, SOAR-02, SOAR-03, SOAR-05, SOAR-06, SOAR-07, SOAR-08
+**Success Criteria** (what must be TRUE):
+  1. QMHQ item route creates stock-out request with quantity pre-filled from QMHQ
+  2. Inventory/Quartermaster can create manual stock-out request with item, warehouse, reason, and notes
+  3. Admin sees pending stock-out requests list with item, requester, and quantity
+  4. Admin can approve request with quantity less than or equal to requested (partial approval)
+  5. Admin can reject request with mandatory rejection reason
+  6. Requester can cancel own pending request
+  7. QMHQ item detail page shows requested quantity and approved quantity
+  8. Stock-out execution page only allows quantity up to approved amount
+**Plans**: TBD
+
+Plans:
+- [ ] 28-01: [TBD during planning]
+
+#### Phase 29: Deletion Protection
+**Goal**: Master data entities cannot be deactivated when referenced by active records
+**Depends on**: Phase 26 (independent of stock-out workflow)
+**Requirements**: DPRT-01, DPRT-02, DPRT-03, DPRT-04, DPRT-05, DPRT-06, DPRT-07
+**Success Criteria** (what must be TRUE):
+  1. Item deactivation blocked when referenced by QMHQ, PO line items, or inventory transactions
+  2. Status deactivation blocked when assigned to any active QMRL or QMHQ
+  3. Category deactivation blocked when assigned to any active QMRL, QMHQ, or item
+  4. Department deactivation blocked when assigned to any user or QMRL
+  5. Contact person deactivation blocked when referenced by any QMRL or QMHQ
+  6. Supplier deactivation blocked when referenced by any PO
+  7. Delete dialog shows generic error "Cannot delete: this item is in use" when references exist
+**Plans**: TBD
+
+Plans:
+- [ ] 29-01: [TBD during planning]
+
+#### Phase 30: User Deactivation
+**Goal**: Admin can deactivate users without losing historical data attribution
+**Depends on**: Phase 26 (independent of other v1.6 features)
+**Requirements**: UMGT-01, UMGT-02, UMGT-03
+**Success Criteria** (what must be TRUE):
+  1. Admin can deactivate a user account from user management page
+  2. Deactivated user cannot log in (blocked at auth middleware)
+  3. Deactivated users filtered out of assignment dropdowns (assigned_to, created_by selects)
+  4. Historical records preserve deactivated user's name and attribution (created_by, updated_by)
+  5. Admin can reactivate a previously deactivated user
+**Plans**: TBD
+
+Plans:
+- [ ] 30-01: [TBD during planning]
+
+#### Phase 31: Context Sliders
+**Goal**: Side sliders provide contextual information on stock-out and QMHQ create pages
+**Depends on**: Phase 28 (needs stock-out pages to exist)
+**Requirements**: CSLR-01, CSLR-02, CSLR-03, CSLR-04, CSLR-05
+**Success Criteria** (what must be TRUE):
+  1. Stock-out request page shows QMRL and QMHQ details in right side slider
+  2. Stock-out approval page shows QMRL and QMHQ details in right side slider
+  3. Stock-out execution page shows QMRL and QMHQ details in right side slider
+  4. QMHQ create page shows QMRL data in right side slider (replaces existing context panel)
+  5. Sliders are open by default on desktop, closed on mobile, and toggleable
+**Plans**: TBD
+
+Plans:
+- [ ] 31-01: [TBD during planning]
+
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 27 → 28 → 29 → 30 → 31
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -66,3 +154,8 @@ Phases 23-26 delivered threaded comments on all detail pages, fluid font scaling
 | 24. Responsive Typography | v1.5 | 2/2 | ✓ Complete | 2026-02-07 |
 | 25. Two-Step Selectors | v1.5 | 2/2 | ✓ Complete | 2026-02-08 |
 | 26. Currency Unification | v1.5 | 2/2 | ✓ Complete | 2026-02-08 |
+| 27. Stock-Out Approval DB Foundation | v1.6 | 0/? | Not started | - |
+| 28. Stock-Out Request & Approval UI | v1.6 | 0/? | Not started | - |
+| 29. Deletion Protection | v1.6 | 0/? | Not started | - |
+| 30. User Deactivation | v1.6 | 0/? | Not started | - |
+| 31. Context Sliders | v1.6 | 0/? | Not started | - |
