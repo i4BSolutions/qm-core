@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: 27 of 31 (Stock-Out Approval DB Foundation)
-Plan: Not yet planned
-Status: Ready to plan
-Last activity: 2026-02-09 — v1.6 roadmap created with 5 phases covering 25 requirements
+Plan: 2 of 3
+Status: In progress
+Last activity: 2026-02-09 — Completed plan 27-01 (SOR schema tables)
 
 ```
 v1.6 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/5 phases complete)
@@ -102,6 +102,10 @@ Overall: [████████████████░░░░] 84% (26/
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting current work:
+- Phase 27-01: Request status computed from line items - Ensures parent status always reflects child state
+- Phase 27-01: QMHQ-linked requests enforce exactly one line item - Prevents multi-item confusion in single-item QMHQ context
+- Phase 27-01: Sequential approval numbering with parent prefix - Provides clear ordering and traceability for audit trail
+- Phase 27-01: Item name/SKU snapshotted at line item creation - Preserves historical accuracy even if item renamed/deleted
 - v1.5: Currency inheritance with Lock badge - Prevents accidental currency mismatch in transactions
 - v1.5: Context-dependent abbreviation thresholds - Respects financial precision (card: 1M, table: 1B, detail: never)
 - v1.4: RPC creates audit before entity update - Enables trigger deduplication to prevent duplicates
@@ -140,11 +144,17 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-09
-Stopped at: Roadmap created for v1.6 milestone with 5 phases
+Last session: 2026-02-09T13:48:59Z
+Stopped at: Completed 27-01-PLAN.md (SOR schema foundation)
 Resume file: None
-Next step: Run /gsd:plan-phase 27 to begin phase planning
+Next step: Execute 27-02-PLAN.md (validation triggers) or 27-03-PLAN.md (RLS & audit)
+
+## Performance Metrics
+
+| Phase | Plan | Duration | Tasks | Files | Completed |
+|-------|------|----------|-------|-------|-----------|
+| 27-stock-out-approval-db-foundation | 01 | 2min | 1 | 1 | 2026-02-09 |
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-09 - v1.6 roadmap created*
+*Last updated: 2026-02-09 - Completed phase 27 plan 01*
