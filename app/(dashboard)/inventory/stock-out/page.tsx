@@ -12,6 +12,7 @@ import {
   Save,
   Warehouse,
   ArrowRightLeft,
+  Plus,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ import {
 } from "@/lib/utils/inventory";
 import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import { useAuth } from "@/components/providers/auth-provider";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 import { useToast } from "@/components/ui/use-toast";
 import type {
   Item,
@@ -59,10 +61,18 @@ export default function StockOutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { can } = usePermissions();
   const { toast } = useToast();
 
   // Get QMHQ ID from query params (when coming from QMHQ detail page)
   const qmhqId = searchParams.get("qmhq");
+
+  // Redirect QMHQ links to new request page
+  useEffect(() => {
+    if (qmhqId) {
+      router.replace(`/inventory/stock-out-requests/new?qmhq=${qmhqId}`);
+    }
+  }, [qmhqId, router]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -464,6 +474,68 @@ export default function StockOutPage() {
           <p className="text-sm text-slate-400 font-mono uppercase tracking-wider">
             Loading...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show redirect/info page if not coming from QMHQ
+  if (!qmhqId) {
+    return (
+      <div className="space-y-6 relative max-w-3xl mx-auto">
+        {/* Grid overlay */}
+        <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
+
+        {/* Header */}
+        <div className="relative flex items-start justify-between animate-fade-in">
+          <div className="flex items-start gap-4">
+            <Link href="/warehouse">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="mt-1 hover:bg-amber-500/10 hover:text-amber-500"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-200">
+                Stock Out
+              </h1>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Panel */}
+        <div className="command-panel corner-accents animate-slide-up">
+          <div className="flex flex-col items-center justify-center py-12 text-center gap-6">
+            <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <AlertTriangle className="h-8 w-8 text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-slate-200 mb-2">
+                Stock-out operations now require an approved request
+              </h2>
+              <p className="text-sm text-slate-400 max-w-md">
+                To ensure proper approval workflow and inventory tracking, all stock-out operations must go through the request and approval process.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link href="/inventory/stock-out-requests">
+                <Button variant="outline" className="border-slate-700">
+                  View Requests
+                </Button>
+              </Link>
+              {can("create", "stock_out_requests") && (
+                <Link href="/inventory/stock-out-requests/new">
+                  <Button className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create New Request
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );

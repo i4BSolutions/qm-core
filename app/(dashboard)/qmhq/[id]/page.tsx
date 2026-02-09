@@ -127,6 +127,7 @@ export default function QMHQDetailPage() {
   const [transactions, setTransactions] = useState<FinancialTransactionWithUser[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<POWithRelations[]>([]);
   const [stockOutTransactions, setStockOutTransactions] = useState<StockOutTransaction[]>([]);
+  const [stockOutRequest, setStockOutRequest] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("details");
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
@@ -227,6 +228,22 @@ export default function QMHQDetailPage() {
       if (stockOutData) {
         setStockOutTransactions(stockOutData as unknown as StockOutTransaction[]);
       }
+
+      // Fetch linked stock-out request
+      const { data: sorData } = await supabase
+        .from('stock_out_requests')
+        .select(`
+          id, request_number, status,
+          line_items:stock_out_line_items(
+            id, requested_quantity, status,
+            approvals:stock_out_approvals(approved_quantity, decision)
+          )
+        `)
+        .eq('qmhq_id', qmhqData.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      setStockOutRequest(sorData);
     }
 
     // Fetch file count for attachments tab badge
@@ -799,23 +816,25 @@ export default function QMHQDetailPage() {
                   <ArrowUpFromLine className="h-4 w-4 text-red-400" />
                   <h2>Stock Out Transactions</h2>
                 </div>
-{allItemsFullyIssued ? (
-                  <Button
-                    disabled
-                    className="bg-slate-600 cursor-not-allowed"
-                    title="All items have been fully issued"
-                  >
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Fully Issued
-                  </Button>
+                {!stockOutRequest ? (
+                  can("create", "stock_out_requests") && (
+                    <Link href={`/inventory/stock-out-requests/new?qmhq=${qmhqId}`}>
+                      <Button
+                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Request Stock-Out
+                      </Button>
+                    </Link>
+                  )
                 ) : (
-                  <Link href={`/inventory/stock-out?qmhq=${qmhqId}`}>
-                    <Button
-                      className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400"
+                  <Link href={`/inventory/stock-out-requests/${stockOutRequest.id}`}>
+                    <Badge
+                      variant="outline"
+                      className="cursor-pointer hover:bg-slate-700/50 px-3 py-1.5 text-sm"
                     >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Issue Items
-                    </Button>
+                      {stockOutRequest.status}
+                    </Badge>
                   </Link>
                 )}
               </div>
@@ -877,6 +896,74 @@ export default function QMHQDetailPage() {
                   })}
                 </div>
               </div>
+
+              {/* Stock-Out Status Card (SOAR-08) */}
+              {stockOutRequest ? (
+                <div className="mb-6 p-4 rounded-xl border border-slate-700/50 bg-slate-800/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs text-slate-400 uppercase tracking-wider">Stock-Out Request</p>
+                    <Link href={`/inventory/stock-out-requests/${stockOutRequest.id}`}>
+                      <code className="text-xs text-amber-400 hover:text-amber-300 cursor-pointer">
+                        {stockOutRequest.request_number}
+                      </code>
+                    </Link>
+                  </div>
+
+                  <div className="mb-3">
+                    <Badge
+                      variant="outline"
+                      className="text-sm"
+                    >
+                      {stockOutRequest.status}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center gap-6 mb-3">
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-400 mb-1">Requested</p>
+                      <p className="text-lg font-mono font-semibold text-slate-200">
+                        {stockOutRequest.line_items?.reduce((sum: number, li: any) => sum + (li.requested_quantity || 0), 0) || 0}
+                      </p>
+                    </div>
+                    <div className="text-slate-600 text-2xl">|</div>
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-400 mb-1">Approved</p>
+                      <p className="text-lg font-mono font-semibold text-emerald-400">
+                        {stockOutRequest.line_items?.reduce((sum: number, li: any) => {
+                          const approved = li.approvals?.filter((a: any) => a.decision === 'approved') || [];
+                          return sum + approved.reduce((aSum: number, a: any) => aSum + (a.approved_quantity || 0), 0);
+                        }, 0) || 0}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <Link
+                      href={`/inventory/stock-out-requests/${stockOutRequest.id}`}
+                      className="text-xs text-blue-400 hover:text-blue-300"
+                    >
+                      View Details →
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-6 p-4 rounded-xl border border-slate-700/50 bg-slate-800/30">
+                  <p className="text-sm text-slate-400 mb-3">
+                    Create a stock-out request to initiate the approval workflow
+                  </p>
+                  {can("create", "stock_out_requests") && (
+                    <Link href={`/inventory/stock-out-requests/new?qmhq=${qmhqId}`}>
+                      <Button
+                        size="sm"
+                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Request Stock-Out
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              )}
 
               {stockOutTransactions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
