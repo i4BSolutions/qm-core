@@ -5,19 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Phase 28 - Stock-Out Request & Approval UI
+**Current focus:** Phase 29 - Deletion Protection
 
 ## Current Position
 
-Phase: 28 of 31 (Stock-Out Request & Approval UI)
-Plan: 3 of 3
-Status: Complete
-Last activity: 2026-02-09 — Plan 28-03 complete (execution dialog and QMHQ integration)
+Phase: 29 of 31 (Deletion Protection)
+Plan: Not yet planned
+Status: Ready to plan
+Last activity: 2026-02-09 — Phase 28 complete (3/3 plans, verified 8/8 must-haves)
 
 ```
-v1.6 Progress: [████░░░░░░░░░░░░░░░░] 20% (1/5 phases complete)
-Phase 28: [████████████████████] 100% (3/3 plans complete)
-Overall: [█████████████████░░░] 87% (27/31 phases complete)
+v1.6 Progress: [████████░░░░░░░░░░░░] 40% (2/5 phases complete)
+Overall: [██████████████████░░] 90% (28/31 phases complete)
 ```
 
 ## Milestone History
@@ -123,9 +122,7 @@ None.
 
 **Phase 27: COMPLETE** — 3 migrations (052-054), 3 tables, 12 RLS policies, audit triggers, TypeScript types
 
-**Phase 28 considerations:**
-- Stock-out form must enforce qty <= approved_qty, not requested_qty
-- QMHQ item route needs integration point to create stock-out request
+**Phase 28: COMPLETE** — 3 plans, 9 commits, 7 new files, 3 modified files, verified 8/8 must-haves
 
 **Phase 29 considerations:**
 - FK constraint changes require careful migration sequencing
@@ -146,9 +143,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Phase 28 Plan 03 complete — execution dialog and QMHQ integration
+Stopped at: Phase 28 complete — verified 8/8 must-haves
 Resume file: None
-Next step: Phase 28 complete. Proceed to Phase 29 (soft-delete pre-flight checks)
+Next step: Run /gsd:plan-phase 29 to plan Deletion Protection
 
 ## Performance Metrics
 
@@ -163,4 +160,4 @@ Next step: Phase 28 complete. Proceed to Phase 29 (soft-delete pre-flight checks
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-09 - Phase 27 complete, verified*
+*Last updated: 2026-02-09 - Phase 28 complete, verified*
