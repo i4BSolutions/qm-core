@@ -1,28 +1,29 @@
-# Features Research: v1.5 Enhancement Features
+# Features Research: Stock-Out Approval, Deletion Protection & Context Panels
 
 **Domain:** Internal ticket/inventory management platform
-**Researched:** 2026-02-07
-**Context:** Adding comments, responsive typography, two-step selectors, and currency unification to existing QM System
+**Researched:** 2026-02-09
+**Context:** Adding stock-out approval workflow, entity deletion protection, user deactivation, and context side sliders to existing QM System
 
 ---
 
-## Comments
+## Stock-Out Approval Workflow
 
 ### Table Stakes
 
-Features users expect from a commenting system. Missing these would make the feature feel incomplete.
+Features users expect from inventory withdrawal request/approval systems. Missing these would make the feature feel incomplete.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **One-level threading** | Standard in modern comment systems; allows direct replies without overwhelming nesting | Medium | Parent-child only; industry best practice to cap at one level for readability |
-| **Visual hierarchy** | Users need to instantly recognize parent-child relationships | Low | Indentation, borders, or background colors to show reply relationships |
-| **Author & timestamp** | Core accountability and context for comments | Low | Show who commented and when |
-| **Delete own comments** | Users expect to remove their own content | Low | Standard permission pattern across platforms |
-| **Soft delete (7-day recovery)** | Safety net for accidental deletions | Medium | Follow existing audit pattern; mark deleted but keep in DB for 7 days |
-| **Polymorphic entity reference** | Comments must attach to QMRL, QMHQ, PO, Invoice | Medium | Leverage existing polymorphic attachment pattern from file uploads |
-| **Role-based visibility** | Users only see comments on entities they can access | Medium | Follow existing RLS patterns for QMRL/QMHQ/PO/Invoice |
-| **Real-time updates** | Comments appear without page refresh | Medium | Use Supabase realtime subscriptions |
-| **Chronological ordering** | Newest first or oldest first toggle | Low | Standard sorting expectation |
+| **Request creation with reason** | Users must justify withdrawal; standard accountability practice | Low | Status field + reason dropdown/text field |
+| **Approval status tracking** | Users need visibility into request state (pending, approved, rejected, cancelled) | Low | Status enum: pending, approved, rejected, cancelled |
+| **Single approver per request** | Clear accountability for approval decisions | Low | Admin-only approval matches existing permission model |
+| **Approval/rejection with comments** | Approvers need to provide justification for decisions | Medium | Leverage existing comment system or add notes field |
+| **Requestor notification** | Users must know when their request is approved/rejected | Medium | Depends on notification system (email/in-app) |
+| **Audit trail** | All state changes tracked for compliance | Low | Leverage existing audit_logs infrastructure |
+| **Cancel own pending request** | Requestors should be able to withdraw pending requests | Low | Only if status is pending, by requestor only |
+| **Stock-out executes on approval** | Approved request automatically creates inventory transaction | Medium | Workflow: approve → create inventory_transaction → update stock |
+| **Quantity validation** | Cannot request more than available stock | Medium | Check warehouse stock levels at creation and approval time |
+| **Link to parent entity** | Stock-out request tied to QMHQ item route or standalone | Medium | Polymorphic reference or specific QMHQ link |
 
 ### Differentiators
 
@@ -30,13 +31,16 @@ Features that enhance the experience beyond basic expectations.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **NO edit capability** | Preserves comment integrity and audit trail; prevents abuse after moderation | Low (by omission) | Design decision: delete-only prevents post-publication content manipulation |
-| **Admin can delete any comment** | Moderation capability for inappropriate content | Low | Admin role already has elevated permissions |
-| **Collapse/expand threads** | Reduces clutter while preserving context | Medium | Helpful for long comment chains |
-| **Comment count badge** | Quick visibility into discussion activity | Low | Show count on detail page tabs |
-| **@mention notifications** | Alert users when tagged in comments | High | Defer to post-v1.5; requires notification system |
-| **Markdown support** | Rich formatting for clearer communication | Medium | Consider for v1.6; adds significant complexity |
-| **File attachments in comments** | Supporting evidence or context | Medium | Could leverage existing attachment system; defer to v1.6 |
+| **Partial approval** | Approve less than requested quantity if insufficient stock | High | Requires split workflow: approve X of Y requested, creates transaction for X only |
+| **Batch approval UI** | Admin selects multiple pending requests, approves all at once | Medium | Improves efficiency when many requests queue up |
+| **Approval delegation** | Admin can temporarily delegate approval rights to others | High | Defer to future; adds role/permission complexity |
+| **Auto-approval thresholds** | Small quantities (<10 units?) auto-approve without admin review | Medium | Business rule engine; risky for accountability; consider carefully |
+| **Priority/urgency levels** | Mark requests as urgent/emergency for faster review | Low | Priority enum: normal, high, emergency |
+| **Request history view** | See all past requests by user/item/warehouse | Low | Filter existing requests table |
+| **Expiration/timeout** | Pending requests expire after N days | Medium | Scheduled job to auto-cancel stale requests |
+| **Stock reservation on request** | Reserve stock when request created, release if rejected | High | Prevents overselling but adds complexity; likely overkill for internal tool |
+| **Admin override/force approve** | Emergency bypass for critical situations with justification | Low | Admin can approve even if stock insufficient, with warning and mandatory reason |
+| **Multi-level approval** | Large quantities require multiple approvers | High | Defer to future; current system is admin-only single-tier |
 
 ### Anti-Features
 
@@ -44,49 +48,70 @@ Features to deliberately NOT build based on research.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Multi-level threading (>1 level)** | Creates overwhelming visual complexity and confusing conversation flow | Hard cap at one level of replies; forces focused discussion |
-| **Edit comments** | Breaks audit integrity; allows post-publication manipulation after moderation | Delete and re-comment if correction needed |
-| **Upvoting/reactions** | Not relevant for internal operational tool; creates unnecessary gamification | Simple threaded discussion only |
-| **Comment anonymization** | Internal accountability tool requires attribution | Always show commenter name |
-| **Public/private toggle** | Adds complexity; RLS already handles visibility based on entity access | Rely on existing permission model |
-| **Comment drafts** | Overkill for simple comment system | Post immediately or discard |
+| **Edit approved requests** | Breaks audit integrity; approved = immutable | Delete and create new request if changes needed |
+| **Anonymous requests** | Internal tool requires accountability | Always track requestor |
+| **Requester can approve own request** | Violates separation of duties | Only admin role can approve |
+| **Automatic rejection** | Surprising behavior; human judgment required | Admin must explicitly reject with reason |
+| **Complex multi-currency handling** | Stock-out is inventory, not financial | Stock quantities are currency-agnostic |
+| **Stock-out without request** | Circumvents approval workflow | Remove or restrict direct stock-out form; force through request/approval |
 
 ### Dependencies on Existing Features
 
-- **Polymorphic associations**: Already implemented for file attachments; reuse pattern for `commentable_type` and `commentable_id`
-- **Audit logging**: Comments should trigger audit events (create, delete)
-- **User context**: Leverage existing auth context for commenter identity
-- **RLS policies**: Comments inherit access from parent entity (QMRL/QMHQ/PO/Invoice)
+- **Inventory transactions table**: Approved request creates `inventory_out` transaction
+- **Warehouse stock levels**: Real-time availability check before approval
+- **Audit logging**: Request state changes trigger audit logs
+- **User permissions**: Admin role enforcement for approval actions
+- **QMHQ item route**: May link stock-out request to parent QMHQ
+- **Comment system (if v1.5 built)**: Reuse for approval notes; otherwise add notes field
+
+### Integration Points
+
+**Two stock-out paths to unify:**
+1. **QMHQ item route**: Creates stock-out request automatically when QMHQ line created
+2. **Manual warehouse stock-out**: User initiates stock-out request from inventory page
+
+**Workflow:**
+```
+Request Created (pending)
+  → Admin Reviews
+    → Approved: Creates inventory_transaction (type: inventory_out)
+    → Rejected: Request closed with reason
+    → Cancelled: Requestor withdraws
+```
 
 ---
 
-## Responsive Typography
+## Entity Deletion Protection
 
 ### Table Stakes
 
-Essential features for handling large number displays.
+Essential features for preventing data loss in relational databases.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **CSS clamp() for fluid scaling** | Modern standard for responsive typography; scales between min/max based on viewport | Low | `clamp(minRem, preferredVw, maxRem)` for smooth scaling |
-| **Relative units (rem/em)** | WCAG AA compliance requires text resizable to 200% | Low | Never use fixed px for font sizes |
-| **Truncation with ellipsis** | Prevents layout breakage from 15+ digit numbers | Low | Use `text-overflow: ellipsis` with `overflow: hidden` |
-| **Non-breaking spaces for number groups** | Prevents awkward line breaks mid-number | Low | Format: `123 456 789` stays on one line |
-| **Accessibility: 200% zoom support** | WCAG AA requirement | Low | Using rem/em inherently supports this |
-| **Mobile-first breakpoints** | Numbers need more aggressive scaling on small screens | Medium | Start with mobile constraints, scale up for desktop |
+| **Foreign key RESTRICT constraint** | Database-level protection; prevents delete if referenced | Low | PostgreSQL ON DELETE RESTRICT (or NO ACTION default) |
+| **User-friendly error messages** | Database error translated to helpful UI message | Low | "Cannot delete: X items reference this category" |
+| **"Where used" display** | Show list of entities referencing this record before delete attempt | Medium | Query foreign key relationships and display count/list |
+| **Soft delete for users** | Preserve user data for audit trail when employee leaves | Low | `is_active` flag already exists; enhance with user deactivation |
+| **Cascade delete for owned children** | Parent deletion removes orphaned children (e.g., QMRL deletes QMHQ lines) | Medium | ON DELETE CASCADE for dependent entities |
+| **Admin-only deletion** | Restrict delete operations to admin role | Low | Permission check in UI and RLS policy |
+| **Confirmation dialog** | Two-step delete with explicit confirmation | Low | "Are you sure? This cannot be undone." modal |
+| **Audit log on delete** | Track what was deleted, by whom, when | Low | Leverage existing audit_logs system |
 
 ### Differentiators
 
-Features that enhance large number readability beyond basics.
+Features that enhance deletion protection beyond basics.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Abbreviation for very large numbers** | "1.5M" instead of "1,500,000" improves scannability | Medium | Use K (thousands), M (millions), B (billions) for card views |
-| **Full number on hover/focus** | Preserve precision while showing abbreviated version | Low | Tooltip or expand on interaction |
-| **Monospace font for alignment** | Numbers align vertically in tables for easier comparison | Low | Use `font-variant-numeric: tabular-nums` or monospace |
-| **Locale-aware formatting** | Support both comma (1,000,000) and space (1 000 000) separators | Medium | System already uses space separators for international clarity |
-| **Scientific notation toggle** | For extremely large numbers (>1 billion) | Low | Show 1.23e9 option for very large amounts |
-| **Color-coded magnitude** | Visual cue for order of magnitude (millions vs billions) | Medium | Subtle color shift based on number size |
+| **Cascading impact preview** | Show what else will be deleted before confirming | High | Recursive query to find all dependent records; complex UI |
+| **Deactivation instead of deletion** | For master data (items, suppliers, categories), hide but preserve | Low | Add `is_active` flag if not present; filter in queries |
+| **Archive and restore** | Move deleted data to archive table for recovery | Medium | Separate archive schema; adds maintenance burden |
+| **Bulk deactivation** | Select multiple entities, deactivate all at once | Low | Useful for cleaning up unused items/categories |
+| **"Replace and delete" workflow** | Reassign references to different entity before delete | High | Complex UI: "Delete category X, move all items to category Y" |
+| **Deletion request/approval** | Non-admin requests deletion, admin approves | High | Adds workflow layer; likely overkill |
+| **GDPR-compliant hard delete** | For user data, provide true deletion option | Medium | Legal requirement in some jurisdictions; hard delete with cascade |
+| **Scheduled deletion** | Mark for deletion, remove after grace period | Medium | Soft delete + background job; allows recovery window |
 
 ### Anti-Features
 
@@ -94,49 +119,64 @@ Features to deliberately avoid.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Auto-abbreviation without user control** | Finance users need full precision; auto-abbreviation loses trust | Only abbreviate in card/summary views; show full in detail views |
-| **Fixed pixel font sizes** | Breaks WCAG accessibility; doesn't scale with user preferences | Always use rem/em units |
-| **Truncation without hover reveal** | Frustrating for users who need the full number | Always provide way to see full value (hover, click, or detail view) |
-| **Inconsistent number formatting** | Mixing formats (1,000 vs 1K vs 1000) creates confusion | Define clear rules: full in tables, abbreviated in cards |
-| **Dynamic font size based on viewport only** | Can cause layout shift and readability issues | Use clamp() with sensible min/max bounds |
+| **Silent deletion failures** | Confusing and frustrating for users | Always show clear error with reason |
+| **Hard delete as default** | Data loss risk; irreversible | Default to soft delete (is_active = false); hard delete admin-only with confirmation |
+| **Cascade delete without warning** | Surprising data loss; users don't expect children to disappear | Show "This will also delete X related records" before confirming |
+| **Undo after hard delete** | Technically impossible; false promise | Use soft delete if undo needed; hard delete is permanent |
+| **Complex permission matrix for deletion** | Over-engineering; admin-only is sufficient for internal tool | Keep simple: admin can delete, others cannot |
 
 ### Dependencies on Existing Features
 
-- **CurrencyDisplay component**: Already shows two-line Org + EUSD format; enhance with responsive sizing
-- **Tailwind CSS**: Existing design system provides responsive utilities
-- **Financial amounts**: All use DECIMAL(15,2) format; 15 digits is the target edge case
+- **Soft delete (`is_active` flag)**: Already implemented system-wide
+- **Audit logging**: Delete events already tracked
+- **RLS policies**: Admin role permissions already defined
+- **Foreign key relationships**: Database schema has FKs defined
+
+### Entities Requiring Protection
+
+| Entity | Protection Strategy | Rationale |
+|--------|-------------------|-----------|
+| **Items** | RESTRICT + soft delete | Referenced by POs, invoices, inventory transactions, QMHQ |
+| **Statuses** | RESTRICT | Referenced by QMRL, QMHQ; critical to workflow |
+| **Categories** | RESTRICT + soft delete | Referenced by QMRL, QMHQ, items |
+| **Departments** | RESTRICT | Referenced by users, QMRL; organizational structure |
+| **Contact Persons** | RESTRICT | Referenced by QMRL, suppliers |
+| **Suppliers** | RESTRICT + soft delete | Referenced by POs, contact persons |
+| **Users** | Soft delete only (is_active) | Referenced everywhere; must preserve for audit trail |
+| **Warehouses** | RESTRICT | Referenced by inventory transactions; can't delete with stock |
 
 ---
 
-## Two-Step Selector (Category → Item)
+## User Deactivation
 
 ### Table Stakes
 
-Essential features for cascading dropdown functionality.
+Essential features for employee lifecycle management.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Parent selection filters child** | Core definition of cascading dropdown; selecting category limits item choices | Medium | When category selected, only show items in that category |
-| **Parent-independent usage** | Child dropdown should work without parent if all options needed | Low | Allow "All Categories" option or empty parent state |
-| **Search within child dropdown** | Users expect searchable selects for long lists | Low | Already implemented in existing searchable selects |
-| **Clear visual indication of dependency** | Users need to understand the relationship | Low | Label like "Category" → "Item (filtered by category)" |
-| **Reset child when parent changes** | Changing category should clear selected item | Medium | Prevents invalid state (item not in new category) |
-| **Loading state for child** | When parent changes, child options are loading | Low | Show spinner while fetching filtered items |
-| **Empty state handling** | Clear message when no items in selected category | Low | "No items found in this category" message |
+| **Deactivate vs delete** | Deactivation preserves data, allows reactivation | Low | Use existing `is_active` flag on users table |
+| **Deactivated user cannot login** | Prevent access to system | Low | Auth middleware checks `is_active` |
+| **Preserve historical data** | Past actions (QMRL, QMHQ, audit logs) remain attributed to user | Low | Don't delete or anonymize; user record stays |
+| **Remove from active user lists** | Deactivated users don't appear in assignment dropdowns | Low | Filter WHERE is_active = true in queries |
+| **Admin-only deactivation** | Only admin can deactivate users | Low | Permission check in UI and API |
+| **Reactivation option** | Bring user back if they return to company | Low | Set is_active = true again |
+| **Deactivation timestamp** | Track when user was deactivated | Low | Add `deactivated_at` field |
+| **Deactivation reason** | Document why user left (resignation, termination, etc.) | Low | Add `deactivation_reason` text field |
 
 ### Differentiators
 
-Features that enhance the two-step selector beyond basics.
+Features that enhance user deactivation beyond basics.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Recently used items at top** | Speeds up repetitive PO creation | Medium | Track user's recent selections, show first in dropdown |
-| **Item count per category** | Helps users find categories with available items | Low | Show "(23 items)" next to category name |
-| **Keyboard navigation between steps** | Power users can tab from category → item → quantity | Low | Standard HTML form behavior, ensure it works |
-| **Fuzzy search across both fields** | Single search box filters both category and item | High | Defer to v1.6; adds significant complexity |
-| **Favorite/pin items** | Quick access to frequently used items | Medium | Defer to v1.6; requires user preferences storage |
-| **Bulk add from category** | Select all items in category at once | Medium | Useful for standard orders; defer to v1.6 |
-| **Preview item details on hover** | Show SKU, price, stock without leaving selector | Medium | Tooltip or popover with quick info |
+| **Reassign open tasks** | When deactivating, prompt to reassign pending QMRL/QMHQ | Medium | Query open items assigned to user, bulk reassign UI |
+| **Deactivation checklist** | Ensure all user's responsibilities transferred before deactivation | Medium | Show count of open assignments, force review |
+| **Auto-deactivation scheduling** | Set future date for deactivation (e.g., last day of employment) | Medium | Scheduled job; useful for planned departures |
+| **Partial deactivation (read-only)** | User can view but not create/edit during notice period | High | Adds permission layer complexity |
+| **Deactivation notification** | Email user and admin when deactivation occurs | Low | If notification system exists |
+| **Bulk deactivation** | Select multiple users, deactivate all | Low | Useful for seasonal staff turnover |
+| **Hard delete for never-active users** | If user created but never logged in, allow deletion | Low | Check if any audit logs exist; if not, safe to delete |
 
 ### Anti-Features
 
@@ -144,49 +184,53 @@ Features to deliberately avoid.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Auto-select category based on item search** | Confusing reversal of filter direction; breaks mental model | Keep one-way filtering: category → item only |
-| **Multi-select category** | Items can't belong to multiple categories simultaneously in this context | Single category selection; follow existing data model |
-| **Infinite scroll in dropdowns** | Problematic for keyboard navigation and performance | Use pagination or "Load more" button if needed |
-| **Automatic item selection** | Surprising behavior; user should explicitly choose | Never auto-select; require user action |
-| **Inline item creation from selector** | Creates complex nested forms; breaks focus | Use separate "Create Item" flow, then return to PO |
+| **Anonymize user data** | Breaks audit trail; defeats accountability purpose | Deactivate but preserve attribution |
+| **Delete user with reassignment** | Complex and risky; partial data loss | Deactivate, keep user record intact |
+| **Self-deactivation** | Security risk; users could lock themselves out by accident | Admin-only deactivation |
+| **Automatic deactivation on inactivity** | Surprising; legitimate users on leave | Manual deactivation only |
+| **Remove user from historical records** | Falsifies history; compliance violation | Keep user attribution forever |
 
 ### Dependencies on Existing Features
 
-- **Searchable selects**: Already implemented for status and category; reuse pattern
-- **Items table**: Has `category_id` foreign key for filtering
-- **Categories table**: Provides parent dropdown options
-- **Existing PO line item form**: Enhance with two-step pattern
+- **Users table `is_active` flag**: Already exists
+- **Auth middleware**: Add `is_active` check in session validation
+- **RLS policies**: Filter deactivated users from assignment queries
+- **Audit logs**: Preserve `created_by`/`updated_by` even if user deactivated
 
 ---
 
-## Currency Unification (Money-Out Inherits from Money-In)
+## Context Side Sliders / Panels
 
 ### Table Stakes
 
-Essential features for consistent currency handling.
+Essential features for collapsible context panels showing related data.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Auto-populate currency** | Money-out inherits currency from money-in for same QMHQ | Low | Prevents currency mismatch errors |
-| **Auto-populate exchange rate** | Money-out uses same exchange rate as money-in | Low | Ensures consistent conversion calculations |
-| **Display org currency + EUSD** | Two-line format already established in system | Low | Leverage existing CurrencyDisplay component |
-| **Prevent currency mismatch** | Cannot create money-out in different currency than money-in | Medium | Database constraint + UI validation |
-| **Show inherited values clearly** | User understands currency is locked/inherited | Low | Disabled field with "Inherited from Money In" helper text |
-| **Calculate remaining balance** | Show available balance after money-out deductions | Medium | `balance = money_in - SUM(money_out)` |
-| **Validation: money-out ≤ available** | Cannot withdraw more than available balance | Medium | Form validation + database check |
+| **Slide-in from right** | Standard pattern for detail/context panels | Low | Overlays main content, pushes it left or overlays |
+| **Open/close toggle** | User controls visibility | Low | Button to show/hide panel |
+| **Overlay backdrop** | Dim main content when panel open on mobile | Low | Focus attention on panel; accessibility |
+| **Responsive behavior** | Full-width on mobile, 30-40% width on desktop | Medium | Tailwind breakpoints; existing QMRL context panel pattern |
+| **Smooth animation** | Slide transition (300ms) feels polished | Low | CSS transition or Framer Motion |
+| **Close on outside click** | Click backdrop to close panel | Low | Standard modal/drawer behavior |
+| **Close on ESC key** | Keyboard accessibility | Low | Event listener for ESC keypress |
+| **Focus trap** | Tab navigation stays within panel when open | Medium | Accessibility requirement; prevents tabbing to background |
+| **Scroll within panel** | Long content scrolls inside panel, not main page | Low | Overflow-y-auto on panel container |
 
 ### Differentiators
 
-Features that enhance currency unification beyond basics.
+Features that enhance side panels beyond basics.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Visual flow diagram** | Show money-in → money-out relationship graphically | Medium | Helps users understand fund flow |
-| **Multi-currency money-in handling** | If multiple money-in transactions in different currencies, clarify which to inherit | High | Edge case; defer to v1.6 if not MVP requirement |
-| **Exchange rate history** | Track if rate changed between money-in and money-out | Medium | Useful for audit trail; show "Rate as of [date]" |
-| **Currency conversion tool** | Quick converter within form for reference | Low | Helpful but not critical; defer to v1.6 |
-| **Partial withdrawals in different tranches** | Multiple money-out transactions from one money-in | Medium | Likely already supported; clarify in requirements |
-| **Warning for stale exchange rates** | Alert if money-out uses old exchange rate (e.g., >30 days old) | Medium | Helps catch potential rate drift |
+| **Resizable width** | User drags edge to adjust panel size | Medium | Nice-to-have; adds complexity; defer to v1.6 |
+| **Multiple panels (stack)** | Open second panel on top of first (e.g., QMRL → QMHQ → Item) | High | Breadcrumb navigation; complex state management |
+| **Panel content routing** | Panel URL updates, supports back/forward | Medium | Useful for shareable links; Next.js query params |
+| **Lazy load panel content** | Load data only when panel opened | Low | Performance optimization; fetch on expand |
+| **Pinned/docked mode** | Keep panel permanently open if user prefers | Medium | Local storage preference; split-pane layout |
+| **Panel presets (small/medium/large)** | Quick size adjustment buttons | Low | Predefined width options |
+| **Collapsible sections within panel** | Accordion-style sections for dense content | Low | Reuse existing accordion component if exists |
+| **Print-friendly view** | Option to print panel content | Low | Separate print stylesheet |
 
 ### Anti-Features
 
@@ -194,92 +238,194 @@ Features to deliberately avoid.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Manual currency override** | Defeats purpose of unification; creates inconsistency | Hard-lock currency to money-in value; no exceptions |
-| **Manual exchange rate override for money-out** | Creates calculation discrepancies and audit issues | Inherit rate from money-in; if rate changed, update money-in |
-| **Currency conversion on-the-fly** | Adds complexity; system should track actual currencies used | Store actual currencies; EUSD is for display/comparison only |
-| **Multiple currencies per QMHQ** | Creates confusion in balance calculations | One currency per QMHQ PO route (inherited from first money-in) |
-| **Historical rate lookups** | Over-engineering; money-in already has rate at transaction time | Use rate from money-in transaction, don't re-fetch historical rates |
+| **Slide from left** | Conflicts with sidebar navigation | Always right-side panels; left is for primary nav |
+| **Multiple simultaneous panels** | Confusing; screen real estate limited | One panel at a time; replace content if opening another |
+| **Auto-open on hover** | Jarring; user didn't request it | Explicit click/tap to open only |
+| **Panel within panel (nesting)** | Overwhelming; difficult to navigate back | Use tabs or sections within single panel |
+| **Persistent open state on navigation** | Confusing; context changes | Close panel when user navigates to different page |
 
 ### Dependencies on Existing Features
 
-- **CurrencyDisplay component**: Two-line Org + EUSD format already implemented
-- **Financial transactions table**: Tracks money-in/money-out with currency and exchange rate
-- **QMHQ PO route**: Money-in creates budget, money-out reduces it
-- **EUSD calculations**: Existing formula `amount / exchange_rate = amount_eusd`
-- **Validation patterns**: Form validation infrastructure already exists
+- **QMRL context panel during QMHQ creation**: Pattern already exists; reuse component structure
+- **Tailwind CSS**: Responsive breakpoints and transitions
+- **shadcn/ui Sheet component**: Consider using if available; standard drawer/sheet pattern
+- **Next.js App Router**: URL state management for panel routing (optional)
+
+### Use Cases in QM System
+
+| Context | Trigger | Panel Content |
+|---------|---------|---------------|
+| **QMHQ creation** | User creating QMHQ line | Show parent QMRL details (already implemented) |
+| **Stock-out request** | View item details | Show item info, stock levels, recent transactions |
+| **Approval review** | Admin reviewing request | Show requestor history, item details, warehouse stock |
+| **Entity "where used"** | Before deleting item/category | Show list of entities referencing this record |
+| **User detail** | View user profile | Show user's open assignments, recent activity |
+| **Warehouse detail** | View warehouse info | Show current stock, recent transactions |
 
 ---
 
 ## Summary: Complexity & Priority Assessment
 
-### Overall Complexity by Feature
+### Overall Complexity by Feature Area
 
 | Feature Area | Overall Complexity | Implementation Risk |
 |--------------|-------------------|---------------------|
-| **Comments** | Medium | Low - reuse polymorphic pattern from attachments |
-| **Responsive Typography** | Low | Low - CSS-based, incremental enhancement |
-| **Two-Step Selector** | Low-Medium | Low - pattern already exists in system |
-| **Currency Unification** | Low | Low - mostly UI logic, minimal DB changes |
+| **Stock-Out Approval Workflow** | Medium | Medium - new workflow layer, but follows existing patterns |
+| **Entity Deletion Protection** | Low | Low - mostly database constraints and error handling |
+| **User Deactivation** | Low | Low - extends existing `is_active` flag functionality |
+| **Context Side Sliders** | Low-Medium | Low - reuse QMRL context panel pattern |
 
 ### Recommended MVP Scope
 
-**Include in v1.5 MVP:**
-1. Comments: Core threading (1 level), delete-only, polymorphic attachment
-2. Responsive Typography: CSS clamp() for all financial displays, abbreviation in card views
-3. Two-Step Selector: Basic category → item filtering with reset logic
-4. Currency Unification: Auto-inherit currency/rate, balance validation
+**Include in Milestone:**
 
-**Defer to v1.6:**
-- Comments: @mentions, markdown, file attachments
-- Typography: Color-coded magnitude, scientific notation
-- Selector: Recently used items, fuzzy search, bulk add
-- Currency: Multi-currency handling, exchange rate warnings, flow diagrams
+**Stock-Out Approval:**
+- ✅ Request creation with status (pending/approved/rejected/cancelled)
+- ✅ Admin-only approval/rejection
+- ✅ Approval notes field (or leverage comments)
+- ✅ Quantity validation against stock
+- ✅ Audit trail for state changes
+- ✅ Approved request creates inventory_out transaction
+- ✅ Cancel own pending request
+- ⚠️ Partial approval (if admin-required; mark HIGH complexity)
+- ❌ Batch approval UI (defer to future if time-constrained)
+
+**Deletion Protection:**
+- ✅ Foreign key RESTRICT constraints
+- ✅ User-friendly error messages
+- ✅ "Where used" display (show count of references)
+- ✅ Soft delete for items, suppliers, categories (add `is_active` if missing)
+- ✅ Admin-only deletion permissions
+- ✅ Confirmation dialogs
+- ✅ Audit log on delete
+
+**User Deactivation:**
+- ✅ Deactivate user (set `is_active = false`)
+- ✅ Prevent deactivated user login
+- ✅ Filter from active user dropdowns
+- ✅ Preserve historical data attribution
+- ✅ Reactivation option
+- ✅ Deactivation timestamp and reason fields
+- ⚠️ Reassign open tasks (nice-to-have; may be manual process)
+
+**Context Sliders:**
+- ✅ Reuse existing QMRL context panel component
+- ✅ Apply to stock-out request (show item details)
+- ✅ Apply to "where used" display (show references before delete)
+- ✅ Responsive behavior (mobile full-width, desktop 30-40%)
+- ✅ Smooth slide animation
+- ✅ Close on ESC, outside click
+- ✅ Focus trap for accessibility
+
+**Defer to Future:**
+- Stock-out: Auto-approval thresholds, approval delegation, stock reservation, multi-level approval
+- Deletion: Cascading impact preview, replace-and-delete workflow, GDPR hard delete
+- Deactivation: Auto-deactivation scheduling, partial deactivation (read-only), bulk deactivation
+- Sliders: Resizable width, multiple stacked panels, URL routing for panels
 
 ### Cross-Feature Integration Points
 
-1. **Comments + Audit System**: Comment create/delete should trigger audit logs
-2. **Responsive Typography + CurrencyDisplay**: Enhance existing component with clamp()
-3. **Two-Step Selector + Searchable Selects**: Reuse existing select component infrastructure
-4. **Currency Unification + Financial Transactions**: Minimal schema changes, mostly UI constraints
+1. **Stock-Out Approval + Audit System**: Request state changes trigger audit logs
+2. **Stock-Out Approval + Inventory Transactions**: Approved request creates `inventory_out` record
+3. **Stock-Out Approval + QMHQ Item Route**: QMHQ line creation triggers stock-out request
+4. **Stock-Out Approval + Context Slider**: Show item/warehouse details in side panel during review
+5. **Deletion Protection + Context Slider**: Display "where used" list in side panel
+6. **User Deactivation + Assignment Dropdowns**: Filter `WHERE is_active = true`
+7. **User Deactivation + Auth Middleware**: Block login if `is_active = false`
+8. **Context Slider + Existing QMRL Panel**: Reuse component architecture
+
+### Technical Recommendations
+
+**Database Schema Changes:**
+- `stock_out_requests` table: id, qmhq_id (nullable), item_id, warehouse_id, requested_quantity, approved_quantity (nullable), status, requestor_id, approver_id (nullable), approval_notes, requested_at, approved_at, created_at, updated_at
+- `users` table: Add `deactivated_at`, `deactivation_reason` (if not already present)
+- Master data tables: Ensure `is_active` flag exists on items, suppliers, categories
+- Foreign keys: Add ON DELETE RESTRICT to items, statuses, categories, departments, contact_persons, suppliers, warehouses
+
+**UI Components to Build/Enhance:**
+- `StockOutRequestForm`: Create request with reason dropdown
+- `StockOutApprovalCard`: Admin approval UI (approve/reject/partial)
+- `ContextSlider`: Reusable side panel component (or use shadcn/ui Sheet)
+- `WhereUsedPanel`: Show entities referencing a record before delete
+- `UserDeactivationDialog`: Deactivate user with reason field
+- `DeleteConfirmationDialog`: Enhanced with "where used" warning
+
+**Workflow State Machine (Stock-Out):**
+```
+pending → approved → inventory_out created (success)
+pending → rejected (with reason)
+pending → cancelled (by requestor)
+```
 
 ---
 
 ## Sources
 
-### Comments Research
-- [Comment Designs Trends for Web Designers in 2026](https://www.resultfirst.com/blog/web-design/15-best-comment-designs-trends-for-web-designers/)
-- [25 Comment Thread Design Examples For Inspiration](https://www.subframe.com/tips/comment-thread-design-examples)
-- [Common Patterns: Comments Best Practices](https://app.uxcel.com/courses/common-patterns/comments-best-practices-499)
-- [Styling Comment Threads | CSS-Tricks](https://css-tricks.com/styling-comment-threads/)
-- [Web Discussions: Flat by Design](https://blog.codinghorror.com/web-discussions-flat-by-design/)
-- [Polymorphic Associations: Database Design Basics](https://patrickkarsh.medium.com/polymorphic-associations-database-design-basics-17faf2eb313)
-- [Choosing a Database Schema for Polymorphic Data](https://www.dolthub.com/blog/2024-06-25-polymorphic-associations/)
-- [Remove and Edit Your Comments | Disqus](https://help.disqus.com/en/articles/1717071-remove-and-edit-your-comments)
+### Stock-Out Approval Workflow Research
+- [Inventory Management Guide 2026: Key Insights](https://kissflow.com/procurement/inventory-management/inventory-management-guide/)
+- [The ultimate inventory replenishment workflow guide](https://www.moxo.com/blog/inventory-replenishment-workflow)
+- [10 Key Steps To Build A Purchase Order Workflow In 2026](https://www.spendflo.com/blog/streamlining-your-purchase-order-workflow-key-steps-and-best-practices)
+- [Purchase Requisition Approval Workflow Guide 2026](https://www.order.co/blog/procurement/purchase-requisition-approval-workflow-2026/)
+- [Warehouse Transaction Approval Cycles | WMS Inventory System](https://asapsystems.com/warehouse-management/inventory-features/transaction-approval-cycles/)
+- [Inventory journal approval workflows - Dynamics 365](https://learn.microsoft.com/en-us/dynamics365/supply-chain/inventory/inventory-journal-workflow)
+- [Inventory System | Secure Your Workflow With Approval Cycles](https://asapsystems.com/products/inventory-system/system-features/approval-cycles/)
+- [Approve or reject documents in workflows - Business Central](https://learn.microsoft.com/en-us/dynamics365/business-central/across-how-use-approval-workflows)
+- [Request and Approval Workflows](https://help.xtontech.com/content/administrators-and-power-users/workflow/request-and-approval-workflows.htm)
+- [Configuring Jira Service Management approvals](https://confluence.atlassian.com/adminjiraserver/configuring-jira-service-management-approvals-938847527.html)
 
-### Responsive Typography Research
-- [Modern Fluid Typography Using CSS Clamp](https://www.smashingmagazine.com/2022/01/modern-fluid-typography-css-clamp/)
-- [Linearly Scale font-size with CSS clamp() Based on the Viewport](https://css-tricks.com/linearly-scale-font-size-with-css-clamp-based-on-the-viewport/)
-- [CSS Clamp() Calculator](https://www.cssportal.com/css-clamp-calculator/)
-- [Responsive Typography with Clamp](https://blog.openreplay.com/responsive-typography-with-clamp/)
-- [Design for Truncation](https://medium.com/design-bootcamp/design-for-truncation-946951d5b6b8)
-- [Font Size Requirements Guide | WCAG 2.1 AA/AAA Compliance](https://font-converters.com/accessibility/font-size-requirements)
-- [MM (Millions) - Definition and Examples](https://corporatefinanceinstitute.com/resources/fixed-income/mm-millions/)
-- [Different Abbreviations for Thousand, Million & Billion](https://www.yourdictionary.com/articles/abbreviations-million-thousand-billion)
+### Entity Deletion Protection Research
+- [Cascade Delete - EF Core | Microsoft Learn](https://learn.microsoft.com/en-us/ef/core/saving/cascade-delete)
+- [Cascade Deletes | Supabase Docs](https://supabase.com/docs/guides/database/postgres/cascade-deletes)
+- [SQL ON DELETE RESTRICT: Prevent Accidental Data Loss](https://www.datacamp.com/tutorial/sql-on-delete-restrict)
+- [PostgreSQL: Documentation: Constraints](https://www.postgresql.org/docs/current/ddl-constraints.html)
+- [The Delete Button Dilemma: When to Soft Delete vs Hard Delete](https://dev.to/akarshan/the-delete-button-dilemma-when-to-soft-delete-vs-hard-delete-3a0i)
+- [Soft Deletion Probably Isn't Worth It](https://brandur.org/soft-deletion)
+- [Soft and Hard Delete: everything you need to know](https://oscmarb.com/blog/soft-delete-and-hard-delete-everything-you-need-to-know/)
+- [So you want Soft Deletes? | DoltHub Blog](https://www.dolthub.com/blog/2022-11-03-soft-deletes/)
+- [To Delete or to Soft Delete, That is the Question!](https://www.jmix.io/blog/to-delete-or-to-soft-delete-that-is-the-question/)
+- [Understanding Soft Delete and Hard Delete in Software Development](https://surajsinghbisht054.medium.com/understanding-soft-delete-and-hard-delete-in-software-development-best-practices-and-importance-539a935d71b5)
 
-### Two-Step Selector Research
-- [How To Create a Cascading Dropdown](https://www.w3schools.com/howto/howto_js_cascading_dropdown.asp)
-- [Cascading in Blazor DropDown List Component](https://blazor.syncfusion.com/documentation/dropdown-list/cascading)
-- [Parent-Child Filter | Holistics Docs](https://docs.holistics.io/docs/filters/parent-child)
-- [Helpful Filter Categories and Values for Better UX](https://www.nngroup.com/articles/filter-categories-values/)
-- [Filter UX Design Patterns & Best Practices](https://www.pencilandpaper.io/articles/ux-pattern-analysis-enterprise-filtering)
+### User Deactivation Research
+- [Users and Organizations – AuthKit – WorkOS Docs](https://workos.com/docs/user-management/users-organizations/organizations/when-to-use-deletion-vs-deactivation)
+- [Should I choose to deactivate or delete a user to remove them from my account?](https://support.zendesk.com/hc/en-us/articles/4408830727194-Should-I-choose-to-deactivate-or-delete-a-user-to-remove-them-from-my-account)
+- [User Deletion vs. Deactivation – Wrike Help Center](https://help.wrike.com/hc/en-us/articles/1500008058701-User-Deletion-vs-Deactivation)
+- [Best Practices for Disabling, Deleting & Locking Down Past Employee Accounts](https://copperbandtech.com/best-practices-for-disabling-deleting-locking-down-past-employee-accounts/)
+- [Terminating vs. deleting an employee](https://portal.wfo.telusinternational.com/OnlineHelp/en_US/wfm/fw_UserAdmin_User_Management/fw_UserAdmin_Terminating_or_deleting_employees.htm)
+- [Deactivating users vs deleting users](https://community.docebo.com/product-q-a-7/deactivating-users-vs-deleting-users-431)
 
-### Currency Unification Research
-- [The 10 Best Invoice Matching Software Solutions in 2026](https://www.highradius.com/resources/Blog/best-invoice-matching-platform/)
-- [Purchase Order and Invoice Matching Software Solution](https://tipalti.com/ap-automation/po-matching/)
-- [Invoice Matching Process](https://www.artsyltech.com/blog/invoice-matching)
+### Context Panel / Side Slider Research
+- [Side Drawer UI: A Guide to Smarter Navigation](https://www.designmonks.co/blog/side-drawer-ui)
+- [Drawer UI Design: Best practices, Design variants & Examples](https://mobbin.com/glossary/drawer)
+- [PatternFly • Drawer](https://www.patternfly.org/components/drawer/design-guidelines/)
+- [Case Study. Master/Detail Pattern Revisited](https://medium.com/@lucasurbas/case-study-master-detail-pattern-revisited-86c0ed7fc3e)
+- [Sheet - shadcn/ui](https://ui.shadcn.com/docs/components/radix/sheet)
+- [Drawer - shadcn/ui](https://ui.shadcn.com/docs/components/radix/drawer)
+- [Exploring Drawer and Sheet Components in shadcn UI](https://medium.com/@enayetflweb/exploring-drawer-and-sheet-components-in-shadcn-ui-cf2332e91c40)
+- [State Management in 2026: Redux, Context API, and Modern Patterns](https://www.nucamp.co/blog/state-management-in-2026-redux-context-api-and-modern-patterns)
+- [react-sliding-side-panel - npm](https://www.npmjs.com/package/react-sliding-side-panel)
+
+### Audit Trail & Workflow Research
+- [Audit trail: Track every action and stay compliance-ready](https://www.nutrient.io/blog/audit-trail/)
+- [What is a document audit trail and how it work](https://fynk.com/en/blog/document-audit-trail/)
+- [What Is an Audit Trail? Definition and Best Practices](https://trullion.com/blog/audit-trail-guide/)
+- [Audit Trails in Workflow Management](https://www.cflowapps.com/glossary/audit-trails-in-workflow-management/)
+
+### Batch Approval & Parallel Workflows
+- [Create parallel approval workflows - Power Automate](https://learn.microsoft.com/en-us/power-automate/parallel-modern-approvals)
+- [Manage sequential approvals with Power Automate](https://learn.microsoft.com/en-us/power-automate/sequential-modern-approvals)
+- [Request approvals with workflows | Smartsheet](https://help.smartsheet.com/articles/2479276-request-approval-from-stakeholders)
+- [How to set multiple approvers in Microsoft Power Automate](https://www.jotform.com/blog/power-automate-approval-workflow-multiple-approvers/)
+
+### Display Mode Toggle Research
+- [Card View | PatternFly](https://pf3.patternfly.org/v3/pattern-library/content-views/card-view/)
+- [PatternFly • Card view](https://www.patternfly.org/patterns/card-view/design-guidelines/)
+- [Table vs List vs Cards: When to Use Each Data Display Pattern](https://uxpatterns.dev/pattern-guide/table-vs-list-vs-cards)
+- [Toggle Between Grid and List View in React](https://medium.com/@layne_celeste/toggle-between-grid-and-list-view-in-react-731df62b829e)
 
 ---
 
 **Confidence Level: HIGH**
 
-All feature areas are well-documented in industry research. Table stakes, differentiators, and anti-features are clearly categorized based on current UX best practices and the specific context of the QM System internal tool.
+All feature areas are well-documented in industry research and enterprise system best practices. Stock-out approval workflows are standard in warehouse management systems. Deletion protection patterns are well-established database design principles. User deactivation vs deletion is a mature HR system pattern. Context side sliders are ubiquitous in modern web applications. Table stakes, differentiators, and anti-features are clearly categorized based on current best practices, research findings, and the specific context of the QM System internal tool.
+
+**Key Insight**: The QM System already has strong foundations (audit logging, soft delete, polymorphic associations, QMRL context panel). This milestone extends existing patterns rather than introducing new paradigms, reducing implementation risk significantly.
