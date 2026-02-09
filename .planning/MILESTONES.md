@@ -1,5 +1,32 @@
 # Project Milestones: QM System
 
+## v1.5 UX Polish & Collaboration (Shipped: 2026-02-09)
+
+**Delivered:** Threaded comments on all detail pages, fluid font scaling with K/M/B abbreviation, two-step category-first item selectors, and unified QMHQ currency inheritance with dual Org/EUSD display.
+
+**Phases completed:** 23-26 (9 plans total)
+
+**Key accomplishments:**
+
+- Added threaded comments on QMRL, QMHQ, PO, and Invoice detail pages with RLS-based visibility
+- Built fluid font scaling (CSS clamp) and K/M/B abbreviation for large amounts on cards
+- Created CategoryItemSelector for two-step category → item selection with search and AbortController
+- Implemented QMHQ currency inheritance with locked fields, Inherited badge, and balance warning
+- Added dual currency display (Org + EUSD) on QMHQ detail pages, list cards, and transaction lists
+
+**Stats:**
+
+- 71 files modified (+7,948/-273 lines)
+- ~37,410 lines of TypeScript
+- 4 phases, 9 plans, 25 requirements
+- 2 days from start to ship
+
+**Git range:** `054857c` → `38b13f1`
+
+**What's next:** TBD — run `/gsd:new-milestone` to define next goals
+
+---
+
 ## v1.4 UX Enhancements & Workflow Improvements (Shipped: 2026-02-06)
 
 **Delivered:** File upload in QMRL create form, attachment delete fixes, QMRL context panel during QMHQ creation, thousand separators on amounts, item price reference with tooltip, auto-generated SKU codes, inline item creation in PO, multi-tab session handling, and contact person validation for financial routes.

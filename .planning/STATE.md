@@ -2,17 +2,17 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-07)
+See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** v1.5 UX Polish & Collaboration ✓ COMPLETE
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 26 of 26 (Currency Unification) ✓ COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase complete and verified
-Last activity: 2026-02-08 — Phase 26 executed and verified
+Phase: 26 of 26 (all milestones through v1.5 complete)
+Plan: N/A — between milestones
+Status: v1.5 archived, ready for next milestone
+Last activity: 2026-02-09 — v1.5 milestone archived
 
 ```
 v1.5 Progress: [████████████████████] 100% (4/4 phases complete)
@@ -21,7 +21,7 @@ Overall: [███████████████████████�
 
 ## Milestone History
 
-### v1.5 UX Polish & Collaboration (Shipped 2026-02-08)
+### v1.5 UX Polish & Collaboration (Shipped 2026-02-09)
 
 **Velocity:**
 - Total plans: 9
@@ -101,35 +101,6 @@ Overall: [███████████████████████�
 
 See PROJECT.md Key Decisions table for full log.
 
-Recent decisions affecting v1.5 work:
-- [26-01]: Currency locked with Lock icon + Inherited badge per established pattern
-- [26-01]: Warning toast variant added (amber styling) for soft validation
-- [26-01]: Balance warning is soft validation - allows submission per user decision
-- [26-02]: Transaction list retains +/- prefix and color coding while showing dual currency
-- [26-02]: Org currency primary, EUSD secondary matches CurrencyDisplay convention
-- [25-02]: CategoryItemSelector replaces all flat item dropdowns app-wide
-- [25-02]: category_id added to LineItemFormData for PO line items
-- [25-02]: Change button clears both category and item selections
-- [25-01]: On-demand loading for items (categories prefetch, items lazy-load on category change)
-- [25-01]: AbortController cancels in-flight item requests on rapid category switching
-- [25-01]: Empty categories (no active items) hidden from dropdown
-- [24-02]: Tooltip shows only primary currency (focused tooltip content)
-- [24-02]: Desktop-only tooltips (hidden md:block for touch devices)
-- [24-02]: Zero displays as "0.00 CURRENCY" not dash (zero is valid amount)
-- [24-01]: CSS clamp() for fluid font scaling (smooth viewport-responsive sizing)
-- [24-01]: Intl.NumberFormat compact notation for K/M/B formatting
-- [24-01]: Context-dependent thresholds (card 1M, table 1B, detail never)
-- [23-03]: Comments placed after Tabs (always visible, not in tabs per user decision)
-- [23-02]: Optimistic UI updates for comments (add/delete immediately update local state)
-- [23-02]: Toast notifications for comment actions (consistent with PO/Invoice patterns)
-- [23-01]: Comments use single-level threading (replies cannot have replies)
-- [23-01]: Soft-delete protected by has_replies check (prevents orphaning)
-- [23-01]: Comment visibility mirrors parent entity access (finance/inventory can comment on any entity)
-- [v1.4]: RPC creates audit before entity update (enables trigger deduplication)
-- [v1.4]: 2-second window for audit deduplication
-- [v1.3]: CurrencyDisplay two-line format (original + EUSD)
-- [v1.2]: Invoice has no Edit button (void functionality serves as modification)
-
 ### Pending Todos
 
 None.
@@ -139,15 +110,14 @@ None.
 **Known Tech Debt:** PO Edit page does not exist at /po/[id]/edit (Edit button links to 404)
 - Pre-existing issue discovered during v1.3 audit
 - Either create edit page or document PO as immutable after creation
-- Deferred to post-v1.5
 
 ## Session Continuity
 
-Last session: 2026-02-08
-Stopped at: v1.5 Milestone complete
+Last session: 2026-02-09
+Stopped at: v1.5 Milestone archived
 Resume file: None
-Next step: Run `/gsd:audit-milestone` to verify v1.5 before archiving
+Next step: Run `/gsd:new-milestone` to define next goals
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-08 - Completed Phase 26 (Currency Unification) — v1.5 Milestone Complete*
+*Last updated: 2026-02-09 - v1.5 milestone archived*

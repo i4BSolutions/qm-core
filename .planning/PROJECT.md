@@ -2,20 +2,20 @@
 
 ## What This Is
 
-An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation.
+An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with team collaboration via comments and responsive financial displays.
 
 ## Core Value
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-## Current State (v1.4 Shipped)
+## Current State (v1.5 Shipped)
 
 **Tech Stack:**
 - Next.js 14+ with App Router, TypeScript strict mode
 - Supabase for auth, database, and file storage
 - Tailwind CSS with dark theme support
-- ~34,000+ lines of TypeScript
-- 50 database migrations with RLS policies
+- ~37,410 lines of TypeScript
+- 51 database migrations with RLS policies
 
 **Shipped Features:**
 - Email OTP authentication with 7-role RBAC
@@ -40,16 +40,11 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Inline item creation during PO line item entry
 - Multi-tab session handling with cross-tab logout sync
 - Contact person validation for Expense and PO routes
-
-## Current Milestone: v1.5 UX Polish & Collaboration
-
-**Goal:** Improve amount display responsiveness, add team collaboration via comments, streamline PO item selection with category filtering, and unify QMHQ currency handling.
-
-**Target features:**
-- Large amount responsiveness on cards (auto-shrinking font for 15+ digit numbers)
-- Comments with threaded replies on QMRL, QMHQ, PO, and Invoice detail pages
-- Two-step PO line item selector (category → item with search)
-- Unified currency for QMHQ money-in/out with Org + EUSD display
+- Threaded comments on QMRL, QMHQ, PO, and Invoice detail pages
+- Fluid font scaling and K/M/B abbreviation for large amounts
+- Two-step category → item selector with search (PO, stock-in, stock-out)
+- QMHQ currency inheritance with locked fields and balance warning
+- Dual currency display (Org + EUSD) on QMHQ detail and list pages
 
 ## Requirements
 
@@ -107,17 +102,19 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - ✓ Multi-tab session handling without auth errors — v1.4
 - ✓ Mandatory contact person for Expense and PO routes — v1.4
 
+<!-- V1.5 Features -->
+- ✓ Large amount responsiveness on cards with auto-shrinking font — v1.5
+- ✓ Comment threads on QMRL/QMHQ/PO/Invoice detail pages — v1.5
+- ✓ One level of reply support for comments — v1.5
+- ✓ Delete own comments (no edit) — v1.5
+- ✓ Two-step PO line item selector (category → item) — v1.5
+- ✓ Searchable category and item selectors in PO creation — v1.5
+- ✓ QMHQ money-out inherits currency from money-in — v1.5
+- ✓ Org + EUSD display on QMHQ detail pages and list cards — v1.5
+
 ### Active
 
-<!-- V1.5 Features -->
-- [ ] Large amount responsiveness on cards with auto-shrinking font
-- [ ] Comment threads on QMRL/QMHQ/PO/Invoice detail pages
-- [ ] One level of reply support for comments
-- [ ] Delete own comments (no edit)
-- [ ] Two-step PO line item selector (category → item)
-- [ ] Searchable category and item selectors in PO creation
-- [ ] QMHQ money-out inherits currency from money-in
-- [ ] Org + EUSD display on QMHQ detail pages and list cards
+(None — define next milestone with `/gsd:new-milestone`)
 
 ### Out of Scope
 
@@ -125,16 +122,20 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Per-item low stock thresholds — global default (10) works
 - Transaction editing after creation — audit integrity
 - File attachments on PO/Invoice — QMRL/QMHQ scope first
+- Multi-level comment threading — visual complexity, harder to follow
+- Edit comments — breaks audit integrity
+- @mention notifications — requires notification infrastructure
+- Manual currency override on money-out — defeats unification purpose
 
 ## Context
 
 **Milestones:**
-- v1.0 MVP — Foundation (pre-existing)
+- v1.0 MVP — Foundation (shipped 2026-01-27)
 - v1.1 Enhancement — Bug fixes, files, dashboard, UX (shipped 2026-01-28)
 - v1.2 Inventory & Financial Accuracy — WAC, inventory dashboard, void cascade (shipped 2026-01-31)
 - v1.3 UX & Bug Fixes — Input behavior, currency display, edit buttons, audit notes (shipped 2026-02-02)
 - v1.4 UX Enhancements & Workflow Improvements — Attachments, number formatting, inline creation, multi-tab auth (shipped 2026-02-06)
-- v1.5 UX Polish & Collaboration — Amount responsiveness, comments, PO item selector, currency unification (in progress)
+- v1.5 UX Polish & Collaboration — Comments, responsive typography, two-step selectors, currency unification (shipped 2026-02-09)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -148,6 +149,11 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - CurrencyDisplay component for two-line original + EUSD format
 - RPC-first pattern for complex mutations with audit trail
 - Trigger deduplication via time-window check
+- CSS clamp() for fluid font scaling
+- Intl.NumberFormat compact notation for K/M/B abbreviation
+- CategoryItemSelector for two-step dependent dropdowns with AbortController
+- Currency inheritance with Lock icon + Inherited badge
+- Warning toast variant (amber) for soft validation
 
 ## Key Decisions
 
@@ -168,6 +174,13 @@ Users can reliably create purchase orders, receive inventory, and track request 
 | Invoice has no Edit button | Void functionality serves as modification mechanism | ✓ Good |
 | RPC creates audit before entity update | Enables trigger deduplication to prevent duplicates | ✓ Good |
 | 2-second window for audit deduplication | Balances race condition protection vs. usability | ✓ Good |
+| Single-level comment threading | DB trigger enforces replies can't have replies — keeps discussions readable | ✓ Good |
+| Comments after Tabs (not inside) | Always visible without switching tabs | ✓ Good |
+| CSS clamp() for fluid font scaling | Smooth viewport-responsive sizing without breakpoint jumps | ✓ Good |
+| Context-dependent abbreviation thresholds | card: 1M, table: 1B, detail: never — respects financial precision | ✓ Good |
+| CategoryItemSelector two-step pattern | Category-first filtering reduces item list complexity | ✓ Good |
+| Currency inheritance with Lock badge | Prevents accidental currency mismatch in transactions | ✓ Good |
+| Balance warning as soft validation | Warns but allows submission — user decides | ✓ Good |
 
 ## Constraints
 
@@ -182,4 +195,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
   - Either create edit page or document PO as immutable after creation
 
 ---
-*Last updated: 2026-02-07 after v1.5 milestone started*
+*Last updated: 2026-02-09 after v1.5 milestone*
