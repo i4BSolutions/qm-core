@@ -71,9 +71,9 @@ Phases 23-26 delivered threaded comments on all detail pages, fluid font scaling
 **Plans:** 3 plans
 
 Plans:
-- [ ] 27-01-PLAN.md — Core SOR schema (3 tables, enums, ID generation, snapshot, computed status)
-- [ ] 27-02-PLAN.md — Stock validation, status transitions, over-execution blocking, fulfillment FK
-- [ ] 27-03-PLAN.md — RLS policies, audit triggers, TypeScript type generation
+- [x] 27-01-PLAN.md — Core SOR schema (3 tables, enums, ID generation, snapshot, computed status)
+- [x] 27-02-PLAN.md — Stock validation, status transitions, over-execution blocking, fulfillment FK
+- [x] 27-03-PLAN.md — RLS policies, audit triggers, TypeScript type generation
 
 #### Phase 28: Stock-Out Request & Approval UI
 **Goal**: Users can request stock-out and admins can approve/reject with partial approval support
@@ -156,7 +156,7 @@ Phases execute in numeric order: 27 → 28 → 29 → 30 → 31
 | 24. Responsive Typography | v1.5 | 2/2 | ✓ Complete | 2026-02-07 |
 | 25. Two-Step Selectors | v1.5 | 2/2 | ✓ Complete | 2026-02-08 |
 | 26. Currency Unification | v1.5 | 2/2 | ✓ Complete | 2026-02-08 |
-| 27. Stock-Out Approval DB Foundation | v1.6 | 0/3 | Not started | - |
+| 27. Stock-Out Approval DB Foundation | v1.6 | 3/3 | ✓ Complete | 2026-02-09 |
 | 28. Stock-Out Request & Approval UI | v1.6 | 0/? | Not started | - |
 | 29. Deletion Protection | v1.6 | 0/? | Not started | - |
 | 30. User Deactivation | v1.6 | 0/? | Not started | - |
