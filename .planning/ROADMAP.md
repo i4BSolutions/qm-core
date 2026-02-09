@@ -88,10 +88,12 @@ Plans:
   6. Requester can cancel own pending request
   7. QMHQ item detail page shows requested quantity and approved quantity
   8. Stock-out execution page only allows quantity up to approved amount
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 28-01: [TBD during planning]
+- [ ] 28-01-PLAN.md — Sidebar nav, permissions, request list page, request create form
+- [ ] 28-02-PLAN.md — Request detail page with line item table, approval dialog, rejection dialog
+- [ ] 28-03-PLAN.md — Execution dialog, QMHQ integration, stock-out page modification
 
 #### Phase 29: Deletion Protection
 **Goal**: Master data entities cannot be deactivated when referenced by active records
@@ -157,7 +159,7 @@ Phases execute in numeric order: 27 → 28 → 29 → 30 → 31
 | 25. Two-Step Selectors | v1.5 | 2/2 | ✓ Complete | 2026-02-08 |
 | 26. Currency Unification | v1.5 | 2/2 | ✓ Complete | 2026-02-08 |
 | 27. Stock-Out Approval DB Foundation | v1.6 | 3/3 | ✓ Complete | 2026-02-09 |
-| 28. Stock-Out Request & Approval UI | v1.6 | 0/? | Not started | - |
+| 28. Stock-Out Request & Approval UI | v1.6 | 0/3 | Not started | - |
 | 29. Deletion Protection | v1.6 | 0/? | Not started | - |
 | 30. User Deactivation | v1.6 | 0/? | Not started | - |
 | 31. Context Sliders | v1.6 | 0/? | Not started | - |
