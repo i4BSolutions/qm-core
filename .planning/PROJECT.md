@@ -8,6 +8,17 @@ An internal ticket, expense, and inventory management platform serving as a Sing
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
+## Current Milestone: v1.6 Stock-Out Approval & Data Integrity
+
+**Goal:** Add request/approval workflow before stock-out operations, protect referenced entities from deletion, and provide contextual side sliders for related data visibility.
+
+**Target features:**
+- Stock-out request form with approval flow (Pending → Approved/Rejected) for both QMHQ item route and manual warehouse stock-out
+- Admin-only approval with partial approval support (approved qty <= requested qty)
+- Deletion protection for items, statuses, categories, departments, contact persons, suppliers when referenced
+- User deactivation (no delete) with login blocking
+- Right-side context slider (default open) on stock-out and QMHQ create pages
+
 ## Current State (v1.5 Shipped)
 
 **Tech Stack:**
@@ -114,7 +125,15 @@ Users can reliably create purchase orders, receive inventory, and track request 
 
 ### Active
 
-(None — define next milestone with `/gsd:new-milestone`)
+<!-- V1.6 Features -->
+- [ ] Stock-out request and approval workflow for QMHQ item route
+- [ ] Stock-out request and approval workflow for manual warehouse stock-out
+- [ ] Admin-only approval with partial approval support
+- [ ] QMHQ item detail shows requested qty and approved qty
+- [ ] Deletion protection for referenced entities (item, status, category, department, contact person, supplier)
+- [ ] User deactivation (no delete) with login blocking
+- [ ] Context slider on stock-out request, approval, and stock-out pages
+- [ ] Context slider on QMHQ create page showing QMRL data (default open)
 
 ### Out of Scope
 
@@ -195,4 +214,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
   - Either create edit page or document PO as immutable after creation
 
 ---
-*Last updated: 2026-02-09 after v1.5 milestone*
+*Last updated: 2026-02-09 after v1.6 milestone started*
