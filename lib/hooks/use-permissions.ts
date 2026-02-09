@@ -26,7 +26,8 @@ export type PermissionResource =
   | "contact_persons"
   | "departments"
   | "categories"
-  | "statuses";
+  | "statuses"
+  | "stock_out_requests";
 
 /**
  * Permission matrix based on PRD
@@ -179,6 +180,15 @@ const permissionMatrix: PermissionMatrix = {
     frontline: ["read"],
     requester: ["read"],
   },
+  stock_out_requests: {
+    admin: ["create", "read", "update", "delete"],
+    quartermaster: ["create", "read", "update", "delete"],
+    inventory: ["create", "read", "update", "delete"],
+    proposal: ["create", "read"],
+    finance: ["read"],
+    frontline: ["read"],
+    requester: ["read"],
+  },
 };
 
 /**
@@ -261,6 +271,7 @@ export const roleNavigation: Record<UserRole, string[]> = {
     "/po",
     "/invoice",
     "/inventory",
+    "/inventory/stock-out-requests",
     "/warehouse",
     "/item",
     "/admin",
@@ -272,6 +283,7 @@ export const roleNavigation: Record<UserRole, string[]> = {
     "/po",
     "/invoice",
     "/inventory",
+    "/inventory/stock-out-requests",
     "/warehouse",
     "/item",
   ],
@@ -289,6 +301,7 @@ export const roleNavigation: Record<UserRole, string[]> = {
     "/qmhq",
     "/invoice",
     "/inventory",
+    "/inventory/stock-out-requests",
     "/warehouse",
     "/item",
   ],
@@ -298,6 +311,7 @@ export const roleNavigation: Record<UserRole, string[]> = {
     "/qmhq",
     "/po",
     "/invoice",
+    "/inventory/stock-out-requests",
     "/item",
   ],
   frontline: [

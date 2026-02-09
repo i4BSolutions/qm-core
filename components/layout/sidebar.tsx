@@ -67,6 +67,7 @@ const allNavigation: NavItem[] = [
       { label: "Dashboard", href: "/inventory" },
       { label: "Stock In", href: "/inventory/stock-in" },
       { label: "Stock Out", href: "/inventory/stock-out" },
+      { label: "Stock-Out Requests", href: "/inventory/stock-out-requests" },
     ],
   },
   {
