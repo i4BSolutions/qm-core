@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: 27 of 31 (Stock-Out Approval DB Foundation)
-Plan: 2 of 3
+Plan: 3 of 3
 Status: In progress
-Last activity: 2026-02-09 — Completed plan 27-01 (SOR schema tables)
+Last activity: 2026-02-09 — Completed plan 27-02 (stock validation triggers)
 
 ```
 v1.6 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/5 phases complete)
@@ -102,6 +102,9 @@ Overall: [████████████████░░░░] 84% (26/
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting current work:
+- Phase 27-02: Cross-warehouse stock validation at creation and approval - Hard blocks on insufficient total stock prevent impossible fulfillments
+- Phase 27-02: Nullable FK for fulfillment linkage - Simpler than junction table, aligns with existing invoice_id FK pattern
+- Phase 27-02: Over-execution prevention with hard block - Sum of fulfillments cannot exceed approved quantity
 - Phase 27-01: Request status computed from line items - Ensures parent status always reflects child state
 - Phase 27-01: QMHQ-linked requests enforce exactly one line item - Prevents multi-item confusion in single-item QMHQ context
 - Phase 27-01: Sequential approval numbering with parent prefix - Provides clear ordering and traceability for audit trail
@@ -144,17 +147,18 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-09T13:48:59Z
-Stopped at: Completed 27-01-PLAN.md (SOR schema foundation)
+Last session: 2026-02-09T13:53:21Z
+Stopped at: Completed 27-02-PLAN.md (stock validation triggers)
 Resume file: None
-Next step: Execute 27-02-PLAN.md (validation triggers) or 27-03-PLAN.md (RLS & audit)
+Next step: Execute 27-03-PLAN.md (RLS & audit)
 
 ## Performance Metrics
 
 | Phase | Plan | Duration | Tasks | Files | Completed |
 |-------|------|----------|-------|-------|-----------|
 | 27-stock-out-approval-db-foundation | 01 | 2min | 1 | 1 | 2026-02-09 |
+| 27-stock-out-approval-db-foundation | 02 | 2min | 1 | 1 | 2026-02-09 |
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-09 - Completed phase 27 plan 01*
+*Last updated: 2026-02-09 - Completed phase 27 plan 02*
