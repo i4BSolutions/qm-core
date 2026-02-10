@@ -10,13 +10,13 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: 29 of 31 (Deletion Protection)
-Plan: Not yet planned
-Status: Ready to plan
-Last activity: 2026-02-09 — Phase 28 complete (3/3 plans, verified 8/8 must-haves)
+Plan: 1 of 1 complete
+Status: Phase complete
+Last activity: 2026-02-10 — Phase 29 Plan 01 complete (2 tasks, 2 commits, 1min 43sec)
 
 ```
-v1.6 Progress: [████████░░░░░░░░░░░░] 40% (2/5 phases complete)
-Overall: [██████████████████░░] 90% (28/31 phases complete)
+v1.6 Progress: [██████████░░░░░░░░░░] 50% (3/5 phases complete)
+Overall: [███████████████████░] 93% (29/31 phases complete)
 ```
 
 ## Milestone History
@@ -102,6 +102,10 @@ Overall: [██████████████████░░] 90% (28/
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting current work:
+- Phase 29-01: Generic error message pattern - All deletion protection triggers use identical 'Cannot delete: this item is in use' message for security (DPRT-07)
+- Phase 29-01: Partial indexes for performance - WHERE is_active = true indexes optimize reference checks without bloating full-table indexes
+- Phase 29-01: WHEN clause filtering - Triggers fire only on is_active transition from true to false, avoiding unnecessary checks
+- Phase 29-01: Alphabetical trigger ordering - aa_ prefix ensures deletion protection fires before audit triggers
 - Phase 27-02: Cross-warehouse stock validation at creation and approval - Hard blocks on insufficient total stock prevent impossible fulfillments
 - Phase 27-02: Nullable FK for fulfillment linkage - Simpler than junction table, aligns with existing invoice_id FK pattern
 - Phase 27-02: Over-execution prevention with hard block - Sum of fulfillments cannot exceed approved quantity
@@ -109,10 +113,6 @@ Recent decisions affecting current work:
 - Phase 27-01: QMHQ-linked requests enforce exactly one line item - Prevents multi-item confusion in single-item QMHQ context
 - Phase 27-01: Sequential approval numbering with parent prefix - Provides clear ordering and traceability for audit trail
 - Phase 27-01: Item name/SKU snapshotted at line item creation - Preserves historical accuracy even if item renamed/deleted
-- v1.5: Currency inheritance with Lock badge - Prevents accidental currency mismatch in transactions
-- v1.5: Context-dependent abbreviation thresholds - Respects financial precision (card: 1M, table: 1B, detail: never)
-- v1.4: RPC creates audit before entity update - Enables trigger deduplication to prevent duplicates
-- v1.3: CurrencyDisplay two-line format - Original currency + EUSD equivalent clearly visible
 
 ### Pending Todos
 
@@ -124,9 +124,7 @@ None.
 
 **Phase 28: COMPLETE** — 3 plans, 9 commits, 7 new files, 3 modified files, verified 8/8 must-haves
 
-**Phase 29 considerations:**
-- FK constraint changes require careful migration sequencing
-- Pre-flight RPC must count only active (is_active = true) references
+**Phase 29: COMPLETE** — 1 migration (057), 6 trigger functions, 16 reference checks, 15 partial indexes
 
 **Phase 30 considerations:**
 - Auth middleware must check is_active on every request, not just login
@@ -142,10 +140,10 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-09
-Stopped at: Phase 28 complete — verified 8/8 must-haves
+Last session: 2026-02-10
+Stopped at: Phase 29 complete — 6 deletion protection triggers for master data entities
 Resume file: None
-Next step: Run /gsd:plan-phase 29 to plan Deletion Protection
+Next step: Run /gsd:plan-phase 30 to plan User Deactivation
 
 ## Performance Metrics
 
@@ -157,7 +155,8 @@ Next step: Run /gsd:plan-phase 29 to plan Deletion Protection
 | 28-stock-out-request-approval-ui | 01 | 4min | 2 | 5 | 2026-02-09 |
 | 28-stock-out-request-approval-ui | 02 | 5min | 2 | 4 | 2026-02-09 |
 | 28-stock-out-request-approval-ui | 03 | 4min | 2 | 4 | 2026-02-09 |
+| 29-deletion-protection | 01 | 2min | 2 | 1 | 2026-02-10 |
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-09 - Phase 28 complete, verified*
+*Last updated: 2026-02-10 - Phase 29 complete, deletion protection triggers*
