@@ -110,8 +110,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 29-01-PLAN.md — Database triggers to block deactivation of 6 entity types when actively referenced
-- [ ] 29-02-PLAN.md — Frontend error message updates to surface trigger errors in delete toast
+- [x] 29-01-PLAN.md — Database triggers to block deactivation of 6 entity types when actively referenced
+- [x] 29-02-PLAN.md — Frontend error message updates to surface trigger errors in delete toast
 
 #### Phase 30: User Deactivation
 **Goal**: Admin can deactivate users without losing historical data attribution
@@ -161,6 +161,6 @@ Phases execute in numeric order: 27 → 28 → 29 → 30 → 31
 | 26. Currency Unification | v1.5 | 2/2 | ✓ Complete | 2026-02-08 |
 | 27. Stock-Out Approval DB Foundation | v1.6 | 3/3 | ✓ Complete | 2026-02-09 |
 | 28. Stock-Out Request & Approval UI | v1.6 | 3/3 | ✓ Complete | 2026-02-09 |
-| 29. Deletion Protection | v1.6 | 0/? | Not started | - |
+| 29. Deletion Protection | v1.6 | 2/2 | ✓ Complete | 2026-02-10 |
 | 30. User Deactivation | v1.6 | 0/? | Not started | - |
 | 31. Context Sliders | v1.6 | 0/? | Not started | - |
