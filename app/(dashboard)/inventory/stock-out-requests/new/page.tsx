@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Plus, X, Lock, AlertCircle, Info } from "lucide-react";
+import { ArrowLeft, Plus, X, Lock, AlertCircle, Info, PanelRightOpen, PanelRightClose } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,20 @@ import { useUser } from "@/components/providers/auth-provider";
 import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
 import type { StockOutReason } from "@/types/database";
+import { ContextSlider } from "@/components/context-slider/context-slider";
+import { QmrlSliderContent } from "@/components/context-slider/qmrl-slider-content";
+import { QmhqSliderContent } from "@/components/context-slider/qmhq-slider-content";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { getFileUrl, type FileAttachmentWithUploader } from "@/lib/actions/files";
+import { FilePreviewModal } from "@/components/files/file-preview-modal";
+import { ImagePreview } from "@/components/files/image-preview";
+import { cn } from "@/lib/utils";
+
+// Dynamic import for PDF preview
+const PDFPreview = dynamic(
+  () => import("@/components/files/pdf-preview").then((mod) => mod.PDFPreview),
+  { ssr: false }
+);
 
 interface QMHQData {
   id: string;
@@ -23,6 +38,7 @@ interface QMHQData {
   item_id: string | null;
   quantity: number | null;
   route_type: string | null;
+  qmrl_id: string | null;
   item?: {
     id: string;
     name: string;
@@ -68,6 +84,26 @@ export default function NewStockOutRequestPage() {
   const [reason, setReason] = useState<StockOutReason>("request");
   const [notes, setNotes] = useState("");
 
+  // Slider state
+  const [isPanelOpen, setIsPanelOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
+
+  // Slider data state
+  const [qmrlData, setQmrlData] = useState<any>(null);
+  const [qmhqFullData, setQmhqFullData] = useState<any>(null);
+  const [qmrlAttachments, setQmrlAttachments] = useState<FileAttachmentWithUploader[]>([]);
+  const [thumbnailUrls, setThumbnailUrls] = useState<Map<string, string>>(new Map());
+  const [isSliderLoading, setIsSliderLoading] = useState(false);
+
+  // Preview state
+  const [previewFile, setPreviewFile] = useState<FileAttachmentWithUploader | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
   // Fetch QMHQ data if linked
   useEffect(() => {
     const fetchQMHQ = async () => {
@@ -82,7 +118,7 @@ export default function NewStockOutRequestPage() {
         const { data, error: fetchError } = await supabase
           .from("qmhq")
           .select(`
-            id, request_id, line_name, item_id, quantity, route_type,
+            id, request_id, line_name, item_id, quantity, route_type, qmrl_id,
             item:items!qmhq_item_id_fkey(id, name, sku, category_id),
             qmhq_items(item_id, quantity, item:items(id, name, sku, category_id))
           `)
@@ -136,6 +172,166 @@ export default function NewStockOutRequestPage() {
 
     fetchQMHQ();
   }, [qmhqId]);
+
+  // Fetch slider data (QMRL + full QMHQ + attachments) when QMHQ is loaded
+  useEffect(() => {
+    const fetchSliderData = async () => {
+      if (!qmhqData || !qmhqData.qmrl_id) {
+        return;
+      }
+
+      setIsSliderLoading(true);
+
+      try {
+        const supabase = createClient();
+
+        // Fetch full QMHQ with relations
+        const { data: qmhqFull, error: qmhqError } = await supabase
+          .from("qmhq")
+          .select(`
+            *,
+            status:status_config(name, color),
+            category:categories(name, color),
+            assigned_user:users!qmhq_assigned_to_fkey(full_name),
+            contact_person:contact_persons(name, position),
+            qmhq_items(quantity, item:items(name, sku))
+          `)
+          .eq("id", qmhqData.id)
+          .single();
+
+        if (qmhqError) {
+          console.error("Error fetching full QMHQ:", qmhqError);
+        } else {
+          setQmhqFullData(qmhqFull);
+        }
+
+        // Fetch QMRL with relations
+        const { data: qmrl, error: qmrlError } = await supabase
+          .from("qmrl")
+          .select(`
+            *,
+            status:status_config(*),
+            category:categories(*),
+            department:departments(*),
+            contact_person:contact_persons(*)
+          `)
+          .eq("id", qmhqData.qmrl_id)
+          .single();
+
+        if (qmrlError) {
+          console.error("Error fetching QMRL:", qmrlError);
+        } else {
+          setQmrlData(qmrl);
+        }
+
+        // Fetch QMRL attachments
+        const { data: attachments, error: attachmentsError } = await supabase
+          .from("file_attachments")
+          .select(`
+            *,
+            uploaded_by_user:users!uploaded_by(full_name, email)
+          `)
+          .eq("entity_type", "qmrl")
+          .eq("entity_id", qmhqData.qmrl_id)
+          .is("deleted_at", null)
+          .order("uploaded_at", { ascending: false });
+
+        if (attachmentsError) {
+          console.error("Error fetching attachments:", attachmentsError);
+        } else if (attachments) {
+          setQmrlAttachments(attachments as FileAttachmentWithUploader[]);
+          // Load thumbnails for images
+          loadThumbnails(attachments as FileAttachmentWithUploader[]);
+        }
+      } catch (err) {
+        console.error("Error fetching slider data:", err);
+      } finally {
+        setIsSliderLoading(false);
+      }
+    };
+
+    fetchSliderData();
+  }, [qmhqData]);
+
+  // Load thumbnails for image attachments
+  const loadThumbnails = async (files: FileAttachmentWithUploader[]) => {
+    const newThumbnailUrls = new Map<string, string>();
+
+    for (const file of files) {
+      if (file.mime_type.startsWith("image/")) {
+        const result = await getFileUrl(file.storage_path);
+        if (result.success) {
+          newThumbnailUrls.set(file.id, result.data);
+        }
+      }
+    }
+
+    setThumbnailUrls(newThumbnailUrls);
+  };
+
+  // Handle attachment click
+  const handleAttachmentClick = useCallback(async (file: FileAttachmentWithUploader) => {
+    setIsLoadingPreview(true);
+    setPreviewFile(file);
+
+    const result = await getFileUrl(file.storage_path);
+
+    if (result.success) {
+      setPreviewUrl(result.data);
+    } else {
+      setPreviewFile(null);
+    }
+
+    setIsLoadingPreview(false);
+  }, []);
+
+  // Handle preview close
+  const handlePreviewClose = useCallback(() => {
+    setPreviewFile(null);
+    setPreviewUrl(null);
+  }, []);
+
+  // Render preview content
+  const renderPreviewContent = () => {
+    if (!previewFile || !previewUrl) return null;
+
+    const isImage = previewFile.mime_type.startsWith("image/");
+    const isPdf = previewFile.mime_type === "application/pdf";
+
+    if (isImage) {
+      return (
+        <ImagePreview
+          url={previewUrl}
+          filename={previewFile.filename}
+          onError={handlePreviewClose}
+        />
+      );
+    }
+
+    if (isPdf) {
+      return (
+        <PDFPreview
+          url={previewUrl}
+          onError={handlePreviewClose}
+          onPasswordRequired={handlePreviewClose}
+          onDownload={() => window.open(previewUrl, '_blank')}
+        />
+      );
+    }
+
+    // Non-previewable files
+    return (
+      <div className="flex flex-col items-center justify-center text-center p-8">
+        <p className="text-slate-400 mb-4">Preview not available for this file type</p>
+        <Button
+          variant="outline"
+          onClick={() => window.open(previewUrl, '_blank')}
+        >
+          Download File
+        </Button>
+      </div>
+    );
+  };
 
   // Handle quantity input (number only, font-mono)
   const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -321,24 +517,42 @@ export default function NewStockOutRequestPage() {
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/inventory/stock-out-requests">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            New Stock-Out Request
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Request items to be issued from warehouse
-          </p>
+    <div className={cn(
+      "p-8 space-y-6",
+      qmhqId
+        ? "md:grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_384px] md:gap-6 md:max-w-none md:space-y-0"
+        : "max-w-3xl mx-auto"
+    )}>
+      {/* Wrap form content when grid is active */}
+      <div className={qmhqId ? "space-y-6" : ""}>
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Link href="/inventory/stock-out-requests">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </Link>
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-white tracking-tight">
+                New Stock-Out Request
+              </h1>
+              {qmhqId && (
+                <button
+                  onClick={() => setIsPanelOpen(prev => !prev)}
+                  className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
+                  aria-label={isPanelOpen ? "Hide context panel" : "Show context panel"}
+                >
+                  {isPanelOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
+            <p className="text-sm text-slate-400 mt-1">
+              Request items to be issued from warehouse
+            </p>
+          </div>
         </div>
-      </div>
 
       {/* QMHQ Reference Banner */}
       {qmhqData && (
@@ -520,17 +734,62 @@ export default function NewStockOutRequestPage() {
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
-        <Link href="/inventory/stock-out-requests">
-          <Button variant="outline" disabled={isSubmitting}>
-            Cancel
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+          <Link href="/inventory/stock-out-requests">
+            <Button variant="outline" disabled={isSubmitting}>
+              Cancel
+            </Button>
+          </Link>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? "Creating..." : "Create Request"}
           </Button>
-        </Link>
-        <Button onClick={handleSubmit} disabled={isSubmitting}>
-          {isSubmitting ? "Creating..." : "Create Request"}
-        </Button>
+        </div>
       </div>
+
+      {/* Context Slider - only when QMHQ-linked */}
+      {qmhqId && (
+        <ContextSlider
+          isOpen={isPanelOpen}
+          onToggle={() => setIsPanelOpen(prev => !prev)}
+          title="Request Context"
+        >
+          <Tabs defaultValue="qmrl" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="qmrl">QMRL</TabsTrigger>
+              <TabsTrigger value="qmhq">QMHQ</TabsTrigger>
+            </TabsList>
+            <TabsContent value="qmrl">
+              <QmrlSliderContent
+                qmrl={qmrlData}
+                isLoading={isSliderLoading}
+                attachments={qmrlAttachments}
+                thumbnailUrls={thumbnailUrls}
+                onAttachmentClick={handleAttachmentClick}
+                qmhqLinesCount={0}
+              />
+            </TabsContent>
+            <TabsContent value="qmhq">
+              <QmhqSliderContent
+                qmhq={qmhqFullData}
+                isLoading={isSliderLoading}
+              />
+            </TabsContent>
+          </Tabs>
+        </ContextSlider>
+      )}
+
+      {/* File Preview Modal */}
+      {qmhqId && (
+        <FilePreviewModal
+          isOpen={!!previewFile}
+          onClose={handlePreviewClose}
+          file={previewFile}
+          fileUrl={previewUrl}
+        >
+          {renderPreviewContent()}
+        </FilePreviewModal>
+      )}
     </div>
   );
 }
