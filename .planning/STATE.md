@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Phase 29 - Deletion Protection
+**Current focus:** Phase 30 - User Deactivation
 
 ## Current Position
 
-Phase: 29 of 31 (Deletion Protection)
-Plan: 2 of 2 complete
-Status: Phase complete
-Last activity: 2026-02-10 — Phase 29 complete (2 plans, 3 tasks, 3 commits, ~3min total)
+Phase: 30 of 31 (User Deactivation)
+Plan: 1 of 2 complete
+Status: In progress
+Last activity: 2026-02-10 — Completed 30-01-PLAN.md (2 tasks, 2 commits, 3min)
 
 ```
-v1.6 Progress: [████████████░░░░░░░░] 60% (4/5 phases complete)
-Overall: [███████████████████░] 93% (29/31 phases complete)
+v1.6 Progress: [████████████░░░░░░░░] 80% (5/5 phases in progress)
+Overall: [████████████████████] 97% (30/31 phases started)
 ```
 
 ## Milestone History
@@ -102,11 +102,12 @@ Overall: [███████████████████░] 93% (29/
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting current work:
+- Phase 30-01: Dual enforcement pattern - ban_duration prevents token refresh, middleware catches unexpired tokens (0-60 min window)
+- Phase 30-01: Self-deactivation guard - Admins cannot deactivate themselves at API level to prevent lockout
+- Phase 30-01: Best-effort session termination - signOut wrapped in try/catch since user may not have active sessions
 - Phase 29-02: Conditional error message pattern - Check error.message for 'Cannot delete' to identify reference errors and display trigger message
 - Phase 29-01: Generic error message pattern - All deletion protection triggers use identical 'Cannot delete: this item is in use' message for security (DPRT-07)
 - Phase 29-01: Partial indexes for performance - WHERE is_active = true indexes optimize reference checks without bloating full-table indexes
-- Phase 29-01: WHEN clause filtering - Triggers fire only on is_active transition from true to false, avoiding unnecessary checks
-- Phase 29-01: Alphabetical trigger ordering - aa_ prefix ensures deletion protection fires before audit triggers
 - Phase 27-02: Cross-warehouse stock validation at creation and approval - Hard blocks on insufficient total stock prevent impossible fulfillments
 - Phase 27-02: Nullable FK for fulfillment linkage - Simpler than junction table, aligns with existing invoice_id FK pattern
 - Phase 27-02: Over-execution prevention with hard block - Sum of fulfillments cannot exceed approved quantity
@@ -127,9 +128,7 @@ None.
 
 **Phase 29: COMPLETE** — 2 plans, 1 migration (057), 6 trigger functions, 16 reference checks, 15 partial indexes, 6 UI pages updated with trigger error handling
 
-**Phase 30 considerations:**
-- Auth middleware must check is_active on every request, not just login
-- Session invalidation approach needs validation (middleware vs Supabase API)
+**Phase 30: IN PROGRESS** — Plan 01 complete (API routes + middleware enforcement), Plan 02 pending (UI implementation)
 
 **Phase 31 considerations:**
 - Extract reusable pattern from existing QmrlContextPanel (640 lines)
@@ -142,9 +141,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Phase 29 complete — deletion protection system with database triggers and UI error handling
+Stopped at: Completed 30-01-PLAN.md — User deactivation backend API and middleware enforcement
 Resume file: None
-Next step: Run /gsd:plan-phase 30 to plan User Deactivation
+Next step: Execute 30-02-PLAN.md for user deactivation UI
 
 ## Performance Metrics
 
@@ -158,8 +157,10 @@ Next step: Run /gsd:plan-phase 30 to plan User Deactivation
 | 28-stock-out-request-approval-ui | 03 | 4min | 2 | 4 | 2026-02-09 |
 | 29-deletion-protection | 01 | 2min | 2 | 1 | 2026-02-10 |
 | 29-deletion-protection | 02 | 1min | 1 | 6 | 2026-02-10 |
+| 30-user-deactivation | 01 | 3min | 2 | 3 | 2026-02-10 |
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-10 - Phase 29 complete, deletion protection system with triggers and UI error handling*
+*Last updated: 2026-02-10 - Phase 30 Plan 01 complete, user deactivation backend API and middleware enforcement*
+| Phase 30-user-deactivation P01 | 3 | 2 tasks | 3 files |
 
