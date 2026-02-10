@@ -300,6 +300,34 @@ RETURNS SETOF public.categories AS $$
 $$ LANGUAGE sql STABLE;
 
 -- ============================================================
+-- 017: Add 'item' to entity_type enum and update items table
+-- ============================================================
+
+-- Add 'item' to the entity_type enum
+ALTER TYPE public.entity_type ADD VALUE IF NOT EXISTS 'item';
+
+-- Add category_id column (foreign key to categories table)
+ALTER TABLE public.items ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES public.categories(id);
+
+-- Create index for category_id
+CREATE INDEX IF NOT EXISTS idx_items_category_id ON public.items(category_id);
+
+COMMENT ON COLUMN public.items.category_id IS 'Reference to categories table for item classification';
+
+-- ============================================================
+-- 018: Seed default item categories
+-- ============================================================
+
+INSERT INTO public.categories (entity_type, name, description, color, display_order) VALUES
+  ('item', 'Equipment', 'Tools, machinery, and equipment', '#3B82F6', 1),
+  ('item', 'Consumable', 'Items that are used up', '#10B981', 2),
+  ('item', 'Uniform', 'Clothing and uniforms', '#8B5CF6', 3),
+  ('item', 'Office Supplies', 'Stationery and office items', '#F59E0B', 4),
+  ('item', 'Electronics', 'Electronic devices and components', '#EC4899', 5),
+  ('item', 'Other', 'Miscellaneous items', '#6B7280', 6)
+ON CONFLICT (entity_type, name) DO NOTHING;
+
+-- ============================================================
 -- Verification Queries (Optional - run to verify)
 -- ============================================================
 
