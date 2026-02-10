@@ -196,9 +196,7 @@ export default function StockOutRequestDetailPage() {
           approvals:stock_out_approvals(
             id,
             approved_quantity,
-            decision,
-            warehouse_id,
-            warehouse:warehouses(id, name)
+            decision
           )
         `
         )
@@ -222,9 +220,7 @@ export default function StockOutRequestDetailPage() {
           const remainingQuantity =
             item.requested_quantity - totalApprovedQuantity;
 
-          // Get latest warehouse (most recent approval)
-          const latestApproval = approvedApprovals[approvedApprovals.length - 1];
-          const assignedWarehouseName = latestApproval?.warehouse?.name || null;
+          const assignedWarehouseName: string | null = null;
 
           return {
             id: item.id,
