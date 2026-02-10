@@ -137,7 +137,9 @@ export default function StockOutRequestDetailPage() {
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
   const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
   const [isExecutionDialogOpen, setIsExecutionDialogOpen] = useState(false);
-  const [hasPendingExecutions, setHasPendingExecutions] = useState(false);
+  const [executingApprovalId, setExecutingApprovalId] = useState<string | null>(null);
+  const [executingApprovalNumber, setExecutingApprovalNumber] = useState<string | null>(null);
+  const [approvalPendingStatus, setApprovalPendingStatus] = useState<Map<string, boolean>>(new Map());
 
   // Permission checks
   const canApprove = user?.role === "admin" || user?.role === "quartermaster" || user?.role === "inventory";
@@ -295,34 +297,23 @@ export default function StockOutRequestDetailPage() {
         }
       }
 
-      // Check if there are pending execution records
-      // Get all line item IDs
-      const allLineItemIds = itemsWithTotals.map((item) => item.id);
+      // Check which approvals have pending executions
+      const pendingStatusMap = new Map<string, boolean>();
 
-      if (allLineItemIds.length > 0) {
-        // Get approved approvals
-        const { data: approvedApprovalsData } = await supabase
-          .from("stock_out_approvals")
-          .select("id")
-          .in("line_item_id", allLineItemIds)
-          .eq("decision", "approved")
-          .eq("is_active", true);
-
-        const approvedApprovalIds = (approvedApprovalsData || []).map((a) => a.id);
-
-        if (approvedApprovalIds.length > 0) {
-          // Check for pending inventory transactions
+      for (const approval of (approvalsData || [])) {
+        if (approval.decision === "approved") {
+          // Check if this approval has pending inventory transactions
           const { count: pendingCount } = await supabase
             .from("inventory_transactions")
             .select("*", { count: "exact", head: true })
-            .in("stock_out_approval_id", approvedApprovalIds)
+            .eq("stock_out_approval_id", approval.id)
             .eq("status", "pending");
 
-          setHasPendingExecutions((pendingCount ?? 0) > 0);
-        } else {
-          setHasPendingExecutions(false);
+          pendingStatusMap.set(approval.id, (pendingCount ?? 0) > 0);
         }
       }
+
+      setApprovalPendingStatus(pendingStatusMap);
     } catch (error: any) {
       console.error("Error fetching request data:", error);
       toast.error(error.message || "Failed to load request data");
@@ -450,15 +441,6 @@ export default function StockOutRequestDetailPage() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3">
-          {canExecute && hasPendingExecutions && (
-            <Button
-              onClick={() => setIsExecutionDialogOpen(true)}
-              className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400"
-            >
-              <ArrowUpFromLine className="w-4 h-4 mr-2" />
-              Execute Stock-Out
-            </Button>
-          )}
           {canCancel && (
             <Button
               onClick={handleCancelRequest}
@@ -612,45 +594,62 @@ export default function StockOutRequestDetailPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {approvals.map((approval) => (
-                  <div
-                    key={approval.id}
-                    className="border border-slate-700 rounded-lg p-4 space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {approval.approval_number && (
-                          <div className="font-mono text-sm text-slate-300">
-                            {approval.approval_number}
-                          </div>
-                        )}
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-xs",
-                            approval.decision === "approved"
-                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                              : "border-red-500/30 bg-red-500/10 text-red-400"
+                {approvals.map((approval) => {
+                  const hasPendingExecution = approvalPendingStatus.get(approval.id) || false;
+
+                  return (
+                    <div
+                      key={approval.id}
+                      className="border border-slate-700 rounded-lg p-4 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {approval.approval_number && (
+                            <div className="font-mono text-sm text-slate-300">
+                              {approval.approval_number}
+                            </div>
                           )}
-                        >
-                          {approval.decision === "approved"
-                            ? "Approved"
-                            : "Rejected"}
-                        </Badge>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-xs",
+                              approval.decision === "approved"
+                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                                : "border-red-500/30 bg-red-500/10 text-red-400"
+                            )}
+                          >
+                            {approval.decision === "approved"
+                              ? "Approved"
+                              : "Rejected"}
+                          </Badge>
+                          {canExecute && hasPendingExecution && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setExecutingApprovalId(approval.id);
+                                setExecutingApprovalNumber(approval.approval_number);
+                                setIsExecutionDialogOpen(true);
+                              }}
+                              className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-xs"
+                            >
+                              <ArrowUpFromLine className="w-3 h-3 mr-1" />
+                              Execute Stock-Out
+                            </Button>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {new Date(approval.decided_at).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
+                        </div>
                       </div>
-                      <div className="text-xs text-slate-500">
-                        {new Date(approval.decided_at).toLocaleDateString(
-                          "en-US",
-                          {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )}
-                      </div>
-                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                       <div>
@@ -682,18 +681,19 @@ export default function StockOutRequestDetailPage() {
                       </div>
                     </div>
 
-                    {approval.rejection_reason && (
-                      <div className="pt-2 border-t border-slate-700">
-                        <div className="text-xs text-slate-500 mb-1">
-                          Rejection Reason
+                      {approval.rejection_reason && (
+                        <div className="pt-2 border-t border-slate-700">
+                          <div className="text-xs text-slate-500 mb-1">
+                            Rejection Reason
+                          </div>
+                          <div className="text-sm text-red-400">
+                            {approval.rejection_reason}
+                          </div>
                         </div>
-                        <div className="text-sm text-red-400">
-                          {approval.rejection_reason}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -809,12 +809,20 @@ export default function StockOutRequestDetailPage() {
       />
 
       {/* Execution Dialog */}
-      <ExecutionDialog
-        open={isExecutionDialogOpen}
-        onOpenChange={setIsExecutionDialogOpen}
-        requestId={requestId}
-        onSuccess={fetchData}
-      />
+      {executingApprovalId && (
+        <ExecutionDialog
+          open={isExecutionDialogOpen}
+          onOpenChange={setIsExecutionDialogOpen}
+          requestId={requestId}
+          approvalId={executingApprovalId}
+          approvalNumber={executingApprovalNumber}
+          onSuccess={() => {
+            fetchData();
+            setExecutingApprovalId(null);
+            setExecutingApprovalNumber(null);
+          }}
+        />
+      )}
     </div>
   );
 }

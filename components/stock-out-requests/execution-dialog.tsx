@@ -21,6 +21,8 @@ interface ExecutionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   requestId: string;
+  approvalId: string; // Execute transactions for this specific approval only
+  approvalNumber?: string | null; // For display purposes
   onSuccess: () => void;
 }
 
@@ -57,16 +59,18 @@ interface WarehouseStock {
 /**
  * Execution Dialog Component
  *
- * CRITICAL: This dialog executes ALL pending inventory_transactions for the ENTIRE request
- * in a single atomic operation. There is NO selective per-line or per-approval execution.
+ * Executes pending inventory_transactions for a SPECIFIC APPROVAL only.
+ * This allows users to execute stock-out for individual approvals independently.
  *
- * The user clicks "Execute Stock-Out" and either ALL pending transactions execute together,
- * or none do (if any validation fails).
+ * The user clicks "Execute Stock-Out" for a specific approval and only that
+ * approval's pending transactions are executed.
  */
 export function ExecutionDialog({
   open,
   onOpenChange,
   requestId,
+  approvalId,
+  approvalNumber,
   onSuccess,
 }: ExecutionDialogProps) {
   const [executionItems, setExecutionItems] = useState<ExecutionItem[]>([]);
@@ -75,8 +79,8 @@ export function ExecutionDialog({
   const [isExecuting, setIsExecuting] = useState(false);
 
   /**
-   * Fetch ALL pending inventory_transactions for this entire request
-   * and validate stock availability for ALL items
+   * Fetch pending inventory_transactions for this SPECIFIC APPROVAL only
+   * and validate stock availability for those items
    */
   useEffect(() => {
     if (!open) {
@@ -90,42 +94,7 @@ export function ExecutionDialog({
       const supabase = createClient();
 
       try {
-        // Step 1: Get all line items for this request
-        const { data: lineItemsData, error: lineItemsError } = await supabase
-          .from("stock_out_line_items")
-          .select("id")
-          .eq("request_id", requestId);
-
-        if (lineItemsError) throw lineItemsError;
-
-        const lineItemIds = (lineItemsData || []).map((li) => li.id);
-
-        if (lineItemIds.length === 0) {
-          setValidationErrors(["No line items found for this request"]);
-          setIsLoading(false);
-          return;
-        }
-
-        // Step 2: Get all approved approvals for these line items
-        const { data: approvalsData, error: approvalsError } = await supabase
-          .from("stock_out_approvals")
-          .select("id")
-          .in("line_item_id", lineItemIds)
-          .eq("decision", "approved");
-
-        if (approvalsError) throw approvalsError;
-
-        const approvalIds = (approvalsData || []).map((a) => a.id);
-
-        if (approvalIds.length === 0) {
-          setValidationErrors([
-            "No approved approvals found. Nothing to execute.",
-          ]);
-          setIsLoading(false);
-          return;
-        }
-
-        // Step 3: Get ALL pending inventory_transactions for these approvals
+        // Get pending inventory_transactions for THIS approval only
         const { data: transactionsData, error: transactionsError } =
           await supabase
             .from("inventory_transactions")
@@ -142,7 +111,7 @@ export function ExecutionDialog({
               warehouse:warehouses!inventory_transactions_warehouse_id_fkey(id, name)
             `
             )
-            .in("stock_out_approval_id", approvalIds)
+            .eq("stock_out_approval_id", approvalId)
             .eq("status", "pending");
 
         if (transactionsError) throw transactionsError;
@@ -151,7 +120,7 @@ export function ExecutionDialog({
 
         if (items.length === 0) {
           setValidationErrors([
-            "No pending transactions found. All may have already been executed.",
+            "No pending transactions found. This approval may have already been executed.",
           ]);
           setIsLoading(false);
           return;
@@ -159,7 +128,7 @@ export function ExecutionDialog({
 
         setExecutionItems(items);
 
-        // Step 4: Validate stock availability for ALL items across ALL warehouses
+        // Validate stock availability for items in this approval
         const errors: string[] = [];
 
         // Group items by warehouse_id + item_id
@@ -220,10 +189,10 @@ export function ExecutionDialog({
     };
 
     fetchAndValidate();
-  }, [open, requestId]);
+  }, [open, requestId, approvalId]);
 
   /**
-   * Execute ALL pending transactions in a single atomic update
+   * Execute pending transactions for this specific approval
    */
   const handleExecute = async () => {
     if (validationErrors.length > 0) return;
@@ -236,7 +205,7 @@ export function ExecutionDialog({
       const now = new Date().toISOString();
       const allTransactionIds = executionItems.map((item) => item.id);
 
-      // Update ALL pending transactions to completed in a single operation
+      // Update pending transactions for this approval to completed
       const { error: updateError } = await supabase
         .from("inventory_transactions")
         .update({
@@ -249,9 +218,7 @@ export function ExecutionDialog({
 
       // Success
       toast.success(
-        `Stock-out executed successfully for ${executionItems.length} ${
-          executionItems.length === 1 ? "item" : "items"
-        }`
+        `Stock-out executed successfully for ${approvalNumber || "approval"}`
       );
 
       onSuccess();
@@ -270,8 +237,8 @@ export function ExecutionDialog({
         <DialogHeader>
           <DialogTitle>Execute Stock-Out</DialogTitle>
           <DialogDescription>
-            Execute ALL {executionItems.length > 0 ? executionItems.length : ""}{" "}
-            pending item(s) for this request
+            Execute stock-out for {approvalNumber || "this approval"}{" "}
+            {executionItems.length > 0 && `(${executionItems.length} ${executionItems.length === 1 ? "item" : "items"})`}
           </DialogDescription>
         </DialogHeader>
 
@@ -361,8 +328,7 @@ export function ExecutionDialog({
                 <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 flex-shrink-0" />
                 <div className="text-sm text-amber-400/90">
                   <p className="font-medium mb-1">
-                    Execution is permanent and covers all pending items in this
-                    request
+                    Execution is permanent
                   </p>
                   <p>
                     Stock-out transactions cannot be voided. Use stock-in to
