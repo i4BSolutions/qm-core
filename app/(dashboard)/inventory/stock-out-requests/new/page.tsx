@@ -179,8 +179,8 @@ export default function NewStockOutRequestPage() {
     field: keyof LineItem,
     value: string
   ) => {
-    setLineItems(
-      lineItems.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+    setLineItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
   };
 
