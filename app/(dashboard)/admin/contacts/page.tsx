@@ -75,9 +75,12 @@ export default function ContactPersonsPage() {
       .eq("id", id);
 
     if (error) {
+      const isReferenceError = error.message?.includes("Cannot delete");
       toast({
-        title: "Error",
-        description: "Failed to delete contact person.",
+        title: isReferenceError ? "Cannot Delete" : "Error",
+        description: isReferenceError
+          ? error.message
+          : "Failed to delete contact person.",
         variant: "destructive",
       });
     } else {

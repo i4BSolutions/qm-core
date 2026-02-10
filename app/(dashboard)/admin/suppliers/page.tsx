@@ -59,9 +59,12 @@ export default function SuppliersPage() {
       .eq("id", id);
 
     if (error) {
+      const isReferenceError = error.message?.includes("Cannot delete");
       toast({
-        title: "Error",
-        description: "Failed to delete supplier.",
+        title: isReferenceError ? "Cannot Delete" : "Error",
+        description: isReferenceError
+          ? error.message
+          : "Failed to delete supplier.",
         variant: "destructive",
       });
     } else {

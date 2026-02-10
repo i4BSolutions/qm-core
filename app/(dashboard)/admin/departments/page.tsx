@@ -66,9 +66,12 @@ export default function DepartmentsPage() {
       .eq("id", id);
 
     if (error) {
+      const isReferenceError = error.message?.includes("Cannot delete");
       toast({
-        title: "Error",
-        description: "Failed to delete department.",
+        title: isReferenceError ? "Cannot Delete" : "Error",
+        description: isReferenceError
+          ? error.message
+          : "Failed to delete department.",
         variant: "destructive",
       });
     } else {
