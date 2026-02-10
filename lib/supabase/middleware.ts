@@ -51,6 +51,24 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // If user exists and route is protected, check if user is still active
+  if (user && !isPublicRoute) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("is_active")
+      .eq("id", user.id)
+      .single();
+
+    if (profile && profile.is_active === false) {
+      // Force sign out the deactivated user
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("reason", "deactivated");
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (user && request.nextUrl.pathname === "/login") {
     // User is logged in and trying to access login page, redirect to dashboard
     const url = request.nextUrl.clone();
