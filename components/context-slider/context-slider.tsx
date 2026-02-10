@@ -92,6 +92,22 @@ export function ContextSlider({ isOpen, onToggle, title, children }: ContextSlid
           'overflow-hidden flex flex-col'
         )}
       >
+        {/* Desktop Toggle Button - on left edge of panel */}
+        <button
+          onClick={onToggle}
+          className={cn(
+            'hidden md:block absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full',
+            'w-8 h-16 rounded-l-lg',
+            'bg-slate-800 border border-r-0 border-slate-700',
+            'hover:bg-slate-700 transition-colors',
+            'flex items-center justify-center',
+            'text-slate-400 hover:text-amber-400',
+            'z-10'
+          )}
+          aria-label={isOpen ? "Hide context panel" : "Show context panel"}
+        >
+          <FileText className="h-4 w-4" />
+        </button>
         {/* Panel Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between p-4 border-b border-slate-700 bg-slate-900">
           <div className="flex items-center gap-2">
@@ -111,7 +127,7 @@ export function ContextSlider({ isOpen, onToggle, title, children }: ContextSlid
         </div>
 
         {/* Panel Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {children}
         </div>
       </div>

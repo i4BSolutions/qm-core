@@ -114,17 +114,17 @@ export function QmrlSliderContent({
   return (
     <>
       {/* QMRL ID Badge */}
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/50 border border-slate-700 w-fit">
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/50 border border-slate-700 w-fit mb-2">
         <code className="text-sm font-mono text-amber-400">{qmrl.request_id}</code>
       </div>
 
       {/* Title */}
-      <h3 className="text-base font-semibold text-slate-200 leading-tight">
+      <h3 className="text-base font-semibold text-slate-200 leading-tight mb-3">
         {qmrl.title}
       </h3>
 
       {/* Status, Category, Priority */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         {qmrl.status && (
           <Badge
             variant="outline"
@@ -162,14 +162,14 @@ export function QmrlSliderContent({
       </div>
 
       {/* Request Date */}
-      <div className="flex items-center gap-2 text-sm text-slate-400">
+      <div className="flex items-center gap-2 text-sm text-slate-400 mb-4">
         <Calendar className="h-3.5 w-3.5" />
         <span>Request Date: {formatDate(qmrl.request_date)}</span>
       </div>
 
       {/* Description (collapsible) */}
       {qmrl.description && (
-        <div className="space-y-1">
+        <div className="space-y-1 mb-4">
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             Description
           </p>
@@ -204,7 +204,7 @@ export function QmrlSliderContent({
 
       {/* Notes (collapsible) */}
       {qmrl.notes && (
-        <div className="space-y-1">
+        <div className="space-y-1 mb-4">
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             Notes
           </p>
@@ -238,7 +238,7 @@ export function QmrlSliderContent({
       )}
 
       {/* Department & Contact */}
-      <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700 space-y-3">
+      <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 space-y-3 mb-4">
         {qmrl.department && (
           <div className="flex items-start gap-2">
             <Building2 className="h-4 w-4 text-slate-400 mt-0.5" />
@@ -265,7 +265,7 @@ export function QmrlSliderContent({
       </div>
 
       {/* Attachments */}
-      <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+      <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 mb-4">
         <div className="flex items-center gap-2 mb-2">
           <Paperclip className="h-4 w-4 text-amber-500" />
           <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -311,7 +311,7 @@ export function QmrlSliderContent({
       </div>
 
       {/* QMHQ Lines Count Badge */}
-      <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+      <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ExternalLink className="h-4 w-4 text-amber-500" />

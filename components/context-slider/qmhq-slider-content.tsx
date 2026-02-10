@@ -130,18 +130,18 @@ export function QmhqSliderContent({ qmhq, isLoading }: QmhqSliderContentProps) {
   return (
     <>
       {/* QMHQ ID Badge */}
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/50 border border-slate-700 w-fit">
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/50 border border-slate-700 w-fit mb-2">
         <code className="text-sm font-mono text-amber-400">{qmhq.request_id || '—'}</code>
       </div>
 
       {/* Line Name */}
-      <h3 className="text-base font-semibold text-slate-200 leading-tight">
+      <h3 className="text-base font-semibold text-slate-200 leading-tight mb-3">
         {qmhq.line_name || 'Untitled Line'}
       </h3>
 
       {/* Route Type Badge */}
       <div className={cn(
-        'flex items-center gap-2 px-3 py-1.5 rounded border w-fit',
+        'flex items-center gap-2 px-3 py-1.5 rounded border w-fit mb-3',
         routeInfo.bgColor,
         routeInfo.borderColor
       )}>
@@ -152,7 +152,7 @@ export function QmhqSliderContent({ qmhq, isLoading }: QmhqSliderContentProps) {
       </div>
 
       {/* Status & Category */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         {qmhq.status && (
           <Badge
             variant="outline"
@@ -182,7 +182,7 @@ export function QmhqSliderContent({ qmhq, isLoading }: QmhqSliderContentProps) {
 
       {/* Assigned To */}
       {qmhq.assigned_user && (
-        <div className="flex items-center gap-2 text-sm text-slate-400">
+        <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
           <User className="h-3.5 w-3.5" />
           <span>Assigned to: {qmhq.assigned_user.full_name}</span>
         </div>
@@ -190,7 +190,7 @@ export function QmhqSliderContent({ qmhq, isLoading }: QmhqSliderContentProps) {
 
       {/* Contact Person */}
       {qmhq.contact_person && (
-        <div className="flex items-center gap-2 text-sm text-slate-400">
+        <div className="flex items-center gap-2 text-sm text-slate-400 mb-4">
           <User className="h-3.5 w-3.5" />
           <span>
             Contact: {qmhq.contact_person.name}
@@ -200,7 +200,7 @@ export function QmhqSliderContent({ qmhq, isLoading }: QmhqSliderContentProps) {
       )}
 
       {/* Route-Specific Section */}
-      <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700 space-y-3">
+      <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 space-y-3 mb-4">
         <div className="flex items-center gap-2">
           <RouteIcon className={cn('h-4 w-4', routeInfo.color)} />
           <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -324,7 +324,7 @@ export function QmhqSliderContent({ qmhq, isLoading }: QmhqSliderContentProps) {
 
       {/* Description (collapsible) */}
       {qmhq.description && (
-        <div className="space-y-1">
+        <div className="space-y-1 mb-4">
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             Description
           </p>
