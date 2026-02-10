@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useState, useRef } from "react";
+import { Suspense, useEffect, useState, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,6 +17,9 @@ import {
   Check,
   AlertCircle,
   Lock,
+  PanelRightOpen,
+  PanelRightClose,
+  FileIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -29,12 +33,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/providers/auth-provider";
 import { InlineCreateSelect } from "@/components/forms/inline-create-select";
-import { QmrlContextPanel } from "@/components/qmhq/qmrl-context-panel";
+import { ContextSlider } from "@/components/context-slider/context-slider";
+import { QmrlSliderContent } from "@/components/context-slider/qmrl-slider-content";
+import { SiblingQmhqList } from "@/components/context-slider/sibling-qmhq-list";
+import { FilePreviewModal } from "@/components/files/file-preview-modal";
+import { ImagePreview } from "@/components/files/image-preview";
+import { getFileUrl, type FileAttachmentWithUploader } from "@/lib/actions/files";
 import { cn } from "@/lib/utils";
-import type { StatusConfig, Category, ContactPerson, User as UserType, QMRL } from "@/types/database";
+import type { StatusConfig, Category, ContactPerson, User as UserType, QMRL, Department } from "@/types/database";
+
+// Dynamically import PDFPreview with SSR disabled
+const PDFPreview = dynamic(
+  () => import('@/components/files/pdf-preview').then((mod) => ({ default: mod.PDFPreview })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+      </div>
+    ),
+  }
+);
 
 // Route type configuration
 const routeOptions = [
@@ -105,6 +129,122 @@ function NewQMHQContent() {
   const [statuses, setStatuses] = useState<StatusConfig[]>([]);
   const [contactPersons, setContactPersons] = useState<ContactPerson[]>([]);
   const [users, setUsers] = useState<UserType[]>([]);
+
+  // Slider content data
+  interface QMRLWithRelations extends QMRL {
+    status?: StatusConfig | null;
+    category?: Category | null;
+    department?: Department | null;
+    contact_person?: ContactPerson | null;
+  }
+
+  interface QMHQSibling {
+    id: string;
+    request_id: string;
+    line_name: string;
+    route_type: 'item' | 'expense' | 'po';
+    status?: { name: string; color: string } | null;
+  }
+
+  const [qmrlDetail, setQmrlDetail] = useState<QMRLWithRelations | null>(null);
+  const [siblingQmhq, setSiblingQmhq] = useState<QMHQSibling[]>([]);
+  const [qmrlAttachments, setQmrlAttachments] = useState<FileAttachmentWithUploader[]>([]);
+  const [thumbnailUrls, setThumbnailUrls] = useState<Map<string, string>>(new Map());
+  const [isSliderLoading, setIsSliderLoading] = useState(false);
+
+  // Preview modal state
+  const [previewFile, setPreviewFile] = useState<FileAttachmentWithUploader | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
+  /**
+   * Load thumbnail URLs for image files
+   */
+  const loadThumbnails = useCallback(async (files: FileAttachmentWithUploader[]) => {
+    const newUrls = new Map<string, string>();
+
+    for (const file of files) {
+      if (file.mime_type.startsWith('image/')) {
+        const result = await getFileUrl(file.storage_path);
+        if (result.success) {
+          newUrls.set(file.id, result.data);
+        }
+      }
+    }
+
+    setThumbnailUrls(newUrls);
+  }, []);
+
+  /**
+   * Handle attachment click - get signed URL and open preview
+   */
+  const handleAttachmentClick = useCallback(async (file: FileAttachmentWithUploader) => {
+    setIsLoadingPreview(true);
+    setPreviewFile(file);
+
+    const result = await getFileUrl(file.storage_path);
+
+    if (result.success) {
+      setPreviewUrl(result.data);
+    } else {
+      setPreviewFile(null);
+    }
+
+    setIsLoadingPreview(false);
+  }, []);
+
+  /**
+   * Close preview modal
+   */
+  const handlePreviewClose = useCallback(() => {
+    setPreviewFile(null);
+    setPreviewUrl(null);
+  }, []);
+
+  /**
+   * Render preview content based on file type
+   */
+  const renderPreviewContent = () => {
+    if (!previewFile || !previewUrl) return null;
+
+    const isImage = previewFile.mime_type.startsWith('image/');
+    const isPdf = previewFile.mime_type === 'application/pdf';
+
+    if (isImage) {
+      return (
+        <ImagePreview
+          url={previewUrl}
+          filename={previewFile.filename}
+          onError={handlePreviewClose}
+        />
+      );
+    }
+
+    if (isPdf) {
+      return (
+        <PDFPreview
+          url={previewUrl}
+          onError={handlePreviewClose}
+          onPasswordRequired={handlePreviewClose}
+          onDownload={() => window.open(previewUrl, '_blank')}
+        />
+      );
+    }
+
+    // Non-previewable files
+    return (
+      <div className="flex flex-col items-center justify-center text-center p-8">
+        <FileIcon className="h-16 w-16 text-slate-500 mb-4" />
+        <p className="text-slate-400 mb-2">Preview not available</p>
+        <button
+          onClick={() => previewUrl && window.open(previewUrl, '_blank')}
+          className="text-amber-500 hover:text-amber-400 text-sm"
+        >
+          Download File
+        </button>
+      </div>
+    );
+  };
 
   useEffect(() => {
     // Check if QMRL is pre-selected from query param (coming from QMRL detail page)
@@ -187,6 +327,68 @@ function NewQMHQContent() {
 
     setIsLoading(false);
   };
+
+  /**
+   * Fetch QMRL detail, sibling QMHQ, and attachments when qmrl_id changes
+   */
+  useEffect(() => {
+    if (!formData.qmrl_id) {
+      setQmrlDetail(null);
+      setSiblingQmhq([]);
+      setQmrlAttachments([]);
+      setThumbnailUrls(new Map());
+      return;
+    }
+
+    const fetchSliderData = async () => {
+      setIsSliderLoading(true);
+      const supabase = createClient();
+
+      // Fetch QMRL with relations
+      const { data: qmrlData } = await supabase
+        .from('qmrl')
+        .select(`
+          *,
+          status:status_config(*),
+          category:categories(*),
+          department:departments(*),
+          contact_person:contact_persons(*)
+        `)
+        .eq('id', formData.qmrl_id)
+        .single();
+
+      if (qmrlData) {
+        setQmrlDetail(qmrlData as QMRLWithRelations);
+      }
+
+      // Fetch sibling QMHQ
+      const { data: qmhqData } = await supabase
+        .from('qmhq')
+        .select('id, request_id, line_name, route_type, status:status_config(name, color)')
+        .eq('qmrl_id', formData.qmrl_id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      setSiblingQmhq((qmhqData as QMHQSibling[]) || []);
+
+      // Fetch attachments
+      const { data: filesData } = await supabase
+        .from('file_attachments')
+        .select('*, uploaded_by_user:users!uploaded_by(full_name, email)')
+        .eq('entity_type', 'qmrl')
+        .eq('entity_id', formData.qmrl_id)
+        .is('deleted_at', null)
+        .order('uploaded_at', { ascending: false });
+
+      const files = (filesData as FileAttachmentWithUploader[]) || [];
+      setQmrlAttachments(files);
+      await loadThumbnails(files);
+
+      setIsSliderLoading(false);
+    };
+
+    fetchSliderData();
+  }, [formData.qmrl_id, loadThumbnails]);
 
   const validateContactPerson = (): boolean => {
     // Only required for expense and po routes
@@ -296,7 +498,9 @@ function NewQMHQContent() {
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
 
       {/* Main layout: form + panel */}
-      <div className="md:grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_384px] gap-6">
+      <div className={cn(
+        formData.qmrl_id ? "md:grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_384px] gap-6" : ""
+      )}>
         {/* Form Section */}
         <div className="space-y-8">
           {/* Header */}
@@ -313,6 +517,16 @@ function NewQMHQContent() {
                     Step 1 of 2
                   </span>
                 </div>
+                {/* Slider toggle button */}
+                {formData.qmrl_id && (
+                  <button
+                    onClick={() => setIsPanelOpen(prev => !prev)}
+                    className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
+                    aria-label={isPanelOpen ? "Hide context panel" : "Show context panel"}
+                  >
+                    {isPanelOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+                  </button>
+                )}
               </div>
               <h1 className="text-3xl font-bold tracking-tight text-slate-200">
                 Create QMHQ Line
@@ -650,13 +864,53 @@ function NewQMHQContent() {
           </div>
         </div>
 
-        {/* QMRL Context Panel */}
-        <QmrlContextPanel
-          qmrlId={formData.qmrl_id || null}
-          isOpen={isPanelOpen}
-          onToggle={() => setIsPanelOpen(prev => !prev)}
-        />
+        {/* Context Slider */}
+        {formData.qmrl_id && (
+          <ContextSlider
+            isOpen={isPanelOpen}
+            onToggle={() => setIsPanelOpen(prev => !prev)}
+            title="QMRL Context"
+          >
+            <Tabs defaultValue="details" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="details">QMRL Details</TabsTrigger>
+                <TabsTrigger value="siblings">
+                  QMHQ Lines
+                  {siblingQmhq.length > 0 && (
+                    <Badge variant="outline" className="ml-1.5 text-[10px] px-1.5 py-0">{siblingQmhq.length}</Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="details">
+                <QmrlSliderContent
+                  qmrl={qmrlDetail}
+                  isLoading={isSliderLoading}
+                  attachments={qmrlAttachments}
+                  thumbnailUrls={thumbnailUrls}
+                  onAttachmentClick={handleAttachmentClick}
+                  qmhqLinesCount={siblingQmhq.length}
+                />
+              </TabsContent>
+              <TabsContent value="siblings">
+                <SiblingQmhqList
+                  siblings={siblingQmhq}
+                  isLoading={isSliderLoading}
+                />
+              </TabsContent>
+            </Tabs>
+          </ContextSlider>
+        )}
       </div>
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        isOpen={!!previewFile}
+        onClose={handlePreviewClose}
+        file={previewFile}
+        fileUrl={previewUrl}
+      >
+        {renderPreviewContent()}
+      </FilePreviewModal>
     </div>
   );
 }
