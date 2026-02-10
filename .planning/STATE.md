@@ -10,13 +10,13 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: 31 of 31 (Context Sliders)
-Plan: 1 of 2 complete
-Status: In progress
-Last activity: 2026-02-10 — Completed 31-01-PLAN.md (2 tasks, 2 commits, 5min)
+Plan: 2 of 2 complete
+Status: Complete
+Last activity: 2026-02-10 — Completed 31-02-PLAN.md (2 tasks, 2 commits, 6min)
 
 ```
-v1.6 Progress: [████████████░░░░░░░░] 83% (5/6 phases complete, 1 in progress)
-Overall: [████████████████████] 100% (31/31 phases started)
+v1.6 Progress: [████████████████████] 100% (6/6 phases complete)
+Overall: [████████████████████] 100% (31/31 phases complete)
 ```
 
 ## Milestone History
@@ -102,6 +102,8 @@ Overall: [████████████████████] 100% (31
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting current work:
+- Phase 31-02: Conditional slider rendering - Slider only appears when stock-out request has QMHQ context (qmhq param), manual requests remain clean
+- Phase 31-02: Full QMHQ detail in slider - Show route-specific data (item/expense/PO) for complete context, not just basic fields
 - Phase 31-01: Structural shell + content component separation - ContextSlider provides only layout/animation/toggle, content components are domain-specific
 - Phase 31-01: Page owns data state - Slider components are presentational, parent page fetches and passes data via props
 - Phase 31-01: Two tabs in QMHQ slider - QMRL Details (full view) + QMHQ Lines (sibling list) for complete context
@@ -133,7 +135,7 @@ None.
 
 **Phase 30: COMPLETE** — Plan 01 (API routes + middleware enforcement) + Plan 02 (UI implementation) complete. Full deactivation flow operational.
 
-**Phase 31: IN PROGRESS** — Plan 01 complete (Context slider components created and integrated into QMHQ create page). Plan 02 remaining (integrate into stock-out request page).
+**Phase 31: COMPLETE** — Plan 01 (Context slider shell + QMRL content + QMHQ create integration) + Plan 02 (QMHQ slider content + stock-out request integration) complete. Reusable context slider pattern established.
 
 **Known Tech Debt:** PO Edit page does not exist at /po/[id]/edit (Edit button links to 404)
 - Pre-existing issue discovered during v1.3 audit
@@ -142,9 +144,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 31-01-PLAN.md — Context slider components with QMHQ integration
+Stopped at: Completed 31-02-PLAN.md — Phase 31 complete (context sliders)
 Resume file: None
-Next step: Execute Phase 31 Plan 02 (integrate context slider into stock-out request page)
+Next step: Phase 31 complete. Milestone v1.6 ready for review.
 
 ## Performance Metrics
 
@@ -161,7 +163,10 @@ Next step: Execute Phase 31 Plan 02 (integrate context slider into stock-out req
 | 30-user-deactivation | 01 | 3min | 2 | 3 | 2026-02-10 |
 | 30-user-deactivation | 02 | 5min | 3 | 5 | 2026-02-10 |
 | 31-context-sliders | 01 | 5min | 2 | 4 | 2026-02-10 |
+| 31-context-sliders | 02 | 6min | 2 | 2 | 2026-02-10 |
 
 ---
 *State initialized: 2026-01-27*
 *Last updated: 2026-02-10 - Phase 30 complete, user deactivation with UI and backend enforcement*
+| Phase 31 P02 | 6 | 2 tasks | 2 files |
+
