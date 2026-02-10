@@ -106,7 +106,10 @@ export function CategoryItemSelector({
   }, [categoryId]);
 
   /**
-   * Fetch categories that have at least one active item
+   * Fetch all active item categories
+   * Note: Previously filtered to only show categories with items,
+   * but this prevented users from seeing categories when no items
+   * have been categorized yet. Now shows all item categories.
    */
   const loadCategories = async () => {
     setCategoriesLoading(true);
@@ -115,7 +118,7 @@ export function CategoryItemSelector({
     try {
       const supabase = createClient();
 
-      // Fetch categories with entity_type = 'item'
+      // Fetch all active categories with entity_type = 'item'
       const { data: cats, error: catsError } = await supabase
         .from("categories")
         .select("id, name, color")
@@ -125,27 +128,7 @@ export function CategoryItemSelector({
 
       if (catsError) throw catsError;
 
-      // Get all active items to filter categories
-      const { data: allItems, error: itemsError } = await supabase
-        .from("items")
-        .select("category_id")
-        .eq("is_active", true);
-
-      if (itemsError) throw itemsError;
-
-      // Build set of category IDs that have items
-      const categoryIdsWithItems = new Set(
-        (allItems || [])
-          .map((i) => i.category_id)
-          .filter((id): id is string => id !== null)
-      );
-
-      // Filter to only categories with items
-      const categoriesWithItems = (cats || []).filter((c) =>
-        categoryIdsWithItems.has(c.id)
-      );
-
-      setCategories(categoriesWithItems);
+      setCategories(cats || []);
     } catch (error) {
       console.error("Failed to load categories:", error);
       setCategoriesError("Failed to load categories");
