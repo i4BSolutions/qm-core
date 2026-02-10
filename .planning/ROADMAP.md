@@ -107,10 +107,11 @@ Plans:
   5. Contact person deactivation blocked when referenced by any QMRL or QMHQ
   6. Supplier deactivation blocked when referenced by any PO
   7. Delete dialog shows generic error "Cannot delete: this item is in use" when references exist
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 29-01: [TBD during planning]
+- [ ] 29-01-PLAN.md — Database triggers to block deactivation of 6 entity types when actively referenced
+- [ ] 29-02-PLAN.md — Frontend error message updates to surface trigger errors in delete toast
 
 #### Phase 30: User Deactivation
 **Goal**: Admin can deactivate users without losing historical data attribution
