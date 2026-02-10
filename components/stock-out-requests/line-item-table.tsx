@@ -77,10 +77,14 @@ const STATUS_CONFIG: Record<
 
 /**
  * Determine if a line item can be selected for approval
+ *
+ * A line item can be approved if:
+ * - It has remaining quantity to approve (requested > already approved)
+ * - AND it's not cancelled or fully executed
  */
 function canSelectForApproval(item: LineItemWithApprovals): boolean {
   return (
-    (item.status === "pending" || item.remaining_quantity > 0) &&
+    item.remaining_quantity > 0 &&
     item.status !== "cancelled" &&
     item.status !== "executed"
   );

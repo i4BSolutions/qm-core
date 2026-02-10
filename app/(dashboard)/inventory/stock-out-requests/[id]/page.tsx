@@ -129,6 +129,7 @@ export default function StockOutRequestDetailPage() {
   );
   const [lineItems, setLineItems] = useState<LineItemWithApprovals[]>([]);
   const [approvals, setApprovals] = useState<ApprovalWithUser[]>([]);
+  const [inventoryTransactions, setInventoryTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("details");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -265,6 +266,34 @@ export default function StockOutRequestDetailPage() {
       if (approvalsError) throw approvalsError;
 
       setApprovals((approvalsData || []) as ApprovalWithUser[]);
+
+      // Fetch inventory transactions (completed stock-outs)
+      const approvalIds = (approvalsData || []).map((a) => a.id);
+      if (approvalIds.length > 0) {
+        const { data: txData, error: txError } = await supabase
+          .from("inventory_transactions")
+          .select(
+            `
+            id,
+            movement_type,
+            quantity,
+            status,
+            transaction_date,
+            created_at,
+            warehouse_id,
+            item_id,
+            warehouses!inventory_transactions_warehouse_id_fkey(id, name),
+            items(id, name, sku)
+          `
+          )
+          .in("stock_out_approval_id", approvalIds)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false });
+
+        if (!txError && txData) {
+          setInventoryTransactions(txData);
+        }
+      }
 
       // Check if there are pending execution records
       // Get all line item IDs
@@ -532,13 +561,21 @@ export default function StockOutRequestDetailPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="approvals">
             Approvals
             {approvals.length > 0 && (
               <Badge variant="secondary" className="ml-2 text-xs">
                 {approvals.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="transactions">
+            Transactions
+            {inventoryTransactions.length > 0 && (
+              <Badge variant="secondary" className="ml-2 text-xs">
+                {inventoryTransactions.length}
               </Badge>
             )}
           </TabsTrigger>
@@ -662,6 +699,85 @@ export default function StockOutRequestDetailPage() {
           </div>
         </TabsContent>
 
+        {/* Transactions Tab */}
+        <TabsContent value="transactions" className="space-y-4">
+          <div className="command-panel p-6">
+            <h3 className="text-lg font-semibold text-slate-200 mb-4">
+              Stock-Out Transactions
+            </h3>
+
+            {inventoryTransactions.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                No inventory transactions yet
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {inventoryTransactions.map((tx: any) => (
+                  <div
+                    key={tx.id}
+                    className="border border-slate-700 rounded-lg p-4 bg-slate-800/30"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-lg flex items-center justify-center",
+                          tx.status === "completed" ? "bg-emerald-500/20" : "bg-amber-500/20"
+                        )}>
+                          <ArrowUpFromLine className={cn(
+                            "w-5 h-5",
+                            tx.status === "completed" ? "text-emerald-400" : "text-amber-400"
+                          )} />
+                        </div>
+                        <div>
+                          <div className="font-medium text-slate-200">
+                            {tx.items?.name || "Unknown Item"}
+                          </div>
+                          {tx.items?.sku && (
+                            <div className="text-sm text-slate-400 font-mono">
+                              {tx.items.sku}
+                            </div>
+                          )}
+                          <div className="text-sm text-slate-400">
+                            From: {tx.warehouses?.name || "Unknown Warehouse"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-mono font-bold text-red-400">
+                          -{tx.quantity}
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-xs mt-1",
+                            tx.status === "completed"
+                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                              : "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                          )}
+                        >
+                          {tx.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs text-slate-500">
+                      {new Date(tx.transaction_date || tx.created_at).toLocaleDateString(
+                        "en-US",
+                        {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
         {/* History Tab */}
         <TabsContent value="history">
           <div className="command-panel p-6">
@@ -680,6 +796,7 @@ export default function StockOutRequestDetailPage() {
         lineItems={lineItems.filter((item) => selectedIds.has(item.id))}
         requestId={requestId}
         requestReason={request.reason}
+        qmhqId={request.qmhq_id}
         onSuccess={handleDialogSuccess}
       />
 

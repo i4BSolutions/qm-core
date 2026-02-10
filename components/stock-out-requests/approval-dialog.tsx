@@ -34,6 +34,7 @@ interface ApprovalDialogProps {
   lineItems: LineItemWithApprovals[];
   requestId: string;
   requestReason: string;
+  qmhqId?: string | null;
   onSuccess: () => void;
 }
 
@@ -151,6 +152,7 @@ export function ApprovalDialog({
   lineItems,
   requestId,
   requestReason,
+  qmhqId,
   onSuccess,
 }: ApprovalDialogProps) {
   const { user } = useAuth();
@@ -318,6 +320,7 @@ export function ApprovalDialog({
             quantity: approvedQty,
             reason: requestReason as "request" | "consumption" | "damage" | "lost" | "transfer" | "adjustment",
             stock_out_approval_id: approvalRecord.id,
+            qmhq_id: qmhqId || null,
             status: "pending",
             created_by: user.id,
           });
