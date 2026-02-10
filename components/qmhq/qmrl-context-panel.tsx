@@ -13,7 +13,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import {
-  X,
   FileText,
   Calendar,
   Building2,
@@ -68,8 +67,6 @@ interface QMHQRelated {
 
 interface QmrlContextPanelProps {
   qmrlId: string | null;
-  isOpen: boolean;
-  onToggle: () => void;
 }
 
 // Route type configuration for QMHQ display
@@ -109,7 +106,7 @@ function formatDate(dateStr: string | null): string {
  * - Shows existing QMHQ count and list
  * - Attachment thumbnails with preview modal
  */
-export function QmrlContextPanel({ qmrlId, isOpen, onToggle }: QmrlContextPanelProps) {
+export function QmrlContextPanel({ qmrlId }: QmrlContextPanelProps) {
   // Data state
   const [qmrl, setQmrl] = useState<QMRLWithRelations | null>(null);
   const [relatedQmhq, setRelatedQmhq] = useState<QMHQRelated[]>([]);
@@ -207,21 +204,6 @@ export function QmrlContextPanel({ qmrlId, isOpen, onToggle }: QmrlContextPanelP
   }, [qmrlId, loadThumbnails]);
 
   /**
-   * Handle body scroll lock on mobile when drawer is open
-   */
-  useEffect(() => {
-    if (isOpen && typeof window !== 'undefined' && window.innerWidth < 768) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
-
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, [isOpen]);
-
-  /**
    * Handle attachment click - get signed URL and open preview
    */
   const handleAttachmentClick = useCallback(async (file: FileAttachmentWithUploader) => {
@@ -294,66 +276,14 @@ export function QmrlContextPanel({ qmrlId, isOpen, onToggle }: QmrlContextPanelP
 
   return (
     <>
-      {/* Mobile Toggle Button - shown when panel is closed */}
-      {!isOpen && (
-        <button
-          onClick={onToggle}
-          className={cn(
-            'md:hidden fixed bottom-4 right-4 z-40',
-            'flex items-center gap-2 rounded-full',
-            'bg-gradient-to-r from-amber-600 to-amber-500',
-            'px-4 py-3 shadow-lg',
-            'hover:from-amber-500 hover:to-amber-400',
-            'transition-all duration-200',
-            'animate-fade-in'
-          )}
-          aria-label="Show QMRL context"
-        >
-          <FileText className="h-5 w-5 text-white" />
-          <span className="text-sm font-medium text-white">Context</span>
-        </button>
-      )}
-
-      {/* Mobile Backdrop */}
-      {isOpen && (
-        <div
-          onClick={onToggle}
-          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Panel Container */}
-      <div
-        className={cn(
-          // Desktop: visible in grid, sticky position
-          'md:block md:relative md:translate-x-0',
-          // Mobile: fixed slide-in drawer
-          'fixed inset-y-0 right-0 z-50',
-          'w-80 md:w-80 lg:w-96',
-          'transform transition-transform duration-300 ease-in-out',
-          isOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0',
-          // Styling
-          'border-l border-slate-700 bg-slate-900',
-          'overflow-hidden flex flex-col'
-        )}
-      >
+      {/* Sticky Side Panel */}
+      <div className="md:sticky md:top-4 md:self-start border border-slate-700 bg-slate-900 rounded-lg overflow-hidden flex flex-col md:max-h-[calc(100vh-2rem)]">
         {/* Panel Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between p-4 border-b border-slate-700 bg-slate-900">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-amber-500" />
-            <span className="text-sm font-semibold uppercase tracking-wider text-amber-500">
-              QMRL Context
-            </span>
-          </div>
-          {/* Close button - only visible on mobile */}
-          <button
-            onClick={onToggle}
-            className="md:hidden text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800"
-            aria-label="Close panel"
-          >
-            <X className="h-4 w-4" />
-          </button>
+        <div className="sticky top-0 z-10 flex items-center gap-2 p-4 border-b border-slate-700 bg-slate-900">
+          <FileText className="h-4 w-4 text-amber-500" />
+          <span className="text-sm font-semibold uppercase tracking-wider text-amber-500">
+            QMRL Context
+          </span>
         </div>
 
         {/* Panel Content */}

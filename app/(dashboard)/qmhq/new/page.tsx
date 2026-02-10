@@ -17,8 +17,6 @@ import {
   Check,
   AlertCircle,
   Lock,
-  PanelRightOpen,
-  PanelRightClose,
   FileIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -95,15 +93,6 @@ function NewQMHQContent() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isQmrlLocked, setIsQmrlLocked] = useState(false);
-
-  // Panel state: starts visible on desktop (>= 768px), closed on mobile
-  // No sessionStorage persistence - resets per step per user decision
-  const [isPanelOpen, setIsPanelOpen] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth >= 768;
-    }
-    return true;
-  });
 
   // Contact person validation state
   const [contactPersonTouched, setContactPersonTouched] = useState(false);
@@ -517,16 +506,6 @@ function NewQMHQContent() {
                     Step 1 of 2
                   </span>
                 </div>
-                {/* Slider toggle button */}
-                {formData.qmrl_id && (
-                  <button
-                    onClick={() => setIsPanelOpen(prev => !prev)}
-                    className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
-                    aria-label={isPanelOpen ? "Hide context panel" : "Show context panel"}
-                  >
-                    {isPanelOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-                  </button>
-                )}
               </div>
               <h1 className="text-3xl font-bold tracking-tight text-slate-200">
                 Create QMHQ Line
@@ -867,8 +846,6 @@ function NewQMHQContent() {
         {/* Context Slider */}
         {formData.qmrl_id && (
           <ContextSlider
-            isOpen={isPanelOpen}
-            onToggle={() => setIsPanelOpen(prev => !prev)}
             title="QMRL Context"
           >
             <Tabs defaultValue="details" className="w-full">

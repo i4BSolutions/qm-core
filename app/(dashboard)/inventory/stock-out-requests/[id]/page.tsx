@@ -144,12 +144,6 @@ export default function StockOutRequestDetailPage() {
   const [approvalPendingStatus, setApprovalPendingStatus] = useState<Map<string, boolean>>(new Map());
 
   // Context slider state
-  const [isPanelOpen, setIsPanelOpen] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth >= 768;
-    }
-    return true;
-  });
   const [qmhqDetail, setQmhqDetail] = useState<any>(null);
   const [isSliderLoading, setIsSliderLoading] = useState(false);
 
@@ -899,8 +893,6 @@ export default function StockOutRequestDetailPage() {
       {/* Context Slider */}
       {request.qmhq_id && (
         <ContextSlider
-          isOpen={isPanelOpen}
-          onToggle={() => setIsPanelOpen(prev => !prev)}
           title="QMHQ Context"
         >
           <QmhqSliderContent

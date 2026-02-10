@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Plus, X, Lock, AlertCircle, Info, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { ArrowLeft, Plus, X, Lock, AlertCircle, Info } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
@@ -83,14 +83,6 @@ export default function NewStockOutRequestPage() {
   ]);
   const [reason, setReason] = useState<StockOutReason>("request");
   const [notes, setNotes] = useState("");
-
-  // Slider state
-  const [isPanelOpen, setIsPanelOpen] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth >= 768;
-    }
-    return true;
-  });
 
   // Slider data state
   const [qmrlData, setQmrlData] = useState<any>(null);
@@ -538,15 +530,6 @@ export default function NewStockOutRequestPage() {
               <h1 className="text-2xl font-bold text-white tracking-tight">
                 New Stock-Out Request
               </h1>
-              {qmhqId && (
-                <button
-                  onClick={() => setIsPanelOpen(prev => !prev)}
-                  className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
-                  aria-label={isPanelOpen ? "Hide context panel" : "Show context panel"}
-                >
-                  {isPanelOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-                </button>
-              )}
             </div>
             <p className="text-sm text-slate-400 mt-1">
               Request items to be issued from warehouse
@@ -750,8 +733,6 @@ export default function NewStockOutRequestPage() {
       {/* Context Slider - only when QMHQ-linked */}
       {qmhqId && (
         <ContextSlider
-          isOpen={isPanelOpen}
-          onToggle={() => setIsPanelOpen(prev => !prev)}
           title="Request Context"
         >
           <Tabs defaultValue="qmrl" className="w-full">

@@ -82,15 +82,6 @@ export default function QMHQRouteDetailsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftData, setDraftData] = useState<DraftData | null>(null);
 
-  // Panel state: starts visible on desktop (>= 768px), closed on mobile
-  // No sessionStorage persistence - resets per step per user decision
-  const [isPanelOpen, setIsPanelOpen] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth >= 768;
-    }
-    return true;
-  });
-
   // Item route state
   const [items, setItems] = useState<Item[]>([]);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([
@@ -817,8 +808,6 @@ export default function QMHQRouteDetailsPage() {
         {/* QMRL Context Panel */}
         <QmrlContextPanel
           qmrlId={draftData?.qmrl_id || null}
-          isOpen={isPanelOpen}
-          onToggle={() => setIsPanelOpen(prev => !prev)}
         />
       </div>
     </div>
