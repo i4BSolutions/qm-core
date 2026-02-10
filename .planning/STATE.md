@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: 30 of 31 (User Deactivation)
-Plan: 1 of 2 complete
-Status: In progress
-Last activity: 2026-02-10 — Completed 30-01-PLAN.md (2 tasks, 2 commits, 3min)
+Plan: 2 of 2 complete
+Status: Phase complete
+Last activity: 2026-02-10 — Completed 30-02-PLAN.md (3 tasks, 3 commits, 5min)
 
 ```
 v1.6 Progress: [████████████░░░░░░░░] 80% (5/5 phases in progress)
@@ -128,7 +128,7 @@ None.
 
 **Phase 29: COMPLETE** — 2 plans, 1 migration (057), 6 trigger functions, 16 reference checks, 15 partial indexes, 6 UI pages updated with trigger error handling
 
-**Phase 30: IN PROGRESS** — Plan 01 complete (API routes + middleware enforcement), Plan 02 pending (UI implementation)
+**Phase 30: COMPLETE** — Plan 01 (API routes + middleware enforcement) + Plan 02 (UI implementation) complete. Full deactivation flow operational.
 
 **Phase 31 considerations:**
 - Extract reusable pattern from existing QmrlContextPanel (640 lines)
@@ -141,9 +141,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 30-01-PLAN.md — User deactivation backend API and middleware enforcement
+Stopped at: Completed 30-02-PLAN.md — User deactivation UI with dialog, badges, login message, and consistent filtering
 Resume file: None
-Next step: Execute 30-02-PLAN.md for user deactivation UI
+Next step: Begin Phase 31 (Context Panel Refactoring)
 
 ## Performance Metrics
 
@@ -158,9 +158,10 @@ Next step: Execute 30-02-PLAN.md for user deactivation UI
 | 29-deletion-protection | 01 | 2min | 2 | 1 | 2026-02-10 |
 | 29-deletion-protection | 02 | 1min | 1 | 6 | 2026-02-10 |
 | 30-user-deactivation | 01 | 3min | 2 | 3 | 2026-02-10 |
+| 30-user-deactivation | 02 | 5min | 3 | 5 | 2026-02-10 |
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-10 - Phase 30 Plan 01 complete, user deactivation backend API and middleware enforcement*
-| Phase 30-user-deactivation P01 | 3 | 2 tasks | 3 files |
+*Last updated: 2026-02-10 - Phase 30 complete, user deactivation with UI and backend enforcement*
+| Phase 30-user-deactivation P02 | 5min | 3 tasks | 5 files |
 
