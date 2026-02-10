@@ -336,5 +336,761 @@ ON CONFLICT (entity_type, name) DO NOTHING;
 -- SELECT * FROM public.categories ORDER BY entity_type, display_order;
 
 -- ============================================================
+-- Migration 052: Stock-out requests tables
+-- ============================================================
+
+-- Line item status enum
+DO $$ BEGIN
+  CREATE TYPE sor_line_item_status AS ENUM (
+    'pending',
+    'approved',
+    'rejected',
+    'cancelled',
+    'partially_executed',
+    'executed'
+  );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
+
+-- Computed request status enum
+DO $$ BEGIN
+  CREATE TYPE sor_request_status AS ENUM (
+    'pending',
+    'partially_approved',
+    'approved',
+    'rejected',
+    'cancelled',
+    'partially_executed',
+    'executed'
+  );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
+
+-- Stock-out requests table
+CREATE TABLE IF NOT EXISTS stock_out_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_number TEXT UNIQUE,
+  status sor_request_status NOT NULL DEFAULT 'pending',
+  reason stock_out_reason NOT NULL,
+  notes TEXT,
+  qmhq_id UUID REFERENCES qmhq(id) ON DELETE SET NULL,
+  requester_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  is_active BOOLEAN DEFAULT true,
+  created_by UUID REFERENCES users(id),
+  updated_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Stock-out line items table
+CREATE TABLE IF NOT EXISTS stock_out_line_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES stock_out_requests(id) ON DELETE CASCADE,
+  item_id UUID NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
+  requested_quantity DECIMAL(15,2) NOT NULL CHECK (requested_quantity > 0),
+  status sor_line_item_status NOT NULL DEFAULT 'pending',
+  item_name TEXT,
+  item_sku TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_by UUID REFERENCES users(id),
+  updated_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Stock-out approvals table
+CREATE TABLE IF NOT EXISTS stock_out_approvals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  line_item_id UUID NOT NULL REFERENCES stock_out_line_items(id) ON DELETE CASCADE,
+  approval_number TEXT UNIQUE,
+  approved_quantity DECIMAL(15,2) NOT NULL CHECK (approved_quantity > 0),
+  decision TEXT NOT NULL CHECK (decision IN ('approved', 'rejected')),
+  rejection_reason TEXT,
+  warehouse_id UUID REFERENCES warehouses(id) ON DELETE RESTRICT,
+  decided_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  decided_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  is_active BOOLEAN DEFAULT true,
+  created_by UUID REFERENCES users(id),
+  updated_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT rejection_reason_required CHECK (decision != 'rejected' OR rejection_reason IS NOT NULL)
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_sor_status ON stock_out_requests(status);
+CREATE INDEX IF NOT EXISTS idx_sor_reason ON stock_out_requests(reason);
+CREATE INDEX IF NOT EXISTS idx_sor_requester ON stock_out_requests(requester_id);
+CREATE INDEX IF NOT EXISTS idx_sor_is_active ON stock_out_requests(is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_sor_created_at ON stock_out_requests(created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_out_requests_qmhq_unique ON stock_out_requests(qmhq_id) WHERE qmhq_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_sor_li_request ON stock_out_line_items(request_id);
+CREATE INDEX IF NOT EXISTS idx_sor_li_item ON stock_out_line_items(item_id);
+CREATE INDEX IF NOT EXISTS idx_sor_li_status ON stock_out_line_items(status);
+CREATE INDEX IF NOT EXISTS idx_sor_li_is_active ON stock_out_line_items(is_active) WHERE is_active = true;
+
+CREATE INDEX IF NOT EXISTS idx_sor_approval_line_item ON stock_out_approvals(line_item_id);
+CREATE INDEX IF NOT EXISTS idx_sor_approval_decided_by ON stock_out_approvals(decided_by);
+CREATE INDEX IF NOT EXISTS idx_sor_approval_decision ON stock_out_approvals(decision);
+CREATE INDEX IF NOT EXISTS idx_sor_approval_is_active ON stock_out_approvals(is_active) WHERE is_active = true;
+
+-- Triggers - Updated_at
+DROP TRIGGER IF EXISTS update_sor_updated_at ON stock_out_requests;
+CREATE TRIGGER update_sor_updated_at
+  BEFORE UPDATE ON stock_out_requests
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_sor_li_updated_at ON stock_out_line_items;
+CREATE TRIGGER update_sor_li_updated_at
+  BEFORE UPDATE ON stock_out_line_items
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_sor_approval_updated_at ON stock_out_approvals;
+CREATE TRIGGER update_sor_approval_updated_at
+  BEFORE UPDATE ON stock_out_approvals
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ID Generation Functions
+CREATE OR REPLACE FUNCTION generate_sor_request_number()
+RETURNS TRIGGER AS $$
+DECLARE
+  current_year TEXT;
+  next_number INT;
+BEGIN
+  current_year := EXTRACT(YEAR FROM CURRENT_DATE)::TEXT;
+  SELECT COALESCE(MAX(
+    CAST(SUBSTRING(request_number FROM 'SOR-' || current_year || '-(\d+)') AS INT)
+  ), 0) + 1
+  INTO next_number
+  FROM stock_out_requests
+  WHERE request_number LIKE 'SOR-' || current_year || '-%';
+
+  NEW.request_number := 'SOR-' || current_year || '-' || LPAD(next_number::TEXT, 5, '0');
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_generate_sor_request_number ON stock_out_requests;
+CREATE TRIGGER trg_generate_sor_request_number
+  BEFORE INSERT ON stock_out_requests
+  FOR EACH ROW
+  WHEN (NEW.request_number IS NULL OR NEW.request_number = '')
+  EXECUTE FUNCTION generate_sor_request_number();
+
+CREATE OR REPLACE FUNCTION generate_sor_approval_number()
+RETURNS TRIGGER AS $$
+DECLARE
+  parent_request_number TEXT;
+  next_seq INT;
+BEGIN
+  SELECT r.request_number
+  INTO parent_request_number
+  FROM stock_out_requests r
+  JOIN stock_out_line_items li ON li.request_id = r.id
+  WHERE li.id = NEW.line_item_id;
+
+  SELECT COALESCE(MAX(
+    CAST(SUBSTRING(a.approval_number FROM '.*-A(\d+)$') AS INT)
+  ), 0) + 1
+  INTO next_seq
+  FROM stock_out_approvals a
+  JOIN stock_out_line_items li ON a.line_item_id = li.id
+  JOIN stock_out_requests r ON li.request_id = r.id
+  WHERE r.request_number = parent_request_number;
+
+  NEW.approval_number := parent_request_number || '-A' || LPAD(next_seq::TEXT, 2, '0');
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_generate_sor_approval_number ON stock_out_approvals;
+CREATE TRIGGER trg_generate_sor_approval_number
+  BEFORE INSERT ON stock_out_approvals
+  FOR EACH ROW
+  WHEN (NEW.approval_number IS NULL OR NEW.approval_number = '')
+  EXECUTE FUNCTION generate_sor_approval_number();
+
+-- Item snapshot trigger
+CREATE OR REPLACE FUNCTION snapshot_sor_line_item()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.item_name IS NULL OR NEW.item_sku IS NULL THEN
+    SELECT name, sku
+    INTO NEW.item_name, NEW.item_sku
+    FROM items
+    WHERE id = NEW.item_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_snapshot_sor_line_item ON stock_out_line_items;
+CREATE TRIGGER trg_snapshot_sor_line_item
+  BEFORE INSERT ON stock_out_line_items
+  FOR EACH ROW
+  EXECUTE FUNCTION snapshot_sor_line_item();
+
+-- Computed request status trigger
+CREATE OR REPLACE FUNCTION compute_sor_request_status()
+RETURNS TRIGGER AS $$
+DECLARE
+  total_count INT;
+  pending_count INT;
+  cancelled_count INT;
+  rejected_count INT;
+  approved_count INT;
+  partially_executed_count INT;
+  executed_count INT;
+  new_status sor_request_status;
+  parent_request_id UUID;
+BEGIN
+  IF TG_TABLE_NAME = 'stock_out_line_items' THEN
+    parent_request_id := COALESCE(NEW.request_id, OLD.request_id);
+  ELSIF TG_TABLE_NAME = 'stock_out_approvals' THEN
+    SELECT li.request_id INTO parent_request_id
+    FROM stock_out_line_items li
+    WHERE li.id = COALESCE(NEW.line_item_id, OLD.line_item_id);
+  END IF;
+
+  IF parent_request_id IS NULL THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
+  SELECT
+    COUNT(*),
+    COUNT(*) FILTER (WHERE status = 'pending'),
+    COUNT(*) FILTER (WHERE status = 'cancelled'),
+    COUNT(*) FILTER (WHERE status = 'rejected'),
+    COUNT(*) FILTER (WHERE status = 'approved'),
+    COUNT(*) FILTER (WHERE status = 'partially_executed'),
+    COUNT(*) FILTER (WHERE status = 'executed')
+  INTO total_count, pending_count, cancelled_count, rejected_count,
+       approved_count, partially_executed_count, executed_count
+  FROM stock_out_line_items
+  WHERE request_id = parent_request_id AND is_active = true;
+
+  IF total_count = 0 OR pending_count = total_count THEN
+    new_status := 'pending';
+  ELSIF cancelled_count = total_count THEN
+    new_status := 'cancelled';
+  ELSIF rejected_count + cancelled_count = total_count THEN
+    new_status := 'rejected';
+  ELSIF executed_count = total_count THEN
+    new_status := 'executed';
+  ELSIF partially_executed_count > 0 OR (executed_count > 0 AND executed_count < total_count) THEN
+    new_status := 'partially_executed';
+  ELSIF approved_count > 0 AND pending_count > 0 THEN
+    new_status := 'partially_approved';
+  ELSIF approved_count > 0 AND pending_count = 0 THEN
+    new_status := 'approved';
+  ELSE
+    new_status := 'partially_approved';
+  END IF;
+
+  UPDATE stock_out_requests
+  SET status = new_status,
+      updated_at = NOW()
+  WHERE id = parent_request_id
+    AND status IS DISTINCT FROM new_status;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_compute_sor_status_from_li ON stock_out_line_items;
+CREATE TRIGGER trg_compute_sor_status_from_li
+  AFTER INSERT OR UPDATE OF status, is_active OR DELETE ON stock_out_line_items
+  FOR EACH ROW
+  EXECUTE FUNCTION compute_sor_request_status();
+
+-- QMHQ single-line-item enforcement
+CREATE OR REPLACE FUNCTION enforce_qmhq_single_line_item()
+RETURNS TRIGGER AS $$
+DECLARE
+  linked_qmhq_id UUID;
+  existing_count INT;
+BEGIN
+  SELECT qmhq_id INTO linked_qmhq_id
+  FROM stock_out_requests
+  WHERE id = NEW.request_id;
+
+  IF linked_qmhq_id IS NOT NULL THEN
+    SELECT COUNT(*) INTO existing_count
+    FROM stock_out_line_items
+    WHERE request_id = NEW.request_id
+      AND is_active = true
+      AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::UUID);
+
+    IF existing_count >= 1 THEN
+      RAISE EXCEPTION 'QMHQ-linked stock-out requests can only have one line item';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_enforce_qmhq_single_line_item ON stock_out_line_items;
+CREATE TRIGGER trg_enforce_qmhq_single_line_item
+  BEFORE INSERT ON stock_out_line_items
+  FOR EACH ROW
+  EXECUTE FUNCTION enforce_qmhq_single_line_item();
+
+GRANT USAGE ON TYPE sor_line_item_status TO authenticated;
+GRANT USAGE ON TYPE sor_request_status TO authenticated;
+
+-- ============================================================
+-- Migration 053: Stock-out validation functions
+-- ============================================================
+
+-- Get total stock for an item across ALL warehouses
+CREATE OR REPLACE FUNCTION get_total_item_stock(p_item_id UUID)
+RETURNS DECIMAL(15,2) AS $$
+BEGIN
+  RETURN (
+    SELECT COALESCE(SUM(
+      CASE
+        WHEN movement_type = 'inventory_in' THEN quantity
+        WHEN movement_type = 'inventory_out' THEN -quantity
+        ELSE 0
+      END
+    ), 0)
+    FROM inventory_transactions
+    WHERE item_id = p_item_id
+      AND is_active = true
+      AND status = 'completed'
+  );
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Validate stock at line item creation
+CREATE OR REPLACE FUNCTION validate_sor_line_item_creation()
+RETURNS TRIGGER AS $$
+DECLARE
+  available_stock DECIMAL(15,2);
+BEGIN
+  IF TG_OP != 'INSERT' THEN
+    RETURN NEW;
+  END IF;
+
+  available_stock := get_total_item_stock(NEW.item_id);
+
+  IF NEW.requested_quantity > available_stock THEN
+    RAISE EXCEPTION 'Insufficient stock. Requested: %, Available across all warehouses: %',
+      NEW.requested_quantity, available_stock;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_validate_sor_li_creation ON stock_out_line_items;
+CREATE TRIGGER trg_validate_sor_li_creation
+  BEFORE INSERT ON stock_out_line_items
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_sor_line_item_creation();
+
+-- Validate approval quantity constraints
+CREATE OR REPLACE FUNCTION validate_sor_approval()
+RETURNS TRIGGER AS $$
+DECLARE
+  li_requested_quantity DECIMAL(15,2);
+  li_item_id UUID;
+  total_already_approved DECIMAL(15,2);
+  available_stock DECIMAL(15,2);
+BEGIN
+  SELECT requested_quantity, item_id
+  INTO li_requested_quantity, li_item_id
+  FROM stock_out_line_items
+  WHERE id = NEW.line_item_id;
+
+  IF NEW.decision = 'approved' THEN
+    SELECT COALESCE(SUM(approved_quantity), 0)
+    INTO total_already_approved
+    FROM stock_out_approvals
+    WHERE line_item_id = NEW.line_item_id
+      AND decision = 'approved'
+      AND is_active = true
+      AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000');
+
+    IF (total_already_approved + NEW.approved_quantity) > li_requested_quantity THEN
+      RAISE EXCEPTION 'Total approved quantity (% + %) exceeds requested quantity (%)',
+        total_already_approved, NEW.approved_quantity, li_requested_quantity;
+    END IF;
+
+    available_stock := get_total_item_stock(li_item_id);
+
+    IF NEW.approved_quantity > available_stock THEN
+      RAISE EXCEPTION 'Approved quantity (%) exceeds available stock across all warehouses (%)',
+        NEW.approved_quantity, available_stock;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_validate_sor_approval ON stock_out_approvals;
+CREATE TRIGGER trg_validate_sor_approval
+  BEFORE INSERT ON stock_out_approvals
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_sor_approval();
+
+-- Update line item status on approval
+CREATE OR REPLACE FUNCTION update_line_item_status_on_approval()
+RETURNS TRIGGER AS $$
+DECLARE
+  li_requested_quantity DECIMAL(15,2);
+  total_approved DECIMAL(15,2);
+  total_rejected INT;
+  total_approvals INT;
+BEGIN
+  SELECT requested_quantity INTO li_requested_quantity
+  FROM stock_out_line_items
+  WHERE id = NEW.line_item_id;
+
+  IF NEW.decision = 'approved' THEN
+    UPDATE stock_out_line_items
+    SET status = 'approved',
+        updated_by = NEW.decided_by,
+        updated_at = NOW()
+    WHERE id = NEW.line_item_id
+      AND status = 'pending';
+  ELSIF NEW.decision = 'rejected' THEN
+    SELECT COUNT(*) FILTER (WHERE decision = 'approved'),
+           COUNT(*)
+    INTO total_approved, total_approvals
+    FROM stock_out_approvals
+    WHERE line_item_id = NEW.line_item_id
+      AND is_active = true;
+
+    IF total_approved = 0 THEN
+      UPDATE stock_out_line_items
+      SET status = 'rejected',
+          updated_by = NEW.decided_by,
+          updated_at = NOW()
+      WHERE id = NEW.line_item_id
+        AND status = 'pending';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_update_li_status_on_approval ON stock_out_approvals;
+CREATE TRIGGER trg_update_li_status_on_approval
+  AFTER INSERT ON stock_out_approvals
+  FOR EACH ROW
+  EXECUTE FUNCTION update_line_item_status_on_approval();
+
+-- Line item status transition enforcement
+CREATE OR REPLACE FUNCTION validate_sor_line_item_status_transition()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.status = NEW.status THEN
+    RETURN NEW;
+  END IF;
+
+  IF OLD.status = 'approved' THEN
+    IF NEW.status NOT IN ('partially_executed', 'executed') THEN
+      RAISE EXCEPTION 'Cannot change line item status from approved to %', NEW.status;
+    END IF;
+  END IF;
+
+  IF OLD.status = 'rejected' THEN
+    RAISE EXCEPTION 'Cannot change status of rejected line item';
+  END IF;
+
+  IF OLD.status = 'cancelled' THEN
+    RAISE EXCEPTION 'Cannot change status of cancelled line item';
+  END IF;
+
+  IF NEW.status = 'cancelled' AND OLD.status != 'pending' THEN
+    RAISE EXCEPTION 'Can only cancel pending line items, current status: %', OLD.status;
+  END IF;
+
+  IF OLD.status = 'partially_executed' AND NEW.status != 'executed' THEN
+    RAISE EXCEPTION 'Partially executed line items can only transition to executed';
+  END IF;
+
+  IF OLD.status = 'executed' THEN
+    RAISE EXCEPTION 'Cannot change status of fully executed line item';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_validate_sor_li_status_transition ON stock_out_line_items;
+CREATE TRIGGER trg_validate_sor_li_status_transition
+  BEFORE UPDATE OF status ON stock_out_line_items
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_sor_line_item_status_transition();
+
+-- Add nullable FK to link fulfillment inventory_out to the approval that authorized it
+ALTER TABLE inventory_transactions
+  ADD COLUMN IF NOT EXISTS stock_out_approval_id UUID REFERENCES stock_out_approvals(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_inventory_transactions_sor_approval
+  ON inventory_transactions(stock_out_approval_id) WHERE stock_out_approval_id IS NOT NULL;
+
+-- Over-execution blocking
+CREATE OR REPLACE FUNCTION validate_sor_fulfillment()
+RETURNS TRIGGER AS $$
+DECLARE
+  approval_qty DECIMAL(15,2);
+  total_executed DECIMAL(15,2);
+  approval_decision TEXT;
+BEGIN
+  IF NEW.movement_type != 'inventory_out' THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.stock_out_approval_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT approved_quantity, decision
+  INTO approval_qty, approval_decision
+  FROM stock_out_approvals
+  WHERE id = NEW.stock_out_approval_id
+    AND is_active = true;
+
+  IF approval_qty IS NULL THEN
+    RAISE EXCEPTION 'Stock-out approval not found';
+  END IF;
+
+  IF approval_decision != 'approved' THEN
+    RAISE EXCEPTION 'Cannot fulfill a rejected stock-out approval';
+  END IF;
+
+  SELECT COALESCE(SUM(quantity), 0)
+  INTO total_executed
+  FROM inventory_transactions
+  WHERE stock_out_approval_id = NEW.stock_out_approval_id
+    AND movement_type = 'inventory_out'
+    AND is_active = true
+    AND status = 'completed'
+    AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000');
+
+  IF (total_executed + NEW.quantity) > approval_qty THEN
+    RAISE EXCEPTION 'Over-execution blocked. Approved: %, Already executed: %, Attempting: %',
+      approval_qty, total_executed, NEW.quantity;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_validate_sor_fulfillment ON inventory_transactions;
+CREATE TRIGGER trg_validate_sor_fulfillment
+  BEFORE INSERT OR UPDATE ON inventory_transactions
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_sor_fulfillment();
+
+-- Auto-update line item execution status on fulfillment
+CREATE OR REPLACE FUNCTION update_sor_line_item_execution_status()
+RETURNS TRIGGER AS $$
+DECLARE
+  approval_record RECORD;
+  total_executed DECIMAL(15,2);
+  total_approved_for_li DECIMAL(15,2);
+  total_executed_for_li DECIMAL(15,2);
+  li_id UUID;
+BEGIN
+  IF NEW.movement_type != 'inventory_out' OR NEW.stock_out_approval_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.status != 'completed' THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT a.id, a.line_item_id, a.approved_quantity
+  INTO approval_record
+  FROM stock_out_approvals a
+  WHERE a.id = NEW.stock_out_approval_id;
+
+  li_id := approval_record.line_item_id;
+
+  SELECT COALESCE(SUM(approved_quantity), 0)
+  INTO total_approved_for_li
+  FROM stock_out_approvals
+  WHERE line_item_id = li_id
+    AND decision = 'approved'
+    AND is_active = true;
+
+  SELECT COALESCE(SUM(it.quantity), 0)
+  INTO total_executed_for_li
+  FROM inventory_transactions it
+  JOIN stock_out_approvals a ON it.stock_out_approval_id = a.id
+  WHERE a.line_item_id = li_id
+    AND it.movement_type = 'inventory_out'
+    AND it.is_active = true
+    AND it.status = 'completed';
+
+  IF total_executed_for_li >= total_approved_for_li AND total_approved_for_li > 0 THEN
+    UPDATE stock_out_line_items
+    SET status = 'executed', updated_at = NOW()
+    WHERE id = li_id AND status IN ('approved', 'partially_executed');
+  ELSIF total_executed_for_li > 0 THEN
+    UPDATE stock_out_line_items
+    SET status = 'partially_executed', updated_at = NOW()
+    WHERE id = li_id AND status = 'approved';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_update_sor_li_execution_status ON inventory_transactions;
+CREATE TRIGGER trg_update_sor_li_execution_status
+  AFTER INSERT OR UPDATE ON inventory_transactions
+  FOR EACH ROW
+  EXECUTE FUNCTION update_sor_line_item_execution_status();
+
+GRANT EXECUTE ON FUNCTION get_total_item_stock(UUID) TO authenticated;
+
+-- ============================================================
+-- Migration 054: Stock-out RLS policies and audit triggers
+-- ============================================================
+
+ALTER TABLE stock_out_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_out_line_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_out_approvals ENABLE ROW LEVEL SECURITY;
+
+-- Helper: check if user can view a stock-out request
+CREATE OR REPLACE FUNCTION public.can_view_sor_request(p_request_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  req_requester_id UUID;
+  user_role public.user_role;
+BEGIN
+  user_role := public.get_user_role();
+
+  IF user_role IN ('admin', 'quartermaster', 'inventory') THEN
+    RETURN TRUE;
+  END IF;
+
+  SELECT requester_id INTO req_requester_id
+  FROM stock_out_requests
+  WHERE id = p_request_id;
+
+  RETURN req_requester_id = auth.uid();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- Helper: check if user can view an approval (via line item -> request)
+CREATE OR REPLACE FUNCTION public.can_view_sor_approval(p_line_item_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  parent_request_id UUID;
+BEGIN
+  SELECT request_id INTO parent_request_id
+  FROM stock_out_line_items
+  WHERE id = p_line_item_id;
+
+  RETURN public.can_view_sor_request(parent_request_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- STOCK_OUT_REQUESTS RLS POLICIES
+DROP POLICY IF EXISTS sor_select ON stock_out_requests;
+CREATE POLICY sor_select ON stock_out_requests
+  FOR SELECT USING (
+    public.get_user_role() IN ('admin', 'quartermaster', 'inventory')
+    OR requester_id = auth.uid()
+  );
+
+DROP POLICY IF EXISTS sor_insert ON stock_out_requests;
+CREATE POLICY sor_insert ON stock_out_requests
+  FOR INSERT WITH CHECK (
+    public.get_user_role() IN ('admin', 'quartermaster', 'inventory')
+  );
+
+DROP POLICY IF EXISTS sor_update ON stock_out_requests;
+CREATE POLICY sor_update ON stock_out_requests
+  FOR UPDATE USING (
+    public.get_user_role() = 'admin'
+    OR requester_id = auth.uid()
+  );
+
+DROP POLICY IF EXISTS sor_delete ON stock_out_requests;
+CREATE POLICY sor_delete ON stock_out_requests
+  FOR DELETE USING (
+    public.get_user_role() = 'admin'
+  );
+
+-- STOCK_OUT_LINE_ITEMS RLS POLICIES
+DROP POLICY IF EXISTS sor_li_select ON stock_out_line_items;
+CREATE POLICY sor_li_select ON stock_out_line_items
+  FOR SELECT USING (
+    public.can_view_sor_request(request_id)
+  );
+
+DROP POLICY IF EXISTS sor_li_insert ON stock_out_line_items;
+CREATE POLICY sor_li_insert ON stock_out_line_items
+  FOR INSERT WITH CHECK (
+    public.get_user_role() IN ('admin', 'quartermaster', 'inventory')
+  );
+
+DROP POLICY IF EXISTS sor_li_update ON stock_out_line_items;
+CREATE POLICY sor_li_update ON stock_out_line_items
+  FOR UPDATE USING (
+    public.get_user_role() IN ('admin', 'quartermaster', 'inventory')
+  );
+
+DROP POLICY IF EXISTS sor_li_delete ON stock_out_line_items;
+CREATE POLICY sor_li_delete ON stock_out_line_items
+  FOR DELETE USING (
+    public.get_user_role() = 'admin'
+  );
+
+-- STOCK_OUT_APPROVALS RLS POLICIES
+DROP POLICY IF EXISTS sor_approval_select ON stock_out_approvals;
+CREATE POLICY sor_approval_select ON stock_out_approvals
+  FOR SELECT USING (
+    public.can_view_sor_approval(line_item_id)
+  );
+
+DROP POLICY IF EXISTS sor_approval_insert ON stock_out_approvals;
+CREATE POLICY sor_approval_insert ON stock_out_approvals
+  FOR INSERT WITH CHECK (
+    public.get_user_role() = 'admin'
+  );
+
+DROP POLICY IF EXISTS sor_approval_update ON stock_out_approvals;
+CREATE POLICY sor_approval_update ON stock_out_approvals
+  FOR UPDATE USING (
+    public.get_user_role() = 'admin'
+  );
+
+DROP POLICY IF EXISTS sor_approval_delete ON stock_out_approvals;
+CREATE POLICY sor_approval_delete ON stock_out_approvals
+  FOR DELETE USING (
+    public.get_user_role() = 'admin'
+  );
+
+-- AUDIT TRIGGERS
+DROP TRIGGER IF EXISTS audit_stock_out_requests ON stock_out_requests;
+CREATE TRIGGER audit_stock_out_requests
+  AFTER INSERT OR UPDATE OR DELETE ON stock_out_requests
+  FOR EACH ROW EXECUTE FUNCTION public.create_audit_log();
+
+DROP TRIGGER IF EXISTS audit_stock_out_line_items ON stock_out_line_items;
+CREATE TRIGGER audit_stock_out_line_items
+  AFTER INSERT OR UPDATE OR DELETE ON stock_out_line_items
+  FOR EACH ROW EXECUTE FUNCTION public.create_audit_log();
+
+DROP TRIGGER IF EXISTS audit_stock_out_approvals ON stock_out_approvals;
+CREATE TRIGGER audit_stock_out_approvals
+  AFTER INSERT OR UPDATE OR DELETE ON stock_out_approvals
+  FOR EACH ROW EXECUTE FUNCTION public.create_audit_log();
+
+GRANT EXECUTE ON FUNCTION public.can_view_sor_request(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_view_sor_approval(UUID) TO authenticated;
+
+-- ============================================================
 -- Migration Complete!
 -- ============================================================
