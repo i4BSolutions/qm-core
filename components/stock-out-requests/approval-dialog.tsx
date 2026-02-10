@@ -316,7 +316,7 @@ export function ApprovalDialog({
             item_id: item.item_id,
             warehouse_id: warehouseId,
             quantity: approvedQty,
-            reason: requestReason,
+            reason: requestReason as "request" | "consumption" | "damage" | "lost" | "transfer" | "adjustment",
             stock_out_approval_id: approvalRecord.id,
             status: "pending",
             created_by: user.id,

@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { Enums } from "@/types/database";
 
-type TransactionStatus = Enums<"transaction_status">;
+type TransactionStatus = Enums<"inventory_transaction_status">;
 
 interface ExecutionDialogProps {
   open: boolean;
@@ -173,7 +173,7 @@ export function ExecutionDialog({
         });
 
         // Validate each warehouse+item combination
-        for (const [key, itemGroup] of warehouseItemMap.entries()) {
+        for (const [key, itemGroup] of Array.from(warehouseItemMap.entries())) {
           const [warehouse_id, item_id] = key.split(":");
           const totalRequired = itemGroup.reduce(
             (sum, item) => sum + item.quantity,

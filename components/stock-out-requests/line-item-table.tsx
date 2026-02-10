@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
@@ -159,11 +158,13 @@ export function LineItemTable({
             <tr className="border-b border-slate-700">
               {canApprove && (
                 <th className="pb-3 text-left">
-                  <Checkbox
+                  <input
+                    type="checkbox"
                     checked={allSelected}
-                    onCheckedChange={handleSelectAll}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
                     disabled={selectableForApproval.length === 0}
                     aria-label="Select all items"
+                    className="h-4 w-4 rounded border-slate-600 accent-amber-500"
                   />
                 </th>
               )}
@@ -217,13 +218,15 @@ export function LineItemTable({
                   >
                     {canApprove && (
                       <td className="py-4">
-                        <Checkbox
+                        <input
+                          type="checkbox"
                           checked={isSelected}
-                          onCheckedChange={(checked) =>
-                            handleItemSelect(item.id, checked as boolean)
+                          onChange={(e) =>
+                            handleItemSelect(item.id, e.target.checked)
                           }
                           disabled={!isSelectable}
                           aria-label={`Select ${item.item_name}`}
+                          className="h-4 w-4 rounded border-slate-600 accent-amber-500"
                         />
                       </td>
                     )}

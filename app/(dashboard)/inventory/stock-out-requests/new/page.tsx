@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { useUser } from "@/components/providers/auth-provider";
 import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
