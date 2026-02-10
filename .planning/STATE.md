@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Phase 30 - User Deactivation
+**Current focus:** Phase 31 - Context Sliders
 
 ## Current Position
 
-Phase: 30 of 31 (User Deactivation)
-Plan: 2 of 2 complete
-Status: Phase complete
-Last activity: 2026-02-10 — Completed 30-02-PLAN.md (3 tasks, 3 commits, 5min)
+Phase: 31 of 31 (Context Sliders)
+Plan: 1 of 2 complete
+Status: In progress
+Last activity: 2026-02-10 — Completed 31-01-PLAN.md (2 tasks, 2 commits, 5min)
 
 ```
-v1.6 Progress: [████████████░░░░░░░░] 80% (5/5 phases in progress)
-Overall: [████████████████████] 97% (30/31 phases started)
+v1.6 Progress: [████████████░░░░░░░░] 83% (5/6 phases complete, 1 in progress)
+Overall: [████████████████████] 100% (31/31 phases started)
 ```
 
 ## Milestone History
@@ -102,6 +102,9 @@ Overall: [████████████████████] 97% (30/
 See PROJECT.md Key Decisions table for full log.
 
 Recent decisions affecting current work:
+- Phase 31-01: Structural shell + content component separation - ContextSlider provides only layout/animation/toggle, content components are domain-specific
+- Phase 31-01: Page owns data state - Slider components are presentational, parent page fetches and passes data via props
+- Phase 31-01: Two tabs in QMHQ slider - QMRL Details (full view) + QMHQ Lines (sibling list) for complete context
 - Phase 30-01: Dual enforcement pattern - ban_duration prevents token refresh, middleware catches unexpired tokens (0-60 min window)
 - Phase 30-01: Self-deactivation guard - Admins cannot deactivate themselves at API level to prevent lockout
 - Phase 30-01: Best-effort session termination - signOut wrapped in try/catch since user may not have active sessions
@@ -130,9 +133,7 @@ None.
 
 **Phase 30: COMPLETE** — Plan 01 (API routes + middleware enforcement) + Plan 02 (UI implementation) complete. Full deactivation flow operational.
 
-**Phase 31 considerations:**
-- Extract reusable pattern from existing QmrlContextPanel (640 lines)
-- Avoid N+1 queries by fetching slider data in parent Server Component
+**Phase 31: IN PROGRESS** — Plan 01 complete (Context slider components created and integrated into QMHQ create page). Plan 02 remaining (integrate into stock-out request page).
 
 **Known Tech Debt:** PO Edit page does not exist at /po/[id]/edit (Edit button links to 404)
 - Pre-existing issue discovered during v1.3 audit
@@ -141,9 +142,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 30-02-PLAN.md — User deactivation UI with dialog, badges, login message, and consistent filtering
+Stopped at: Completed 31-01-PLAN.md — Context slider components with QMHQ integration
 Resume file: None
-Next step: Begin Phase 31 (Context Panel Refactoring)
+Next step: Execute Phase 31 Plan 02 (integrate context slider into stock-out request page)
 
 ## Performance Metrics
 
@@ -159,6 +160,7 @@ Next step: Begin Phase 31 (Context Panel Refactoring)
 | 29-deletion-protection | 02 | 1min | 1 | 6 | 2026-02-10 |
 | 30-user-deactivation | 01 | 3min | 2 | 3 | 2026-02-10 |
 | 30-user-deactivation | 02 | 5min | 3 | 5 | 2026-02-10 |
+| 31-context-sliders | 01 | 5min | 2 | 4 | 2026-02-10 |
 
 ---
 *State initialized: 2026-01-27*
