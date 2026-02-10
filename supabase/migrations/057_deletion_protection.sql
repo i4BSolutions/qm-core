@@ -221,3 +221,160 @@ CREATE INDEX IF NOT EXISTS idx_qmhq_status_id_active ON qmhq(status_id) WHERE is
 CREATE INDEX IF NOT EXISTS idx_qmrl_category_id_active ON qmrl(category_id) WHERE is_active = true;
 CREATE INDEX IF NOT EXISTS idx_qmhq_category_id_active ON qmhq(category_id) WHERE is_active = true;
 CREATE INDEX IF NOT EXISTS idx_items_category_id_active ON items(category_id) WHERE is_active = true;
+
+-- ============================================
+-- 4. DEPARTMENTS - Block deactivation when referenced
+-- ============================================
+-- Reference checks:
+-- - users (department_id)
+-- - qmrl (department_id)
+-- - contact_persons (department_id)
+
+CREATE OR REPLACE FUNCTION block_department_deactivation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  -- Check if department is referenced by active users
+  IF EXISTS (
+    SELECT 1 FROM users
+    WHERE department_id = OLD.id AND is_active = true
+    LIMIT 1
+  ) THEN
+    RAISE EXCEPTION 'Cannot delete: this item is in use';
+  END IF;
+
+  -- Check if department is referenced by active qmrl
+  IF EXISTS (
+    SELECT 1 FROM qmrl
+    WHERE department_id = OLD.id AND is_active = true
+    LIMIT 1
+  ) THEN
+    RAISE EXCEPTION 'Cannot delete: this item is in use';
+  END IF;
+
+  -- Check if department is referenced by active contact_persons
+  IF EXISTS (
+    SELECT 1 FROM contact_persons
+    WHERE department_id = OLD.id AND is_active = true
+    LIMIT 1
+  ) THEN
+    RAISE EXCEPTION 'Cannot delete: this item is in use';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS aa_block_department_deactivation ON departments;
+CREATE TRIGGER aa_block_department_deactivation
+  BEFORE UPDATE ON departments
+  FOR EACH ROW
+  WHEN (OLD.is_active = true AND NEW.is_active = false)
+  EXECUTE FUNCTION block_department_deactivation();
+
+COMMENT ON FUNCTION block_department_deactivation() IS
+  'Prevents deactivation of departments that are referenced by active users, QMRL, or contact persons.';
+
+COMMENT ON TRIGGER aa_block_department_deactivation ON departments IS
+  'Blocks department deactivation when referenced by active records. Uses aa_ prefix to fire before audit triggers.';
+
+-- ============================================
+-- 5. CONTACT PERSONS - Block deactivation when referenced
+-- ============================================
+-- Reference checks:
+-- - qmrl (contact_person_id)
+-- - qmhq (contact_person_id)
+
+CREATE OR REPLACE FUNCTION block_contact_person_deactivation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  -- Check if contact person is referenced by active qmrl
+  IF EXISTS (
+    SELECT 1 FROM qmrl
+    WHERE contact_person_id = OLD.id AND is_active = true
+    LIMIT 1
+  ) THEN
+    RAISE EXCEPTION 'Cannot delete: this item is in use';
+  END IF;
+
+  -- Check if contact person is referenced by active qmhq
+  IF EXISTS (
+    SELECT 1 FROM qmhq
+    WHERE contact_person_id = OLD.id AND is_active = true
+    LIMIT 1
+  ) THEN
+    RAISE EXCEPTION 'Cannot delete: this item is in use';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS aa_block_contact_person_deactivation ON contact_persons;
+CREATE TRIGGER aa_block_contact_person_deactivation
+  BEFORE UPDATE ON contact_persons
+  FOR EACH ROW
+  WHEN (OLD.is_active = true AND NEW.is_active = false)
+  EXECUTE FUNCTION block_contact_person_deactivation();
+
+COMMENT ON FUNCTION block_contact_person_deactivation() IS
+  'Prevents deactivation of contact persons that are referenced by active QMRL or QMHQ records.';
+
+COMMENT ON TRIGGER aa_block_contact_person_deactivation ON contact_persons IS
+  'Blocks contact person deactivation when referenced by active records. Uses aa_ prefix to fire before audit triggers.';
+
+-- ============================================
+-- 6. SUPPLIERS - Block deactivation when referenced
+-- ============================================
+-- Reference checks:
+-- - purchase_orders (supplier_id)
+
+CREATE OR REPLACE FUNCTION block_supplier_deactivation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  -- Check if supplier is referenced by active purchase_orders
+  IF EXISTS (
+    SELECT 1 FROM purchase_orders
+    WHERE supplier_id = OLD.id AND is_active = true
+    LIMIT 1
+  ) THEN
+    RAISE EXCEPTION 'Cannot delete: this item is in use';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS aa_block_supplier_deactivation ON suppliers;
+CREATE TRIGGER aa_block_supplier_deactivation
+  BEFORE UPDATE ON suppliers
+  FOR EACH ROW
+  WHEN (OLD.is_active = true AND NEW.is_active = false)
+  EXECUTE FUNCTION block_supplier_deactivation();
+
+COMMENT ON FUNCTION block_supplier_deactivation() IS
+  'Prevents deactivation of suppliers that are referenced by active purchase orders.';
+
+COMMENT ON TRIGGER aa_block_supplier_deactivation ON suppliers IS
+  'Blocks supplier deactivation when referenced by active records. Uses aa_ prefix to fire before audit triggers.';
+
+-- ============================================
+-- INDEXES - Additional partial indexes for reference checking
+-- ============================================
+
+-- For department reference checks
+CREATE INDEX IF NOT EXISTS idx_users_department_id_active ON users(department_id) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_qmrl_department_id_active ON qmrl(department_id) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_contact_persons_department_id_active ON contact_persons(department_id) WHERE is_active = true;
+
+-- For contact person reference checks
+CREATE INDEX IF NOT EXISTS idx_qmrl_contact_person_id_active ON qmrl(contact_person_id) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_qmhq_contact_person_id_active ON qmhq(contact_person_id) WHERE is_active = true;
+
+-- For supplier reference checks
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_supplier_id_active ON purchase_orders(supplier_id) WHERE is_active = true;
