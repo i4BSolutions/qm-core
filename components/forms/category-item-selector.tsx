@@ -110,6 +110,7 @@ export function CategoryItemSelector({
    * Note: Previously filtered to only show categories with items,
    * but this prevented users from seeing categories when no items
    * have been categorized yet. Now shows all item categories.
+   * Also includes "Uncategorized" pseudo-category for items with null category_id.
    */
   const loadCategories = async () => {
     setCategoriesLoading(true);
@@ -128,7 +129,13 @@ export function CategoryItemSelector({
 
       if (catsError) throw catsError;
 
-      setCategories(cats || []);
+      // Add "Uncategorized" pseudo-category at the top
+      const categoriesWithUncategorized: CategoryOption[] = [
+        { id: "_uncategorized", name: "Uncategorized", color: "#6B7280" },
+        ...(cats || []),
+      ];
+
+      setCategories(categoriesWithUncategorized);
     } catch (error) {
       console.error("Failed to load categories:", error);
       setCategoriesError("Failed to load categories");
@@ -140,6 +147,7 @@ export function CategoryItemSelector({
 
   /**
    * Fetch items for a specific category
+   * Special case: catId="_uncategorized" fetches items with null category_id
    */
   const loadItems = useCallback(async (catId: string) => {
     // Cancel any in-flight request
@@ -156,11 +164,19 @@ export function CategoryItemSelector({
     try {
       const supabase = createClient();
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("items")
         .select("id, name, sku, default_unit, price_reference")
-        .eq("category_id", catId)
-        .eq("is_active", true)
+        .eq("is_active", true);
+
+      // Handle uncategorized vs normal category
+      if (catId === "_uncategorized") {
+        query = query.is("category_id", null);
+      } else {
+        query = query.eq("category_id", catId);
+      }
+
+      const { data, error } = await query
         .order("name", { ascending: true })
         .abortSignal(itemsAbortController.current.signal);
 

@@ -27,6 +27,7 @@ interface QMHQData {
     id: string;
     name: string;
     sku: string | null;
+    category_id: string | null;
   } | null;
   qmhq_items?: Array<{
     item_id: string;
@@ -35,6 +36,7 @@ interface QMHQData {
       id: string;
       name: string;
       sku: string | null;
+      category_id: string | null;
     };
   }>;
 }
@@ -81,8 +83,8 @@ export default function NewStockOutRequestPage() {
           .from("qmhq")
           .select(`
             id, request_id, line_name, item_id, quantity, route_type,
-            item:items!qmhq_item_id_fkey(id, name, sku),
-            qmhq_items(item_id, quantity, item:items(id, name, sku))
+            item:items!qmhq_item_id_fkey(id, name, sku, category_id),
+            qmhq_items(item_id, quantity, item:items(id, name, sku, category_id))
           `)
           .eq("id", qmhqId)
           .single();
@@ -105,16 +107,16 @@ export default function NewStockOutRequestPage() {
           setLineItems([
             {
               id: crypto.randomUUID(),
-              categoryId: "", // Will be filled by CategoryItemSelector
+              categoryId: qmhqItem.item.category_id || "_uncategorized",
               itemId: qmhqItem.item_id,
               quantity: String(qmhqItem.quantity || 0),
             },
           ]);
-        } else if (data.item_id && data.quantity) {
+        } else if (data.item_id && data.quantity && data.item) {
           setLineItems([
             {
               id: crypto.randomUUID(),
-              categoryId: "",
+              categoryId: data.item.category_id || "_uncategorized",
               itemId: data.item_id,
               quantity: String(data.quantity),
             },
