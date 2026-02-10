@@ -130,19 +130,18 @@ Plans:
 - [x] 30-02-PLAN.md — Users page UI overhaul (dialog, badges, dimming, reactivation) + login deactivation message + dropdown audit
 
 #### Phase 31: Context Sliders
-**Goal**: Side sliders provide contextual information on stock-out and QMHQ create pages
+**Goal**: Side sliders provide contextual information on stock-out request and QMHQ create pages
 **Depends on**: Phase 28 (needs stock-out pages to exist)
-**Requirements**: CSLR-01, CSLR-02, CSLR-03, CSLR-04, CSLR-05
+**Requirements**: CSLR-01, CSLR-04, CSLR-05
 **Success Criteria** (what must be TRUE):
   1. Stock-out request page shows QMRL and QMHQ details in right side slider
-  2. Stock-out approval page shows QMRL and QMHQ details in right side slider
-  3. Stock-out execution page shows QMRL and QMHQ details in right side slider
-  4. QMHQ create page shows QMRL data in right side slider (replaces existing context panel)
-  5. Sliders are open by default on desktop, closed on mobile, and toggleable
-**Plans**: TBD
+  2. QMHQ create page shows QMRL data in right side slider (replaces existing context panel)
+  3. Sliders are open by default on desktop, closed on mobile, and toggleable
+**Plans:** 2 plans
 
 Plans:
-- [ ] 31-01: [TBD during planning]
+- [ ] 31-01-PLAN.md — Reusable ContextSlider shell + QmrlSliderContent + SiblingQmhqList + QMHQ create page integration
+- [ ] 31-02-PLAN.md — QmhqSliderContent + stock-out request create page slider integration
 
 ## Progress
 
@@ -164,4 +163,4 @@ Phases execute in numeric order: 27 → 28 → 29 → 30 → 31
 | 28. Stock-Out Request & Approval UI | v1.6 | 3/3 | ✓ Complete | 2026-02-09 |
 | 29. Deletion Protection | v1.6 | 2/2 | ✓ Complete | 2026-02-10 |
 | 30. User Deactivation | v1.6 | 2/2 | ✓ Complete | 2026-02-10 |
-| 31. Context Sliders | v1.6 | 0/? | Not started | - |
+| 31. Context Sliders | v1.6 | 0/2 | Not started | - |
