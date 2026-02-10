@@ -103,15 +103,14 @@ export default function NewStockOutRequestPage() {
         // Pre-fill line item from QMHQ
         // Use qmhq_items if available (multi-item), else fall back to qmhq.item_id (legacy)
         if (data.qmhq_items && data.qmhq_items.length > 0) {
-          const qmhqItem = data.qmhq_items[0]; // Take first item for QMHQ-linked (enforced as single item)
-          setLineItems([
-            {
+          setLineItems(
+            data.qmhq_items.map((qmhqItem) => ({
               id: crypto.randomUUID(),
               categoryId: qmhqItem.item.category_id || "_uncategorized",
               itemId: qmhqItem.item_id,
               quantity: String(qmhqItem.quantity || 0),
-            },
-          ]);
+            }))
+          );
         } else if (data.item_id && data.quantity && data.item) {
           setLineItems([
             {
