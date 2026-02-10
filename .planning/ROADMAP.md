@@ -126,8 +126,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 30-01-PLAN.md — API routes for deactivate/reactivate with Supabase Admin ban + middleware is_active enforcement
-- [ ] 30-02-PLAN.md — Users page UI overhaul (dialog, badges, dimming, reactivation) + login deactivation message + dropdown audit
+- [x] 30-01-PLAN.md — API routes for deactivate/reactivate with Supabase Admin ban + middleware is_active enforcement
+- [x] 30-02-PLAN.md — Users page UI overhaul (dialog, badges, dimming, reactivation) + login deactivation message + dropdown audit
 
 #### Phase 31: Context Sliders
 **Goal**: Side sliders provide contextual information on stock-out and QMHQ create pages
@@ -163,5 +163,5 @@ Phases execute in numeric order: 27 → 28 → 29 → 30 → 31
 | 27. Stock-Out Approval DB Foundation | v1.6 | 3/3 | ✓ Complete | 2026-02-09 |
 | 28. Stock-Out Request & Approval UI | v1.6 | 3/3 | ✓ Complete | 2026-02-09 |
 | 29. Deletion Protection | v1.6 | 2/2 | ✓ Complete | 2026-02-10 |
-| 30. User Deactivation | v1.6 | 0/2 | Not started | - |
+| 30. User Deactivation | v1.6 | 2/2 | ✓ Complete | 2026-02-10 |
 | 31. Context Sliders | v1.6 | 0/? | Not started | - |
