@@ -129,7 +129,7 @@ export default function EditQMHQPage() {
       supabase
         .from("users")
         .select("id, full_name, role")
-        .neq("is_active", false)
+        .eq("is_active", true)
         .order("full_name"),
     ]);
 
