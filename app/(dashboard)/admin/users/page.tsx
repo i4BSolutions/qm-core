@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2, Radio, Users, Shield, Mail, Lock } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, UserX, RotateCcw, Radio, Users, Shield, Mail, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useAuth } from "@/components/providers/auth-provider";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import {
   DropdownMenu,
@@ -15,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { UserDialog } from "./user-dialog";
+import { DeactivateUserDialog } from "./deactivate-user-dialog";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { User as UserType, Department } from "@/types/database";
 
@@ -39,8 +41,12 @@ export default function UsersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithDepartment | null>(null);
   const [isCreateMode, setIsCreateMode] = useState(false);
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [deactivatingUser, setDeactivatingUser] = useState<UserWithDepartment | null>(null);
+  const [isDeactivating, setIsDeactivating] = useState(false);
   const { toast } = useToast();
   const { can } = usePermissions();
+  const { user: currentUser } = useAuth();
 
   // Permission checks
   const canCreate = can("create", "users");
@@ -55,7 +61,6 @@ export default function UsersPage() {
       supabase
         .from("users")
         .select("id, email, full_name, role, department_id, phone, is_active, departments:departments!department_id(id, name)")
-        .neq("is_active", false)
         .order("full_name")
         .limit(200),
       supabase
@@ -81,26 +86,78 @@ export default function UsersPage() {
     fetchData();
   }, [fetchData]);
 
-  const handleDelete = async (id: string) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("users")
-      .update({ is_active: false })
-      .eq("id", id);
+  const handleDeactivate = async (reason?: string) => {
+    if (!deactivatingUser) return;
 
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to deactivate user.",
-        variant: "destructive",
+    setIsDeactivating(true);
+
+    try {
+      const response = await fetch("/api/admin/deactivate-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: deactivatingUser.id,
+          reason: reason || undefined,
+        }),
       });
-    } else {
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to deactivate user");
+      }
+
       toast({
         title: "Success",
-        description: "User deactivated.",
+        description: "User deactivated successfully.",
         variant: "success",
       });
+
+      setDeactivateDialogOpen(false);
+      setDeactivatingUser(null);
       fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to deactivate user.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeactivating(false);
+    }
+  };
+
+  const handleReactivate = async (userId: string, userName: string) => {
+    if (!window.confirm(`Reactivate ${userName}? They will be able to log in again.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/reactivate-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to reactivate user");
+      }
+
+      toast({
+        title: "Success",
+        description: "User reactivated successfully.",
+        variant: "success",
+      });
+
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to reactivate user.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -129,25 +186,36 @@ export default function UsersPage() {
     {
       accessorKey: "full_name",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-sm font-medium text-slate-300">
-            {row.original.full_name?.charAt(0).toUpperCase() || "?"}
+      cell: ({ row }) => {
+        const isInactive = !row.original.is_active;
+        return (
+          <div className={`flex items-center gap-3 ${isInactive ? "opacity-50" : ""}`}>
+            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-sm font-medium text-slate-300">
+              {row.original.full_name?.charAt(0).toUpperCase() || "?"}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-slate-200">{row.original.full_name}</p>
+                {isInactive && (
+                  <Badge variant="outline" className="text-red-400 border-red-500/30 text-xs">
+                    Inactive
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-slate-400">{row.original.email}</p>
+            </div>
           </div>
-          <div>
-            <p className="font-medium text-slate-200">{row.original.full_name}</p>
-            <p className="text-xs text-slate-400">{row.original.email}</p>
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       accessorKey: "role",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Role" />,
       cell: ({ row }) => {
+        const isInactive = !row.original.is_active;
         const role = roleConfig[row.original.role || "requester"];
         return (
-          <div className="flex items-center gap-2">
+          <div className={`flex items-center gap-2 ${isInactive ? "opacity-50" : ""}`}>
             <span className={`w-2 h-2 rounded-full ${role?.color || "bg-slate-500"}`} />
             <span className="text-slate-300">{role?.label || row.original.role}</span>
           </div>
@@ -157,64 +225,90 @@ export default function UsersPage() {
     {
       accessorKey: "departments",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Department" />,
-      cell: ({ row }) => (
-        <span className="text-slate-400">
-          {row.original.departments?.name || "—"}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const isInactive = !row.original.is_active;
+        return (
+          <span className={`text-slate-400 ${isInactive ? "opacity-50" : ""}`}>
+            {row.original.departments?.name || "—"}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "phone",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Phone" />,
-      cell: ({ row }) => (
-        <span className="text-slate-400 font-mono text-sm">
-          {row.original.phone || "—"}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const isInactive = !row.original.is_active;
+        return (
+          <span className={`text-slate-400 font-mono text-sm ${isInactive ? "opacity-50" : ""}`}>
+            {row.original.phone || "—"}
+          </span>
+        );
+      },
     },
     {
       id: "actions",
-      cell: ({ row }) => (
-        (canUpdate || canDelete) ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {canUpdate && (
-                <DropdownMenuItem onClick={() => handleEdit(row.original)}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-              )}
-              {canDelete && (
-                <DropdownMenuItem
-                  onClick={() => handleDelete(row.original.id)}
-                  className="text-red-400 focus:text-red-400"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Deactivate
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <span className="text-slate-500 flex items-center gap-1">
-            <Lock className="h-3 w-3" />
-          </span>
-        )
-      ),
+      cell: ({ row }) => {
+        const isInactive = !row.original.is_active;
+        const isSelf = row.original.id === currentUser?.id;
+
+        return (
+          (canUpdate || canDelete) ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {canUpdate && (
+                  <DropdownMenuItem onClick={() => handleEdit(row.original)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                )}
+                {canDelete && !isInactive && !isSelf && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setDeactivatingUser(row.original);
+                      setDeactivateDialogOpen(true);
+                    }}
+                    className="text-red-400 focus:text-red-400"
+                  >
+                    <UserX className="mr-2 h-4 w-4" />
+                    Deactivate
+                  </DropdownMenuItem>
+                )}
+                {canDelete && isInactive && (
+                  <DropdownMenuItem
+                    onClick={() => handleReactivate(row.original.id, row.original.full_name)}
+                    className="text-green-400 focus:text-green-400"
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Reactivate
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <span className="text-slate-500 flex items-center gap-1">
+              <Lock className="h-3 w-3" />
+            </span>
+          )
+        );
+      },
     },
   ];
 
-  // Count users by role
+  // Count users by role and status
   const roleCounts = users.reduce((acc, user) => {
     const role = user.role || "requester";
     acc[role] = (acc[role] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+
+  const activeCount = users.filter(u => u.is_active).length;
+  const inactiveCount = users.filter(u => !u.is_active).length;
 
   return (
     <div className="space-y-6">
@@ -251,7 +345,9 @@ export default function UsersPage() {
             <Users className="h-5 w-5 text-amber-400" />
             <div>
               <p className="text-2xl font-bold text-slate-200">{users.length}</p>
-              <p className="text-xs text-slate-400">Total Users</p>
+              <p className="text-xs text-slate-400">
+                {activeCount} Active / {inactiveCount} Inactive
+              </p>
             </div>
           </div>
         </div>
@@ -297,13 +393,21 @@ export default function UsersPage() {
         />
       </div>
 
-      {/* Dialog */}
+      {/* Dialogs */}
       <UserDialog
         open={dialogOpen}
         onClose={handleDialogClose}
         user={editingUser}
         departments={departments}
         isCreateMode={isCreateMode}
+      />
+
+      <DeactivateUserDialog
+        open={deactivateDialogOpen}
+        onOpenChange={setDeactivateDialogOpen}
+        userName={deactivatingUser?.full_name || ""}
+        onConfirm={handleDeactivate}
+        isLoading={isDeactivating}
       />
     </div>
   );
