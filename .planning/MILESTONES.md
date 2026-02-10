@@ -139,3 +139,34 @@
 **What's next:** TBD — run `/gsd:new-milestone` to define next goals
 
 ---
+
+## v1.6 Stock-Out Approval & Data Integrity (Shipped: 2026-02-10)
+
+**Delivered:** Stock-out request/approval workflow with partial approval and atomic execution, deletion protection for 6 entity types, user deactivation with login blocking, and context sliders for QMHQ and stock-out pages.
+
+**Phases completed:** 27-31 (12 plans total)
+
+**Key accomplishments:**
+
+- Built stock-out approval workflow from DB schema (3 tables, RLS, audit) through full UI (request, approve, reject, execute)
+- Added cross-warehouse stock validation at request, approval, and execution time with over-execution prevention
+- Implemented QMHQ integration with Request Stock-Out button and Stock-Out Status card showing requested/approved quantities
+- Created deletion protection triggers for items, statuses, categories, departments, contacts, and suppliers (16 reference checks)
+- Added user deactivation with API routes, middleware login blocking, session termination, and admin reactivation
+- Built reusable context slider pattern with QMRL/QMHQ content on stock-out request and QMHQ create pages
+
+**Stats:**
+
+- 86 files modified
+- ~42,600 lines of TypeScript (up from ~37,400)
+- 5 phases, 12 plans, 21 feat commits
+- 2 days from start to ship (2026-02-09 → 2026-02-10)
+
+**Git range:** `bda48f6` → `c2f10b7`
+
+**Tech debt accepted:** CSLR-02/CSLR-03 (approval/execution page sliders) deferred; PO Edit page still 404
+
+**What's next:** TBD — run `/gsd:new-milestone` to define next goals
+
+---
+

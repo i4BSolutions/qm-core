@@ -2,31 +2,20 @@
 
 ## What This Is
 
-An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with team collaboration via comments and responsive financial displays.
+An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with stock-out approval workflows, deletion protection, team collaboration via comments, and responsive financial displays.
 
 ## Core Value
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-## Current Milestone: v1.6 Stock-Out Approval & Data Integrity
-
-**Goal:** Add request/approval workflow before stock-out operations, protect referenced entities from deletion, and provide contextual side sliders for related data visibility.
-
-**Target features:**
-- Stock-out request form with approval flow (Pending → Approved/Rejected) for both QMHQ item route and manual warehouse stock-out
-- Admin-only approval with partial approval support (approved qty <= requested qty)
-- Deletion protection for items, statuses, categories, departments, contact persons, suppliers when referenced
-- User deactivation (no delete) with login blocking
-- Right-side context slider (default open) on stock-out and QMHQ create pages
-
-## Current State (v1.5 Shipped)
+## Current State (v1.6 Shipped)
 
 **Tech Stack:**
 - Next.js 14+ with App Router, TypeScript strict mode
 - Supabase for auth, database, and file storage
 - Tailwind CSS with dark theme support
-- ~37,410 lines of TypeScript
-- 51 database migrations with RLS policies
+- ~42,600 lines of TypeScript
+- 57 database migrations with RLS policies
 
 **Shipped Features:**
 - Email OTP authentication with 7-role RBAC
@@ -34,6 +23,8 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Purchase orders with smart status calculation
 - Invoice creation with quantity validation and void cascade
 - Inventory stock-in/out with WAC valuation (multi-currency)
+- Stock-out request/approval workflow with partial approval and atomic execution
+- QMHQ item route integration with stock-out requests (requested/approved qty display)
 - File attachments with drag-drop upload, preview, and ZIP download
 - File upload in QMRL create form with staged upload pattern
 - Live management dashboard with KPIs and alerts
@@ -44,7 +35,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Standardized currency display (original + EUSD)
 - Number input with thousand separators (AmountInput/ExchangeRateInput)
 - QMHQ fulfillment progress tracking
-- QMRL context panel during QMHQ creation
+- Context sliders on QMHQ create and stock-out request pages
 - Permission-gated Edit buttons on detail pages
 - Item price reference with tooltip in PO line item selector
 - Auto-generated SKU codes (SKU-[CAT]-[XXXX] format)
@@ -56,6 +47,8 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Two-step category → item selector with search (PO, stock-in, stock-out)
 - QMHQ currency inheritance with locked fields and balance warning
 - Dual currency display (Org + EUSD) on QMHQ detail and list pages
+- Deletion protection for items, statuses, categories, departments, contacts, suppliers
+- User deactivation (no delete) with login blocking and admin reactivation
 
 ## Requirements
 
@@ -123,17 +116,18 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - ✓ QMHQ money-out inherits currency from money-in — v1.5
 - ✓ Org + EUSD display on QMHQ detail pages and list cards — v1.5
 
+<!-- V1.6 Features -->
+- ✓ Stock-out request and approval workflow for QMHQ item route — v1.6
+- ✓ Stock-out request and approval workflow for manual warehouse stock-out — v1.6
+- ✓ Admin-only approval with partial approval support — v1.6
+- ✓ QMHQ item detail shows requested qty and approved qty — v1.6
+- ✓ Deletion protection for referenced entities (item, status, category, department, contact person, supplier) — v1.6
+- ✓ User deactivation (no delete) with login blocking — v1.6
+- ✓ Context slider on stock-out request and QMHQ create pages — v1.6
+
 ### Active
 
-<!-- V1.6 Features -->
-- [ ] Stock-out request and approval workflow for QMHQ item route
-- [ ] Stock-out request and approval workflow for manual warehouse stock-out
-- [ ] Admin-only approval with partial approval support
-- [ ] QMHQ item detail shows requested qty and approved qty
-- [ ] Deletion protection for referenced entities (item, status, category, department, contact person, supplier)
-- [ ] User deactivation (no delete) with login blocking
-- [ ] Context slider on stock-out request, approval, and stock-out pages
-- [ ] Context slider on QMHQ create page showing QMRL data (default open)
+(None — run `/gsd:new-milestone` to define next goals)
 
 ### Out of Scope
 
@@ -145,6 +139,13 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Edit comments — breaks audit integrity
 - @mention notifications — requires notification infrastructure
 - Manual currency override on money-out — defeats unification purpose
+- Multi-level approval chains — single-tier admin approval sufficient for internal tool
+- Stock reservation on request creation — adds complexity; internal tool doesn't need overselling prevention
+- Approval delegation to non-admin roles — permission complexity; keep admin-only for now
+- Real-time notification of approval status — no notification infrastructure yet
+- Hard delete of any entity — soft delete (is_active) is established pattern; audit integrity
+- Specific reference list in delete error — generic error sufficient; defer detailed view
+- Context slider on stock-out approval/execution pages — approval page already shows full context; execution is a dialog
 
 ## Context
 
@@ -155,6 +156,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.3 UX & Bug Fixes — Input behavior, currency display, edit buttons, audit notes (shipped 2026-02-02)
 - v1.4 UX Enhancements & Workflow Improvements — Attachments, number formatting, inline creation, multi-tab auth (shipped 2026-02-06)
 - v1.5 UX Polish & Collaboration — Comments, responsive typography, two-step selectors, currency unification (shipped 2026-02-09)
+- v1.6 Stock-Out Approval & Data Integrity — Stock-out approval, deletion protection, user deactivation, context sliders (shipped 2026-02-10)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -173,6 +175,14 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - CategoryItemSelector for two-step dependent dropdowns with AbortController
 - Currency inheritance with Lock icon + Inherited badge
 - Warning toast variant (amber) for soft validation
+- Stock-out approval workflow (request → line items → approvals → execution)
+- Cross-warehouse stock validation at request, approval, and execution time
+- Computed parent status from child line items (aggregated status trigger)
+- Deletion protection triggers with partial indexes for performance
+- Conditional error detection for trigger messages (isReferenceError pattern)
+- Dual enforcement for user deactivation (ban_duration + middleware is_active check)
+- ContextSlider pattern: structural shell + presentational content components
+- Conditional layout pattern (grid only when context is relevant)
 
 ## Key Decisions
 
@@ -200,6 +210,16 @@ Users can reliably create purchase orders, receive inventory, and track request 
 | CategoryItemSelector two-step pattern | Category-first filtering reduces item list complexity | ✓ Good |
 | Currency inheritance with Lock badge | Prevents accidental currency mismatch in transactions | ✓ Good |
 | Balance warning as soft validation | Warns but allows submission — user decides | ✓ Good |
+| Admin-only approval via RLS | Database-level enforcement, not just UI guards | ✓ Good |
+| Computed request status from line items | Parent always reflects child state, no manual sync | ✓ Good |
+| Item snapshot at line item creation | Preserves historical accuracy even if item renamed | ✓ Good |
+| Whole-request atomic execution | Simpler UX, prevents partial fulfillment issues | ✓ Good |
+| Stock shortage blocks entire execution | Ensures all items can be issued together | ✓ Good |
+| Generic deletion error message | Security — doesn't reveal reference details | ✓ Good |
+| Partial indexes for deletion checks | WHERE is_active = true optimizes performance | ✓ Good |
+| Dual enforcement for user deactivation | ban_duration prevents token refresh, middleware catches unexpired tokens | ✓ Good |
+| Self-deactivation guard | Admin cannot deactivate themselves to prevent lockout | ✓ Good |
+| Conditional slider rendering | Slider only when context exists (QMHQ param), clean UX for manual flows | ✓ Good |
 
 ## Constraints
 
@@ -212,6 +232,9 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - PO Edit page does not exist at /po/[id]/edit (Edit button links to 404)
   - Pre-existing issue discovered during v1.3 audit
   - Either create edit page or document PO as immutable after creation
+- Context slider deferred for stock-out approval/execution pages (CSLR-02, CSLR-03)
+  - Approval detail page already shows full request context
+  - Execution is a dialog modal, not a standalone page
 
 ---
-*Last updated: 2026-02-09 after v1.6 milestone started*
+*Last updated: 2026-02-10 after v1.6 milestone shipped*

@@ -2,24 +2,42 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-09)
+See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Phase 31 - Context Sliders
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 31 of 31 (Context Sliders)
-Plan: 2 of 2 complete
-Status: Complete
-Last activity: 2026-02-10 — Completed 31-02-PLAN.md (2 tasks, 2 commits, 6min)
+Phase: All v1.6 phases complete (27-31)
+Plan: All complete
+Status: Milestone v1.6 shipped
+Last activity: 2026-02-10 — Milestone v1.6 archived
 
 ```
-v1.6 Progress: [████████████████████] 100% (6/6 phases complete)
+v1.6 Progress: [████████████████████] 100% (5/5 phases complete)
 Overall: [████████████████████] 100% (31/31 phases complete)
 ```
 
 ## Milestone History
+
+### v1.6 Stock-Out Approval & Data Integrity (Shipped 2026-02-10)
+
+**Velocity:**
+- Total plans: 12
+- Phases: 27 -> 28 -> 29 -> 30 -> 31
+- Duration: 2 days
+- Feat commits: 21
+
+**Key Patterns Established:**
+- Stock-out approval workflow (request → line items → approvals → execution)
+- Cross-warehouse stock validation at request, approval, and execution time
+- Computed parent status from child line items (aggregated status trigger)
+- Deletion protection triggers with partial indexes
+- Conditional error detection for trigger messages (isReferenceError)
+- Dual enforcement for user deactivation (ban_duration + middleware)
+- ContextSlider pattern: structural shell + presentational content components
+- Conditional layout pattern (grid only when context relevant)
 
 ### v1.5 UX Polish & Collaboration (Shipped 2026-02-09)
 
@@ -101,52 +119,22 @@ Overall: [████████████████████] 100% (31
 
 See PROJECT.md Key Decisions table for full log.
 
-Recent decisions affecting current work:
-- Phase 31-02: Conditional slider rendering - Slider only appears when stock-out request has QMHQ context (qmhq param), manual requests remain clean
-- Phase 31-02: Full QMHQ detail in slider - Show route-specific data (item/expense/PO) for complete context, not just basic fields
-- Phase 31-01: Structural shell + content component separation - ContextSlider provides only layout/animation/toggle, content components are domain-specific
-- Phase 31-01: Page owns data state - Slider components are presentational, parent page fetches and passes data via props
-- Phase 31-01: Two tabs in QMHQ slider - QMRL Details (full view) + QMHQ Lines (sibling list) for complete context
-- Phase 30-01: Dual enforcement pattern - ban_duration prevents token refresh, middleware catches unexpired tokens (0-60 min window)
-- Phase 30-01: Self-deactivation guard - Admins cannot deactivate themselves at API level to prevent lockout
-- Phase 30-01: Best-effort session termination - signOut wrapped in try/catch since user may not have active sessions
-- Phase 29-02: Conditional error message pattern - Check error.message for 'Cannot delete' to identify reference errors and display trigger message
-- Phase 29-01: Generic error message pattern - All deletion protection triggers use identical 'Cannot delete: this item is in use' message for security (DPRT-07)
-- Phase 29-01: Partial indexes for performance - WHERE is_active = true indexes optimize reference checks without bloating full-table indexes
-- Phase 27-02: Cross-warehouse stock validation at creation and approval - Hard blocks on insufficient total stock prevent impossible fulfillments
-- Phase 27-02: Nullable FK for fulfillment linkage - Simpler than junction table, aligns with existing invoice_id FK pattern
-- Phase 27-02: Over-execution prevention with hard block - Sum of fulfillments cannot exceed approved quantity
-- Phase 27-01: Request status computed from line items - Ensures parent status always reflects child state
-- Phase 27-01: QMHQ-linked requests enforce exactly one line item - Prevents multi-item confusion in single-item QMHQ context
-- Phase 27-01: Sequential approval numbering with parent prefix - Provides clear ordering and traceability for audit trail
-- Phase 27-01: Item name/SKU snapshotted at line item creation - Preserves historical accuracy even if item renamed/deleted
-
 ### Pending Todos
 
 None.
 
 ### Blockers/Concerns
 
-**Phase 27: COMPLETE** — 3 migrations (052-054), 3 tables, 12 RLS policies, audit triggers, TypeScript types
-
-**Phase 28: COMPLETE** — 3 plans, 9 commits, 7 new files, 3 modified files, verified 8/8 must-haves
-
-**Phase 29: COMPLETE** — 2 plans, 1 migration (057), 6 trigger functions, 16 reference checks, 15 partial indexes, 6 UI pages updated with trigger error handling
-
-**Phase 30: COMPLETE** — Plan 01 (API routes + middleware enforcement) + Plan 02 (UI implementation) complete. Full deactivation flow operational.
-
-**Phase 31: COMPLETE** — Plan 01 (Context slider shell + QMRL content + QMHQ create integration) + Plan 02 (QMHQ slider content + stock-out request integration) complete. Reusable context slider pattern established.
-
-**Known Tech Debt:** PO Edit page does not exist at /po/[id]/edit (Edit button links to 404)
-- Pre-existing issue discovered during v1.3 audit
-- Either create edit page or document PO as immutable after creation
+**Known Tech Debt:**
+- PO Edit page does not exist at /po/[id]/edit (Edit button links to 404) — pre-existing from v1.3
+- Context slider deferred for stock-out approval/execution pages (CSLR-02, CSLR-03)
 
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 31-02-PLAN.md — Phase 31 complete (context sliders)
+Stopped at: Milestone v1.6 shipped and archived
 Resume file: None
-Next step: Phase 31 complete. Milestone v1.6 ready for review.
+Next step: Run `/gsd:new-milestone` to define next goals
 
 ## Performance Metrics
 
@@ -167,6 +155,4 @@ Next step: Phase 31 complete. Milestone v1.6 ready for review.
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-10 - Phase 30 complete, user deactivation with UI and backend enforcement*
-| Phase 31 P02 | 6 | 2 tasks | 2 files |
-
+*Last updated: 2026-02-10 - Milestone v1.6 shipped and archived*
