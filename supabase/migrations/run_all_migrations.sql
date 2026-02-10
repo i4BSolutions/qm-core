@@ -604,38 +604,8 @@ CREATE TRIGGER trg_compute_sor_status_from_li
   FOR EACH ROW
   EXECUTE FUNCTION compute_sor_request_status();
 
--- QMHQ single-line-item enforcement
-CREATE OR REPLACE FUNCTION enforce_qmhq_single_line_item()
-RETURNS TRIGGER AS $$
-DECLARE
-  linked_qmhq_id UUID;
-  existing_count INT;
-BEGIN
-  SELECT qmhq_id INTO linked_qmhq_id
-  FROM stock_out_requests
-  WHERE id = NEW.request_id;
-
-  IF linked_qmhq_id IS NOT NULL THEN
-    SELECT COUNT(*) INTO existing_count
-    FROM stock_out_line_items
-    WHERE request_id = NEW.request_id
-      AND is_active = true
-      AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::UUID);
-
-    IF existing_count >= 1 THEN
-      RAISE EXCEPTION 'QMHQ-linked stock-out requests can only have one line item';
-    END IF;
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_enforce_qmhq_single_line_item ON stock_out_line_items;
-CREATE TRIGGER trg_enforce_qmhq_single_line_item
-  BEFORE INSERT ON stock_out_line_items
-  FOR EACH ROW
-  EXECUTE FUNCTION enforce_qmhq_single_line_item();
+-- Note: QMHQ single-line-item enforcement was removed in migration 20260210075851
+-- QMHQ-linked stock-out requests can now have multiple line items
 
 GRANT USAGE ON TYPE sor_line_item_status TO authenticated;
 GRANT USAGE ON TYPE sor_request_status TO authenticated;

@@ -350,7 +350,12 @@ CREATE TRIGGER trg_compute_sor_status_from_li
 -- QMHQ CONSTRAINT TRIGGER
 -- ============================================================================
 
+-- NOTE: This constraint was REMOVED in migration 20260210075851
+-- Original implementation (Phase 27-01) incorrectly restricted QMHQ-linked SORs to one line item
+-- QMHQ item routes can legitimately have multiple line items, so this restriction was wrong
+
 -- QMHQ single-line-item enforcement (per user decision: QMHQ-linked SOR always has exactly one line item)
+-- DEPRECATED: This function and trigger are no longer active
 CREATE OR REPLACE FUNCTION enforce_qmhq_single_line_item()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -393,7 +398,7 @@ COMMENT ON TABLE stock_out_requests IS 'Stock-out request requiring approval bef
 COMMENT ON TABLE stock_out_line_items IS 'Individual items within a stock-out request, each with own approval status';
 COMMENT ON TABLE stock_out_approvals IS 'Approval/rejection decisions on stock-out line items, supports partial approval';
 COMMENT ON COLUMN stock_out_requests.status IS 'Computed from line item statuses, not set directly';
-COMMENT ON COLUMN stock_out_requests.qmhq_id IS 'Optional 1:1 link to QMHQ item route (NULL for standalone requests)';
+COMMENT ON COLUMN stock_out_requests.qmhq_id IS 'Optional 1:1 link to QMHQ item route (NULL for standalone requests). Multiple line items are allowed even when linked to QMHQ.';
 COMMENT ON COLUMN stock_out_line_items.requested_quantity IS 'Quantity requested for stock-out, approval can be for less';
 COMMENT ON COLUMN stock_out_approvals.approved_quantity IS 'Quantity approved in this approval (sum of approvals per line item must not exceed requested_quantity)';
 COMMENT ON COLUMN stock_out_approvals.approval_number IS 'Auto-generated: parent SOR number + sequential suffix (SOR-YYYY-NNNNN-A01)';
