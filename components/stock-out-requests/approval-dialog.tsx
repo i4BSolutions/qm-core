@@ -70,7 +70,7 @@ async function fetchWarehouseStockForItem(
         movement_type,
         warehouse_id,
         quantity,
-        warehouse:warehouses(id, name)
+        warehouses!warehouse_id(id, name)
       `
       )
       .eq("item_id", itemId)
@@ -82,10 +82,10 @@ async function fetchWarehouseStockForItem(
     const stockMap = new Map<string, WarehouseStock>();
 
     (transactions || []).forEach((txn: any) => {
-      if (!txn.warehouse_id || !txn.warehouse) return;
+      if (!txn.warehouse_id || !txn.warehouses) return;
 
       const warehouseId = txn.warehouse_id;
-      const warehouseName = txn.warehouse.name;
+      const warehouseName = txn.warehouses.name;
 
       if (!stockMap.has(warehouseId)) {
         stockMap.set(warehouseId, {
