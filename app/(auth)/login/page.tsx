@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Mail, KeyRound, Shield, Radio } from "lucide-react";
 
 type Step = "email" | "otp";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -18,6 +19,17 @@ export default function LoginPage() {
   const [countdown, setCountdown] = useState(0);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Check for deactivation reason in URL
+  useEffect(() => {
+    const deactivatedReason = searchParams.get("reason") === "deactivated";
+    if (deactivatedReason) {
+      setMessage({
+        type: "error",
+        text: "Your account has been deactivated. Contact your administrator.",
+      });
+    }
+  }, [searchParams]);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -466,5 +478,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950" />}>
+      <LoginContent />
+    </Suspense>
   );
 }
