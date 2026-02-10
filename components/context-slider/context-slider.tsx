@@ -80,13 +80,13 @@ export function ContextSlider({ isOpen, onToggle, title, children }: ContextSlid
       {/* Panel Container */}
       <div
         className={cn(
-          // Desktop: visible in grid, sticky position
-          'md:block md:relative md:translate-x-0',
+          // Desktop: visible in grid when open, hidden when closed
+          'md:block md:relative',
           // Mobile: fixed slide-in drawer
           'fixed inset-y-0 right-0 z-50',
           'w-80 md:w-80 lg:w-96',
           'transform transition-transform duration-300 ease-in-out',
-          isOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0',
+          isOpen ? 'translate-x-0' : 'translate-x-full',
           // Styling
           'border-l border-slate-700 bg-slate-900',
           'overflow-hidden flex flex-col'
