@@ -81,31 +81,18 @@ DROP INDEX IF EXISTS idx_users_role;
 CREATE INDEX idx_users_role ON public.users(role);
 
 -- ============================================
--- Step 8: Drop old enum type
+-- Step 8: Recreate get_user_role() function
 -- ============================================
-DROP TYPE public.user_role_old;
-
--- ============================================
--- Step 9: Drop has_role() function (dead code cleanup)
--- ============================================
--- The function signature uses the OLD enum type name (user_role_old)
-DROP FUNCTION IF EXISTS public.has_role(user_role_old);
-
--- Safety: also try dropping with text signature
-DROP FUNCTION IF EXISTS public.has_role(text);
-
--- ============================================
--- Step 10: Recreate get_user_role() function
--- ============================================
--- Function already returns public.user_role which now points to new enum
--- Recreate to ensure it's clean
-CREATE OR REPLACE FUNCTION public.get_user_role()
+-- Must DROP first because return type changed from user_role_old to user_role
+-- CASCADE drops dependent policies (they'll be recreated in migration 20260211120001)
+DROP FUNCTION IF EXISTS public.get_user_role() CASCADE;
+CREATE FUNCTION public.get_user_role()
 RETURNS public.user_role AS $$
   SELECT role FROM public.users WHERE id = auth.uid();
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- ============================================
--- Step 11: Recreate handle_new_user() function
+-- Step 9: Recreate handle_new_user() function
 -- ============================================
 -- Update default role from 'requester' to 'qmrl'
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -123,24 +110,27 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================
--- Step 12: Update comments
+-- Step 10: Update comments
 -- ============================================
 COMMENT ON COLUMN public.users.role IS 'User role for RBAC: admin (full access), qmrl (field operations), qmhq (HQ operations)';
 COMMENT ON FUNCTION public.get_user_role IS 'Returns current authenticated user role (admin, qmrl, or qmhq)';
 
 -- ============================================
--- Step 13: Insert audit log marker
+-- Step 11: Insert audit log marker
+-- Note: DROP TYPE user_role_old deferred to migration 20260211120001
+-- (old RLS policies still reference it until they're recreated)
 -- ============================================
-INSERT INTO public.audit_logs (entity_type, entity_id, action, summary, changes, created_at)
+INSERT INTO public.audit_logs (entity_type, entity_id, action, changes_summary, old_values, new_values, changed_at)
 VALUES (
   'system',
   gen_random_uuid(),
   'update',
   'RBAC migration: 7 roles consolidated to 3 roles (admin, qmrl, qmhq)',
   jsonb_build_object(
-    'migration', 'rbac_enum_migration',
-    'old_roles', jsonb_build_array('admin', 'quartermaster', 'finance', 'inventory', 'proposal', 'frontline', 'requester'),
-    'new_roles', jsonb_build_array('admin', 'qmrl', 'qmhq'),
+    'roles', jsonb_build_array('admin', 'quartermaster', 'finance', 'inventory', 'proposal', 'frontline', 'requester')
+  ),
+  jsonb_build_object(
+    'roles', jsonb_build_array('admin', 'qmrl', 'qmhq'),
     'mapping', jsonb_build_object(
       'admin', 'admin',
       'quartermaster', 'admin',

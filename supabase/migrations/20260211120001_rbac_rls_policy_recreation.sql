@@ -858,6 +858,16 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================
+-- CLEANUP: Drop old enum type and dead functions
+-- (Deferred from migration 20260211120000 because
+-- old policies referenced user_role_old until now)
+-- ============================================
+
+DROP FUNCTION IF EXISTS public.has_role(user_role_old);
+DROP FUNCTION IF EXISTS public.has_role(text);
+DROP TYPE IF EXISTS public.user_role_old;
+
+-- ============================================
 -- VERIFICATION
 -- ============================================
 
