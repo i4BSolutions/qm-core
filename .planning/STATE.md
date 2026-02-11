@@ -2,22 +2,17 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-10)
+See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Planning next milestone
+**Current focus:** v1.7 Stock-Out Request Logic Repair
 
 ## Current Position
 
-Phase: All v1.6 phases complete (27-31)
-Plan: All complete
-Status: Milestone v1.6 shipped
-Last activity: 2026-02-10 — Milestone v1.6 archived
-
-```
-v1.6 Progress: [████████████████████] 100% (5/5 phases complete)
-Overall: [████████████████████] 100% (31/31 phases complete)
-```
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-11 — Milestone v1.7 started
 
 ## Milestone History
 
@@ -131,10 +126,10 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-10
-Stopped at: Milestone v1.6 shipped and archived
+Last session: 2026-02-11
+Stopped at: Milestone v1.7 requirements definition
 Resume file: None
-Next step: Run `/gsd:new-milestone` to define next goals
+Next step: Define requirements and create roadmap
 
 ## Performance Metrics
 
@@ -155,4 +150,4 @@ Next step: Run `/gsd:new-milestone` to define next goals
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-10 - Milestone v1.6 shipped and archived*
+*Last updated: 2026-02-11 - Milestone v1.7 started*

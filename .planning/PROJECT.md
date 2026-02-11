@@ -8,6 +8,15 @@ An internal ticket, expense, and inventory management platform serving as a Sing
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
+## Current Milestone: v1.7 Stock-Out Request Logic Repair
+
+**Goal:** Fix stock-out execution to work per line item instead of per request, connect QMHQ item detail to stock-out transactions properly, and display correct references (SOR primary, QMHQ secondary).
+
+**Target features:**
+- Per-line-item stock-out execution (each approved item gets independent Execute button)
+- QMHQ item detail stock-out transaction linking (QMHQ → SOR → executed stock-out)
+- Dual reference display on stock-out transactions (SOR ID primary, parent QMHQ ID secondary)
+
 ## Current State (v1.6 Shipped)
 
 **Tech Stack:**
@@ -127,7 +136,10 @@ Users can reliably create purchase orders, receive inventory, and track request 
 
 ### Active
 
-(None — run `/gsd:new-milestone` to define next goals)
+<!-- V1.7 Features -->
+- [ ] Per-line-item stock-out execution instead of whole-request atomic execution — v1.7
+- [ ] QMHQ item detail links stock-out transactions through SOR → execution — v1.7
+- [ ] Stock-out transaction reference shows SOR ID (primary) and parent QMHQ ID (secondary) — v1.7
 
 ### Out of Scope
 
@@ -146,6 +158,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Hard delete of any entity — soft delete (is_active) is established pattern; audit integrity
 - Specific reference list in delete error — generic error sufficient; defer detailed view
 - Context slider on stock-out approval/execution pages — approval page already shows full context; execution is a dialog
+- Whole-request atomic execution — replaced by per-line-item execution in v1.7
 
 ## Context
 
@@ -157,6 +170,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.4 UX Enhancements & Workflow Improvements — Attachments, number formatting, inline creation, multi-tab auth (shipped 2026-02-06)
 - v1.5 UX Polish & Collaboration — Comments, responsive typography, two-step selectors, currency unification (shipped 2026-02-09)
 - v1.6 Stock-Out Approval & Data Integrity — Stock-out approval, deletion protection, user deactivation, context sliders (shipped 2026-02-10)
+- v1.7 Stock-Out Request Logic Repair — Per-line-item execution, QMHQ transaction linking, dual reference display (in progress)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -213,8 +227,8 @@ Users can reliably create purchase orders, receive inventory, and track request 
 | Admin-only approval via RLS | Database-level enforcement, not just UI guards | ✓ Good |
 | Computed request status from line items | Parent always reflects child state, no manual sync | ✓ Good |
 | Item snapshot at line item creation | Preserves historical accuracy even if item renamed | ✓ Good |
-| Whole-request atomic execution | Simpler UX, prevents partial fulfillment issues | ✓ Good |
-| Stock shortage blocks entire execution | Ensures all items can be issued together | ✓ Good |
+| Whole-request atomic execution | Simpler UX, prevents partial fulfillment issues | ⚠️ Revisit — changing to per-line-item in v1.7 |
+| Stock shortage blocks entire execution | Ensures all items can be issued together | ⚠️ Revisit — per-line-item execution in v1.7 |
 | Generic deletion error message | Security — doesn't reveal reference details | ✓ Good |
 | Partial indexes for deletion checks | WHERE is_active = true optimizes performance | ✓ Good |
 | Dual enforcement for user deactivation | ban_duration prevents token refresh, middleware catches unexpired tokens | ✓ Good |
@@ -237,4 +251,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
   - Execution is a dialog modal, not a standalone page
 
 ---
-*Last updated: 2026-02-10 after v1.6 milestone shipped*
+*Last updated: 2026-02-11 after v1.7 milestone started*
