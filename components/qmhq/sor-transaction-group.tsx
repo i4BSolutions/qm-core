@@ -10,6 +10,7 @@ interface SORTransactionGroupProps {
   sorNumber: string;
   sorStatus: string;
   totalQty: number;
+  currentQmhqId?: string;
   transactions: Array<{
     id: string;
     quantity: number;
@@ -18,6 +19,8 @@ interface SORTransactionGroupProps {
     transaction_date?: string | null;
     reason?: string | null;
     notes?: string | null;
+    approval_number?: string | null;
+    qmhq?: { id: string; request_id: string } | null;
     item?: { id: string; name: string; sku: string | null } | null;
     warehouse?: { id: string; name: string } | null;
   }>;
@@ -38,6 +41,7 @@ export function SORTransactionGroup({
   sorNumber,
   sorStatus,
   totalQty,
+  currentQmhqId,
   transactions,
 }: SORTransactionGroupProps) {
   const statusStyle = sorStatusStyles[sorStatus] || sorStatusStyles.pending;
@@ -74,6 +78,17 @@ export function SORTransactionGroup({
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-baseline gap-2">
+                  {/* Approval number badge (primary reference) */}
+                  {transaction.approval_number && (
+                    <Link href={`/inventory/stock-out-requests/${sorId}`}>
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-xs border-amber-500/30 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
+                      >
+                        {transaction.approval_number}
+                      </Badge>
+                    </Link>
+                  )}
                   <span className="text-sm text-slate-200">
                     {transaction.item?.name || "Unknown Item"}
                   </span>
@@ -86,6 +101,19 @@ export function SORTransactionGroup({
                 <div className="text-xs text-slate-400 mt-0.5">
                   {transaction.warehouse?.name || "Unknown Warehouse"}
                 </div>
+                {/* QMHQ secondary reference (via link) */}
+                {transaction.qmhq && transaction.qmhq.id !== currentQmhqId && (
+                  <div className="text-xs text-slate-400 mt-1">
+                    via{" "}
+                    <Link
+                      href={`/qmhq/${transaction.qmhq.id}`}
+                      className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 font-mono transition-colors"
+                    >
+                      {transaction.qmhq.request_id}
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-mono text-slate-200">

@@ -94,10 +94,13 @@ type QMHQItemWithRelations = QMHQItem & {
 };
 
 interface StockOutTransaction extends InventoryTransaction {
+  approval_number?: string | null;
   item?: { id: string; name: string; sku: string | null } | null;
   warehouse?: { id: string; name: string } | null;
+  qmhq_ref?: { id: string; request_id: string } | null;
   stock_out_approval?: {
     id: string;
+    approval_number?: string | null;
     approved_quantity: number;
     line_item?: {
       id: string;
@@ -232,8 +235,10 @@ export default function QMHQDetailPage() {
           *,
           item:items(id, name, sku),
           warehouse:warehouses!inventory_transactions_warehouse_id_fkey(id, name),
+          qmhq:qmhq!inventory_transactions_qmhq_id_fkey(id, request_id),
           stock_out_approval:stock_out_approvals(
             id,
+            approval_number,
             approved_quantity,
             line_item:stock_out_line_items(
               id,
@@ -394,6 +399,8 @@ export default function QMHQDetailPage() {
         transaction_date?: string | null;
         reason?: string | null;
         notes?: string | null;
+        approval_number?: string | null;
+        qmhq?: { id: string; request_id: string } | null;
         item?: { id: string; name: string; sku: string | null } | null;
         warehouse?: { id: string; name: string } | null;
       }>;
@@ -422,6 +429,8 @@ export default function QMHQDetailPage() {
         transaction_date: tx.transaction_date,
         reason: tx.reason,
         notes: tx.notes,
+        approval_number: tx.stock_out_approval?.approval_number || null,
+        qmhq: (tx as any).qmhq || null,
         item: tx.item,
         warehouse: tx.warehouse,
       });
@@ -956,6 +965,7 @@ export default function QMHQDetailPage() {
                       sorNumber={group.sorNumber}
                       sorStatus={group.sorStatus}
                       totalQty={group.totalQty}
+                      currentQmhqId={qmhqId}
                       transactions={group.transactions}
                     />
                   ))}
