@@ -1,21 +1,14 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Plus, Search, Calendar, User, Tag, AlertCircle, Radio, ChevronRight } from "lucide-react";
+import { Plus, Calendar, User, Tag, AlertCircle, Radio, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PageHeader, FilterBar, CardViewGrid } from "@/components/composite";
 import type { QMRL, StatusConfig, Category, User as UserType, Department } from "@/types/database";
 
 // Extended QMRL type with joined relations
@@ -245,195 +238,152 @@ export default function QMRLPage() {
       )}
 
       {/* Page Header */}
-      <div className="relative flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-amber-500/10 border border-amber-500/20">
-              <Radio className="h-4 w-4 text-amber-500" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-amber-500">
-                Operations
-              </span>
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-200">
-            Request Letters
-          </h1>
-          <p className="mt-1 text-slate-400">
-            {totalItems} request{totalItems !== 1 ? "s" : ""} found
-            {totalItems !== qmrls.length && (
-              <span className="text-slate-500"> (of {qmrls.length} total)</span>
-            )}
-          </p>
-        </div>
-        <Link href="/qmrl/new">
-          <Button className="group relative overflow-hidden">
-            <span className="relative z-10 flex items-center gap-2">
-              <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-              New Request
+      <PageHeader
+        title="Request Letters"
+        description={`${totalItems} request${totalItems !== 1 ? "s" : ""} found${totalItems !== qmrls.length ? ` (of ${qmrls.length} total)` : ""}`}
+        badge={
+          <div className="flex items-center gap-2 px-3 py-1 rounded bg-amber-500/10 border border-amber-500/20">
+            <Radio className="h-4 w-4 text-amber-500" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-amber-500">
+              Operations
             </span>
-          </Button>
-        </Link>
-      </div>
+          </div>
+        }
+        actions={
+          <Link href="/qmrl/new">
+            <Button className="group relative overflow-hidden">
+              <span className="relative z-10 flex items-center gap-2">
+                <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+                New Request
+              </span>
+            </Button>
+          </Link>
+        }
+      />
 
       {/* Filters Bar */}
-      <div className="command-panel">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="relative flex-1 min-w-[240px] max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              placeholder="Search by title, ID, or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-slate-800/50 border-slate-700 focus:border-amber-500/50 font-mono text-sm"
-            />
-          </div>
-
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[160px] bg-slate-800/50 border-slate-700">
-              <Tag className="mr-2 h-4 w-4 text-slate-400" />
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id}>
-                  {cat.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={assignedFilter} onValueChange={setAssignedFilter}>
-            <SelectTrigger className="w-[160px] bg-slate-800/50 border-slate-700">
-              <User className="mr-2 h-4 w-4 text-slate-400" />
-              <SelectValue placeholder="Assignee" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Assignees</SelectItem>
-              {users.map((user) => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.full_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <FilterBar>
+        <FilterBar.Search
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by title, ID, or description..."
+        />
+        <FilterBar.Select
+          value={categoryFilter}
+          onChange={setCategoryFilter}
+          options={[
+            { value: "all", label: "All Categories" },
+            ...categories.map(cat => ({ value: cat.id, label: cat.name })),
+          ]}
+          placeholder="Category"
+          icon={<Tag className="h-4 w-4 text-slate-400" />}
+          width="w-[160px]"
+        />
+        <FilterBar.Select
+          value={assignedFilter}
+          onChange={setAssignedFilter}
+          options={[
+            { value: "all", label: "All Assignees" },
+            ...users.map(u => ({ value: u.id, label: u.full_name })),
+          ]}
+          placeholder="Assignee"
+          icon={<User className="h-4 w-4 text-slate-400" />}
+          width="w-[160px]"
+        />
+      </FilterBar>
 
       {/* Status Board - Kanban Style */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {statusGroups.map((group) => (
-          <div key={group.key} className="flex flex-col">
-            {/* Column Header */}
-            <div className="column-header">
-              <div className={group.dotClass} />
-              <h2 className="text-sm font-bold uppercase tracking-widest text-slate-200">
-                {group.label}
-              </h2>
-              <span className="stat-counter ml-auto">
-                {groupedQmrls[group.key].length}
-              </span>
-            </div>
+      <CardViewGrid
+        items={paginatedQmrls}
+        groups={statusGroups.map(g => ({ key: g.key, label: g.label, dotClass: g.dotClass }))}
+        groupBy={(qmrl) => qmrl.status?.status_group || "to_do"}
+        emptyMessage="No requests"
+        renderCard={(qmrl, index) => (
+          <Link key={qmrl.id} href={`/qmrl/${qmrl.id}`} className="block mb-2">
+            <div
+              className="tactical-card corner-accents p-4 animate-slide-up cursor-pointer"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              {/* Scan line effect */}
+              <div className="scan-overlay" />
 
-            {/* Column Body */}
-            <div className="flex-1 rounded-b-lg border border-t-0 border-slate-700 bg-slate-900/30 p-3 min-h-[400px]">
-              <div className="space-y-3">
-                {groupedQmrls[group.key].length === 0 ? (
-                  <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-slate-700">
-                    <p className="text-sm text-slate-400">No requests</p>
-                  </div>
-                ) : (
-                  groupedQmrls[group.key].map((qmrl, index) => (
-                    <Link key={qmrl.id} href={`/qmrl/${qmrl.id}`} className="block mb-2">
-                      <div
-                        className="tactical-card corner-accents p-4 animate-slide-up cursor-pointer"
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        {/* Scan line effect */}
-                        <div className="scan-overlay" />
-
-                        {/* Header Row */}
-                        <div className="relative flex items-center justify-between mb-3">
-                          <div className="request-id-badge">
-                            <code>{qmrl.request_id}</code>
-                          </div>
-                          {qmrl.priority && (
-                            <span className={priorityConfig[qmrl.priority]?.class}>
-                              <AlertCircle className="h-3 w-3" />
-                              {priorityConfig[qmrl.priority]?.label}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Title */}
-                        <h3 className="font-semibold text-slate-200 mb-3 line-clamp-2 leading-snug">
-                          {qmrl.title}
-                        </h3>
-
-                        {/* Category Tag */}
-                        {qmrl.category && (
-                          <div className="mb-3">
-                            <Badge
-                              variant="outline"
-                              className="text-xs font-medium"
-                              style={{
-                                borderColor: qmrl.category.color || "rgb(100, 116, 139)",
-                                color: qmrl.category.color || "rgb(148, 163, 184)",
-                                backgroundColor: `${qmrl.category.color}10` || "transparent",
-                              }}
-                            >
-                              <Tag className="mr-1 h-3 w-3" />
-                              {qmrl.category.name}
-                            </Badge>
-                          </div>
-                        )}
-
-                        {/* Divider */}
-                        <div className="divider-accent" />
-
-                        {/* Meta Row */}
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-3 text-slate-400">
-                            {qmrl.request_date && (
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {formatDate(qmrl.request_date)}
-                              </span>
-                            )}
-                            {qmrl.assigned_user && (
-                              <span className="flex items-center gap-1 max-w-[100px] truncate">
-                                <User className="h-3 w-3 flex-shrink-0" />
-                                {qmrl.assigned_user.full_name.split(" ")[0]}
-                              </span>
-                            )}
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-
-                        {/* Status Badge */}
-                        {qmrl.status && (
-                          <div className="mt-3 pt-3 border-t border-slate-700/50">
-                            <Badge
-                              variant="outline"
-                              className="text-xs font-mono uppercase tracking-wider"
-                              style={{
-                                borderColor: qmrl.status.color || undefined,
-                                color: qmrl.status.color || undefined,
-                              }}
-                            >
-                              {qmrl.status.name}
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
-                    </Link>
-                  ))
+              {/* Header Row */}
+              <div className="relative flex items-center justify-between mb-3">
+                <div className="request-id-badge">
+                  <code>{qmrl.request_id}</code>
+                </div>
+                {qmrl.priority && (
+                  <span className={priorityConfig[qmrl.priority]?.class}>
+                    <AlertCircle className="h-3 w-3" />
+                    {priorityConfig[qmrl.priority]?.label}
+                  </span>
                 )}
               </div>
+
+              {/* Title */}
+              <h3 className="font-semibold text-slate-200 mb-3 line-clamp-2 leading-snug">
+                {qmrl.title}
+              </h3>
+
+              {/* Category Tag */}
+              {qmrl.category && (
+                <div className="mb-3">
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-medium"
+                    style={{
+                      borderColor: qmrl.category.color || "rgb(100, 116, 139)",
+                      color: qmrl.category.color || "rgb(148, 163, 184)",
+                      backgroundColor: `${qmrl.category.color}10` || "transparent",
+                    }}
+                  >
+                    <Tag className="mr-1 h-3 w-3" />
+                    {qmrl.category.name}
+                  </Badge>
+                </div>
+              )}
+
+              {/* Divider */}
+              <div className="divider-accent" />
+
+              {/* Meta Row */}
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-3 text-slate-400">
+                  {qmrl.request_date && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(qmrl.request_date)}
+                    </span>
+                  )}
+                  {qmrl.assigned_user && (
+                    <span className="flex items-center gap-1 max-w-[100px] truncate">
+                      <User className="h-3 w-3 flex-shrink-0" />
+                      {qmrl.assigned_user.full_name.split(" ")[0]}
+                    </span>
+                  )}
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+
+              {/* Status Badge */}
+              {qmrl.status && (
+                <div className="mt-3 pt-3 border-t border-slate-700/50">
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-mono uppercase tracking-wider"
+                    style={{
+                      borderColor: qmrl.status.color || undefined,
+                      color: qmrl.status.color || undefined,
+                    }}
+                  >
+                    {qmrl.status.name}
+                  </Badge>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
-      </div>
+          </Link>
+        )}
+      />
 
       {/* Pagination */}
       {totalItems > 0 && (

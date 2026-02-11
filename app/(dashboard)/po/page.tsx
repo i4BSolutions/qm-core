@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Plus,
-  Search,
   LayoutGrid,
   List,
   Radio,
@@ -12,16 +11,9 @@ import {
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PageHeader, FilterBar } from "@/components/composite";
 import { POCard } from "@/components/po/po-card";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { POStatusBadge } from "@/components/po/po-status-badge";
@@ -268,122 +260,86 @@ export default function POListPage() {
       )}
 
       {/* Page Header */}
-      <div className="relative flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-purple-500/10 border border-purple-500/20">
-              <Radio className="h-4 w-4 text-purple-500" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-purple-500">
-                Procurement
-              </span>
+      <PageHeader
+        title="Purchase Orders"
+        description={`${totalItems} PO${totalItems !== 1 ? "s" : ""} found${totalItems !== pos.length ? ` (of ${pos.length} total)` : ""}`}
+        badge={
+          <div className="flex items-center gap-2 px-3 py-1 rounded bg-purple-500/10 border border-purple-500/20">
+            <Radio className="h-4 w-4 text-purple-500" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-purple-500">
+              Procurement
+            </span>
+          </div>
+        }
+        actions={
+          <div className="flex items-center gap-2">
+            {/* View Toggle */}
+            <div className="flex items-center border border-slate-700 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode("card")}
+                className={`p-2 transition-colors ${
+                  viewMode === "card"
+                    ? "bg-amber-500/20 text-amber-400"
+                    : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 transition-colors ${
+                  viewMode === "list"
+                    ? "bg-amber-500/20 text-amber-400"
+                    : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <List className="h-4 w-4" />
+              </button>
             </div>
+            <Link href="/po/new">
+              <Button className="group relative overflow-hidden">
+                <span className="relative z-10 flex items-center gap-2">
+                  <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+                  New PO
+                </span>
+              </Button>
+            </Link>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-200">
-            Purchase Orders
-          </h1>
-          <p className="mt-1 text-slate-400">
-            {totalItems} PO{totalItems !== 1 ? "s" : ""} found
-            {totalItems !== pos.length && (
-              <span className="text-slate-500"> (of {pos.length} total)</span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* View Toggle */}
-          <div className="flex items-center border border-slate-700 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode("card")}
-              className={`p-2 transition-colors ${
-                viewMode === "card"
-                  ? "bg-amber-500/20 text-amber-400"
-                  : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-2 transition-colors ${
-                viewMode === "list"
-                  ? "bg-amber-500/20 text-amber-400"
-                  : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
-          <Link href="/po/new">
-            <Button className="group relative overflow-hidden">
-              <span className="relative z-10 flex items-center gap-2">
-                <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-                New PO
-              </span>
-            </Button>
-          </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* Filters Bar */}
-      <div className="command-panel">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="relative flex-1 min-w-[240px] max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              placeholder="Search by PO#, supplier, QMHQ..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-slate-800/50 border-slate-700 focus:border-amber-500/50 font-mono text-sm"
-            />
-          </div>
-
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px] bg-slate-800/50 border-slate-700">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              {Object.entries(PO_STATUS_CONFIG).map(([key, config]) => (
-                <SelectItem key={key} value={key}>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        backgroundColor:
-                          key === "not_started"
-                            ? "#94a3b8"
-                            : key === "partially_invoiced"
-                            ? "#f59e0b"
-                            : key === "awaiting_delivery"
-                            ? "#3b82f6"
-                            : key === "partially_received"
-                            ? "#a855f7"
-                            : key === "closed"
-                            ? "#10b981"
-                            : "#ef4444",
-                      }}
-                    />
-                    {config.label}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-            <SelectTrigger className="w-[180px] bg-slate-800/50 border-slate-700">
-              <SelectValue placeholder="Supplier" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Suppliers</SelectItem>
-              {suppliers.map((supplier) => (
-                <SelectItem key={supplier.id} value={supplier.id}>
-                  {supplier.company_name || supplier.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <FilterBar>
+        <FilterBar.Search
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by PO#, supplier, QMHQ..."
+        />
+        <FilterBar.Select
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: "all", label: "All Statuses" },
+            ...Object.entries(PO_STATUS_CONFIG).map(([key, config]) => ({
+              value: key,
+              label: config.label,
+            })),
+          ]}
+          placeholder="Status"
+        />
+        <FilterBar.Select
+          value={supplierFilter}
+          onChange={setSupplierFilter}
+          options={[
+            { value: "all", label: "All Suppliers" },
+            ...suppliers.map(s => ({
+              value: s.id,
+              label: s.company_name || s.name,
+            })),
+          ]}
+          placeholder="Supplier"
+        />
+      </FilterBar>
 
       {/* Card View - Grouped by Status */}
       {viewMode === "card" && (

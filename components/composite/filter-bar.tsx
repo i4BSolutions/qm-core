@@ -86,12 +86,7 @@ function FilterBarSelect({
   );
 }
 
-type FilterBarComponent = React.FC<FilterBarProps> & {
-  Search: React.FC<FilterBarSearchProps>;
-  Select: React.FC<FilterBarSelectProps>;
-};
-
-(FilterBar as FilterBarComponent).Search = FilterBarSearch;
-(FilterBar as FilterBarComponent).Select = FilterBarSelect;
+FilterBar.Search = FilterBarSearch;
+FilterBar.Select = FilterBarSelect;
 
 export { FilterBar };
