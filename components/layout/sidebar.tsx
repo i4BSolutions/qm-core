@@ -46,23 +46,24 @@ const allNavigation: NavItem[] = [
     label: "QMHQ",
     href: "/qmhq",
     icon: ClipboardList,
+    roles: ["admin", "qmhq"],
   },
   {
     label: "Purchase Orders",
     href: "/po",
     icon: ShoppingCart,
-    roles: ["admin", "quartermaster", "finance", "proposal"],
+    roles: ["admin", "qmhq"],
   },
   {
     label: "Invoices",
     href: "/invoice",
     icon: FileSpreadsheet,
-    roles: ["admin", "quartermaster", "finance", "inventory", "proposal"],
+    roles: ["admin", "qmhq"],
   },
   {
     label: "Inventory",
     icon: Package,
-    roles: ["admin", "quartermaster", "inventory"],
+    roles: ["admin"],
     children: [
       { label: "Dashboard", href: "/inventory" },
       { label: "Stock In", href: "/inventory/stock-in" },
@@ -74,7 +75,7 @@ const allNavigation: NavItem[] = [
     label: "Warehouses",
     href: "/warehouse",
     icon: Warehouse,
-    roles: ["admin", "quartermaster", "inventory", "proposal"],
+    roles: ["admin", "qmhq"],
   },
   {
     label: "Items",
