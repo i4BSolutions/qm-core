@@ -74,10 +74,11 @@ Phases 27-31 delivered stock-out request/approval workflow with partial approval
   1. When admin approves a stock-out request linked to a QMHQ, the created inventory transaction has qmhq_id populated
   2. QMHQ item detail page shows stock-out transactions for that QMHQ (via qmhq_id link)
   3. Manual stock-out requests (no QMHQ parent) create transactions with NULL qmhq_id
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 32-01: [TBD during planning]
+- [ ] 32-01-PLAN.md — Create SOR transaction group and items summary progress bar components
+- [ ] 32-02-PLAN.md — Integrate SOR-grouped display and stepped progress bar into QMHQ detail page
 
 #### Phase 33: Dual Reference Display
 **Goal**: Users can see both SOR ID and parent QMHQ ID on stock-out transactions
