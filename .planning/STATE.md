@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 ## Current Position
 
-Phase: 35 of 35 (Per-Line-Item Execution UI) 🚧 IN PROGRESS
-Plan: 1 of 2 complete (35-02-PLAN.md done)
-Status: Phase 35 in progress - plan 35-02 complete
-Last activity: 2026-02-11 — Completed 35-02-PLAN.md (Fulfillment metrics display)
+Phase: 35 of 35 (Per-Line-Item Execution UI) ✓ COMPLETE
+Plan: All complete (2/2 plans done)
+Status: Phase 35 complete - ready for v1.7 milestone verification
+Last activity: 2026-02-11 — Completed 35-01-PLAN.md (Per-approval execution UI)
 
-Progress: [█████████████████████████████████████████████████████████░] 97% (34 of 35 phases)
+Progress: [██████████████████████████████████████████████████████████] 100% (35 of 35 phases)
 
 ## Milestone History
 
@@ -89,6 +89,8 @@ Recent decisions affecting v1.7:
 - [Phase 34]: Data migration before CHECK constraint (fixes orphaned records to prevent deployment failures)
 - [Phase 34-database-trigger-hardening]: Auto-populate qmhq_id from SOR chain with three guard clauses (movement type, approval link, override protection)
 - [Phase 34-database-trigger-hardening]: Partial unique index for idempotency (completed + active inventory_out only, excludes manual stock-outs)
+- [Phase 35-per-line-item-execution-ui]: Per-approval Execute buttons (Granular fulfillment - execute individual approvals instead of all-or-nothing)
+- [Phase 35-per-line-item-execution-ui]: Stock pre-check with tooltip (Validation before dialog, disabled button + tooltip for better UX)
 - [Phase 35-02]: Numbers-only metrics display (no progress bar for clarity)
 - [Phase 35-02]: BroadcastChannel for cross-tab sync (enables real-time updates without polling)
 
@@ -110,9 +112,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 35-02-PLAN.md
+Stopped at: Completed 35-01-PLAN.md (Per-approval execution UI)
 Resume file: None
-Next action: Continue with remaining Phase 35 plans or verify phase completion
+Next action: Phase 35 complete - all plans done
 
 ## Performance Metrics
 
@@ -135,9 +137,10 @@ Next action: Continue with remaining Phase 35 plans or verify phase completion
 | 33-dual-reference-display | 01 | 6min | 2 | 3 | 2026-02-11 |
 | 34-database-trigger-hardening | 01 | 1min | 2 | 3 | 2026-02-11 |
 | 34-database-trigger-hardening | 02 | 1min | 2 | 2 | 2026-02-11 |
+| 35-per-line-item-execution-ui | 01 | 12min | 1 | 2 | 2026-02-11 |
 | 35-per-line-item-execution-ui | 02 | 9min | 2 | 3 | 2026-02-11 |
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-11 - Phase 35 plan 02 complete (Fulfillment metrics display with cross-tab sync)*
+*Last updated: 2026-02-11 - Phase 35 complete (Per-approval execution UI + fulfillment metrics)*
 
