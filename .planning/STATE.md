@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 ## Current Position
 
 Phase: 39 of 40 (End-to-End Flow Tracking)
-Plan: 0 of ? (not yet planned)
-Status: Ready to plan
-Last activity: 2026-02-11 — Phase 38 verified and complete (5/5 must-haves passed)
+Plan: 1 of 2 (in progress)
+Status: Executing
+Last activity: 2026-02-11 — Phase 39 Plan 01 complete (data layer foundation)
 
 Progress: [█████████████████████░░░░░░░░░░] 38/40 phases complete (95%)
 
@@ -25,7 +25,7 @@ Progress: [█████████████████████░░
 - Total execution time: 7 milestones shipped 2026-01-27 to 2026-02-11 (15 days)
 
 **Recent Milestones:**
-- v1.8 (in progress): Phase 36 complete - Plan 01 (89s), Plan 02 (210s / 3.5min), Plan 03 (94s); Phase 37 complete - Plan 01 (59s), Plan 02 (163s / 2.7min); Phase 38 complete - Plan 01 (162s / 2.7min), Plan 02 (305s / 5.1min)
+- v1.8 (in progress): Phase 36 complete - Plan 01 (89s), Plan 02 (210s / 3.5min), Plan 03 (94s); Phase 37 complete - Plan 01 (59s), Plan 02 (163s / 2.7min); Phase 38 complete - Plan 01 (162s / 2.7min), Plan 02 (305s / 5.1min); Phase 39 - Plan 01 (187s / 3.1min)
 - v1.7: 4 phases, 7 plans, 1 day
 - v1.6: 5 phases, 12 plans, 2 days
 - v1.5: 4 phases, 9 plans, 2 days
@@ -66,6 +66,9 @@ Recent decisions affecting v1.8 work:
 - [Phase 38-02]: Server-side layout guard pattern for comprehensive route protection (all /qmhq/* routes)
 - [Phase 38-02]: File deletion restricted to admin only (not quartermaster) per RBAC-14
 - [Phase 38-02]: Stock-out approval restricted to admin only per RBAC-15
+- [Phase 39-01]: PostgreSQL VIEW for flow tracking instead of materialized view (real-time data, assumes <10K QMRLs)
+- [Phase 39-01]: Flat row VIEW output with Map-based transformation in TypeScript (simpler SQL, O(1) app-layer deduplication)
+- [Phase 39-01]: No RLS on VIEW, admin-only enforcement at page component level (Plan 02)
 
 ### Pending Todos
 
@@ -92,10 +95,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-11 (phase 38 execution + verification)
-Stopped at: Phase 38 verified (5/5 must-haves passed) — ready for Phase 39
-Resume file: None (ready to plan Phase 39)
+Last session: 2026-02-11 (phase 39 plan 01 execution)
+Stopped at: Phase 39 Plan 01 complete (data layer foundation) — ready for Plan 02 (UI)
+Resume file: None
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-11 after Phase 38 verification passed*
+*Last updated: 2026-02-11 after Phase 39 Plan 01 completion*
