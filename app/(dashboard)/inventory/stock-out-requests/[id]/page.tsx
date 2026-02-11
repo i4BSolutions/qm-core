@@ -33,8 +33,6 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Enums, Tables } from "@/types/database";
-import { ContextSlider } from "@/components/context-slider/context-slider";
-import { QmhqSliderContent } from "@/components/context-slider/qmhq-slider-content";
 
 // Type aliases
 type SorRequestStatus = Enums<"sor_request_status">;
@@ -155,9 +153,6 @@ export default function StockOutRequestDetailPage() {
   const [optimisticExecutedIds, setOptimisticExecutedIds] = useState<Set<string>>(new Set());
   const [approvalStockLevels, setApprovalStockLevels] = useState<Map<string, { available: number; needed: number }>>(new Map());
 
-  // Context slider state
-  const [qmhqDetail, setQmhqDetail] = useState<any>(null);
-  const [isSliderLoading, setIsSliderLoading] = useState(false);
 
   // Permission checks
   const canApprove = user?.role === "admin" || user?.role === "quartermaster" || user?.role === "inventory";
@@ -500,61 +495,6 @@ export default function StockOutRequestDetailPage() {
   };
 
   /**
-   * Fetch QMHQ details for slider when request has qmhq_id
-   */
-  useEffect(() => {
-    const qmhqId = request?.qmhq_id;
-    if (!qmhqId) {
-      setQmhqDetail(null);
-      return;
-    }
-
-    const fetchQmhqDetail = async () => {
-      setIsSliderLoading(true);
-      const supabase = createClient();
-
-      const { data: qmhqData } = await supabase
-        .from('qmhq')
-        .select(`
-          id,
-          request_id,
-          line_name,
-          route_type,
-          description,
-          notes,
-          quantity,
-          amount,
-          currency,
-          exchange_rate,
-          amount_eusd,
-          budget_amount,
-          budget_currency,
-          budget_exchange_rate,
-          budget_amount_eusd,
-          status:status_config(name, color),
-          category:categories(name, color),
-          assigned_user:users!qmhq_assigned_to_fkey(full_name),
-          contact_person:contact_persons(name, position),
-          item:items(name, sku),
-          qmhq_items(
-            item:items(name, sku),
-            quantity
-          )
-        `)
-        .eq('id', qmhqId)
-        .single();
-
-      if (qmhqData) {
-        setQmhqDetail(qmhqData);
-      }
-
-      setIsSliderLoading(false);
-    };
-
-    fetchQmhqDetail();
-  }, [request?.qmhq_id]);
-
-  /**
    * Handle opening approval dialog
    */
   const handleApproveClick = () => {
@@ -634,9 +574,7 @@ export default function StockOutRequestDetailPage() {
   const reasonConfig = STOCK_OUT_REASON_CONFIG[request.reason];
 
   return (
-    <div className={cn(
-      request.qmhq_id ? "md:grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_384px] gap-6" : ""
-    )}>
+    <div>
       {/* Main Content */}
       <div className="space-y-6">
         {/* Header */}
@@ -1096,17 +1034,6 @@ export default function StockOutRequestDetailPage() {
       )}
       </div>
 
-      {/* Context Slider */}
-      {request.qmhq_id && (
-        <ContextSlider
-          title="QMHQ Context"
-        >
-          <QmhqSliderContent
-            qmhq={qmhqDetail}
-            isLoading={isSliderLoading}
-          />
-        </ContextSlider>
-      )}
     </div>
   );
 }
