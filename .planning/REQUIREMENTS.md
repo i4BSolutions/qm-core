@@ -20,8 +20,8 @@ Requirements for v1.8 milestone. Each maps to roadmap phases.
 
 ### RBAC
 
-- [ ] **RBAC-01**: Database role system migrated from 7 roles to 3 roles (admin, qmrl, qmhq)
-- [ ] **RBAC-02**: Existing users are remapped to appropriate new roles via data migration
+- [x] **RBAC-01**: Database role system migrated from 7 roles to 3 roles (admin, qmrl, qmhq)
+- [x] **RBAC-02**: Existing users are remapped to appropriate new roles via data migration
 - [ ] **RBAC-03**: All RLS policies enforce the 3-role permission model
 - [ ] **RBAC-04**: Navigation sidebar shows only sections permitted by the user's role
 - [ ] **RBAC-05**: QMRL role user can create new QMRLs
@@ -35,7 +35,7 @@ Requirements for v1.8 milestone. Each maps to roadmap phases.
 - [ ] **RBAC-13**: QMHQ role user can view purchase orders and their details
 - [ ] **RBAC-14**: Admin retains full CRUD access to all entities and pages
 - [ ] **RBAC-15**: Stock-out approvals remain restricted to Admin role only
-- [ ] **RBAC-16**: Role permission system supports adding new roles in the future without schema redesign
+- [x] **RBAC-16**: Role permission system supports adding new roles in the future without schema redesign
 
 ### Flow Tracking
 
@@ -89,8 +89,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UI-06 | Phase 36 | Pending |
 | UI-07 | Phase 36 | Pending |
 | UI-08 | Phase 36 | Pending |
-| RBAC-01 | Phase 37 | Pending |
-| RBAC-02 | Phase 37 | Pending |
+| RBAC-01 | Phase 37 | ✓ Done |
+| RBAC-02 | Phase 37 | ✓ Done |
 | RBAC-03 | Phase 38 | Pending |
 | RBAC-04 | Phase 38 | Pending |
 | RBAC-05 | Phase 38 | Pending |
@@ -104,7 +104,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RBAC-13 | Phase 38 | Pending |
 | RBAC-14 | Phase 38 | Pending |
 | RBAC-15 | Phase 38 | Pending |
-| RBAC-16 | Phase 37 | Pending |
+| RBAC-16 | Phase 37 | ✓ Done |
 | FLOW-01 | Phase 39 | Pending |
 | FLOW-02 | Phase 39 | Pending |
 | FLOW-03 | Phase 39 | Pending |
