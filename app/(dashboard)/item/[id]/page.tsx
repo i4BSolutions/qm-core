@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  ArrowLeft,
   Loader2,
   Package,
   Clock,
@@ -18,6 +17,7 @@ import {
   Tag,
   ImageIcon,
   TrendingUp,
+  ArrowLeft,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ import {
 } from "@/lib/utils/inventory";
 import type { ColumnDef } from "@tanstack/react-table";
 import { HistoryTab } from "@/components/history";
+import { DetailPageLayout } from "@/components/composite";
 import type {
   Item,
   Category,
@@ -368,23 +369,10 @@ export default function ItemDetailPage() {
   }
 
   return (
-    <div className="space-y-6 relative">
-      {/* Grid overlay */}
-      <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
-
-      {/* Header */}
-      <div className="relative flex items-start justify-between animate-fade-in">
-        <div className="flex items-start gap-4">
-          <Link href="/item">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="mt-1 hover:bg-amber-500/10 hover:text-amber-500"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-
+    <DetailPageLayout
+      backHref="/item"
+      header={
+        <>
           {/* Item Photo */}
           <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-700 bg-slate-800/50 flex items-center justify-center">
             {item.photo_url ? (
@@ -432,10 +420,11 @@ export default function ItemDetailPage() {
               )}
             </div>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Link href={`/inventory/stock-in`}>
+        </>
+      }
+      actions={
+        <>
+          <Link href="/inventory/stock-in">
             <Button
               variant="outline"
               className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
@@ -444,7 +433,7 @@ export default function ItemDetailPage() {
               Stock In
             </Button>
           </Link>
-          <Link href={`/inventory/stock-out`}>
+          <Link href="/inventory/stock-out">
             <Button
               variant="outline"
               className="border-red-500/30 text-red-400 hover:bg-red-500/10"
@@ -453,62 +442,62 @@ export default function ItemDetailPage() {
               Stock Out
             </Button>
           </Link>
+        </>
+      }
+      kpiPanel={
+        <div
+          className="command-panel corner-accents animate-slide-up"
+          style={{ animationDelay: "50ms" }}
+        >
+          <div className="grid grid-cols-4 gap-4">
+            <div className="text-center p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <p className="text-xs text-emerald-400 uppercase tracking-wider mb-1">
+                Total Stock
+              </p>
+              <p className="text-2xl font-mono font-bold text-emerald-400">
+                {formatStockQuantity(totals.totalStock, item.default_unit)}
+              </p>
+            </div>
+
+            <div className="text-center p-4 rounded-lg bg-slate-800/50 border border-slate-700">
+              <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
+                Warehouses
+              </p>
+              <p className="text-2xl font-mono font-bold text-slate-200">
+                {warehouseStock.length}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 flex flex-col items-center">
+              <p className="text-xs text-amber-400 uppercase tracking-wider mb-2">
+                WAC (Per Unit)
+              </p>
+              <CurrencyDisplay
+                amount={item.wac_amount}
+                currency={item.wac_currency || "USD"}
+                exchangeRate={item.wac_exchange_rate || 1}
+                amountEusd={item.wac_amount_eusd}
+                size="md"
+                showDashForEmpty
+              />
+            </div>
+
+            <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 flex flex-col items-center">
+              <p className="text-xs text-blue-400 uppercase tracking-wider mb-2">
+                Total Value
+              </p>
+              <CurrencyDisplay
+                amount={totals.totalValue}
+                currency={item.wac_currency || "USD"}
+                amountEusd={totals.totalValueEusd}
+                size="md"
+                showDashForEmpty
+              />
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* WAC Panel */}
-      <div
-        className="command-panel corner-accents animate-slide-up"
-        style={{ animationDelay: "50ms" }}
-      >
-        <div className="grid grid-cols-4 gap-4">
-          <div className="text-center p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-            <p className="text-xs text-emerald-400 uppercase tracking-wider mb-1">
-              Total Stock
-            </p>
-            <p className="text-2xl font-mono font-bold text-emerald-400">
-              {formatStockQuantity(totals.totalStock, item.default_unit)}
-            </p>
-          </div>
-
-          <div className="text-center p-4 rounded-lg bg-slate-800/50 border border-slate-700">
-            <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
-              Warehouses
-            </p>
-            <p className="text-2xl font-mono font-bold text-slate-200">
-              {warehouseStock.length}
-            </p>
-          </div>
-
-          <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 flex flex-col items-center">
-            <p className="text-xs text-amber-400 uppercase tracking-wider mb-2">
-              WAC (Per Unit)
-            </p>
-            <CurrencyDisplay
-              amount={item.wac_amount}
-              currency={item.wac_currency || "USD"}
-              exchangeRate={item.wac_exchange_rate || 1}
-              amountEusd={item.wac_amount_eusd}
-              size="md"
-              showDashForEmpty
-            />
-          </div>
-
-          <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 flex flex-col items-center">
-            <p className="text-xs text-blue-400 uppercase tracking-wider mb-2">
-              Total Value
-            </p>
-            <CurrencyDisplay
-              amount={totals.totalValue}
-              currency={item.wac_currency || "USD"}
-              amountEusd={totals.totalValueEusd}
-              size="md"
-              showDashForEmpty
-            />
-          </div>
-        </div>
-      </div>
-
+      }
+    >
       {/* Tabs */}
       <Tabs
         value={activeTab}
@@ -714,6 +703,6 @@ export default function ItemDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+    </DetailPageLayout>
   );
 }
