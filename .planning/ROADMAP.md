@@ -104,10 +104,11 @@ Plans:
   3. Cannot create inventory transaction without valid stock_out_approval_id when movement_type is 'inventory_out' with reason 'request'
   4. QMHQ link auto-populates from SOR when transaction is created (no orphaned transactions)
   5. Cannot execute the same approval twice (idempotency constraint prevents duplicates)
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 34-01: [TBD during planning]
+- [ ] 34-01-PLAN.md — Advisory locks on stock/fulfillment validation, row lock on status aggregation, CHECK constraint for approval requirement
+- [ ] 34-02-PLAN.md — QMHQ auto-population trigger and idempotency constraint for execution
 
 #### Phase 35: Per-Line-Item Execution UI
 **Goal**: Each approved stock-out line item can be executed independently
