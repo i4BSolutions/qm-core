@@ -107,8 +107,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 34-01-PLAN.md — Advisory locks on stock/fulfillment validation, row lock on status aggregation, CHECK constraint for approval requirement
-- [ ] 34-02-PLAN.md — QMHQ auto-population trigger and idempotency constraint for execution
+- [x] 34-01-PLAN.md — Advisory locks on stock/fulfillment validation, row lock on status aggregation, CHECK constraint for approval requirement
+- [x] 34-02-PLAN.md — QMHQ auto-population trigger and idempotency constraint for execution
 
 #### Phase 35: Per-Line-Item Execution UI
 **Goal**: Each approved stock-out line item can be executed independently
@@ -143,5 +143,5 @@ Phases execute in numeric order: 32 → 33 → 34 → 35
 | 27-31. Stock-Out → Sliders | v1.6 | 12/12 | ✓ Complete | 2026-02-10 |
 | 32. QMHQ Transaction Linking | v1.7 | 2/2 | ✓ Complete | 2026-02-11 |
 | 33. Dual Reference Display | v1.7 | 1/1 | ✓ Complete | 2026-02-11 |
-| 34. Database Trigger Hardening | v1.7 | 0/? | Not started | - |
+| 34. Database Trigger Hardening | v1.7 | 2/2 | ✓ Complete | 2026-02-11 |
 | 35. Per-Line-Item Execution UI | v1.7 | 0/? | Not started | - |
