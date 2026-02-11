@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -112,32 +112,6 @@ async function fetchWarehouseStockForItem(
   } catch (error) {
     console.error("Error fetching warehouse stock:", error);
     return [];
-  }
-}
-
-/**
- * Handle quantity input with number-only validation
- */
-function handleQuantityKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-  // Allow: backspace, delete, tab, escape, enter, decimal point
-  if (
-    [46, 8, 9, 27, 13, 110, 190].indexOf(e.keyCode) !== -1 ||
-    // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-    (e.keyCode === 65 && e.ctrlKey === true) ||
-    (e.keyCode === 67 && e.ctrlKey === true) ||
-    (e.keyCode === 86 && e.ctrlKey === true) ||
-    (e.keyCode === 88 && e.ctrlKey === true) ||
-    // Allow: home, end, left, right
-    (e.keyCode >= 35 && e.keyCode <= 39)
-  ) {
-    return;
-  }
-  // Ensure that it is a number and stop the keypress if not
-  if (
-    (e.shiftKey || e.keyCode < 48 || e.keyCode > 57) &&
-    (e.keyCode < 96 || e.keyCode > 105)
-  ) {
-    e.preventDefault();
   }
 }
 
@@ -418,25 +392,20 @@ export function ApprovalDialog({
                       <Label htmlFor={`qty-${item.id}`}>
                         Approved Quantity *
                       </Label>
-                      <Input
+                      <AmountInput
                         id={`qty-${item.id}`}
-                        type="number"
-                        min="1"
-                        max={item.remaining_quantity}
                         value={data?.approvedQuantity || ""}
-                        onChange={(e) =>
+                        onValueChange={(val) =>
                           updateApprovalData(
                             item.id,
                             "approvedQuantity",
-                            e.target.value
+                            val
                           )
                         }
-                        onKeyDown={handleQuantityKeyDown}
-                        className={cn(
-                          "font-mono",
-                          validationErrors.has(`${item.id}-approvedQuantity`) &&
-                            "border-red-500"
-                        )}
+                        decimalScale={0}
+                        max={item.remaining_quantity}
+                        placeholder="0"
+                        error={validationErrors.has(`${item.id}-approvedQuantity`)}
                       />
                       {validationErrors.has(`${item.id}-approvedQuantity`) && (
                         <p className="text-xs text-red-400">
