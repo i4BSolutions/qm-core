@@ -138,8 +138,8 @@ export default function QMHQDetailPage() {
   // Per-file delete permission check matching RLS policy
   const canDeleteFile = useCallback((file: FileAttachmentWithUploader) => {
     if (!user) return false;
-    // Admin and quartermaster can delete any file
-    if (user.role === 'admin' || user.role === 'quartermaster') return true;
+    // Admin can delete any file
+    if (user.role === 'admin') return true;
     // Users can delete their own uploads
     return file.uploaded_by === user.id;
   }, [user]);

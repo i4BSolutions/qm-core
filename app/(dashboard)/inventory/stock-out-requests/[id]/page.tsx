@@ -154,9 +154,9 @@ export default function StockOutRequestDetailPage() {
   const [approvalStockLevels, setApprovalStockLevels] = useState<Map<string, { available: number; needed: number }>>(new Map());
 
 
-  // Permission checks
-  const canApprove = user?.role === "admin" || user?.role === "quartermaster" || user?.role === "inventory";
-  const canExecute = user?.role === "admin" || user?.role === "inventory";
+  // Permission checks (RBAC-15: stock-out approvals restricted to Admin only)
+  const canApprove = user?.role === "admin";
+  const canExecute = user?.role === "admin";
   const isRequester = user?.id === request?.requester_id;
   const canCancel = isRequester && request?.status === "pending";
 

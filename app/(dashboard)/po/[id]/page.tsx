@@ -64,7 +64,7 @@ interface InvoiceForPO extends Invoice {
 export default function PODetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { can, isQuartermaster } = usePermissions();
+  const { can } = usePermissions();
   const poId = params.id as string;
 
   const [po, setPO] = useState<POWithRelations | null>(null);
@@ -214,9 +214,8 @@ export default function PODetailPage() {
     );
   }
 
-  // Per user decision: Quartermaster cannot edit PO even though permission matrix grants CRUD
-  // Only Finance, Proposal, and Admin can edit PO
-  const showEditButton = can("update", "purchase_orders") && !isQuartermaster && canEditPO(po.status as POStatusEnum);
+  // Admin and QMHQ can edit PO (per 3-role permission matrix)
+  const showEditButton = can("update", "purchase_orders") && canEditPO(po.status as POStatusEnum);
   const showCancelButton = canCancelPO(po.status as POStatusEnum);
 
   return (
