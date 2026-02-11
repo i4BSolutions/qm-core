@@ -44,6 +44,9 @@ import type { FileAttachmentWithUploader } from "@/lib/actions/files";
 import { ClickableStatusBadge } from "@/components/status/clickable-status-badge";
 import { FulfillmentProgressBar } from "@/components/qmhq/fulfillment-progress-bar";
 import { CommentsSection } from "@/components/comments";
+import { SORTransactionGroup } from "@/components/qmhq/sor-transaction-group";
+import { ItemsSummaryProgress } from "@/components/qmhq/items-summary-progress";
+import type { ItemProgressData } from "@/components/qmhq/items-summary-progress";
 import type {
   QMHQ,
   StatusConfig,
@@ -376,6 +379,93 @@ export default function QMHQDetailPage() {
       return issuedQty >= item.quantity;
     });
   }, [qmhqItems, stockOutTransactions]);
+
+  const sorGroupedTransactions = useMemo(() => {
+    const groups: Record<string, {
+      sorId: string;
+      sorNumber: string;
+      sorStatus: string;
+      totalQty: number;
+      transactions: Array<{
+        id: string;
+        quantity: number;
+        status: string;
+        created_at: string;
+        transaction_date?: string | null;
+        reason?: string | null;
+        notes?: string | null;
+        item?: { id: string; name: string; sku: string | null } | null;
+        warehouse?: { id: string; name: string } | null;
+      }>;
+    }> = {};
+
+    stockOutTransactions.forEach((tx) => {
+      const sor = tx.stock_out_approval?.line_item?.request;
+      const sorKey = sor?.request_number || '_ungrouped';
+
+      if (!groups[sorKey]) {
+        groups[sorKey] = {
+          sorId: sor?.id || '',
+          sorNumber: sor?.request_number || 'Unknown',
+          sorStatus: sor?.status || 'unknown',
+          totalQty: 0,
+          transactions: [],
+        };
+      }
+
+      // Map transaction to match expected type (ensure status is always string)
+      groups[sorKey].transactions.push({
+        id: tx.id,
+        quantity: tx.quantity || 0,
+        status: tx.status || 'pending',
+        created_at: tx.created_at || '',
+        transaction_date: tx.transaction_date,
+        reason: tx.reason,
+        notes: tx.notes,
+        item: tx.item,
+        warehouse: tx.warehouse,
+      });
+      groups[sorKey].totalQty += tx.quantity || 0;
+    });
+
+    return Object.values(groups);
+  }, [stockOutTransactions]);
+
+  const itemsProgressData = useMemo((): ItemProgressData[] => {
+    return qmhqItems.map((item) => {
+      // Get requested qty from the QMHQ item
+      const requested = item.quantity;
+
+      // Calculate approved qty from SOR line items
+      let approved = 0;
+      let rejected = 0;
+      if (stockOutRequest?.line_items) {
+        for (const li of stockOutRequest.line_items) {
+          if (li.item_id === item.item_id) {
+            const approvedApprovals = li.approvals?.filter((a: any) => a.decision === 'approved') || [];
+            const rejectedApprovals = li.approvals?.filter((a: any) => a.decision === 'rejected') || [];
+            approved += approvedApprovals.reduce((sum: number, a: any) => sum + (a.approved_quantity || 0), 0);
+            rejected += rejectedApprovals.length;  // Count rejections (qty is 0 for rejections)
+          }
+        }
+      }
+
+      // Calculate executed qty from completed transactions
+      const executed = stockOutTransactions
+        .filter(t => t.item_id === item.item_id && t.status === 'completed')
+        .reduce((sum, t) => sum + (t.quantity || 0), 0);
+
+      return {
+        itemId: item.item_id,
+        itemName: item.item?.name || 'Unknown Item',
+        itemSku: item.item?.sku || null,
+        requested,
+        approved,
+        executed,
+        rejected,
+      };
+    });
+  }, [qmhqItems, stockOutRequest, stockOutTransactions]);
 
   if (isLoading) {
     return (
@@ -743,26 +833,7 @@ export default function QMHQDetailPage() {
                   <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                   <h2>Fulfillment Progress</h2>
                 </div>
-                <div className="space-y-3">
-                  {qmhqItems.map((item) => {
-                    const issuedQty = stockOutTransactions
-                      .filter(t => t.item_id === item.item_id)
-                      .reduce((sum, t) => sum + (t.quantity || 0), 0);
-                    return (
-                      <div key={item.id} className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-200">{item.item?.name || 'Unknown Item'}</span>
-                          {item.item?.sku && <code className="text-amber-400 text-xs">{item.item.sku}</code>}
-                        </div>
-                        <FulfillmentProgressBar
-                          issuedQty={issuedQty}
-                          requestedQty={item.quantity}
-                          size="sm"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
+                <ItemsSummaryProgress items={itemsProgressData} />
               </div>
             )}
 
@@ -834,160 +905,30 @@ export default function QMHQDetailPage() {
         {qmhq.route_type === "item" && (
           <TabsContent value="stock-out" className="mt-6">
             <div className="command-panel corner-accents">
+              {/* Header with Request Stock-Out button */}
               <div className="flex items-center justify-between mb-6">
                 <div className="section-header mb-0">
                   <ArrowUpFromLine className="h-4 w-4 text-red-400" />
                   <h2>Stock Out Transactions</h2>
                 </div>
-                {!stockOutRequest ? (
-                  can("create", "stock_out_requests") && (
-                    <Link href={`/inventory/stock-out-requests/new?qmhq=${qmhqId}`}>
-                      <Button
-                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Request Stock-Out
-                      </Button>
-                    </Link>
-                  )
-                ) : (
-                  <Link href={`/inventory/stock-out-requests/${stockOutRequest.id}`}>
-                    <Badge
-                      variant="outline"
-                      className="cursor-pointer hover:bg-slate-700/50 px-3 py-1.5 text-sm"
-                    >
-                      {stockOutRequest.status}
-                    </Badge>
+                {!stockOutRequest && can("create", "stock_out_requests") && (
+                  <Link href={`/inventory/stock-out-requests/new?qmhq=${qmhqId}`}>
+                    <Button className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Request Stock-Out
+                    </Button>
                   </Link>
                 )}
               </div>
 
-              {/* Items Summary */}
-              <div className="mb-6 p-4 rounded-lg bg-slate-800/30 border border-slate-700">
-                <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">Requested Items Summary</p>
-                <div className="space-y-2">
-                  {qmhqItems.map((item) => {
-                    const issuedQty = stockOutTransactions
-                      .filter(t => t.item_id === item.item_id)
-                      .reduce((sum, t) => sum + (t.quantity || 0), 0);
-                    const pendingQty = Math.max(0, item.quantity - issuedQty);
-                    const isFullyIssued = pendingQty === 0;
-
-                    return (
-                      <div key={item.id} className="p-2 rounded bg-slate-800/50">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-3">
-                            {isFullyIssued ? (
-                              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                            ) : (
-                              <Package className="h-4 w-4 text-slate-400" />
-                            )}
-                            <div>
-                              <span className="text-slate-200">{item.item?.name || 'Unknown'}</span>
-                              {item.item?.sku && (
-                                <code className="text-amber-400 text-xs ml-2">{item.item.sku}</code>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm">
-                            <span className="text-slate-400">
-                              Requested: <span className="font-mono text-blue-400">{item.quantity}</span>
-                            </span>
-                            <span className="text-slate-400">
-                              Issued: <span className="font-mono text-emerald-400">{issuedQty}</span>
-                            </span>
-                            {!isFullyIssued && (
-                              <span className="text-slate-400">
-                                Pending: <span className="font-mono text-amber-400">{pendingQty}</span>
-                              </span>
-                            )}
-                            {isFullyIssued && (
-                              <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
-                                Complete
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <FulfillmentProgressBar
-                          issuedQty={issuedQty}
-                          requestedQty={item.quantity}
-                          size="sm"
-                          showLabel={false}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Stock-Out Status Card (SOAR-08) */}
-              {stockOutRequest ? (
-                <div className="mb-6 p-4 rounded-xl border border-slate-700/50 bg-slate-800/30">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs text-slate-400 uppercase tracking-wider">Stock-Out Request</p>
-                    <Link href={`/inventory/stock-out-requests/${stockOutRequest.id}`}>
-                      <code className="text-xs text-amber-400 hover:text-amber-300 cursor-pointer">
-                        {stockOutRequest.request_number}
-                      </code>
-                    </Link>
-                  </div>
-
-                  <div className="mb-3">
-                    <Badge
-                      variant="outline"
-                      className="text-sm"
-                    >
-                      {stockOutRequest.status}
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center gap-6 mb-3">
-                    <div className="flex-1">
-                      <p className="text-xs text-slate-400 mb-1">Requested</p>
-                      <p className="text-lg font-mono font-semibold text-slate-200">
-                        {stockOutRequest.line_items?.reduce((sum: number, li: any) => sum + (li.requested_quantity || 0), 0) || 0}
-                      </p>
-                    </div>
-                    <div className="text-slate-600 text-2xl">|</div>
-                    <div className="flex-1">
-                      <p className="text-xs text-slate-400 mb-1">Approved</p>
-                      <p className="text-lg font-mono font-semibold text-emerald-400">
-                        {stockOutRequest.line_items?.reduce((sum: number, li: any) => {
-                          const approved = li.approvals?.filter((a: any) => a.decision === 'approved') || [];
-                          return sum + approved.reduce((aSum: number, a: any) => aSum + (a.approved_quantity || 0), 0);
-                        }, 0) || 0}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <Link
-                      href={`/inventory/stock-out-requests/${stockOutRequest.id}`}
-                      className="text-xs text-blue-400 hover:text-blue-300"
-                    >
-                      View Details →
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                <div className="mb-6 p-4 rounded-xl border border-slate-700/50 bg-slate-800/30">
-                  <p className="text-sm text-slate-400 mb-3">
-                    Create a stock-out request to initiate the approval workflow
-                  </p>
-                  {can("create", "stock_out_requests") && (
-                    <Link href={`/inventory/stock-out-requests/new?qmhq=${qmhqId}`}>
-                      <Button
-                        size="sm"
-                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Request Stock-Out
-                      </Button>
-                    </Link>
-                  )}
+              {/* Items Summary with Stepped Progress Bar */}
+              {qmhqItems.length > 0 && (
+                <div className="mb-6">
+                  <ItemsSummaryProgress items={itemsProgressData} />
                 </div>
               )}
 
+              {/* SOR-Grouped Transactions or Empty State */}
               {stockOutTransactions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
@@ -995,50 +936,28 @@ export default function QMHQDetailPage() {
                   </div>
                   <h3 className="text-lg font-medium text-slate-300 mb-2">No Items Issued Yet</h3>
                   <p className="text-sm text-slate-400 max-w-md mb-4">
-                    Issue items from warehouse inventory using the button above.
-                    Stock will be deducted from the selected warehouse.
+                    Stock-out transactions will appear here once a stock-out request is approved and executed.
                   </p>
+                  {!stockOutRequest && can("create", "stock_out_requests") && (
+                    <Link href={`/inventory/stock-out-requests/new?qmhq=${qmhqId}`}>
+                      <Button variant="outline" className="border-slate-700">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Request Stock-Out
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {stockOutTransactions.map((tx) => (
-                    <div
-                      key={tx.id}
-                      className="p-4 rounded-lg border bg-red-500/5 border-red-500/20"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-red-500/20">
-                            <ArrowUpFromLine className="h-5 w-5 text-red-400" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-slate-200 font-medium">
-                                {tx.item?.name || 'Unknown Item'}
-                              </span>
-                              {tx.item?.sku && (
-                                <code className="text-xs text-amber-400">{tx.item.sku}</code>
-                              )}
-                            </div>
-                            <p className="text-sm text-slate-400">
-                              From: {tx.warehouse?.name || 'Unknown Warehouse'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-mono font-bold text-red-400">
-                            -{tx.quantity}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {tx.reason === 'request' ? 'Request Fulfillment' : tx.reason}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
-                        <span>{new Date(tx.transaction_date || tx.created_at || '').toLocaleDateString()}</span>
-                        {tx.notes && <span className="truncate max-w-[200px]">{tx.notes}</span>}
-                      </div>
-                    </div>
+                <div className="space-y-6">
+                  {sorGroupedTransactions.map((group) => (
+                    <SORTransactionGroup
+                      key={group.sorId || group.sorNumber}
+                      sorId={group.sorId}
+                      sorNumber={group.sorNumber}
+                      sorStatus={group.sorStatus}
+                      totalQty={group.totalQty}
+                      transactions={group.transactions}
+                    />
                   ))}
                 </div>
               )}
