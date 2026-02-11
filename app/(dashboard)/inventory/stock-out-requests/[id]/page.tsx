@@ -227,14 +227,21 @@ export default function StockOutRequestDetailPage() {
           const approvedApprovals = (item.approvals || []).filter(
             (a: any) => a.decision === "approved"
           );
+          const rejectedApprovals = (item.approvals || []).filter(
+            (a: any) => a.decision === "rejected"
+          );
 
           const totalApprovedQuantity = approvedApprovals.reduce(
             (sum: number, a: any) => sum + (a.approved_quantity || 0),
             0
           );
+          const totalRejectedQuantity = rejectedApprovals.reduce(
+            (sum: number, a: any) => sum + (a.approved_quantity || 0),
+            0
+          );
 
           const remainingQuantity =
-            item.requested_quantity - totalApprovedQuantity;
+            item.requested_quantity - totalApprovedQuantity - totalRejectedQuantity;
 
           const assignedWarehouseName: string | null = null;
 
@@ -246,6 +253,7 @@ export default function StockOutRequestDetailPage() {
             requested_quantity: item.requested_quantity,
             status: item.status as SorLineItemStatus,
             total_approved_quantity: totalApprovedQuantity,
+            total_rejected_quantity: totalRejectedQuantity,
             remaining_quantity: remainingQuantity,
             assigned_warehouse_name: assignedWarehouseName,
           };

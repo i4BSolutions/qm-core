@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,11 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, X, AlertTriangle } from "lucide-react";
+import { Loader2, X, AlertTriangle, Package } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { AmountInput } from "@/components/ui/amount-input";
 import type { LineItemWithApprovals } from "./line-item-table";
 
 interface RejectionDialogProps {
@@ -29,7 +29,8 @@ interface RejectionDialogProps {
 /**
  * Rejection Dialog Component
  *
- * Allows approver to reject selected line items with a mandatory reason.
+ * Allows approver to reject selected line items with per-item qty and a mandatory reason.
+ * Mirrors the approval flow: select items → set qty to reject → provide reason.
  */
 export function RejectionDialog({
   open,
@@ -38,25 +39,65 @@ export function RejectionDialog({
   onSuccess,
 }: RejectionDialogProps) {
   const { user } = useAuth();
+  const [rejectedQuantities, setRejectedQuantities] = useState<Map<string, string>>(new Map());
   const [rejectionReason, setRejectionReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Map<string, string>>(new Map());
 
-  /**
-   * Validate rejection reason
-   */
-  const isValid = rejectionReason.trim().length > 0;
+  // Initialize rejected quantities when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    const initial = new Map<string, string>();
+    lineItems.forEach((item) => {
+      initial.set(item.id, item.remaining_quantity.toString());
+    });
+    setRejectedQuantities(initial);
+    setRejectionReason("");
+    setValidationErrors(new Map());
+  }, [open, lineItems]);
 
-  /**
-   * Handle form submission
-   */
+  const updateRejectedQty = (lineItemId: string, value: string) => {
+    setRejectedQuantities((prev) => {
+      const next = new Map(prev);
+      next.set(lineItemId, value);
+      return next;
+    });
+    setValidationErrors((prev) => {
+      const next = new Map(prev);
+      next.delete(lineItemId);
+      return next;
+    });
+  };
+
+  const validate = (): boolean => {
+    const errors = new Map<string, string>();
+
+    lineItems.forEach((item) => {
+      const qtyStr = rejectedQuantities.get(item.id) || "0";
+      const qty = parseInt(qtyStr, 10);
+      if (isNaN(qty) || qty <= 0) {
+        errors.set(item.id, "Must be greater than 0");
+      } else if (qty > item.remaining_quantity) {
+        errors.set(item.id, `Cannot exceed remaining quantity (${item.remaining_quantity})`);
+      }
+    });
+
+    if (rejectionReason.trim().length === 0) {
+      errors.set("reason", "Rejection reason is required");
+    }
+
+    setValidationErrors(errors);
+    return errors.size === 0;
+  };
+
   const handleSubmit = async () => {
     if (!user) {
       toast.error("User not authenticated");
       return;
     }
 
-    if (!isValid) {
-      toast.error("Please provide a rejection reason");
+    if (!validate()) {
+      toast.error("Please fix validation errors");
       return;
     }
 
@@ -64,32 +105,24 @@ export function RejectionDialog({
     const supabase = createClient();
 
     try {
-      // Insert rejection records for each selected line item
-      const insertPromises = lineItems.map((item) =>
-        supabase.from("stock_out_approvals").insert({
+      for (const item of lineItems) {
+        const rejectedQty = parseInt(rejectedQuantities.get(item.id) || "0", 10);
+
+        const { error } = await supabase.from("stock_out_approvals").insert({
           line_item_id: item.id,
-          approved_quantity: 0,
+          approved_quantity: rejectedQty,
           decision: "rejected",
           rejection_reason: rejectionReason.trim(),
           decided_by: user.id,
           created_by: user.id,
-        })
-      );
+        });
 
-      const results = await Promise.all(insertPromises);
-
-      // Check for errors
-      const errors = results.filter((r) => r.error);
-      if (errors.length > 0) {
-        throw new Error(
-          errors[0].error?.message || "Failed to reject line items"
-        );
+        if (error) throw error;
       }
 
       toast.success(`Rejected ${lineItems.length} line item(s)`);
       onSuccess();
       onOpenChange(false);
-      setRejectionReason(""); // Reset form
     } catch (error: any) {
       console.error("Error rejecting line items:", error);
       toast.error(error.message || "Failed to reject line items");
@@ -98,54 +131,98 @@ export function RejectionDialog({
     }
   };
 
-  /**
-   * Reset form when dialog closes
-   */
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       setRejectionReason("");
+      setValidationErrors(new Map());
     }
     onOpenChange(open);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Reject Line Items</DialogTitle>
           <DialogDescription>
-            Provide a reason for rejecting {lineItems.length} line item
+            Set rejected quantities and provide a reason for {lineItems.length} line item
             {lineItems.length !== 1 ? "s" : ""}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* List of items being rejected */}
-          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-2">
-            <div className="text-xs font-medium text-slate-400 uppercase mb-2">
-              Items to Reject
-            </div>
-            {lineItems.map((item) => (
+          {lineItems.map((item) => {
+            const qtyStr = rejectedQuantities.get(item.id) || "0";
+
+            return (
               <div
                 key={item.id}
-                className="flex items-center justify-between text-sm"
+                className="border border-slate-700 rounded-lg p-4 space-y-3"
               >
-                <div>
-                  <div className="text-slate-200 font-medium">
-                    {item.item_name || "Unknown Item"}
-                  </div>
-                  {item.item_sku && (
-                    <div className="text-xs text-slate-400 font-mono">
-                      {item.item_sku}
+                {/* Item Header */}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-medium text-slate-200 flex items-center gap-2">
+                      <Package className="w-4 h-4 text-slate-400" />
+                      {item.item_name || "Unknown Item"}
                     </div>
+                    {item.item_sku && (
+                      <div className="text-sm text-slate-400 font-mono ml-6">
+                        {item.item_sku}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right text-sm space-y-1">
+                    <div className="text-slate-400">
+                      Requested:{" "}
+                      <span className="font-mono text-slate-200">
+                        {item.requested_quantity}
+                      </span>
+                    </div>
+                    <div className="text-slate-400">
+                      Already Approved:{" "}
+                      <span className="font-mono text-slate-200">
+                        {item.total_approved_quantity}
+                      </span>
+                    </div>
+                    <div className="text-slate-400">
+                      Already Rejected:{" "}
+                      <span className="font-mono text-red-400">
+                        {item.total_rejected_quantity}
+                      </span>
+                    </div>
+                    <div className="text-amber-400 font-medium">
+                      Remaining:{" "}
+                      <span className="font-mono">
+                        {item.remaining_quantity}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rejected Quantity Input */}
+                <div className="space-y-2">
+                  <Label htmlFor={`reject-qty-${item.id}`}>
+                    Quantity to Reject *
+                  </Label>
+                  <AmountInput
+                    id={`reject-qty-${item.id}`}
+                    value={qtyStr}
+                    onValueChange={(val) => updateRejectedQty(item.id, val)}
+                    decimalScale={0}
+                    max={item.remaining_quantity}
+                    placeholder="0"
+                    error={validationErrors.has(item.id)}
+                  />
+                  {validationErrors.has(item.id) && (
+                    <p className="text-xs text-red-400">
+                      {validationErrors.get(item.id)}
+                    </p>
                   )}
                 </div>
-                <div className="font-mono text-slate-400">
-                  Qty: {item.requested_quantity}
-                </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
 
           {/* Rejection Reason Input */}
           <div className="space-y-2">
@@ -157,27 +234,21 @@ export function RejectionDialog({
               placeholder="Enter rejection reason..."
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
-              rows={4}
-              className={cn(
-                !isValid && rejectionReason.length > 0 && "border-red-500"
-              )}
+              rows={3}
             />
-            {!isValid && rejectionReason.length > 0 && (
+            {validationErrors.has("reason") && (
               <p className="text-xs text-red-400">
-                Rejection reason cannot be empty
+                {validationErrors.get("reason")}
               </p>
             )}
           </div>
 
           {/* Warning Message */}
-          <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-amber-200">
-              <div className="font-medium mb-1">Warning</div>
-              <div className="text-amber-300/80">
-                Rejection is terminal. The requester will need to create a new
-                request if they still need these items.
-              </div>
+          <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-red-200">
+              Rejected quantities cannot be stocked out. The requester will need
+              to create a new request for rejected quantities.
             </div>
           </div>
         </div>
@@ -192,7 +263,7 @@ export function RejectionDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitting || !isValid}
+            disabled={isSubmitting}
             variant="destructive"
           >
             {isSubmitting ? (

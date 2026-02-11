@@ -22,7 +22,8 @@ export interface LineItemWithApprovals {
   status: SorLineItemStatus;
   // Computed from joined approvals:
   total_approved_quantity: number;
-  remaining_quantity: number; // requested - total_approved
+  total_rejected_quantity: number;
+  remaining_quantity: number; // requested - total_approved - total_rejected
   // Latest warehouse assignment (from most recent approval):
   assigned_warehouse_name: string | null;
 }
@@ -92,9 +93,14 @@ function canSelectForApproval(item: LineItemWithApprovals): boolean {
 
 /**
  * Determine if a line item can be selected for rejection
+ * Same logic as approval: has remaining qty and not cancelled/executed
  */
 function canSelectForRejection(item: LineItemWithApprovals): boolean {
-  return item.status === "pending";
+  return (
+    item.remaining_quantity > 0 &&
+    item.status !== "cancelled" &&
+    item.status !== "executed"
+  );
 }
 
 /**
@@ -148,9 +154,9 @@ export function LineItemTable({
     (item) => item.remaining_quantity > 0
   );
 
-  // Check if selected items can be rejected (all are pending)
+  // Check if selected items can be rejected (all have remaining qty)
   const canRejectSelected = selectedItems.every(
-    (item) => item.status === "pending"
+    (item) => item.remaining_quantity > 0
   );
 
   return (
@@ -185,6 +191,9 @@ export function LineItemTable({
                 Approved
               </th>
               <th className="pb-3 text-right font-medium text-sm text-slate-400">
+                Rejected
+              </th>
+              <th className="pb-3 text-right font-medium text-sm text-slate-400">
                 Remaining
               </th>
               <th className="pb-3 text-left font-medium text-sm text-slate-400">
@@ -199,7 +208,7 @@ export function LineItemTable({
             {items.length === 0 ? (
               <tr>
                 <td
-                  colSpan={canApprove ? 8 : 7}
+                  colSpan={canApprove ? 9 : 8}
                   className="py-8 text-center text-slate-500"
                 >
                   No line items found
@@ -252,6 +261,16 @@ export function LineItemTable({
                     <td className="py-4 text-right">
                       <div className="font-mono text-slate-200">
                         {item.total_approved_quantity}
+                      </div>
+                    </td>
+                    <td className="py-4 text-right">
+                      <div className={cn(
+                        "font-mono",
+                        item.total_rejected_quantity > 0
+                          ? "text-red-400"
+                          : "text-slate-500"
+                      )}>
+                        {item.total_rejected_quantity}
                       </div>
                     </td>
                     <td className="py-4 text-right">
