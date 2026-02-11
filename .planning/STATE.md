@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 ## Current Position
 
 Phase: 36 of 40 (UI Component Standardization)
-Plan: 1 of 3 (executing)
+Plan: 2 of 3 (executing)
 Status: In progress
-Last activity: 2026-02-11 — Completed 36-01-PLAN.md (Core Composite Components)
+Last activity: 2026-02-11 — Completed 36-02-PLAN.md (Layout Composites & Barrel Export)
 
 Progress: [████████████████████░░░░░░░░░░░░] 35/40 phases complete (87.5%)
 
@@ -25,7 +25,7 @@ Progress: [████████████████████░░░
 - Total execution time: 7 milestones shipped 2026-01-27 to 2026-02-11 (15 days)
 
 **Recent Milestones:**
-- v1.8 (in progress): Phase 36, Plan 01 (89s)
+- v1.8 (in progress): Phase 36, Plan 01 (89s), Plan 02 (210s / 3.5min)
 - v1.7: 4 phases, 7 plans, 1 day
 - v1.6: 5 phases, 12 plans, 2 days
 - v1.5: 4 phases, 9 plans, 2 days
@@ -51,6 +51,8 @@ Recent decisions affecting v1.8 work:
 - [Phase 36-01]: Server Components by default: 4 of 5 components are presentational, only FilterBar needs 'use client'
 - [Phase 36-01]: Compound component pattern for FilterBar enables flexible composition while maintaining cohesive styling
 - [Phase 36-01]: CVA for FormSection variants follows existing button.tsx pattern for type-safe spacing presets
+- [Phase 36-02]: Use barrel export pattern for composite components (COMP-EXPORT-01)
+- [Phase 36-02]: DetailPageLayout as Server Component, CardViewGrid as Client Component (COMP-LAYOUT-01, COMP-GRID-01)
 
 ### Pending Todos
 
@@ -78,9 +80,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11 (plan execution)
-Stopped at: Completed 36-01-PLAN.md (Core Composite Components)
-Resume file: None (ready to continue with 36-02-PLAN.md)
+Stopped at: Completed 36-02-PLAN.md (Layout Composites & Barrel Export)
+Resume file: None (ready to continue with 36-03-PLAN.md)
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-11 after completing 36-01-PLAN.md*
+*Last updated: 2026-02-11 after completing 36-02-PLAN.md*
