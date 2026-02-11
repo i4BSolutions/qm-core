@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 ## Current Position
 
 Phase: 34 of 35 (Database Trigger Hardening)
-Plan: 01 of 02 complete
-Status: Phase 34 in progress
-Last activity: 2026-02-11 — Completed 34-01 (Advisory locks and row-level locking)
+Plan: 02 of 02 complete
+Status: Phase 34 complete
+Last activity: 2026-02-11 — Completed 34-02 (QMHQ auto-population and idempotency constraints)
 
 Progress: [████████████████████████████████████████████████████████░] 94% (33 of 35 phases)
 
@@ -87,6 +87,8 @@ Recent decisions affecting v1.7:
 - [Phase 34]: Transaction-level advisory locks for automatic cleanup (pg_advisory_xact_lock prevents session lock leaks)
 - [Phase 34]: Lock ordering prevents deadlocks (line item trigger context -> parent request FOR UPDATE)
 - [Phase 34]: Data migration before CHECK constraint (fixes orphaned records to prevent deployment failures)
+- [Phase 34-database-trigger-hardening]: Auto-populate qmhq_id from SOR chain with three guard clauses (movement type, approval link, override protection)
+- [Phase 34-database-trigger-hardening]: Partial unique index for idempotency (completed + active inventory_out only, excludes manual stock-outs)
 
 ### Pending Todos
 
@@ -106,9 +108,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 34-01 (Advisory locks and row-level locking for trigger hardening)
+Stopped at: Completed 34-02 (QMHQ auto-population and idempotency constraints)
 Resume file: None
-Next action: Execute 34-02 (QMHQ auto-population and idempotency constraints)
+Next action: Execute Phase 35 (Per-Line-Item Execution Logic)
 
 ## Performance Metrics
 
@@ -130,8 +132,9 @@ Next action: Execute 34-02 (QMHQ auto-population and idempotency constraints)
 | 32-qmhq-transaction-linking | 02 | 5min | 2 | 1 | 2026-02-11 |
 | 33-dual-reference-display | 01 | 6min | 2 | 3 | 2026-02-11 |
 | 34-database-trigger-hardening | 01 | 1min | 2 | 3 | 2026-02-11 |
+| 34-database-trigger-hardening | 02 | 1min | 2 | 2 | 2026-02-11 |
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-11 - Completed 34-01 (Advisory locks and row-level locking for trigger hardening)*
+*Last updated: 2026-02-11 - Completed 34-02 (QMHQ auto-population and idempotency constraints)*
 
