@@ -65,9 +65,7 @@ export function FulfillmentMetrics({ qmhqId }: FulfillmentMetricsProps) {
               if (approval.decision === "approved") {
                 approved += approval.approved_quantity || 0;
               } else if (approval.decision === "rejected") {
-                // For rejected, count the rejection (approved_quantity might be 0)
-                // We'll count the number of rejections as a fallback
-                rejected += 1;
+                rejected += approval.approved_quantity || 0;
               }
             }
           }
@@ -151,9 +149,19 @@ export function FulfillmentMetrics({ qmhqId }: FulfillmentMetricsProps) {
   }
 
   // Render metrics
+  const effectiveTarget = metrics.requested - metrics.rejected;
+
   return (
     <div className="command-panel p-6">
-      <h3 className="text-lg font-semibold text-slate-200 mb-4">Fulfillment</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-slate-200">Fulfillment</h3>
+        <span className="text-sm text-slate-400 font-mono">
+          {metrics.executed}/{effectiveTarget}
+          {metrics.rejected > 0 && (
+            <span className="text-red-400 ml-1">(-{metrics.rejected})</span>
+          )}
+        </span>
+      </div>
       <div className="grid grid-cols-4 gap-4">
         {/* Requested */}
         <div className="space-y-1">
