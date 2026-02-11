@@ -9,7 +9,7 @@
 - ✅ **v1.4 UX Enhancements & Workflow Improvements** - Phases 20-22 (shipped 2026-02-06)
 - ✅ **v1.5 UX Polish & Collaboration** - Phases 23-26 (shipped 2026-02-09)
 - ✅ **v1.6 Stock-Out Approval & Data Integrity** - Phases 27-31 (shipped 2026-02-10)
-- 🚧 **v1.7 Stock-Out Request Logic Repair** - Phases 32-35 (in progress)
+- ✅ **v1.7 Stock-Out Request Logic Repair** - Phases 32-35 (shipped 2026-02-11)
 
 ## Phases
 
@@ -62,7 +62,7 @@ Phases 27-31 delivered stock-out request/approval workflow with partial approval
 
 </details>
 
-### 🚧 v1.7 Stock-Out Request Logic Repair (In Progress)
+### ✅ v1.7 Stock-Out Request Logic Repair (Shipped 2026-02-11)
 
 **Milestone Goal:** Fix stock-out execution to work per line item instead of per request, connect QMHQ item detail to stock-out transactions properly, and display correct references (SOR primary, QMHQ secondary).
 
@@ -125,8 +125,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 35-01-PLAN.md — Per-approval execution buttons on SOR detail page with stock pre-check and confirmation dialog
-- [ ] 35-02-PLAN.md — FulfillmentMetrics component on QMHQ item detail page with cross-tab sync
+- [x] 35-01-PLAN.md — Per-approval execution buttons on SOR detail page with stock pre-check and confirmation dialog
+- [x] 35-02-PLAN.md — FulfillmentMetrics component on QMHQ item detail page with cross-tab sync
 
 ## Progress
 
@@ -145,4 +145,4 @@ Phases execute in numeric order: 32 → 33 → 34 → 35
 | 32. QMHQ Transaction Linking | v1.7 | 2/2 | ✓ Complete | 2026-02-11 |
 | 33. Dual Reference Display | v1.7 | 1/1 | ✓ Complete | 2026-02-11 |
 | 34. Database Trigger Hardening | v1.7 | 2/2 | ✓ Complete | 2026-02-11 |
-| 35. Per-Line-Item Execution UI | v1.7 | 0/? | Not started | - |
+| 35. Per-Line-Item Execution UI | v1.7 | 2/2 | ✓ Complete | 2026-02-11 |
