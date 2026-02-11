@@ -57,7 +57,7 @@ export async function POST(request: Request) {
         .from("users")
         .update({
           full_name,
-          role: role || "requester",
+          role: role || "qmrl",
           department_id: department_id || null,
           phone: phone || null,
         })

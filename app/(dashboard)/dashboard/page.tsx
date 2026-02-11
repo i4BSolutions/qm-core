@@ -2,7 +2,7 @@
  * Dashboard Page
  *
  * Server component that provides role-based access control for the management dashboard.
- * Admin and Quartermaster users see the live dashboard.
+ * Admin users see the live dashboard.
  * Other roles are redirected to their primary workflow page.
  */
 
@@ -10,15 +10,6 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getDashboardData } from '@/lib/actions/dashboard';
 import { DashboardClient } from './components/dashboard-client';
-
-// Map non-management roles to their primary page
-const roleRedirectMap: Record<string, string> = {
-  finance: '/po',
-  inventory: '/inventory',
-  proposal: '/qmhq',
-  frontline: '/qmrl',
-  requester: '/qmrl',
-};
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -36,10 +27,9 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single();
 
-  // Redirect non-management roles to their primary page
-  if (profile?.role && profile.role !== 'admin' && profile.role !== 'quartermaster') {
-    const redirectTo = roleRedirectMap[profile.role] || '/qmrl';
-    redirect(redirectTo);
+  // Redirect non-admin users to their primary page
+  if (profile?.role && profile.role !== 'admin') {
+    redirect(profile.role === 'qmhq' ? '/qmhq' : '/qmrl');
   }
 
   // Fetch dashboard data for management users

@@ -27,7 +27,7 @@ type UserWithDepartment = UserType & {
   departments: Pick<Department, "id" | "name"> | null;
 };
 
-type UserRole = "admin" | "quartermaster" | "finance" | "inventory" | "proposal" | "frontline" | "requester";
+type UserRole = "admin" | "qmrl" | "qmhq";
 
 interface UserDialogProps {
   open: boolean;
@@ -39,12 +39,8 @@ interface UserDialogProps {
 
 const roles = [
   { value: "admin", label: "Admin", description: "Full system access" },
-  { value: "quartermaster", label: "Quartermaster", description: "Approve, view all, manage inventory" },
-  { value: "finance", label: "Finance", description: "Financial transactions, PO, Invoice" },
-  { value: "inventory", label: "Inventory", description: "Inventory transactions, warehouses" },
-  { value: "proposal", label: "Proposal", description: "Process requests, create QMHQ" },
-  { value: "frontline", label: "Frontline", description: "Validate draft requests" },
-  { value: "requester", label: "Requester", description: "Create requests, view own only" },
+  { value: "qmrl", label: "QMRL", description: "Create and manage request letters" },
+  { value: "qmhq", label: "QMHQ", description: "HQ operations, POs, invoices, inventory requests" },
 ];
 
 export function UserDialog({ open, onClose, user, departments, isCreateMode }: UserDialogProps) {
@@ -52,7 +48,7 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
   const [formData, setFormData] = useState({
     email: "",
     full_name: "",
-    role: "requester" as UserRole,
+    role: "qmrl" as UserRole,
     department_id: "",
     phone: "",
   });
@@ -63,7 +59,7 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
       setFormData({
         email: user.email || "",
         full_name: user.full_name || "",
-        role: (user.role || "requester") as UserRole,
+        role: (user.role || "qmrl") as UserRole,
         department_id: user.department_id || "",
         phone: user.phone || "",
       });
@@ -71,7 +67,7 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
       setFormData({
         email: "",
         full_name: "",
-        role: "requester",
+        role: "qmrl",
         department_id: "",
         phone: "",
       });

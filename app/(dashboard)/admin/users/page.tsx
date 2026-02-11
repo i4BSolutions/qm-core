@@ -26,12 +26,8 @@ type UserWithDepartment = UserType & {
 
 const roleConfig: Record<string, { label: string; color: string }> = {
   admin: { label: "Admin", color: "bg-red-500" },
-  quartermaster: { label: "Quartermaster", color: "bg-purple-500" },
-  finance: { label: "Finance", color: "bg-emerald-500" },
-  inventory: { label: "Inventory", color: "bg-blue-500" },
-  proposal: { label: "Proposal", color: "bg-amber-500" },
-  frontline: { label: "Frontline", color: "bg-cyan-500" },
-  requester: { label: "Requester", color: "bg-slate-500" },
+  qmrl: { label: "QMRL", color: "bg-blue-500" },
+  qmhq: { label: "QMHQ", color: "bg-amber-500" },
 };
 
 export default function UsersPage() {
@@ -213,7 +209,7 @@ export default function UsersPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Role" />,
       cell: ({ row }) => {
         const isInactive = !row.original.is_active;
-        const role = roleConfig[row.original.role || "requester"];
+        const role = roleConfig[row.original.role || "qmrl"];
         return (
           <div className={`flex items-center gap-2 ${isInactive ? "opacity-50" : ""}`}>
             <span className={`w-2 h-2 rounded-full ${role?.color || "bg-slate-500"}`} />
@@ -302,7 +298,7 @@ export default function UsersPage() {
 
   // Count users by role and status
   const roleCounts = users.reduce((acc, user) => {
-    const role = user.role || "requester";
+    const role = user.role || "qmrl";
     acc[role] = (acc[role] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -362,21 +358,19 @@ export default function UsersPage() {
         </div>
         <div className="command-panel p-4">
           <div className="flex items-center gap-3">
-            <Shield className="h-5 w-5 text-purple-400" />
+            <Shield className="h-5 w-5 text-blue-400" />
             <div>
-              <p className="text-2xl font-bold text-slate-200">{roleCounts.quartermaster || 0}</p>
-              <p className="text-xs text-slate-400">Quartermasters</p>
+              <p className="text-2xl font-bold text-slate-200">{roleCounts.qmrl || 0}</p>
+              <p className="text-xs text-slate-400">QMRL Users</p>
             </div>
           </div>
         </div>
         <div className="command-panel p-4">
           <div className="flex items-center gap-3">
-            <Mail className="h-5 w-5 text-blue-400" />
+            <Mail className="h-5 w-5 text-amber-400" />
             <div>
-              <p className="text-2xl font-bold text-slate-200">
-                {(roleCounts.finance || 0) + (roleCounts.inventory || 0) + (roleCounts.proposal || 0)}
-              </p>
-              <p className="text-xs text-slate-400">Staff</p>
+              <p className="text-2xl font-bold text-slate-200">{roleCounts.qmhq || 0}</p>
+              <p className="text-xs text-slate-400">QMHQ Users</p>
             </div>
           </div>
         </div>
