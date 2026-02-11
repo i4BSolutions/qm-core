@@ -48,24 +48,26 @@ None — focused repair milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EXEC-01 | — | Pending |
-| EXEC-02 | — | Pending |
-| LINK-01 | — | Pending |
-| LINK-02 | — | Pending |
-| REF-01 | — | Pending |
-| REF-02 | — | Pending |
-| METRIC-01 | — | Pending |
-| METRIC-02 | — | Pending |
-| METRIC-03 | — | Pending |
-| METRIC-04 | — | Pending |
-| METRIC-05 | — | Pending |
-| METRIC-06 | — | Pending |
+| LINK-01 | Phase 32 | Pending |
+| REF-01 | Phase 33 | Pending |
+| REF-02 | Phase 33 | Pending |
+| LINK-02 | Phase 33 | Pending |
+| EXEC-01 | Phase 35 | Pending |
+| EXEC-02 | Phase 35 | Pending |
+| METRIC-01 | Phase 35 | Pending |
+| METRIC-02 | Phase 35 | Pending |
+| METRIC-03 | Phase 35 | Pending |
+| METRIC-04 | Phase 35 | Pending |
+| METRIC-05 | Phase 35 | Pending |
+| METRIC-06 | Phase 35 | Pending |
 
 **Coverage:**
 - v1.7 requirements: 12 total
-- Mapped to phases: 0
-- Unmapped: 12 (pending roadmap creation)
+- Mapped to phases: 12 (100%)
+- Unmapped: 0
+
+**Phase 34 Note:** Phase 34 (Database Trigger Hardening) has no direct requirements mapped to it because it provides infrastructure that enables EXEC-01/02. Success criteria ensure data integrity during per-line execution, which is a prerequisite for Phase 35.
 
 ---
 *Requirements defined: 2026-02-11*
-*Last updated: 2026-02-11 after initial definition*
+*Last updated: 2026-02-11 after roadmap creation*

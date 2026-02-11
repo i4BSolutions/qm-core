@@ -5,14 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** v1.7 Stock-Out Request Logic Repair
+**Current focus:** Phase 32 - QMHQ Transaction Linking
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-11 — Milestone v1.7 started
+Phase: 32 of 35 (QMHQ Transaction Linking)
+Plan: Ready to plan
+Status: Roadmap created, awaiting first phase planning
+Last activity: 2026-02-11 — Roadmap created for v1.7 Stock-Out Request Logic Repair
+
+Progress: [████████████████████████████████████████████████████░░░] 89% (31 of 35 phases)
 
 ## Milestone History
 
@@ -67,58 +69,28 @@ Last activity: 2026-02-11 — Milestone v1.7 started
 - Cross-Tab Sync with BroadcastChannel and Safari fallback
 - Blur Validation pattern with onOpenChange handlers
 
-### v1.3 UX & Bug Fixes (Shipped 2026-02-02)
-
-**Velocity:**
-- Total plans: 11
-- Phases: 17 -> 18 -> 19
-- Duration: 1 day
-
-**Key Patterns Established:**
-- Number input utilities (keydown handlers, no auto-format on blur)
-- CurrencyDisplay component for two-line original + EUSD format
-- RPC-first pattern for complex mutations with audit trail
-- Trigger deduplication via time-window check (2-second window)
-
-### v1.2 Inventory & Financial Accuracy (Shipped 2026-01-31)
-
-**Velocity:**
-- Total plans: 14
-- Phases: 11 -> 12 -> 13 -> 14 -> 15 -> 16
-- Duration: 3 days
-
-**Key Patterns Established:**
-- EUSD-only display pattern (dropped MMK columns)
-- Cascade audit logging with changes_summary
-- Server action for pre-void state capture
-- RPC functions for aggregation
-- URL search params for filter state
-
-### v1.1 Enhancement (Shipped 2026-01-28)
-
-**Velocity:**
-- Total plans: 17
-- Average duration: 16 min
-- Total execution time: ~5 hours
-
-**Key Patterns Established:**
-- JSONB pattern for audit triggers
-- Polymorphic entity reference for files
-- Sequential file upload with retry
-- CDN worker for PDF.js
-- Server component role check with client refresh
-
 ## Accumulated Context
 
 ### Decisions
 
 See PROJECT.md Key Decisions table for full log.
+Recent decisions affecting v1.7:
+
+- [Phase 28]: Admin-only approval via RLS (Database-level enforcement for stock-out requests)
+- [Phase 29]: Computed request status from line items (Parent always reflects child state, no manual sync)
+- [Phase 30]: Whole-request atomic execution (⚠️ CHANGING in v1.7 to per-line-item execution)
+- [Phase 31]: Conditional slider rendering (Slider only when context exists, clean UX for manual flows)
 
 ### Pending Todos
 
 None.
 
 ### Blockers/Concerns
+
+**From v1.7 Planning:**
+- Advisory lock patterns need validation during Phase 34 (database trigger hardening)
+- Concurrent execution threshold testing needed (target: 10+ concurrent executions with <1s lock wait time)
+- Real-time subscription vs query invalidation decision needed for Phase 35 (depends on multi-tab usage patterns)
 
 **Known Tech Debt:**
 - PO Edit page does not exist at /po/[id]/edit (Edit button links to 404) — pre-existing from v1.3
@@ -127,9 +99,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Milestone v1.7 requirements definition
+Stopped at: v1.7 roadmap creation completed
 Resume file: None
-Next step: Define requirements and create roadmap
+Next action: `/gsd:plan-phase 32`
 
 ## Performance Metrics
 
@@ -150,4 +122,4 @@ Next step: Define requirements and create roadmap
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-11 - Milestone v1.7 started*
+*Last updated: 2026-02-11 - v1.7 roadmap created*

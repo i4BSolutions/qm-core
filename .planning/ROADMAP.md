@@ -9,6 +9,7 @@
 - ✅ **v1.4 UX Enhancements & Workflow Improvements** - Phases 20-22 (shipped 2026-02-06)
 - ✅ **v1.5 UX Polish & Collaboration** - Phases 23-26 (shipped 2026-02-09)
 - ✅ **v1.6 Stock-Out Approval & Data Integrity** - Phases 27-31 (shipped 2026-02-10)
+- 🚧 **v1.7 Stock-Out Request Logic Repair** - Phases 32-35 (in progress)
 
 ## Phases
 
@@ -61,7 +62,73 @@ Phases 27-31 delivered stock-out request/approval workflow with partial approval
 
 </details>
 
+### 🚧 v1.7 Stock-Out Request Logic Repair (In Progress)
+
+**Milestone Goal:** Fix stock-out execution to work per line item instead of per request, connect QMHQ item detail to stock-out transactions properly, and display correct references (SOR primary, QMHQ secondary).
+
+#### Phase 32: QMHQ Transaction Linking
+**Goal**: Stock-out transactions are linked to parent QMHQ via qmhq_id FK propagation
+**Depends on**: Phase 31 (v1.6 shipped)
+**Requirements**: LINK-01
+**Success Criteria** (what must be TRUE):
+  1. When admin approves a stock-out request linked to a QMHQ, the created inventory transaction has qmhq_id populated
+  2. QMHQ item detail page shows stock-out transactions for that QMHQ (via qmhq_id link)
+  3. Manual stock-out requests (no QMHQ parent) create transactions with NULL qmhq_id
+**Plans**: TBD
+
+Plans:
+- [ ] 32-01: [TBD during planning]
+
+#### Phase 33: Dual Reference Display
+**Goal**: Users can see both SOR ID and parent QMHQ ID on stock-out transactions
+**Depends on**: Phase 32 (qmhq_id populated in transactions)
+**Requirements**: REF-01, REF-02, LINK-02
+**Success Criteria** (what must be TRUE):
+  1. Stock-out transactions show SOR approval number as primary reference (e.g., "SOR-2026-00001")
+  2. When transaction is linked to a QMHQ, secondary reference displays parent QMHQ ID (e.g., "via QMHQ-2026-00042")
+  3. Both SOR and QMHQ references are clickable links to their respective detail pages
+  4. QMHQ item detail displays linked stock-out transactions in a dedicated table
+**Plans**: TBD
+
+Plans:
+- [ ] 33-01: [TBD during planning]
+
+#### Phase 34: Database Trigger Hardening
+**Goal**: Database integrity guarantees prevent race conditions and orphaned records during per-line execution
+**Depends on**: Phase 33 (display foundation ready)
+**Requirements**: None (infrastructure for EXEC-01/02)
+**Success Criteria** (what must be TRUE):
+  1. Concurrent execution of multiple line items does not create negative stock (advisory locks serialize validation)
+  2. Parent request status always reflects accurate aggregation of child line item statuses (row-level locking prevents stale reads)
+  3. Cannot create inventory transaction without valid stock_out_approval_id when movement_type is 'inventory_out' with reason 'request'
+  4. QMHQ link auto-populates from SOR when transaction is created (no orphaned transactions)
+  5. Cannot execute the same approval twice (idempotency constraint prevents duplicates)
+**Plans**: TBD
+
+Plans:
+- [ ] 34-01: [TBD during planning]
+
+#### Phase 35: Per-Line-Item Execution UI
+**Goal**: Each approved stock-out line item can be executed independently
+**Depends on**: Phase 34 (triggers deployed)
+**Requirements**: EXEC-01, EXEC-02, METRIC-01, METRIC-02, METRIC-03, METRIC-04, METRIC-05, METRIC-06
+**Success Criteria** (what must be TRUE):
+  1. Each approved line item has its own Execute button (not just request-level)
+  2. Executing one line item changes only that line's status (other approved items remain unchanged)
+  3. QMHQ item detail shows requested qty (sum of SOR line items)
+  4. QMHQ item detail shows approved qty (sum of approvals)
+  5. QMHQ item detail shows rejected qty (sum of rejections)
+  6. QMHQ item detail shows executed/fulfilled qty (sum of stock-out transactions)
+  7. Fulfillment Progress on QMHQ detail calculates as (executed qty / approved qty) with requested qty visible
+**Plans**: TBD
+
+Plans:
+- [ ] 35-01: [TBD during planning]
+
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 32 → 33 → 34 → 35
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -72,3 +139,7 @@ Phases 27-31 delivered stock-out request/approval workflow with partial approval
 | 20-22. Upload → Validation | v1.4 | 9/9 | ✓ Complete | 2026-02-06 |
 | 23-26. Comments → Currency | v1.5 | 9/9 | ✓ Complete | 2026-02-09 |
 | 27-31. Stock-Out → Sliders | v1.6 | 12/12 | ✓ Complete | 2026-02-10 |
+| 32. QMHQ Transaction Linking | v1.7 | 0/? | Not started | - |
+| 33. Dual Reference Display | v1.7 | 0/? | Not started | - |
+| 34. Database Trigger Hardening | v1.7 | 0/? | Not started | - |
+| 35. Per-Line-Item Execution UI | v1.7 | 0/? | Not started | - |
