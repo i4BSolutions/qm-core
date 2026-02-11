@@ -48,6 +48,7 @@ import { SORTransactionGroup } from "@/components/qmhq/sor-transaction-group";
 import { ItemsSummaryProgress } from "@/components/qmhq/items-summary-progress";
 import type { ItemProgressData } from "@/components/qmhq/items-summary-progress";
 import { QmhqLinkedTransactions } from "@/components/qmhq/qmhq-linked-transactions";
+import { FulfillmentMetrics } from "@/components/qmhq/fulfillment-metrics";
 import type {
   QMHQ,
   StatusConfig,
@@ -353,6 +354,24 @@ export default function QMHQDetailPage() {
       fetchData();
     }
   }, [qmhqId, fetchData, updatedParam]);
+
+  // Cross-tab execution sync
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel('qm-stock-out-execution');
+      channel.onmessage = (event) => {
+        if (event.data.type === 'APPROVAL_EXECUTED' && event.data.qmhqId === qmhqId) {
+          fetchData();
+        }
+      };
+    } catch {
+      // BroadcastChannel not supported - graceful degradation
+    }
+    return () => {
+      try { channel?.close(); } catch {}
+    };
+  }, [qmhqId, fetchData]);
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return "—";
@@ -836,14 +855,22 @@ export default function QMHQDetailPage() {
               </div>
             )}
 
-            {/* Fulfillment Progress for item route */}
-            {qmhq.route_type === "item" && qmhqItems.length > 0 && (
-              <div className="command-panel corner-accents lg:col-span-2">
-                <div className="section-header">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                  <h2>Fulfillment Progress</h2>
-                </div>
-                <ItemsSummaryProgress items={itemsProgressData} />
+            {/* Fulfillment for item route */}
+            {qmhq.route_type === "item" && (
+              <div className="lg:col-span-2 space-y-6">
+                {/* Aggregate Fulfillment Metrics */}
+                <FulfillmentMetrics qmhqId={qmhqId} />
+
+                {/* Per-Item Progress */}
+                {qmhqItems.length > 0 && (
+                  <div className="command-panel corner-accents">
+                    <div className="section-header">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      <h2>Item Progress</h2>
+                    </div>
+                    <ItemsSummaryProgress items={itemsProgressData} />
+                  </div>
+                )}
               </div>
             )}
 
