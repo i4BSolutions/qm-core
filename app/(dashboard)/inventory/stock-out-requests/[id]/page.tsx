@@ -22,8 +22,14 @@ import { LineItemTable } from "@/components/stock-out-requests/line-item-table";
 import type { LineItemWithApprovals } from "@/components/stock-out-requests/line-item-table";
 import { ApprovalDialog } from "@/components/stock-out-requests/approval-dialog";
 import { RejectionDialog } from "@/components/stock-out-requests/rejection-dialog";
-import { ExecutionDialog } from "@/components/stock-out-requests/execution-dialog";
+import { ExecutionConfirmationDialog } from "@/components/stock-out-requests/execution-confirmation-dialog";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Enums, Tables } from "@/types/database";
@@ -105,12 +111,12 @@ const REQUEST_STATUS_CONFIG: Record<
     bgColor: "bg-slate-500/10 border-slate-500/30",
   },
   partially_executed: {
-    label: "Partially Executed",
+    label: "Partially Fulfilled",
     color: "text-purple-400",
     bgColor: "bg-purple-500/10 border-purple-500/30",
   },
   executed: {
-    label: "Executed",
+    label: "Fulfilled",
     color: "text-emerald-400",
     bgColor: "bg-emerald-500/10 border-emerald-500/30",
   },
@@ -138,10 +144,16 @@ export default function StockOutRequestDetailPage() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
   const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
-  const [isExecutionDialogOpen, setIsExecutionDialogOpen] = useState(false);
-  const [executingApprovalId, setExecutingApprovalId] = useState<string | null>(null);
-  const [executingApprovalNumber, setExecutingApprovalNumber] = useState<string | null>(null);
-  const [approvalPendingStatus, setApprovalPendingStatus] = useState<Map<string, boolean>>(new Map());
+  const [executionDialogState, setExecutionDialogState] = useState<{
+    open: boolean;
+    approvalId: string;
+    itemName: string;
+    quantity: number;
+    warehouseName: string;
+  } | null>(null);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [optimisticExecutedIds, setOptimisticExecutedIds] = useState<Set<string>>(new Set());
+  const [approvalStockLevels, setApprovalStockLevels] = useState<Map<string, { available: number; needed: number }>>(new Map());
 
   // Context slider state
   const [qmhqDetail, setQmhqDetail] = useState<any>(null);
@@ -290,6 +302,7 @@ export default function StockOutRequestDetailPage() {
             created_at,
             warehouse_id,
             item_id,
+            stock_out_approval_id,
             warehouses!inventory_transactions_warehouse_id_fkey(id, name),
             items(id, name, sku)
           `
@@ -300,26 +313,59 @@ export default function StockOutRequestDetailPage() {
 
         if (!txError && txData) {
           setInventoryTransactions(txData);
+
+          // Calculate stock levels for each approved approval
+          const stockLevelsMap = new Map<string, { available: number; needed: number }>();
+
+          for (const approval of (approvalsData || [])) {
+            if (approval.decision === "approved") {
+              // Check if this approval has a completed transaction
+              const completedTx = txData.find(
+                (tx: any) => tx.stock_out_approval_id === approval.id && tx.status === "completed"
+              );
+
+              // Skip if already executed
+              if (completedTx) continue;
+
+              // Find pending transaction for this approval to get warehouse and item
+              const pendingTx = txData.find(
+                (tx: any) => tx.stock_out_approval_id === approval.id && tx.status === "pending"
+              );
+
+              if (pendingTx) {
+                const itemId = pendingTx.item_id;
+                const warehouseId = pendingTx.warehouse_id;
+                const neededQty = approval.approved_quantity;
+
+                // Calculate available stock for this warehouse + item
+                const { data: stockData } = await supabase
+                  .from("inventory_transactions")
+                  .select("movement_type, quantity")
+                  .eq("item_id", itemId)
+                  .eq("warehouse_id", warehouseId)
+                  .eq("is_active", true)
+                  .eq("status", "completed");
+
+                const availableStock = (stockData || []).reduce((sum: number, tx: any) => {
+                  if (tx.movement_type === "inventory_in") {
+                    return sum + (tx.quantity || 0);
+                  } else if (tx.movement_type === "inventory_out") {
+                    return sum - (tx.quantity || 0);
+                  }
+                  return sum;
+                }, 0);
+
+                stockLevelsMap.set(approval.id, {
+                  available: availableStock,
+                  needed: neededQty,
+                });
+              }
+            }
+          }
+
+          setApprovalStockLevels(stockLevelsMap);
         }
       }
-
-      // Check which approvals have pending executions
-      const pendingStatusMap = new Map<string, boolean>();
-
-      for (const approval of (approvalsData || [])) {
-        if (approval.decision === "approved") {
-          // Check if this approval has pending inventory transactions
-          const { count: pendingCount } = await supabase
-            .from("inventory_transactions")
-            .select("*", { count: "exact", head: true })
-            .eq("stock_out_approval_id", approval.id)
-            .eq("status", "pending");
-
-          pendingStatusMap.set(approval.id, (pendingCount ?? 0) > 0);
-        }
-      }
-
-      setApprovalPendingStatus(pendingStatusMap);
     } catch (error: any) {
       console.error("Error fetching request data:", error);
       toast.error(error.message || "Failed to load request data");
@@ -331,6 +377,127 @@ export default function StockOutRequestDetailPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  /**
+   * BroadcastChannel listener for cross-tab execution sync
+   */
+  useEffect(() => {
+    // Safari doesn't support BroadcastChannel
+    if (typeof BroadcastChannel === "undefined") return;
+
+    const channel = new BroadcastChannel("qm-stock-out-execution");
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === "APPROVAL_EXECUTED" && event.data.requestId === requestId) {
+        // Refetch data when another tab executes an approval
+        fetchData();
+      }
+    };
+
+    channel.addEventListener("message", handleMessage);
+
+    return () => {
+      channel.removeEventListener("message", handleMessage);
+      channel.close();
+    };
+  }, [requestId, fetchData]);
+
+  /**
+   * Handle opening execution confirmation dialog
+   */
+  const handleExecuteApproval = (approvalId: string) => {
+    const approval = approvals.find((a) => a.id === approvalId);
+    if (!approval) return;
+
+    // Find the pending transaction for this approval to get warehouse info
+    const pendingTx = inventoryTransactions.find(
+      (tx: any) => tx.stock_out_approval_id === approvalId && tx.status === "pending"
+    );
+
+    if (!pendingTx) {
+      toast.error("No pending transaction found for this approval");
+      return;
+    }
+
+    setExecutionDialogState({
+      open: true,
+      approvalId,
+      itemName: approval.line_item?.item_name || "Unknown Item",
+      quantity: approval.approved_quantity,
+      warehouseName: pendingTx.warehouses?.name || "Unknown Warehouse",
+    });
+  };
+
+  /**
+   * Confirm and execute the stock-out for a single approval
+   */
+  const confirmExecution = async () => {
+    if (!executionDialogState) return;
+
+    setIsExecuting(true);
+    const { approvalId } = executionDialogState;
+
+    // Optimistic update
+    setOptimisticExecutedIds((prev) => {
+      const next = new Set(prev);
+      next.add(approvalId);
+      return next;
+    });
+
+    const supabase = createClient();
+
+    try {
+      const now = new Date().toISOString();
+
+      // Update the pending transaction for this approval to completed
+      const { error: updateError } = await supabase
+        .from("inventory_transactions")
+        .update({
+          status: "completed",
+          transaction_date: now,
+        })
+        .eq("stock_out_approval_id", approvalId)
+        .eq("status", "pending");
+
+      if (updateError) throw updateError;
+
+      // Success
+      toast.success("Stock-out executed successfully");
+
+      // Broadcast to other tabs
+      if (typeof BroadcastChannel !== "undefined") {
+        try {
+          const channel = new BroadcastChannel("qm-stock-out-execution");
+          channel.postMessage({
+            type: "APPROVAL_EXECUTED",
+            approvalId,
+            requestId,
+            qmhqId: request?.qmhq_id,
+          });
+          channel.close();
+        } catch (error) {
+          // Ignore BroadcastChannel errors (Safari)
+          console.warn("BroadcastChannel not supported:", error);
+        }
+      }
+
+      // Close dialog and refetch
+      setExecutionDialogState(null);
+      await fetchData();
+    } catch (error: any) {
+      console.error("Error executing stock-out:", error);
+      toast.error(error.message || "Failed to execute stock-out");
+
+      // Rollback optimistic update
+      setOptimisticExecutedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(approvalId);
+        return next;
+      });
+    } finally {
+      setIsExecuting(false);
+    }
+  };
 
   /**
    * Fetch QMHQ details for slider when request has qmhq_id
@@ -658,108 +825,148 @@ export default function StockOutRequestDetailPage() {
                 No approvals yet
               </div>
             ) : (
-              <div className="space-y-4">
-                {approvals.map((approval) => {
-                  const hasPendingExecution = approvalPendingStatus.get(approval.id) || false;
+              <TooltipProvider>
+                <div className="space-y-4">
+                  {approvals.map((approval) => {
+                    // Check if this approval is executed
+                    const isExecuted =
+                      optimisticExecutedIds.has(approval.id) ||
+                      inventoryTransactions.some(
+                        (tx: any) =>
+                          tx.stock_out_approval_id === approval.id &&
+                          tx.status === "completed"
+                      );
 
-                  return (
-                    <div
-                      key={approval.id}
-                      className="border border-slate-700 rounded-lg p-4 space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {approval.approval_number && (
-                            <div className="font-mono text-sm text-slate-300">
-                              {approval.approval_number}
+                    const isRejected = approval.decision === "rejected";
+                    const stockInfo = approvalStockLevels.get(approval.id);
+                    const hasInsufficientStock =
+                      stockInfo && stockInfo.available < stockInfo.needed;
+
+                    return (
+                      <div
+                        key={approval.id}
+                        className="border border-slate-700 rounded-lg p-4 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {approval.approval_number && (
+                              <div className="font-mono text-sm text-slate-300">
+                                {approval.approval_number}
+                              </div>
+                            )}
+                            {/* Status Badge or Execute Button */}
+                            {isRejected ? (
+                              <Badge
+                                variant="outline"
+                                className="text-xs border-red-500/30 bg-red-500/10 text-red-400"
+                              >
+                                Rejected
+                              </Badge>
+                            ) : isExecuted ? (
+                              <Badge
+                                variant="outline"
+                                className="text-xs border-slate-500/30 bg-slate-500/10 text-slate-400"
+                              >
+                                Executed
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                              >
+                                Approved
+                              </Badge>
+                            )}
+                            {/* Execute Button for approved, not-yet-executed approvals */}
+                            {canExecute &&
+                              approval.decision === "approved" &&
+                              !isExecuted && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span>
+                                      <Button
+                                        size="sm"
+                                        onClick={() =>
+                                          handleExecuteApproval(approval.id)
+                                        }
+                                        disabled={
+                                          hasInsufficientStock || isExecuting
+                                        }
+                                        className="bg-emerald-600 hover:bg-emerald-500 text-xs"
+                                      >
+                                        <ArrowUpFromLine className="w-3 h-3 mr-1" />
+                                        Execute
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  {hasInsufficientStock && (
+                                    <TooltipContent>
+                                      Insufficient stock: Need {stockInfo.needed},
+                                      Available: {stockInfo.available}
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                              )}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {new Date(approval.decided_at).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="text-slate-500">Item:</span>{" "}
+                            <span className="text-slate-300">
+                              {approval.line_item?.item_name || "Unknown"}
+                            </span>
+                            {approval.line_item?.item_sku && (
+                              <span className="text-slate-500 ml-2">
+                                ({approval.line_item.item_sku})
+                              </span>
+                            )}
+                          </div>
+
+                          {approval.decision === "approved" && (
+                            <div>
+                              <span className="text-slate-500">Quantity:</span>{" "}
+                              <span className="font-mono text-slate-300">
+                                {approval.approved_quantity}
+                              </span>
                             </div>
                           )}
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-xs",
-                              approval.decision === "approved"
-                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                                : "border-red-500/30 bg-red-500/10 text-red-400"
-                            )}
-                          >
-                            {approval.decision === "approved"
-                              ? "Approved"
-                              : "Rejected"}
-                          </Badge>
-                          {canExecute && hasPendingExecution && (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setExecutingApprovalId(approval.id);
-                                setExecutingApprovalNumber(approval.approval_number);
-                                setIsExecutionDialogOpen(true);
-                              }}
-                              className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-xs"
-                            >
-                              <ArrowUpFromLine className="w-3 h-3 mr-1" />
-                              Execute Stock-Out
-                            </Button>
-                          )}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {new Date(approval.decided_at).toLocaleDateString(
-                            "en-US",
-                            {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )}
-                        </div>
-                      </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-slate-500">Item:</span>{" "}
-                        <span className="text-slate-300">
-                          {approval.line_item?.item_name || "Unknown"}
-                        </span>
-                        {approval.line_item?.item_sku && (
-                          <span className="text-slate-500 ml-2">
-                            ({approval.line_item.item_sku})
-                          </span>
+                          <div>
+                            <span className="text-slate-500">Decided by:</span>{" "}
+                            <span className="text-slate-300">
+                              {approval.decided_by_user?.full_name || "Unknown"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {approval.rejection_reason && (
+                          <div className="pt-2 border-t border-slate-700">
+                            <div className="text-xs text-slate-500 mb-1">
+                              Rejection Reason
+                            </div>
+                            <div className="text-sm text-red-400">
+                              {approval.rejection_reason}
+                            </div>
+                          </div>
                         )}
                       </div>
-
-                      {approval.decision === "approved" && (
-                        <div>
-                          <span className="text-slate-500">Quantity:</span>{" "}
-                          <span className="font-mono text-slate-300">
-                            {approval.approved_quantity}
-                          </span>
-                        </div>
-                      )}
-
-                      <div>
-                        <span className="text-slate-500">Decided by:</span>{" "}
-                        <span className="text-slate-300">
-                          {approval.decided_by_user?.full_name || "Unknown"}
-                        </span>
-                      </div>
-                    </div>
-
-                      {approval.rejection_reason && (
-                        <div className="pt-2 border-t border-slate-700">
-                          <div className="text-xs text-slate-500 mb-1">
-                            Rejection Reason
-                          </div>
-                          <div className="text-sm text-red-400">
-                            {approval.rejection_reason}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              </TooltipProvider>
             )}
           </div>
         </TabsContent>
@@ -873,19 +1080,18 @@ export default function StockOutRequestDetailPage() {
         onSuccess={handleDialogSuccess}
       />
 
-      {/* Execution Dialog */}
-      {executingApprovalId && (
-        <ExecutionDialog
-          open={isExecutionDialogOpen}
-          onOpenChange={setIsExecutionDialogOpen}
-          requestId={requestId}
-          approvalId={executingApprovalId}
-          approvalNumber={executingApprovalNumber}
-          onSuccess={() => {
-            fetchData();
-            setExecutingApprovalId(null);
-            setExecutingApprovalNumber(null);
+      {/* Execution Confirmation Dialog */}
+      {executionDialogState && (
+        <ExecutionConfirmationDialog
+          open={executionDialogState.open}
+          onOpenChange={(open) => {
+            if (!open) setExecutionDialogState(null);
           }}
+          itemName={executionDialogState.itemName}
+          quantity={executionDialogState.quantity}
+          warehouseName={executionDialogState.warehouseName}
+          onConfirm={confirmExecution}
+          isExecuting={isExecuting}
         />
       )}
       </div>
