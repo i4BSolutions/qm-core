@@ -77,8 +77,8 @@ Phases 27-31 delivered stock-out request/approval workflow with partial approval
 **Plans**: 2 plans
 
 Plans:
-- [ ] 32-01-PLAN.md — Create SOR transaction group and items summary progress bar components
-- [ ] 32-02-PLAN.md — Integrate SOR-grouped display and stepped progress bar into QMHQ detail page
+- [x] 32-01-PLAN.md — Create SOR transaction group and items summary progress bar components
+- [x] 32-02-PLAN.md — Integrate SOR-grouped display and stepped progress bar into QMHQ detail page
 
 #### Phase 33: Dual Reference Display
 **Goal**: Users can see both SOR ID and parent QMHQ ID on stock-out transactions
@@ -140,7 +140,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35
 | 20-22. Upload → Validation | v1.4 | 9/9 | ✓ Complete | 2026-02-06 |
 | 23-26. Comments → Currency | v1.5 | 9/9 | ✓ Complete | 2026-02-09 |
 | 27-31. Stock-Out → Sliders | v1.6 | 12/12 | ✓ Complete | 2026-02-10 |
-| 32. QMHQ Transaction Linking | v1.7 | 0/? | Not started | - |
+| 32. QMHQ Transaction Linking | v1.7 | 2/2 | ✓ Complete | 2026-02-11 |
 | 33. Dual Reference Display | v1.7 | 0/? | Not started | - |
 | 34. Database Trigger Hardening | v1.7 | 0/? | Not started | - |
 | 35. Per-Line-Item Execution UI | v1.7 | 0/? | Not started | - |
