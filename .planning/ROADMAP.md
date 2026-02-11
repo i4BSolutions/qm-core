@@ -138,8 +138,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 38-01-PLAN.md — Update TypeScript types, permission matrix, roleNavigation, and sidebar navigation
-- [ ] 38-02-PLAN.md — Update page-level role checks, admin UI configs, and stock-out approval guards
+- [x] 38-01-PLAN.md — Update TypeScript types, permission matrix, roleNavigation, and sidebar navigation
+- [x] 38-02-PLAN.md — Update page-level role checks, admin UI configs, and stock-out approval guards
 
 ---
 
@@ -205,7 +205,7 @@ Plans:
 | 32-35. Linking → Execution UI | v1.7 | 7/7 | ✓ Complete | 2026-02-11 |
 | 36. UI Component Standardization | v1.8 | 3/3 | ✓ Complete | 2026-02-11 |
 | 37. RBAC Database Migration | v1.8 | 2/2 | ✓ Complete | 2026-02-11 |
-| 38. RBAC Permission Enforcement | v1.8 | 0/? | Not started | - |
+| 38. RBAC Permission Enforcement | v1.8 | 2/2 | ✓ Complete | 2026-02-11 |
 | 39. End-to-End Flow Tracking | v1.8 | 0/? | Not started | - |
 | 40. UI Consistency Rollout | v1.8 | 0/? | Not started | - |
 
