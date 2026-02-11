@@ -47,6 +47,7 @@ import { CommentsSection } from "@/components/comments";
 import { SORTransactionGroup } from "@/components/qmhq/sor-transaction-group";
 import { ItemsSummaryProgress } from "@/components/qmhq/items-summary-progress";
 import type { ItemProgressData } from "@/components/qmhq/items-summary-progress";
+import { QmhqLinkedTransactions } from "@/components/qmhq/qmhq-linked-transactions";
 import type {
   QMHQ,
   StatusConfig,
@@ -971,6 +972,14 @@ export default function QMHQDetailPage() {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Linked Transactions Table */}
+            <div className="mt-6">
+              <QmhqLinkedTransactions
+                qmhqId={qmhqId}
+                qmhqRequestId={qmhq.request_id}
+              />
             </div>
           </TabsContent>
         )}
