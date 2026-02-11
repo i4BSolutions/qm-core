@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 ## Current Position
 
 Phase: 37 of 40 (RBAC Database Migration)
-Plan: 0 of ? (not yet planned)
-Status: Ready to plan
-Last activity: 2026-02-11 — Phase 36 verified and complete
+Plan: 1 of ? (Plan 01 complete)
+Status: In progress
+Last activity: 2026-02-11 — Phase 37 Plan 01 complete (enum migration)
 
 Progress: [████████████████████░░░░░░░░░░░] 36/40 phases complete (90%)
 
@@ -25,7 +25,7 @@ Progress: [████████████████████░░░
 - Total execution time: 7 milestones shipped 2026-01-27 to 2026-02-11 (15 days)
 
 **Recent Milestones:**
-- v1.8 (in progress): Phase 36 complete - Plan 01 (89s), Plan 02 (210s / 3.5min), Plan 03 (94s)
+- v1.8 (in progress): Phase 36 complete - Plan 01 (89s), Plan 02 (210s / 3.5min), Plan 03 (94s); Phase 37 Plan 01 (59s)
 - v1.7: 4 phases, 7 plans, 1 day
 - v1.6: 5 phases, 12 plans, 2 days
 - v1.5: 4 phases, 9 plans, 2 days
@@ -55,6 +55,10 @@ Recent decisions affecting v1.8 work:
 - [Phase 36-02]: DetailPageLayout as Server Component, CardViewGrid as Client Component (COMP-LAYOUT-01, COMP-GRID-01)
 - [Phase 36]: [Phase 36-03]: Pilot migration validates composites work in production pages without regression
 - [Phase 36]: [Phase 36-03]: Surgical JSX replacement pattern preserves business logic while migrating to composites
+- [Phase 37-01]: Expand-and-contract pattern for enum migration: rename → create → migrate → swap → drop (safe for PostgreSQL enum immutability)
+- [Phase 37-01]: Dropped has_role() function as dead code (not used in any RLS policies)
+- [Phase 37-01]: Default role changed from 'requester' to 'qmrl' for new signups (equivalent role in 3-role system)
+- [Phase 37-01]: NULL validation DO block aborts transaction on data integrity failure during role migration
 
 ### Pending Todos
 
@@ -81,10 +85,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-11 (phase 36 execution + verification)
-Stopped at: Phase 36 verified (20/20 must-haves passed) — ready for Phase 37
-Resume file: None (ready to plan Phase 37)
+Last session: 2026-02-11 (phase 37 plan 01 execution)
+Stopped at: Phase 37 Plan 01 complete — RBAC enum migration created
+Resume file: None (ready for Plan 02)
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-11 after Phase 36 verification passed*
+*Last updated: 2026-02-11 after Phase 37 Plan 01 completion*
