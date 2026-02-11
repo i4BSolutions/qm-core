@@ -8,6 +8,18 @@ An internal ticket, expense, and inventory management platform serving as a Sing
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
+## Current Milestone: v1.8 UI Consistency, Flow Tracking & RBAC
+
+**Goal:** Standardize UI/UX across all pages, add admin-only end-to-end request tracking, and overhaul RBAC to three roles (Admin, QMRL, QMHQ) with extensibility for future roles.
+
+**Target features:**
+- General UI/UX audit and standardization (buttons, inputs, spacing, layouts)
+- End-to-end flow tracking page (admin-only, search by QMRL ID)
+- RBAC overhaul: remove legacy 7-role system, replace with Admin/QMRL/QMHQ
+- QMRL role: create QMRL, view all QMRLs, no downstream access
+- QMHQ role: create QMHQ, view QMRLs (read-only), view QMHQs/transactions/stock summary/POs
+- Admin: full CRUD, approvals, tracking page, user management
+
 ## Current State (v1.7 Shipped)
 
 **Tech Stack:**
@@ -140,7 +152,9 @@ Users can reliably create purchase orders, receive inventory, and track request 
 
 ### Active
 
-(None — define in next milestone)
+- [ ] UI/UX standardization across all pages
+- [ ] End-to-end flow tracking page (admin-only)
+- [ ] RBAC overhaul to Admin/QMRL/QMHQ roles
 
 ### Out of Scope
 
@@ -270,4 +284,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
   - Execution is a dialog modal, not a standalone page
 
 ---
-*Last updated: 2026-02-11 after v1.7 milestone*
+*Last updated: 2026-02-11 after v1.8 milestone start*
