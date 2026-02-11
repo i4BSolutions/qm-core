@@ -93,6 +93,20 @@ type QMHQItemWithRelations = QMHQItem & {
 interface StockOutTransaction extends InventoryTransaction {
   item?: { id: string; name: string; sku: string | null } | null;
   warehouse?: { id: string; name: string } | null;
+  stock_out_approval?: {
+    id: string;
+    approved_quantity: number;
+    line_item?: {
+      id: string;
+      requested_quantity: number;
+      status: string;
+      request?: {
+        id: string;
+        request_number: string;
+        status: string;
+      } | null;
+    } | null;
+  } | null;
 }
 
 // Route type configuration
@@ -214,36 +228,45 @@ export default function QMHQDetailPage() {
         .select(`
           *,
           item:items(id, name, sku),
-          warehouse:warehouses!inventory_transactions_warehouse_id_fkey(id, name)
+          warehouse:warehouses!inventory_transactions_warehouse_id_fkey(id, name),
+          stock_out_approval:stock_out_approvals(
+            id,
+            approved_quantity,
+            line_item:stock_out_line_items(
+              id,
+              requested_quantity,
+              status,
+              request:stock_out_requests(
+                id,
+                request_number,
+                status
+              )
+            )
+          )
         `)
         .eq('qmhq_id', qmhqData.id)
         .eq('movement_type', 'inventory_out')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      console.log('[QMHQ Debug] Fetching stock-out for qmhq_id:', qmhqData.id);
-      console.log('[QMHQ Debug] Stock-out data:', stockOutData);
-      console.log('[QMHQ Debug] Stock-out error:', stockOutError);
-
       if (stockOutData) {
         setStockOutTransactions(stockOutData as unknown as StockOutTransaction[]);
       }
 
       // Fetch linked stock-out request
-      const { data: sorData } = await supabase
+      const { data: sorDataArray } = await supabase
         .from('stock_out_requests')
         .select(`
           id, request_number, status,
           line_items:stock_out_line_items(
-            id, requested_quantity, status,
+            id, item_id, requested_quantity, status,
             approvals:stock_out_approvals(approved_quantity, decision)
           )
         `)
         .eq('qmhq_id', qmhqData.id)
-        .eq('is_active', true)
-        .maybeSingle();
+        .eq('is_active', true);
 
-      setStockOutRequest(sorData);
+      setStockOutRequest(sorDataArray?.[0] ?? null);
     }
 
     // Fetch file count for attachments tab badge
