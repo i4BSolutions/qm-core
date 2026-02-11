@@ -89,10 +89,12 @@ Phases 32-35 delivered per-line-item stock-out execution, QMHQ transaction linki
 4. User sees consistent button hierarchy (primary/secondary/ghost) and sizing on pilot pages
 5. User sees consistent form layouts with standardized input sizing, label placement, and error displays on pilot pages
 
-**Plans:** TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 36-01: TBD (planning not started)
+- [ ] 36-01-PLAN.md — Core composite components (PageHeader, FilterBar, ActionButtons, FormField, FormSection)
+- [ ] 36-02-PLAN.md — Layout composite components (DetailPageLayout, CardViewGrid) + barrel export
+- [ ] 36-03-PLAN.md — Migrate 3 pilot pages (QMRL list, PO list, Item detail) to composites
 
 ---
 
@@ -199,7 +201,7 @@ Plans:
 | 23-26. Comments → Currency | v1.5 | 9/9 | ✓ Complete | 2026-02-09 |
 | 27-31. Stock-Out → Sliders | v1.6 | 12/12 | ✓ Complete | 2026-02-10 |
 | 32-35. Linking → Execution UI | v1.7 | 7/7 | ✓ Complete | 2026-02-11 |
-| 36. UI Component Standardization | v1.8 | 0/? | Not started | - |
+| 36. UI Component Standardization | v1.8 | 0/3 | Planned | - |
 | 37. RBAC Database Migration | v1.8 | 0/? | Not started | - |
 | 38. RBAC Permission Enforcement | v1.8 | 0/? | Not started | - |
 | 39. End-to-End Flow Tracking | v1.8 | 0/? | Not started | - |
