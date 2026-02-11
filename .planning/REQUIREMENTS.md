@@ -81,44 +81,47 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UI-01 | — | Pending |
-| UI-02 | — | Pending |
-| UI-03 | — | Pending |
-| UI-04 | — | Pending |
-| UI-05 | — | Pending |
-| UI-06 | — | Pending |
-| UI-07 | — | Pending |
-| UI-08 | — | Pending |
-| RBAC-01 | — | Pending |
-| RBAC-02 | — | Pending |
-| RBAC-03 | — | Pending |
-| RBAC-04 | — | Pending |
-| RBAC-05 | — | Pending |
-| RBAC-06 | — | Pending |
-| RBAC-07 | — | Pending |
-| RBAC-08 | — | Pending |
-| RBAC-09 | — | Pending |
-| RBAC-10 | — | Pending |
-| RBAC-11 | — | Pending |
-| RBAC-12 | — | Pending |
-| RBAC-13 | — | Pending |
-| RBAC-14 | — | Pending |
-| RBAC-15 | — | Pending |
-| RBAC-16 | — | Pending |
-| FLOW-01 | — | Pending |
-| FLOW-02 | — | Pending |
-| FLOW-03 | — | Pending |
-| FLOW-04 | — | Pending |
-| FLOW-05 | — | Pending |
-| FLOW-06 | — | Pending |
-| FLOW-07 | — | Pending |
-| FLOW-08 | — | Pending |
+| UI-01 | Phase 36 | Pending |
+| UI-02 | Phase 36 | Pending |
+| UI-03 | Phase 36 | Pending |
+| UI-04 | Phase 36 | Pending |
+| UI-05 | Phase 36 | Pending |
+| UI-06 | Phase 36 | Pending |
+| UI-07 | Phase 36 | Pending |
+| UI-08 | Phase 36 | Pending |
+| RBAC-01 | Phase 37 | Pending |
+| RBAC-02 | Phase 37 | Pending |
+| RBAC-03 | Phase 38 | Pending |
+| RBAC-04 | Phase 38 | Pending |
+| RBAC-05 | Phase 38 | Pending |
+| RBAC-06 | Phase 38 | Pending |
+| RBAC-07 | Phase 38 | Pending |
+| RBAC-08 | Phase 38 | Pending |
+| RBAC-09 | Phase 38 | Pending |
+| RBAC-10 | Phase 38 | Pending |
+| RBAC-11 | Phase 38 | Pending |
+| RBAC-12 | Phase 38 | Pending |
+| RBAC-13 | Phase 38 | Pending |
+| RBAC-14 | Phase 38 | Pending |
+| RBAC-15 | Phase 38 | Pending |
+| RBAC-16 | Phase 37 | Pending |
+| FLOW-01 | Phase 39 | Pending |
+| FLOW-02 | Phase 39 | Pending |
+| FLOW-03 | Phase 39 | Pending |
+| FLOW-04 | Phase 39 | Pending |
+| FLOW-05 | Phase 39 | Pending |
+| FLOW-06 | Phase 39 | Pending |
+| FLOW-07 | Phase 39 | Pending |
+| FLOW-08 | Phase 39 | Pending |
 
 **Coverage:**
 - v1.8 requirements: 32 total
-- Mapped to phases: 0
-- Unmapped: 32 ⚠️
+- UI requirements: 8 (mapped to Phases 36, 40)
+- RBAC requirements: 16 (mapped to Phases 37, 38)
+- Flow Tracking requirements: 8 (mapped to Phase 39)
+- Mapped to phases: 32/32 (100% coverage ✓)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-11*
-*Last updated: 2026-02-11 after initial definition*
+*Last updated: 2026-02-11 after v1.8 roadmap creation*

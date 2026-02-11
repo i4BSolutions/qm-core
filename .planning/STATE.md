@@ -5,109 +5,78 @@
 See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
-**Current focus:** Defining requirements for v1.8
+
+**Current focus:** Phase 36 - UI Component Standardization
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-11 — Milestone v1.8 started
+Phase: 36 of 40 (UI Component Standardization)
+Plan: 0 of ? (planning not started)
+Status: Ready to plan
+Last activity: 2026-02-11 — v1.8 roadmap created with 5 phases
 
-## Milestone History
+Progress: [████████████████████░░░░░░░░░░░░] 35/40 phases complete (87.5%)
 
-### v1.7 Stock-Out Request Logic Repair (Shipped 2026-02-11)
-
-**Velocity:**
-- Total plans: 7
-- Phases: 32 -> 33 -> 34 -> 35
-- Duration: 1 day
-- Feat commits: 13
-
-**Key Patterns Established:**
-- SOR-grouped transaction display with stepped progress visualization
-- Dual reference display with circular navigation prevention
-- Transaction-level advisory locks (pg_advisory_xact_lock) for concurrent execution safety
-- Lock ordering (line item → parent request) to prevent deadlocks
-- Auto-populate FK from trigger chain (approval → line_item → request → qmhq_id)
-- Partial unique index for idempotency (scoped to specific transaction types)
-- Per-approval execution with stock pre-check and optimistic UI with rollback
-- BroadcastChannel cross-tab sync pattern (qm-stock-out-execution channel)
-
-### v1.6 Stock-Out Approval & Data Integrity (Shipped 2026-02-10)
+## Performance Metrics
 
 **Velocity:**
-- Total plans: 12
-- Phases: 27 -> 28 -> 29 -> 30 -> 31
-- Duration: 2 days
-- Feat commits: 21
+- Total plans completed: 87 (across v1.0-v1.7)
+- Average duration: ~1-2 days per milestone
+- Total execution time: 7 milestones shipped 2026-01-27 to 2026-02-11 (15 days)
 
-**Key Patterns Established:**
-- Stock-out approval workflow (request → line items → approvals → execution)
-- Cross-warehouse stock validation at request, approval, and execution time
-- Computed parent status from child line items (aggregated status trigger)
-- Deletion protection triggers with partial indexes
-- Conditional error detection for trigger messages (isReferenceError)
-- Dual enforcement for user deactivation (ban_duration + middleware)
-- ContextSlider pattern: structural shell + presentational content components
-- Conditional layout pattern (grid only when context relevant)
+**Recent Milestones:**
+- v1.7: 4 phases, 7 plans, 1 day
+- v1.6: 5 phases, 12 plans, 2 days
+- v1.5: 4 phases, 9 plans, 2 days
 
-### v1.5 UX Polish & Collaboration (Shipped 2026-02-09)
+**Recent Trend:**
+- Consistent execution velocity across recent milestones
+- Trend: Stable
 
-**Velocity:**
-- Total plans: 9
-- Phases: 23 -> 24 -> 25 -> 26
-- Duration: 2 days
-
-**Key Patterns Established:**
-- Comments system with single-level threading
-- Optimistic UI updates for comments
-- CSS clamp() for fluid font scaling
-- Intl.NumberFormat compact notation for K/M/B
-- CategoryItemSelector for two-step selection
-- AbortController for request cancellation
-- Currency inheritance with Lock + Inherited badge
-- Warning toast variant (amber) for soft validation
-
-### v1.4 UX Enhancements & Workflow Improvements (Shipped 2026-02-06)
-
-**Velocity:**
-- Total plans: 9
-- Phases: 20 -> 21 -> 22
-- Duration: 1 day
-
-**Key Patterns Established:**
-- Fetch-Before-Update pattern for soft-delete with RLS
-- Upload-After-Create pattern with sessionStorage progress tracking
-- Context Panel pattern for responsive desktop/mobile layout
-- Formatted Input components (react-number-format wrappers)
-- Dialog Callback pattern with return value for inline creation
-- Cross-Tab Sync with BroadcastChannel and Safari fallback
-- Blur Validation pattern with onOpenChange handlers
+*Updated after each plan completion*
 
 ## Accumulated Context
 
 ### Decisions
 
-See PROJECT.md Key Decisions table for full log.
+Decisions are logged in PROJECT.md Key Decisions table.
+
+Recent decisions affecting v1.8 work:
+
+- **Phase ordering:** UI standardization first (non-breaking foundation), RBAC migration second (breaking change with maintenance window), RBAC enforcement third, Flow Tracking fourth (additive, uses new admin role), UI rollout fifth (incremental)
+- **RBAC migration approach:** Expand-and-contract pattern for enum migration (safe, prevents data loss)
+- **Flow Tracking architecture:** PostgreSQL VIEW with card-based layout (no React Flow library needed for linear chain)
+- **UI standardization strategy:** Parallel implementation with incremental migration (pilot pages first, no big-bang refactor)
 
 ### Pending Todos
 
-None.
+None yet.
 
 ### Blockers/Concerns
 
-**Known Tech Debt:**
+**Phase 37 (RBAC Migration):**
+- Requires careful sequencing of enum migration steps (rename → create → migrate → swap → drop)
+- RLS policy recreation must be atomic to avoid security gaps
+- Requires production database backup before execution
+
+**Phase 39 (Flow Tracking):**
+- Query performance unknown at production scale (assumes <10K QMRLs)
+- May require materialized view if performance insufficient
+
+**Phase 40 (UI Rollout):**
+- Risk of breaking custom validation in complex forms (stock-out, invoice)
+- Requires incremental approach with per-page testing
+
+**Known Tech Debt (Pre-existing):**
 - PO Edit page does not exist at /po/[id]/edit (Edit button links to 404) — pre-existing from v1.3
 - Context slider deferred for stock-out approval/execution pages (CSLR-02, CSLR-03)
 
 ## Session Continuity
 
-Last session: 2026-02-11
-Stopped at: Defining v1.8 requirements
-Resume file: None
-Next action: Define requirements and create roadmap
+Last session: 2026-02-11 (roadmap creation)
+Stopped at: ROADMAP.md, STATE.md, and REQUIREMENTS.md traceability created for v1.8
+Resume file: None (ready to start Phase 36 planning with /gsd:plan-phase 36)
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-11 - v1.8 milestone started*
+*Last updated: 2026-02-11 after v1.8 roadmap creation*
