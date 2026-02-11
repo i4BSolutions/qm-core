@@ -1,412 +1,280 @@
 # Project Research Summary
 
-**Project:** QM System v1.6 - Inventory Workflow & Protection
-**Domain:** Internal enterprise inventory/warehouse management system
-**Researched:** 2026-02-09
+**Project:** v1.7 Stock-Out Execution Logic Repair
+**Domain:** Internal inventory management system (QM System)
+**Researched:** 2026-02-11
 **Confidence:** HIGH
 
 ## Executive Summary
 
-QM System v1.6 adds four critical features to enhance inventory control and data integrity: stock-out approval workflow, entity deletion protection, user deactivation, and context side sliders. Research reveals all features can be implemented using the existing Next.js + Supabase stack with **zero new dependencies**. The codebase already contains proven patterns for each feature—stock-out workflow extends the existing status_config system used by QMRL/QMHQ, deletion protection uses native PostgreSQL foreign key constraints, user deactivation leverages existing `is_active` flags, and context sliders extract the pattern from the 640-line `QmrlContextPanel` component.
+The v1.7 milestone repairs the stock-out execution logic by shifting from request-level atomic execution to per-line-item granular execution. Research confirms that no new technology stack is required—the existing Next.js 14, Supabase PostgreSQL, and React 18 infrastructure fully supports the changes. The fix requires three integration layers: (1) execution model shift from batch to line-item-level, (2) QMHQ linking through FK propagation, and (3) dual reference display (SOR + QMHQ) in transaction records.
 
-The recommended approach is to build on existing architectural patterns rather than introduce new libraries. The status workflow system (status_config table + `update_status_with_note()` RPC) has proven robust across 52 migrations. The audit logging system automatically tracks all state changes. PostgreSQL RESTRICT constraints provide atomic deletion protection superior to application-level checks. The main risk is stock validation race conditions—stock levels may change between request creation and approval time, requiring checks at both stages.
+The recommended approach leverages existing patterns: the FK `qmhq_id` already exists in `inventory_transactions` (migration 023), status computation triggers already aggregate by line_item_id, and the codebase already implements per-row action patterns (approval dialogs). The core work is refactoring UI components to accept `lineItemId` scoping, adding QMHQ reference propagation logic during approval creation, and implementing dual reference rendering components.
 
-This milestone is low-risk and high-value. All patterns exist in production code. Integration points are well-defined. The architecture supports these features without modification—only additive changes are required.
+Critical risks center on multi-level status aggregation timing (3-level cascade: transactions → line_items → requests), transaction linking integrity (orphaned records if FK not populated), and concurrent execution race conditions (stock depletion conflicts). Mitigation strategies include row-level locking in status triggers, validation triggers requiring valid FK links, advisory locks for stock validation, and idempotency constraints to prevent duplicate execution.
 
 ## Key Findings
 
 ### Recommended Stack
 
-**No new dependencies required.** All features leverage existing infrastructure:
+**Zero new dependencies required.** The existing stack provides all necessary capabilities:
 
 **Core technologies:**
-- **Next.js 14.2.13 + React 18.3.1**: Server Components for data fetching, Server Actions for mutations, App Router for structure—existing patterns cover all use cases
-- **Supabase PostgreSQL**: Native FK constraints with RESTRICT for deletion protection, status_config table extends to stock-out workflow, 52 migrations prove stability
-- **Existing RPC Functions**: `update_status_with_note()` (migration 048) handles workflow transitions with audit trail; `create_audit_log()` trigger works for all entity types
-- **Radix UI + Tailwind CSS**: Dialog, Toast, Popover primitives already installed; Tailwind transitions sufficient for slide animations (no Framer Motion needed)
-- **react-hook-form + Zod**: Form validation patterns proven across codebase; extend schemas for stock-out requests
+- **Next.js 14.2.13 (App Router)**: Server components and client components sufficient for per-line action handlers — no state management library needed
+- **PostgreSQL via Supabase**: Existing FK `qmhq_id` in `inventory_transactions` (migration 023) supports dual linking; triggers already handle per-line-item status aggregation
+- **React 18.3.1**: `useState` and `useEffect` adequate for execution dialog scoping; no additional libraries required
+- **Radix UI + Tailwind CSS**: Existing Dialog, Tooltip, Link components reusable for dual reference display with conditional rendering
 
-**Why no new libraries:**
-- State machine libraries (XState, Robot) are overkill—PostgreSQL CHECK constraints + status_config table implement state semantics
-- ORM delete hooks (Prisma, Drizzle) not needed—native FK constraints are atomic and reliable
-- Animation libraries (Framer Motion) unnecessary—existing QmrlContextPanel uses pure Tailwind transitions
-- Component libraries (Headless UI, Mantine) would duplicate Radix UI primitives already in use
+**What changes (logic only, no new libraries):**
+- `ExecutionDialog` component: Accept optional `lineItemId` prop, filter queries by line item
+- Approval creation logic: Propagate `stock_out_requests.qmhq_id` → `inventory_transactions.qmhq_id`
+- Transaction display: Conditional rendering shows "SOR-YYYY-NNNNN (via QMHQ-YYYY-NNNNN)" with links
+
+**Source quality:** HIGH — All capabilities verified in existing codebase (migrations 023, 052, 053, components, package.json)
 
 ### Expected Features
 
-**Stock-Out Approval Workflow:**
-
 **Must have (table stakes):**
-- Request creation with reason (min 10 characters) and quantity validation
-- Approval status tracking (Draft → Pending → Approved/Rejected → Fulfilled)
-- Single approver per request (Admin/Quartermaster/Inventory roles only)
-- Approval/rejection with mandatory notes for accountability
-- Audit trail for all state changes via existing trigger system
-- Stock-out executes on approval by creating inventory_out transaction
-- Cancel own pending request (requestor only, status must be pending)
+- **Per-line-item execution UI** — Execute button per approved line item (not just request-level batch)
+- **QMHQ transaction visibility** — QMHQ detail page shows stock-out transactions from linked SORs
+- **Dual reference traceability** — Transaction records show both SOR approval number AND parent QMHQ number
+- **Status accuracy** — Line item status reflects per-line execution (partially_executed when only some approvals executed)
+- **Stock validation** — Cannot execute if warehouse stock insufficient at execution time
 
-**Should have (competitive):**
-- Partial approval (approve less than requested if stock insufficient)—HIGH complexity but valuable
-- Priority/urgency levels (normal, high, emergency) for queue management
-- Admin override/force approve for emergencies with mandatory justification
-- Stock validation at both request time AND approval time (prevents race conditions)
+**Should have (differentiators):**
+- **Request-level execution fallback** — Keep "Execute All" button for bulk operations (optional, power user feature)
+- **Execution history granularity** — Audit logs track which line item was executed when (selective logging to prevent explosion)
 
 **Defer (v2+):**
-- Batch approval UI (select multiple, approve all)
-- Auto-approval thresholds (quantities <10 auto-approve)
-- Multi-level approval (large quantities require multiple approvers)
-- Stock reservation on request creation (complex, likely overkill for internal tool)
-
-**Entity Deletion Protection:**
-
-**Must have:**
-- Foreign key RESTRICT constraints on master data (items, warehouses, suppliers, categories, departments)
-- User-friendly error messages translating database errors ("Cannot delete: 3 purchase orders reference this item")
-- "Where used" display showing reference counts before deletion attempt
-- Soft delete for master data (is_active flag) to preserve audit history
-- Admin-only deletion permissions enforced via RLS
-- Confirmation dialog with two-step flow
-- Audit log on deactivation
-
-**Should have:**
-- Pre-flight RPC (`check_entity_references()`) to check dependencies before showing delete UI
-- Deactivation instead of deletion as default for items, suppliers, categories
-- Graceful fallback if pre-flight check missed a race condition (FK constraint still enforces)
-
-**User Deactivation:**
-
-**Must have:**
-- Deactivate user (set is_active = false) instead of deletion
-- Prevent deactivated user login via auth middleware check
-- Filter from active user dropdowns (WHERE is_active = true)
-- Preserve historical data attribution (created_by, updated_by remain)
-- Reactivation option (admin can restore)
-- Deactivation timestamp and reason fields for documentation
-
-**Should have:**
-- Session invalidation when user deactivated (prevent active sessions)
-- Reassignment workflow (show open tasks before deactivation)
-
-**Context Side Sliders:**
-
-**Must have:**
-- Slide-in from right with smooth animation (300ms transition)
-- Open/close toggle with persistent button
-- Responsive behavior (full-width mobile, 30-40% desktop)
-- Overlay backdrop on mobile with click-to-close
-- Close on ESC key for accessibility
-- Scroll within panel (overflow-y-auto)
-- Default open on desktop, closed on mobile
-
-**Should have:**
-- Focus trap when panel open (accessibility requirement)
-- Lazy load panel content on expand (performance optimization)
-- Collapsible sections within panel (accordion for dense content)
+- **Execution scheduling** — Auto-execute at scheduled time
+- **Execution approval** — Two-step execution (propose + confirm by different user)
+- **Warehouse selection at execution** — Override approval warehouse during execution
+- **Partial quantity execution** — Execute less than approved quantity
 
 ### Architecture Approach
 
-**Extend existing patterns, don't replace them.** The QM System has mature architectural foundations proven across 37,410 lines of code and 52 database migrations. All v1.6 features fit cleanly into existing structure.
+The existing architecture uses approval-level pending transactions with batch execution through an RPC-style pattern. The new architecture shifts execution granularity to line-item-level while preserving the same data flow: approval creation populates `inventory_transactions` with `status='pending'`, execution updates status to `completed`, triggers compute line item and request statuses from aggregated transactions.
 
 **Major components:**
 
-1. **Status Workflow System** — Extend status_config table to support `stock_out` entity type; reuse `update_status_with_note()` RPC for approval/rejection with atomic transactions; audit trigger automatically logs all state changes following existing pattern
+1. **LineItemExecutionDialog** (NEW) — Scoped execution dialog that filters pending transactions by `lineItemId`, displays approvals for that line only, executes subset of transactions
+2. **QMHQ Reference Propagation** (LOGIC CHANGE) — Approval creation fetches `stock_out_requests.qmhq_id`, copies to `inventory_transactions.qmhq_id` for dual linking
+3. **TransactionReference Component** (NEW) — Parses `reference_no` field ("SOR-2026-00001 (QMHQ: QMHQ-2026-00042)"), renders clickable links to both SOR and QMHQ detail pages
+4. **Status Computation Triggers** (ENHANCEMENT) — Add row-level locking (`FOR UPDATE` on parent request) to serialize status recomputation during concurrent executions
 
-2. **Deletion Protection Layer** — Change CASCADE to RESTRICT on FK constraints for master data; create `check_entity_references()` RPC for pre-flight validation; use existing Dialog + Toast components for warnings; graceful error handling translates FK violation (error 23503) to user-friendly message
-
-3. **Context Slider Component** — Extract reusable `ContextSlider` container from proven `QmrlContextPanel` (640 lines); create entity-specific content components (StockOutContext, ItemContext, WarehouseStockContext); use Tailwind transform transitions (no JavaScript animation library); maintain responsive behavior (mobile drawer, desktop side panel)
-
-4. **Stock-Out Request Table** — New `stock_out_requests` table with polymorphic QMHQ reference (nullable), item/warehouse FKs, quantity fields (requested + approved for partial approval), workflow fields (status_id, approval_notes, approved_by, approved_at, fulfilled_at), audit fields (created_by, updated_by, timestamps, is_active)
+**Integration pattern:** Option A (Copy qmhq_id during approval) chosen over JOIN query or database view because it maintains existing direct FK filter pattern, requires no schema migration, and optimizes query performance with indexed FK lookup.
 
 ### Critical Pitfalls
 
-1. **Stock validation race condition** — Stock levels may change between request creation and approval time; users might request 50 units when 100 available, but by approval time only 30 remain. **Prevention:** Validate stock at BOTH request creation (soft check with warning) AND approval time (hard check that blocks if insufficient). Consider partial approval workflow to handle shortfall gracefully.
+1. **Stale Parent Status from Trigger Race Conditions** — Multiple line items executing concurrently fire status computation triggers in rapid succession; parent request status aggregation query reads partial child state. **Prevention:** Add row-level locking (`PERFORM 1 FROM stock_out_requests WHERE id = parent_id FOR UPDATE`) in `compute_sor_request_status()` to serialize status computation. Add trigger on `stock_out_line_items` table itself to propagate direct status updates (not just from transactions).
 
-2. **Partial approval complicates stock-out form** — When admin approves 30 of 50 requested units, the subsequent stock-out fulfillment form must use approved_qty (30) as the maximum, not requested_qty (50). **Prevention:** Stock-out form fetches approved_qty field; validation schema enforces qty <= approved_qty; UI shows "Approved: 30 units" prominently.
+2. **Orphaned Inventory Transactions from Missing FK Link** — Per-line execution UI passes `lineItemId`, but transaction creation forgets to set `stock_out_approval_id`, breaking lineage chain and preventing status rollup. **Prevention:** Add BEFORE INSERT validation trigger requiring `stock_out_approval_id` for all `movement_type='inventory_out'` with `reason='request'`. Execution API accepts `approvalId` (not line_item_id) to ensure explicit FK link.
 
-3. **QMHQ item route integration** — Existing QMHQ item route creates inventory_out transaction directly, bypassing approval workflow. Need to intercept and route through stock-out request flow. **Prevention:** Add trigger or application-level check; when QMHQ item route created, auto-create stock-out request in "Approved" status (maintains backward compatibility); alternative: require manual stock-out request with QMHQ link.
+3. **Dual Reference Inconsistency (SOR + QMHQ Mismatch)** — Transaction has `stock_out_approval_id` but NULL `qmhq_id` when parent SOR has non-NULL `qmhq_id`, making transaction invisible on QMHQ detail page. **Prevention:** Add BEFORE INSERT trigger `auto_populate_qmhq_from_sor()` that traverses approval → line_item → request → qmhq chain and sets `qmhq_id` automatically. Add CHECK constraint validating consistency.
 
-4. **Deletion protection vs soft delete confusion** — System uses is_active for soft delete, but deletion protection is about preventing deactivation when references exist. **Prevention:** Rename UI buttons clearly ("Deactivate" not "Delete" for soft delete); pre-flight check queries WHERE is_active = true to count active references; FK constraints enforce regardless of soft delete flag.
+4. **Concurrent Execution Stock Depletion** — Two line items for same item execute simultaneously, both validate stock = 100, both approve, final stock = -10 (negative). **Prevention:** Use advisory locks (`pg_advisory_xact_lock()`) in stock validation function to serialize stock checks per item+warehouse. Alternative: SERIALIZABLE isolation level with retry logic for serialization failures.
 
-5. **User deactivation with active sessions** — Deactivated user may have valid session tokens from before deactivation; they can continue accessing system until token expires. **Prevention:** Enhance auth middleware to check is_active on EVERY request (not just login); add `deactivated_at` timestamp check; consider force-invalidate sessions via Supabase auth API.
-
-6. **Context slider performance (N+1 queries)** — Side sliders that fetch related data on mount can cause performance issues if they query multiple tables sequentially. **Prevention:** Fetch all slider data in parent Server Component with joins; pass as props to slider content; no additional queries inside slider; use Suspense boundary for progressive loading if needed.
-
-7. **RLS on stock_out_requests** — New table needs row-level security policies matching existing inventory role permissions; incorrect policies could leak data or block legitimate access. **Prevention:** Mirror existing inventory_transactions RLS policies; test with all 7 user roles (admin, quartermaster, finance, inventory, proposal, frontline, requester); verify requester can only see own requests.
+5. **Audit Log Explosion** — Per-line execution multiplies audit events 3x (5 lines × (1 transaction + 1 line_item UPDATE + 1 request UPDATE) = 15 logs vs 5 logs before). **Prevention:** Selective audit logging (skip auto-computed status changes by checking if `updated_by` changed). Consider summary execution logs instead of per-transaction logs.
 
 ## Implications for Roadmap
 
-Based on research, this milestone naturally splits into 4 parallel-capable phases followed by 1 integration phase:
+Based on research, this milestone decomposes into 4 sequential phases:
 
-### Phase 1: Stock-Out Approval Workflow
-**Rationale:** Core new functionality; has most complexity; other features can be built in parallel. Stock-out workflow is the primary value add for v1.6—it establishes the approval pattern that warehouse managers expect from enterprise systems.
+### Phase 1: QMHQ Linking Fix (Quick Win)
 
-**Delivers:**
-- `stock_out_requests` table with workflow statuses
-- Request creation form with item/warehouse selection and stock validation
-- Approval UI for admin/quartermaster roles with partial approval support
-- Fulfillment flow creating inventory_out transaction
-- Audit trail for all state changes
+**Rationale:** Unblocks QMHQ transaction visibility immediately; zero schema changes, single file modification in approval dialog.
 
-**Addresses features:**
-- Request creation with reason (table stakes)
-- Approval status tracking (table stakes)
-- Partial approval (should-have, HIGH value)
-- Stock validation at request + approval time (prevents race condition pitfall)
-
-**Avoids pitfalls:**
-- Stock validation race condition via dual validation points
-- QMHQ integration handled by auto-creating approved requests
-- Partial approval complicates fulfillment via clear UI cues
-
-**Research needed:** MEDIUM—workflow state transitions are standard (proven by QMRL/QMHQ), but partial approval logic needs careful validation schema design.
-
-### Phase 2: Entity Deletion Protection
-**Rationale:** Independent of Phase 1; low complexity; high safety value. Can be built in parallel. Deletion protection is critical for data integrity—prevents accidental loss of master data referenced across system.
-
-**Delivers:**
-- FK constraint audit (change CASCADE to RESTRICT on master data)
-- `check_entity_references()` RPC for pre-flight validation
-- Enhanced delete dialogs with "where used" warnings
-- Graceful error handling for FK violations
-- Soft delete enforcement for items, suppliers, categories, warehouses
-
-**Addresses features:**
-- Foreign key RESTRICT constraints (table stakes)
-- User-friendly error messages (table stakes)
-- "Where used" display (table stakes)
-- Pre-flight validation (should-have)
-
-**Avoids pitfalls:**
-- Deletion protection vs soft delete confusion via clear UI labels
-- FK violation error 23503 translated to friendly message
-- Pre-flight check + fallback FK constraint handles race conditions
-
-**Research needed:** NONE—standard PostgreSQL FK constraint pattern; well-documented.
-
-### Phase 3: User Deactivation
-**Rationale:** Independent; low complexity; extends existing is_active pattern. Can be built in parallel. User lifecycle management is table stakes for enterprise tools.
-
-**Delivers:**
-- Enhanced users table (deactivated_at, deactivation_reason fields)
-- Deactivation UI with reason prompt
-- Auth middleware check for is_active on every request
-- Filter deactivated users from assignment dropdowns
-- Reactivation workflow for admin
-
-**Addresses features:**
-- Deactivate user (table stakes)
-- Prevent deactivated login (table stakes)
-- Preserve historical data (table stakes)
-- Session invalidation (should-have)
-
-**Avoids pitfalls:**
-- User deactivation with active sessions via middleware check
-- Clear separation from deletion (soft delete preserves, deactivation blocks access)
-
-**Research needed:** NONE—existing is_active flag pattern used throughout system.
-
-### Phase 4: Context Side Sliders
-**Rationale:** Independent; reuses existing QmrlContextPanel pattern. Can be built in parallel. Enhances UX across multiple features but doesn't block core functionality.
-
-**Delivers:**
-- Extracted `ContextSlider` container component
-- `StockOutContext` content component (item details, stock levels)
-- `ItemContext` content component (for deletion "where used" display)
-- `WarehouseStockContext` content component
-- Responsive behavior (mobile drawer, desktop side panel)
-
-**Addresses features:**
-- Slide-in from right with smooth animation (table stakes)
-- Responsive behavior (table stakes)
-- Lazy load panel content (should-have)
-- Focus trap accessibility (should-have)
-
-**Avoids pitfalls:**
-- Context slider N+1 queries via parent Server Component data fetch
-- Performance issues by passing data as props (no queries inside slider)
-
-**Research needed:** NONE—QmrlContextPanel provides complete implementation reference (640 lines).
-
-### Phase 5: Integration & Polish
-**Rationale:** Requires all 4 features complete; ties everything together; final testing and edge cases. This phase ensures features work cohesively rather than in isolation.
-
-**Delivers:**
-- Stock-out request workflow integrated with QMHQ item route
-- Context sliders added to stock-out approval UI (show item/warehouse details)
-- Deletion protection applied to items referenced in stock-out requests
-- User deactivation with reassignment of pending stock-out requests
-- End-to-end testing of combined workflows
-- Documentation updates
+**Delivers:** QMHQ detail page shows stock-out transactions from linked SORs; dual reference format established.
 
 **Addresses:**
-- QMHQ integration pitfall (auto-create approved requests)
-- Cross-feature interactions (deleted item with pending requests)
-- Role-based permission testing across all features
-- Mobile responsiveness validation
+- QMHQ transaction visibility (table stakes feature)
+- Dual reference traceability foundation
 
-**Research needed:** NONE—integration of proven patterns.
+**Implementation:**
+- Modify `components/stock-out-requests/approval-dialog.tsx`: Fetch `qmhq_id` from parent request, copy to transaction insert, format `reference_no` as "SOR-YYYY-NNNNN (QMHQ: QMHQ-YYYY-NNNNN)"
+- Test: Approve SOR linked to QMHQ → verify transaction appears on QMHQ detail page
+
+**Avoids:** Orphaned transaction pitfall (sets FK correctly from start)
+
+**Research flag:** SKIP — Direct FK copy is standard pattern, no research needed.
+
+---
+
+### Phase 2: Dual Reference Display UI
+
+**Rationale:** Builds on Phase 1 reference format; display-only component with no data mutations (low risk).
+
+**Delivers:** Clickable SOR/QMHQ references in transaction lists across all pages (QMHQ detail, SOR detail, inventory dashboard).
+
+**Addresses:**
+- Dual reference traceability (table stakes feature)
+- Bidirectional navigation UX
+
+**Implementation:**
+- Create `components/inventory/transaction-reference.tsx`: Parse `reference_no` with regex, render as linked code blocks
+- Integrate into QMHQ detail transaction table, SOR detail transaction tab, inventory dashboard transaction list
+- Handle NULL cases (manual SORs with no QMHQ link show only SOR reference)
+
+**Avoids:** No pitfalls (read-only display component)
+
+**Research flag:** SKIP — Conditional rendering pattern already established in codebase.
+
+---
+
+### Phase 3: Database Trigger Hardening
+
+**Rationale:** Must complete BEFORE deploying per-line execution UI; prevents race conditions, orphaned transactions, status inconsistencies.
+
+**Delivers:** Database-level guarantees for data integrity during concurrent operations.
+
+**Addresses:**
+- Stale parent status pitfall
+- Orphaned transactions pitfall
+- Dual reference consistency pitfall
+- Concurrent stock depletion pitfall
+- Duplicate execution pitfall
+
+**Implementation:**
+- **Status computation locking:** Add `FOR UPDATE` in `compute_sor_request_status()` function
+- **Line item status propagation:** Add trigger on `stock_out_line_items` table to fire status recomputation on direct updates
+- **Transaction linking validation:** Add BEFORE INSERT trigger requiring `stock_out_approval_id` for SOR executions
+- **Auto-populate QMHQ link:** Add BEFORE INSERT trigger traversing approval → request → qmhq chain
+- **Stock validation locking:** Implement `validate_stock_with_lock()` with advisory locks
+- **Idempotency constraint:** Add UNIQUE index on `inventory_transactions(stock_out_approval_id)` WHERE movement_type='inventory_out'
+- **Selective audit logging:** Modify audit triggers to skip auto-computed status changes
+- **Audit indexes:** Add partial indexes per entity_type on `audit_logs(entity_id, changed_at)`
+
+**Migration:** `0XX_execution_integrity_triggers.sql`
+
+**Avoids:** ALL 5 critical pitfalls
+
+**Research flag:** MEDIUM — Advisory locks and serializable isolation patterns need validation with load testing.
+
+---
+
+### Phase 4: Per-Line-Item Execution UI
+
+**Rationale:** Depends on Phase 3 triggers being in place; final user-facing feature delivery.
+
+**Delivers:** Execute button per line item, scoped execution dialog, status updates reflect per-line execution.
+
+**Addresses:**
+- Per-line-item execution UI (table stakes feature)
+- Status accuracy (table stakes feature)
+
+**Implementation:**
+- Copy `components/stock-out-requests/execution-dialog.tsx` to `line-item-execution-dialog.tsx`: Add `lineItemId` prop (required), filter query by line item, update title
+- Modify `components/stock-out-requests/line-item-table.tsx`: Add Actions column, Execute button per row (enabled when `status IN ('approved', 'partially_executed')`), pass `lineItemId` to dialog
+- Modify `app/(dashboard)/inventory/stock-out-requests/[id]/page.tsx`: Import LineItemExecutionDialog, wire up to line item table
+- Implement query invalidation or real-time subscription for UI state sync after execution
+- Add optimistic UI with rollback logic OR pessimistic loading states (TBD based on risk tolerance)
+
+**Avoids:**
+- Stale UI pitfall (via query invalidation)
+- Optimistic rollback failures (via proper error handling)
+
+**Research flag:** LOW — Per-row action pattern already used in approval dialogs; conditional rendering established; React Query invalidation is standard.
+
+---
 
 ### Phase Ordering Rationale
 
-**Parallel phases (1-4)** allow independent development:
-- No technical dependencies between deletion protection, user deactivation, and context sliders
-- Stock-out workflow is most complex; can proceed without waiting for others
-- All four phases share common infrastructure (RLS, audit, Supabase client patterns)
+- **Phase 1 before Phase 2:** Must establish data format (dual reference in `reference_no`) before building display component
+- **Phase 3 before Phase 4:** Database integrity triggers MUST be deployed before per-line execution UI goes live; prevents data corruption from race conditions
+- **Phase 2 independent of Phase 3:** Display component can be built in parallel with trigger work (no dependencies)
+- **Sequential vs parallel:** Phases 1-2 can run in parallel if resources available; Phase 3 must complete before Phase 4 starts
 
-**Why this grouping:**
-- Phase 1 (workflow) touches database schema, RPC functions, forms, and UI—largest surface area
-- Phase 2 (deletion) is pure database layer + error handling—different skillset can work in parallel
-- Phase 3 (deactivation) is auth middleware + UI filtering—independent concern
-- Phase 4 (sliders) is pure component extraction—front-end focused
-- Phase 5 (integration) verifies all features work together and handles edge cases
+**Dependency graph:**
+```
+Phase 1 (QMHQ Linking) ──→ Phase 2 (Dual Reference UI)
+                       ↘
+Phase 3 (Triggers) ────────→ Phase 4 (Per-Line Execution UI)
+```
 
-**Architecture patterns support parallelization:**
-- Database migrations are additive (no conflicting table changes)
-- Component structure follows established patterns (no shared state)
-- RLS policies are entity-scoped (no policy conflicts)
-- Audit system handles all entities uniformly (no coordination needed)
-
-**Risk mitigation:**
-- Each phase delivers independently testable functionality
-- Integration phase catches interaction bugs before deployment
-- Parallel development accelerates timeline (4 phases in parallel vs sequential)
+**How this avoids pitfalls:**
+- Trigger hardening (Phase 3) deployed BEFORE UI (Phase 4) prevents race conditions from Day 1
+- QMHQ linking fix (Phase 1) ensures dual references populate correctly from start
+- Audit indexes (Phase 3) prevent performance degradation as execution volume scales
 
 ### Research Flags
 
-**Phases with standard patterns (skip research-phase):**
-- **Phase 2 (Deletion Protection):** Well-documented PostgreSQL FK constraints; error code 23503 handling is standard SQL
-- **Phase 3 (User Deactivation):** Extends existing is_active pattern used throughout codebase
-- **Phase 4 (Context Sliders):** Complete reference implementation exists (QmrlContextPanel, 640 lines)
-- **Phase 5 (Integration):** Combines proven patterns; no new research needed
+Phases likely needing deeper research during planning:
+- **Phase 3 (Database Triggers):** Advisory lock patterns and serializable isolation need load testing validation; concurrent execution scenarios need E2E test design
+- **Phase 4 (Per-Line UI):** Real-time subscription vs query invalidation decision depends on multi-tab usage patterns; optimistic vs pessimistic UI needs UX input
 
-**Phases needing focused research during planning:**
-- **Phase 1 (Stock-Out Approval):** MEDIUM research need for partial approval validation logic and stock validation timing strategy. Recommend `/gsd:research-phase` to analyze:
-  - Partial approval state machine (how to transition from approved_qty < requested_qty to fulfilled)
-  - Stock validation RPC design (atomic check-and-decrement to prevent race conditions)
-  - QMHQ integration trigger pattern (auto-create vs manual link)
-
-**Documentation needed (not research):**
-- User guides for stock-out request workflow (requester + approver flows)
-- Admin guide for deletion protection ("where used" interpretation)
-- Migration guide for changing FK constraints (requires careful sequencing)
+Phases with standard patterns (skip research-phase):
+- **Phase 1 (QMHQ Linking):** FK copy is established pattern (already used for other entities)
+- **Phase 2 (Dual Reference Display):** Conditional rendering and Link components already in codebase
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Zero new dependencies required; all patterns exist in production code (52 migrations, 37k+ LOC) |
-| Features | HIGH | Stock-out approval workflow is standard warehouse management pattern; deletion protection is database fundamentals; user deactivation is proven HR system pattern; context sliders are ubiquitous UI pattern |
-| Architecture | HIGH | All features extend existing patterns without modification; status_config proven by QMRL/QMHQ; audit system handles all entities; RLS policies follow established structure; component patterns well-defined |
-| Pitfalls | HIGH | Stock validation race condition is well-documented inventory management issue with known solutions; other pitfalls are standard enterprise system concerns with clear mitigation strategies |
+| Stack | HIGH | FK `qmhq_id` verified in migration 023; triggers verified in migration 053; component patterns verified in codebase |
+| Features | HIGH | Requirements derived from existing v1.6 UAT feedback and QMHQ integration needs; table stakes clearly defined |
+| Architecture | HIGH | Option A (copy qmhq_id) chosen based on existing patterns; trigger aggregation by line_item_id already works |
+| Pitfalls | HIGH | Race conditions, orphaned records, audit explosion documented in PostgreSQL and inventory system literature; mitigations proven |
 
 **Overall confidence:** HIGH
 
-All features are well-understood patterns in enterprise software. The QM System codebase already contains reference implementations for every architectural pattern required. Research sources include direct codebase analysis (primary), official PostgreSQL/Next.js documentation (primary), and established enterprise system best practices (secondary).
+Research validated against existing codebase (migrations 023, 052, 053, component files, package.json). No external dependencies required. All architectural patterns already established in QM System (per-row actions, nullable FKs, status triggers, conditional rendering). Pitfalls identified from documented PostgreSQL trigger behavior and inventory system race condition patterns.
 
 ### Gaps to Address
 
-**Stock validation timing:**
-- Research identified "validate at approval time, not just request time" as critical
-- Need to determine exact RPC implementation: atomic check-and-reserve vs optimistic validation
-- **Resolution:** During Phase 1 planning, prototype two approaches (pessimistic lock vs optimistic check) and choose based on performance testing
+**During Phase 3 planning:**
+- **Advisory lock hash function stability:** Validate that MD5-based lock key generation from UUIDs produces consistent keys across PostgreSQL versions (test on local and remote Supabase instances)
+- **Trigger execution order:** Confirm PostgreSQL fires BEFORE triggers before AFTER triggers within same transaction (verify behavior with multi-trigger INSERT test)
 
-**Partial approval state transitions:**
-- Research noted "partial approval complicates stock-out form" but didn't specify exact state machine
-- Need to clarify: Does partial approval create two records (approved + rejected portions) or one record with two quantity fields?
-- **Resolution:** During Phase 1 requirements definition, decide on single record with `requested_qty` + `approved_qty` fields (simpler) vs split records (more auditable)
+**During Phase 4 planning:**
+- **Real-time subscription performance:** Measure Supabase real-time channel latency for multi-tab scenarios; fall back to query invalidation if >5 second lag
+- **Optimistic UI trade-off:** Decide based on execution failure rate (if stock validation fails >10%, use pessimistic loading; if <2%, use optimistic with rollback)
 
-**QMHQ integration strategy:**
-- Research suggested "auto-create approved requests" for backward compatibility
-- Need to validate: Should existing QMHQ item routes retroactively create stock-out requests?
-- **Resolution:** During Phase 5 integration, decision point: (a) auto-create on-demand when viewing old QMHQ, or (b) one-time migration script, or (c) only apply to new QMHQ item routes
+**During load testing:**
+- **Concurrent execution threshold:** Determine max concurrent line item executions system can handle before advisory lock contention causes delays (target: 10+ concurrent executions with <1s lock wait time)
 
-**Session invalidation mechanism:**
-- Research identified "user deactivation with active sessions" pitfall
-- Supabase auth session invalidation API capabilities need validation
-- **Resolution:** During Phase 3 planning, check Supabase auth API documentation for admin.deleteUser() vs middleware-only approach
-
-**Context slider data fetching strategy:**
-- Research warned "N+1 queries" but didn't specify exact data structure
-- Need to define: Should parent fetch all slider data upfront or use Suspense boundaries?
-- **Resolution:** During Phase 4 implementation, profile both approaches (upfront join query vs streamed Suspense) with realistic data volume
-
-**None of these gaps block progress—all can be resolved during phase planning with documentation review and prototyping.**
+**Validation needed:**
+- QMHQ status auto-update: Should SOR execution trigger QMHQ status change to "done" group? (Business logic decision, not technical)
+- Audit retention policy: How long to retain audit logs? Should implement table partitioning if >1 year retention? (Ops decision)
 
 ## Sources
 
 ### Primary (HIGH confidence)
 
-**Codebase Analysis (Direct Inspection):**
-- `/components/qmhq/qmrl-context-panel.tsx` (640 lines) — Complete reference implementation for context slider pattern; responsive behavior, mobile drawer, body scroll lock, animation timing
-- `/supabase/migrations/048_status_update_with_note.sql` (412 lines) — RPC function for status transitions with audit trail; deduplication logic; works with any entity_type
-- `/supabase/migrations/003_status_config.sql` (100 lines) — Status system architecture with entity_type ENUM, status_group ENUM, proven by QMRL/QMHQ
-- `/supabase/migrations/026_audit_logs.sql` — Audit trigger system handling create/update/delete/status_change/approval actions
-- `/supabase/migrations/011_qmhq.sql` — FK constraint patterns; polymorphic references; CASCADE vs RESTRICT usage
-- `/package.json` — Dependency versions confirming no state management, animation, or ORM libraries beyond core stack
-- `/CLAUDE.md` — Architecture patterns, permission matrix, iteration guide, component structure conventions
+**Verified in QM System codebase:**
+- `supabase/migrations/023_inventory_transactions.sql` (line 76) — FK `qmhq_id` already exists
+- `supabase/migrations/052_stock_out_requests.sql` — SOR schema, `qmhq_id` 1:1 link
+- `supabase/migrations/053_stock_out_validation.sql` (lines 308-370) — Status computation triggers aggregate by `line_item_id`
+- `components/stock-out-requests/execution-dialog.tsx` (lines 109-114) — Current batch execution query pattern
+- `components/stock-out-requests/approval-dialog.tsx` — Approval creation (location for qmhq_id propagation)
+- `.planning/phases/28-stock-out-request-approval-ui/28-CONTEXT.md` — v1.6 baseline context
+- `package.json` — Current dependencies (verified no additions needed)
 
-**PostgreSQL Official Documentation:**
-- Foreign key constraints (ON DELETE RESTRICT, CASCADE, SET NULL)
-- Error code 23503 (foreign_key_violation) handling
-- CHECK constraints for state validation
-- Trigger functions (BEFORE/AFTER, FOR EACH ROW)
-- Generated columns (STORED) for calculated fields
-- Row-level security (RLS) policies with USING/WITH CHECK
-
-**Next.js Official Documentation:**
-- Server Components for data fetching patterns
-- Server Actions for mutations with revalidatePath()
-- App Router file-system routing
-- Metadata API for SEO
-- Middleware for auth checks
-
-**Supabase Official Documentation:**
-- JavaScript client (supabase-js v2.x) API
-- RPC function invocation with type safety
-- Real-time subscriptions (not used in this milestone)
-- Storage for file uploads (established pattern from file_attachments)
+**PostgreSQL official documentation:**
+- [PostgreSQL Trigger Behavior Documentation](https://www.postgresql.org/docs/current/trigger-definition.html) — Trigger execution order, FOR UPDATE locking
+- [PostgreSQL Trigger Functions](https://www.postgresql.org/docs/current/plpgsql-trigger.html) — Row-level locking patterns
+- [PostgreSQL Constraints](https://www.postgresql.org/docs/current/ddl-constraints.html) — Foreign key constraints, CHECK constraints
 
 ### Secondary (MEDIUM confidence)
 
-**Industry Research (Web Sources from FEATURES.md):**
-- Inventory Management Guide 2026 (kissflow.com) — Stock-out approval workflows as standard practice
-- Warehouse Management Systems (asapsystems.com) — Transaction approval cycles and workflow patterns
-- Microsoft Dynamics 365 (learn.microsoft.com) — Inventory journal approval workflows; multi-level approvals
-- Jira Service Management (atlassian.com) — Approval workflow configuration patterns
-- SQL DELETE RESTRICT tutorial (datacamp.com) — FK constraint best practices
-- Soft Delete vs Hard Delete analysis (dev.to, brandur.org, dolthub.com) — When to use each approach
-- User Deactivation Best Practices (workos.com, zendesk.com, wrike.com) — Deactivation vs deletion for user lifecycle
-- Drawer UI Design (mobbin.com, patternfly.org) — Side panel/drawer best practices and accessibility
-- shadcn/ui documentation — Sheet/Drawer component patterns (not used but referenced for comparison)
+**Inventory system patterns:**
+- [Warehouse Transaction Approval Cycles](https://asapsystems.com/warehouse-management/inventory-features/transaction-approval-cycles/) — Granular execution patterns
+- [Inventory journal approval workflows - Dynamics 365](https://learn.microsoft.com/en-us/dynamics365/supply-chain/inventory/inventory-journal-workflow) — Multi-level status aggregation
 
-**Community Best Practices:**
-- Audit trail requirements for compliance (trullion.com, nutrient.io) — What to track and how
-- State management in 2026 (nucamp.co) — Redux vs Context API vs Server Components (confirms Server Components approach)
-- Cascade delete patterns (Microsoft EF Core docs, Supabase docs) — When to CASCADE vs RESTRICT
+**Database integrity patterns:**
+- [Referential Integrity Challenges](https://www.acceldata.io/blog/referential-integrity-why-its-vital-for-databases) — Orphaned record prevention
+- [Atomic Updates and Data Consistency](https://medium.com/insiderengineering/atomic-updates-keeping-your-data-consistent-in-a-changing-world-f6aacf38f71a) — Concurrent execution race conditions
+- [PostgreSQL Triggers Performance Impact](https://infinitelambda.com/postgresql-triggers/) — Selective audit logging, trigger optimization
 
-### Tertiary (LOW confidence, flagged for validation)
+**Supabase patterns:**
+- [Supabase Querying Joins and Nested Tables](https://supabase.com/docs/guides/database/joins-and-nesting) — Nested JOIN pattern (evaluated but not chosen)
+- [Cascade Deletes | Supabase Docs](https://supabase.com/docs/guides/database/postgres/cascade-deletes) — Foreign key constraint patterns
 
-**Speculative Patterns:**
-- Auto-approval thresholds (no specific documentation found) — Deferred to v2+ due to accountability concerns
-- Stock reservation on request (theoretical, not industry standard for internal tools) — Deferred as over-engineering
-- Multi-level approval workflows (exists in enterprise ERP, overkill for QM System) — Deferred to future if needed
+### Tertiary (LOW confidence)
 
-**Assumptions requiring validation during implementation:**
-- Partial approval workflow specifics (split records vs dual quantity fields) — No direct pattern found; design decision during Phase 1
-- Session invalidation API in Supabase auth (documentation exists but implementation details need verification) — Test during Phase 3
-- Optimal data fetching for context sliders (upfront join vs Suspense streaming) — Performance testing during Phase 4
+**ERP integration patterns:**
+- [ERP Integration Patterns](https://roi-consulting.com/erp-integration-patterns-what-they-are-and-why-you-should-care/) — Dual reference linking concepts (general guidance, not specific implementation)
 
 ---
 
-**Research completed:** 2026-02-09
-**Ready for roadmap:** Yes
-**Recommended next step:** Proceed to requirements definition for each phase
-
-**Key Success Factors:**
-1. Leverage existing patterns (status_config, audit_logs, RLS policies) — don't reinvent
-2. Validate stock at both request and approval time — prevent race conditions
-3. Use native PostgreSQL constraints for deletion protection — atomic and reliable
-4. Extract context slider pattern from QmrlContextPanel — proven in production
-5. Test with all 7 user roles during integration phase — permission matrix is complex
-
-**Risk Level:** LOW — All features extend proven patterns; no paradigm shifts; no new dependencies; clear integration points; high research confidence.
+*Research completed: 2026-02-11*
+*Ready for roadmap: YES*

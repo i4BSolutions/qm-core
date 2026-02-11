@@ -1,18 +1,18 @@
-# Stack Research: Stock-Out Approval, Deletion Protection, Context Sliders
+# Stack Research: Stock-Out Execution Logic Repair
 
-**Research Date:** 2026-02-09
-**Milestone:** v1.6 Inventory Workflow & Protection
+**Research Date:** 2026-02-11
+**Milestone:** v1.7 Stock-Out Execution Fix
 **Confidence:** HIGH
 
 ## Summary
 
-All three features require **ZERO new dependencies**. The existing QM System stack (Next.js 14, Supabase PostgreSQL, Radix UI, Tailwind CSS) already provides all necessary capabilities:
+**Zero new dependencies required.** The existing QM System stack (Next.js 14, Supabase PostgreSQL, React 18, TypeScript, Radix UI) fully supports all three new features:
 
-- **Stock-out approval workflow** → Extend existing status_config table + reuse `update_status_with_note()` RPC
-- **Entity deletion protection** → Native PostgreSQL FK constraints with `RESTRICT` + validation RPC
-- **Context side slider** → Proven pattern exists in `QmrlContextPanel` component (640 lines)
+1. **Per-line-item execution** → Modify existing `ExecutionDialog` component props + query filters
+2. **QMHQ-to-transaction linking** → Add nullable FK `qmhq_id` to `inventory_transactions` table
+3. **Dual reference display** → Extend SELECT queries with nested join + conditional rendering
 
-**Recommendation:** NO npm installs. Use existing patterns. Focus on database migrations and component extraction.
+**No library upgrades, no new npm packages, no new UI primitives.** This is an architectural refinement using established patterns.
 
 ---
 
@@ -21,1322 +21,530 @@ All three features require **ZERO new dependencies**. The existing QM System sta
 ### Framework & Runtime
 | Technology | Current Version | Status | Notes |
 |------------|----------------|--------|-------|
-| Next.js | 14.2.13 | ✓ Keep | App Router, Server Components, Server Actions |
-| React | 18.3.1 | ✓ Keep | Client components for interactivity |
-| TypeScript | 5.6.2 | ✓ Keep | Strict mode enabled |
+| Next.js | 14.2.13 | ✓ Keep | App Router, Server Components stable |
+| React | 18.3.1 | ✓ Keep | State management sufficient for per-line actions |
+| TypeScript | 5.6.2 | ✓ Keep | Strict mode, types auto-generated from Supabase |
 
 ### Database & Backend
 | Technology | Current Version | Status | Notes |
 |------------|----------------|--------|-------|
-| PostgreSQL | via Supabase | ✓ Keep | 52 migrations, triggers, RLS policies, audit system |
-| Supabase JS | 2.50.0 | ✓ Keep | Auth, database client, RPC functions, RLS |
+| PostgreSQL | via Supabase | ✓ Keep | 57 migrations, FK constraints, triggers, RLS |
+| @supabase/supabase-js | 2.50.0 | ✓ Keep | Client handles FK queries, nested SELECT joins |
 | @supabase/ssr | 0.8.0 | ✓ Keep | Server-side rendering integration |
 
 ### UI & Styling
 | Technology | Current Version | Status | Notes |
 |------------|----------------|--------|-------|
-| Tailwind CSS | 3.4.13 | ✓ Keep | Animations, transitions, responsive utilities |
-| Radix UI | Multiple (^1.x-2.x) | ✓ Keep | Dialog, Toast, Popover, Tabs |
-| lucide-react | 0.447.0 | ✓ Keep | Icon library |
+| Tailwind CSS | 3.4.13 | ✓ Keep | Utility classes for dual reference display |
+| Radix UI | Various ^1.x-2.x | ✓ Keep | Dialog, Tooltip, Tabs already used |
+| lucide-react | 0.447.0 | ✓ Keep | Icons (ExternalLink for QMHQ references) |
+| sonner | 2.0.7 | ✓ Keep | Toast notifications for execution feedback |
 
 ### Forms & Validation
 | Technology | Current Version | Status | Notes |
 |------------|----------------|--------|-------|
-| react-hook-form | 7.53.0 | ✓ Keep | Form state management |
-| @hookform/resolvers | 3.9.0 | ✓ Keep | Zod integration |
-| Zod | 3.23.8 | ✓ Keep | Schema validation, type inference |
-| react-number-format | 5.4.4 | ✓ Keep | Already used for currency/number inputs |
+| react-hook-form | 7.53.0 | ✓ Keep | Not needed (execution is button action, not form) |
+| Zod | 3.23.8 | ✓ Keep | Not needed (validation in database triggers) |
 
 ---
 
-## Feature-Specific Stack Decisions
+## Required Stack Additions: NONE
 
-### 1. Stock-Out Approval Workflow
+### Why Existing Stack Is Sufficient
 
-**Requirement:** Multi-step workflow with Draft → Pending → Approved/Rejected → Fulfilled states, approval/rejection with notes, audit trail.
+**Feature 1: Per-Line-Item Execution**
 
-**Solution:** Extend existing status_config system (NO new libraries)
+Current implementation (`ExecutionDialog.tsx`, lines 68-232):
+- Accepts `approvalId` prop → filters transactions by `stock_out_approval_id`
+- Already handles granular execution (one approval at a time)
+- **What changes:** Accept `lineItemId` prop in addition to `approvalId`
+- **Why no new library:** React props + Supabase query filters sufficient
 
-#### Why Existing Stack Covers This
+**Feature 2: QMHQ-to-Transaction Linking**
 
-**Status System (Already Implemented):**
-- File: `/supabase/migrations/003_status_config.sql`
-- Table: `status_config` with `entity_type` ENUM, `status_group` ENUM
-- Existing entity types: `qmrl`, `qmhq`
-- **Action:** Add `stock_out` to entity_type ENUM
+Current schema (`inventory_transactions` table):
+```sql
+-- Existing FKs (migration 023)
+qmhq_id UUID REFERENCES qmhq(id) ON DELETE SET NULL  -- Already exists!
+stock_out_approval_id UUID REFERENCES stock_out_approvals(id) ON DELETE SET NULL  -- Added in 053
+```
 
-**Status Transition RPC (Already Implemented):**
-- File: `/supabase/migrations/048_status_update_with_note.sql`
-- Function: `update_status_with_note(entity_type, entity_id, new_status_id, note, user_id)`
-- Features:
-  - Atomic transaction (status update + audit entry)
-  - Deduplication to prevent duplicate audit logs
-  - Optional note parameter (required for rejection)
-- **Action:** Works with any entity_type, including new `stock_out`
+**Discovery:** `qmhq_id` FK already exists in `inventory_transactions` (migration 023, line 76). No schema change needed!
 
-**Audit System (Already Implemented):**
-- File: `/supabase/migrations/048_status_update_with_note.sql` (lines 106-412)
-- Function: `create_audit_log()` trigger
-- Automatic tracking:
-  - Status changes with human-readable summaries
-  - Approval actions (checks `approval_status` field)
-  - Assignment changes
-  - Soft deletes, voids
-- **Action:** Add trigger to `stock_out_requests` table
+**What's missing:** Population logic. Currently, `qmhq_id` is only populated for direct QMHQ fulfillment (item route). Stock-out approvals don't copy the parent `stock_out_requests.qmhq_id` to transactions.
 
-#### Database Architecture
+**Fix:** Modify approval creation logic to propagate QMHQ reference:
+```typescript
+// In approval RPC or client-side transaction creation
+const { data: request } = await supabase
+  .from('stock_out_requests')
+  .select('qmhq_id')
+  .eq('id', requestId)
+  .single();
+
+// When creating inventory_transaction
+await supabase.from('inventory_transactions').insert({
+  ...otherFields,
+  stock_out_approval_id: approvalId,
+  qmhq_id: request?.qmhq_id  // Propagate parent QMHQ link
+});
+```
+
+**Why no new library:** Simple FK copy operation, no ORM needed.
+
+**Feature 3: Dual Reference Display**
+
+Current pattern (already used in codebase):
+```tsx
+// Example: QMHQ detail page shows QMRL reference
+<Link href={`/qmrl/${qmhq.qmrl_id}`}>
+  <span className="font-mono">{qmrl.request_id}</span>
+  <ExternalLink className="w-3 h-3" />
+</Link>
+```
+
+**What changes:** Add conditional secondary reference in transaction lists:
+```tsx
+// Primary reference (always show)
+<div className="font-mono text-slate-200">
+  {transaction.stock_out_approval?.approval_number}
+</div>
+
+// Secondary reference (show if exists)
+{transaction.qmhq?.request_id && (
+  <div className="text-xs text-slate-500">
+    via {transaction.qmhq.request_id}
+  </div>
+)}
+```
+
+**Why no new library:** Conditional rendering + existing Supabase nested SELECT.
+
+---
+
+## Database Schema Impact
+
+### Existing Schema (Keep)
 
 ```sql
--- 1. Extend entity type enum
-ALTER TYPE public.entity_type ADD VALUE 'stock_out';
-
--- 2. Create stock_out_requests table
+-- stock_out_requests (migration 052)
 CREATE TABLE stock_out_requests (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  request_id TEXT UNIQUE NOT NULL, -- STOCK-OUT-YYYY-NNNNN format
-
-  -- Inventory references
-  item_id UUID NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
-  warehouse_id UUID NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
-  quantity NUMERIC(15,2) NOT NULL CHECK (quantity > 0),
-
-  -- Workflow fields
-  status_id UUID NOT NULL REFERENCES status_config(id),
-  reason TEXT NOT NULL CHECK (char_length(reason) >= 10),
-  notes TEXT,
-
-  -- Approval tracking
-  approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  approved_at TIMESTAMPTZ,
-  rejection_reason TEXT,
-
-  -- Fulfillment tracking
-  fulfilled_at TIMESTAMPTZ,
-  inventory_transaction_id UUID REFERENCES inventory_transactions(id),
-
-  -- Audit fields
-  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-
-  is_active BOOLEAN DEFAULT true
+  qmhq_id UUID REFERENCES qmhq(id) ON DELETE SET NULL,  -- 1:1 link
+  -- ... other fields
 );
 
--- 3. Seed workflow statuses
-INSERT INTO status_config (entity_type, status_group, name, color, is_default) VALUES
-  ('stock_out', 'to_do', 'Draft', '#9CA3AF', true),
-  ('stock_out', 'to_do', 'Pending Approval', '#F59E0B', false),
-  ('stock_out', 'in_progress', 'Approved', '#10B981', false),
-  ('stock_out', 'done', 'Fulfilled', '#10B981', false),
-  ('stock_out', 'done', 'Rejected', '#EF4444', false);
-
--- 4. Add audit trigger (reuses existing function)
-CREATE TRIGGER audit_stock_out_requests
-  AFTER INSERT OR UPDATE OR DELETE ON stock_out_requests
-  FOR EACH ROW
-  EXECUTE FUNCTION create_audit_log();
-```
-
-#### Application Layer
-
-**Request Form (Server Component + Client Form):**
-```tsx
-// app/(dashboard)/inventory/stock-out/request/new/page.tsx
-// Pattern: Same as QMHQ/PO creation forms
-
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { stockOutRequestSchema } from '@/lib/validations/stock-out';
-
-// Zod schema
-const stockOutRequestSchema = z.object({
-  item_id: z.string().uuid(),
-  warehouse_id: z.string().uuid(),
-  quantity: z.number().positive(),
-  reason: z.string().min(10),
-  notes: z.string().optional(),
-});
-```
-
-**Approval UI (Server Action):**
-```tsx
-// app/actions/stock-out.ts
-'use server';
-
-export async function approveStockOut(requestId: string, note: string) {
-  const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // Use existing RPC
-  const { error } = await supabase.rpc('update_status_with_note', {
-    p_entity_type: 'stock_out',
-    p_entity_id: requestId,
-    p_new_status_id: approvedStatusId,
-    p_note: note,
-    p_user_id: user.id
-  });
-
-  if (!error) {
-    // Update approval tracking fields
-    await supabase
-      .from('stock_out_requests')
-      .update({
-        approved_by: user.id,
-        approved_at: new Date().toISOString()
-      })
-      .eq('id', requestId);
-  }
-
-  revalidatePath('/inventory/stock-out');
-}
-```
-
-#### Why NOT Use State Machine Libraries
-
-| Library | Why Not |
-|---------|---------|
-| **XState** | Client-side complexity, requires state serialization to DB, overkill for linear workflow |
-| **Robot** | Same issues as XState, adds dependency for simple state transitions |
-| **Custom FSM library** | PostgreSQL CHECK constraints + status_config table already implement state machine semantics |
-
-**Existing pattern is superior:**
-- Database-level state enforcement (CHECK constraints)
-- Audit trail built-in (trigger system)
-- Works with Server Components (no client-side state sync)
-- Proven in production (QMRL/QMHQ use same pattern)
-
----
-
-### 2. Entity Deletion Protection
-
-**Requirement:** Prevent deletion of items/warehouses/suppliers if referenced by POs/invoices/transactions. Show user-friendly warning before attempting delete.
-
-**Solution:** PostgreSQL FK constraints with `RESTRICT` + pre-delete validation RPC (NO new libraries)
-
-#### Why Existing Stack Covers This
-
-**Native PostgreSQL Foreign Key Constraints:**
-- Standard SQL feature, zero dependencies
-- Atomic enforcement (can't be bypassed)
-- Error code `23503` for FK violations (standard)
-- **Current issue:** Some FK constraints use `CASCADE` inappropriately
-
-**Example of Current Problematic Pattern:**
-```sql
--- From migration 011_qmhq.sql
-qmrl_id UUID NOT NULL REFERENCES qmrl(id) ON DELETE CASCADE
-```
-This is **correct** for QMHQ (child record should cascade when parent deleted).
-
-**But for master data, CASCADE is wrong:**
-```sql
--- If this exists, it would be problematic
-item_id UUID REFERENCES items(id) ON DELETE CASCADE
--- ^ Deleting an item would delete all PO line items (data loss!)
-```
-
-#### Database Architecture
-
-**Step 1: Audit Current FK Constraints**
-```sql
--- Find all CASCADE constraints on master data
-SELECT
-  tc.table_name,
-  kcu.column_name,
-  ccu.table_name AS foreign_table,
-  rc.delete_rule
-FROM information_schema.table_constraints tc
-JOIN information_schema.key_column_usage kcu
-  ON tc.constraint_name = kcu.constraint_name
-JOIN information_schema.constraint_column_usage ccu
-  ON ccu.constraint_name = tc.constraint_name
-JOIN information_schema.referential_constraints rc
-  ON rc.constraint_name = tc.constraint_name
-WHERE tc.constraint_type = 'FOREIGN KEY'
-  AND rc.delete_rule = 'CASCADE'
-  AND ccu.table_name IN ('items', 'warehouses', 'suppliers', 'contact_persons');
-```
-
-**Step 2: Change to RESTRICT**
-```sql
--- Example: Protect items from deletion if in PO line items
-ALTER TABLE po_line_items
-DROP CONSTRAINT po_line_items_item_id_fkey,
-ADD CONSTRAINT po_line_items_item_id_fkey
-  FOREIGN KEY (item_id)
-  REFERENCES items(id)
-  ON DELETE RESTRICT;
-
--- Repeat for all master data FK references
-```
-
-**Step 3: Pre-Delete Validation RPC**
-```sql
--- Check if entity has references before attempting delete
-CREATE OR REPLACE FUNCTION check_entity_references(
-  p_entity_type TEXT,
-  p_entity_id UUID
-) RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = pg_catalog, public
-AS $$
-DECLARE
-  v_references JSONB := '[]'::JSONB;
-  v_count INTEGER;
-BEGIN
-  -- Check based on entity type
-  IF p_entity_type = 'item' THEN
-    -- Check PO line items
-    SELECT COUNT(*) INTO v_count
-    FROM po_line_items
-    WHERE item_id = p_entity_id AND is_active = true;
-
-    IF v_count > 0 THEN
-      v_references := v_references || jsonb_build_object(
-        'table', 'Purchase Orders',
-        'count', v_count,
-        'type', 'po_line'
-      );
-    END IF;
-
-    -- Check inventory transactions
-    SELECT COUNT(*) INTO v_count
-    FROM inventory_transactions
-    WHERE item_id = p_entity_id;
-
-    IF v_count > 0 THEN
-      v_references := v_references || jsonb_build_object(
-        'table', 'Inventory Transactions',
-        'count', v_count,
-        'type', 'inventory'
-      );
-    END IF;
-
-    -- Check QMHQ item routes
-    SELECT COUNT(*) INTO v_count
-    FROM qmhq
-    WHERE route_type = 'item' AND item_id = p_entity_id AND is_active = true;
-
-    IF v_count > 0 THEN
-      v_references := v_references || jsonb_build_object(
-        'table', 'QMHQ Lines',
-        'count', v_count,
-        'type', 'qmhq'
-      );
-    END IF;
-  END IF;
-
-  -- Similar checks for warehouse, supplier, etc.
-
-  RETURN jsonb_build_object(
-    'has_references', jsonb_array_length(v_references) > 0,
-    'references', v_references
-  );
-END;
-$$;
-```
-
-#### Application Layer
-
-**Delete Button with Pre-Flight Check:**
-```tsx
-// components/items/delete-item-dialog.tsx
-'use client';
-
-export function DeleteItemDialog({ itemId }: { itemId: string }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [references, setReferences] = useState<any>(null);
-  const [isChecking, setIsChecking] = useState(false);
-
-  const checkReferences = async () => {
-    setIsChecking(true);
-    const supabase = createClient();
-
-    const { data } = await supabase.rpc('check_entity_references', {
-      p_entity_type: 'item',
-      p_entity_id: itemId
-    });
-
-    setReferences(data);
-    setIsChecking(false);
-  };
-
-  useEffect(() => {
-    if (isOpen) checkReferences();
-  }, [isOpen]);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="destructive">Delete</Button>
-      </DialogTrigger>
-      <DialogContent>
-        {isChecking ? (
-          <p>Checking references...</p>
-        ) : references?.has_references ? (
-          <>
-            <DialogTitle>Cannot Delete Item</DialogTitle>
-            <DialogDescription>
-              This item is referenced by:
-              {references.references.map((ref: any) => (
-                <div key={ref.table}>
-                  {ref.table}: {ref.count} records
-                </div>
-              ))}
-            </DialogDescription>
-            <Button onClick={() => setIsOpen(false)}>Close</Button>
-          </>
-        ) : (
-          <>
-            <DialogTitle>Confirm Deletion</DialogTitle>
-            <DialogDescription>
-              Are you sure? This action cannot be undone.
-            </DialogDescription>
-            <Button variant="destructive" onClick={handleDelete}>
-              Delete
-            </Button>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-```
-
-**Server Action with Graceful Error Handling:**
-```tsx
-'use server';
-
-export async function deleteItem(itemId: string) {
-  const supabase = createServerClient();
-
-  // Pre-flight check
-  const { data: checkResult } = await supabase.rpc('check_entity_references', {
-    p_entity_type: 'item',
-    p_entity_id: itemId
-  });
-
-  if (checkResult?.has_references) {
-    return {
-      success: false,
-      error: 'Item has references',
-      details: checkResult.references
-    };
-  }
-
-  // Attempt soft delete
-  const { error } = await supabase
-    .from('items')
-    .update({ is_active: false })
-    .eq('id', itemId);
-
-  if (error) {
-    // Check if FK constraint violation (race condition)
-    if (error.code === '23503') {
-      return {
-        success: false,
-        error: 'Item is now referenced by other records'
-      };
-    }
-    return { success: false, error: error.message };
-  }
-
-  revalidatePath('/item');
-  return { success: true };
-}
-```
-
-#### Why NOT Use ORM Delete Hooks
-
-| Approach | Why Not |
-|----------|---------|
-| **Prisma beforeDelete hook** | Not using Prisma ORM, Supabase client doesn't have hooks |
-| **Drizzle onDelete callbacks** | Not using Drizzle ORM |
-| **Application-level cascade logic** | Race conditions, not atomic, database constraints more reliable |
-
-**Database-level enforcement is superior:**
-- Atomic and reliable (can't have race conditions)
-- Works even if accessed via SQL console or other tools
-- Pre-flight RPC provides user-friendly warnings
-- Fallback to constraint error if RPC check missed something
-
----
-
-### 3. Context Side Slider
-
-**Requirement:** Collapsible side panel (default open on desktop), right-side slider for contextual information.
-
-**Solution:** Extract pattern from existing `QmrlContextPanel` component (NO new libraries)
-
-#### Why Existing Stack Covers This
-
-**Existing Component Analysis:**
-- File: `/components/qmhq/qmrl-context-panel.tsx`
-- Lines: 640
-- Status: Production-ready, proven pattern
-
-**Proven Capabilities:**
-```tsx
-// State management
-const [isPanelOpen, setIsPanelOpen] = useState(() => {
-  if (typeof window !== 'undefined') {
-    return window.innerWidth >= 768; // Default open on desktop
-  }
-  return true;
-});
-
-// Responsive behavior
-// Desktop: Always visible (md:block md:relative md:translate-x-0)
-// Mobile: Slide-in drawer with backdrop
-<div className={cn(
-  'md:block md:relative md:translate-x-0',
-  'fixed inset-y-0 right-0 z-50',
-  'transform transition-transform duration-300 ease-in-out',
-  isOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'
-)}>
-
-// Scroll management
-useEffect(() => {
-  if (isOpen && window.innerWidth < 768) {
-    document.body.style.overflow = 'hidden'; // Lock body scroll on mobile
-  } else {
-    document.body.style.overflow = 'auto';
-  }
-}, [isOpen]);
-```
-
-**Features Already Implemented:**
-- ✓ Smooth slide animation (Tailwind `transition-transform duration-300`)
-- ✓ Mobile backdrop with blur (`bg-black/60 backdrop-blur-sm`)
-- ✓ Floating toggle button on mobile
-- ✓ Close button (mobile only)
-- ✓ Collapsible content sections (description, notes with "Show more/less")
-- ✓ Responsive width (`w-80 md:w-80 lg:w-96`)
-- ✓ Sticky header
-- ✓ Scrollable content area
-
-#### Component Architecture
-
-**Step 1: Extract Reusable Container**
-```tsx
-// components/layout/context-slider.tsx
-interface ContextSliderProps {
-  isOpen: boolean;
-  onToggle: () => void;
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-  defaultOpen?: boolean; // Default: true for desktop
-}
-
-export function ContextSlider({
-  isOpen,
-  onToggle,
-  title,
-  icon: Icon,
-  children,
-  defaultOpen = true
-}: ContextSliderProps) {
-  // Same logic as QmrlContextPanel
-  // - Mobile backdrop
-  // - Floating toggle button
-  // - Smooth animations
-  // - Body scroll lock
-}
-```
-
-**Step 2: Create Content Components**
-```tsx
-// components/inventory/stock-out-context.tsx
-interface StockOutContextProps {
-  itemId: string | null;
-  warehouseId: string | null;
-}
-
-export function StockOutContext({ itemId, warehouseId }: StockOutContextProps) {
-  const [item, setItem] = useState(null);
-  const [warehouse, setWarehouse] = useState(null);
-  const [stockLevel, setStockLevel] = useState(null);
-
-  useEffect(() => {
-    if (!itemId || !warehouseId) return;
-
-    // Fetch item details, warehouse info, stock levels
-    // Display: Item info, WAC, current stock, transaction history
-  }, [itemId, warehouseId]);
-
-  return (
-    <div className="space-y-4">
-      {/* Item info section */}
-      {/* Warehouse stock section */}
-      {/* Recent transactions section */}
-    </div>
-  );
-}
-```
-
-**Step 3: Integration in Forms**
-```tsx
-// app/(dashboard)/inventory/stock-out/request/new/page.tsx
-'use client';
-
-export default function NewStockOutRequestPage() {
-  const [isPanelOpen, setIsPanelOpen] = useState(() => {
-    return typeof window !== 'undefined' && window.innerWidth >= 768;
-  });
-
-  const [formData, setFormData] = useState({
-    item_id: null,
-    warehouse_id: null,
-    quantity: 0,
-    reason: ''
-  });
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-[1fr_384px] gap-0 h-[calc(100vh-4rem)]">
-      {/* Form content */}
-      <div className="overflow-y-auto p-6">
-        <form>
-          <ItemSelect
-            value={formData.item_id}
-            onChange={(id) => setFormData(prev => ({ ...prev, item_id: id }))}
-          />
-          <WarehouseSelect
-            value={formData.warehouse_id}
-            onChange={(id) => setFormData(prev => ({ ...prev, warehouse_id: id }))}
-          />
-        </form>
-      </div>
-
-      {/* Context slider */}
-      <ContextSlider
-        isOpen={isPanelOpen}
-        onToggle={() => setIsPanelOpen(prev => !prev)}
-        title="Stock Context"
-        icon={Package}
-      >
-        <StockOutContext
-          itemId={formData.item_id}
-          warehouseId={formData.warehouse_id}
-        />
-      </ContextSlider>
-    </div>
-  );
-}
-```
-
-#### CSS Pattern (Tailwind Classes)
-
-```tsx
-// Key classes from QmrlContextPanel
-const sliderClasses = cn(
-  // Desktop: visible in grid, relative positioning
-  'md:block md:relative md:translate-x-0',
-
-  // Mobile: fixed slide-in from right
-  'fixed inset-y-0 right-0 z-50',
-
-  // Width
-  'w-80 md:w-80 lg:w-96',
-
-  // Smooth animation
-  'transform transition-transform duration-300 ease-in-out',
-  isOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0',
-
-  // Styling
-  'border-l border-slate-700 bg-slate-900',
-  'overflow-hidden flex flex-col'
+-- stock_out_approvals (migration 052)
+CREATE TABLE stock_out_approvals (
+  line_item_id UUID REFERENCES stock_out_line_items(id) ON DELETE CASCADE,
+  approval_number TEXT UNIQUE,  -- SOR-YYYY-NNNNN-A01
+  -- ... other fields
 );
 
-const backdropClasses = cn(
-  'md:hidden fixed inset-0 z-40',
-  'bg-black/60 backdrop-blur-sm'
-);
-
-const toggleButtonClasses = cn(
-  'md:hidden fixed bottom-4 right-4 z-40',
-  'flex items-center gap-2 rounded-full',
-  'bg-gradient-to-r from-amber-600 to-amber-500',
-  'px-4 py-3 shadow-lg',
-  'hover:from-amber-500 hover:to-amber-400',
-  'transition-all duration-200'
+-- inventory_transactions (migration 023)
+CREATE TABLE inventory_transactions (
+  qmhq_id UUID REFERENCES qmhq(id) ON DELETE SET NULL,  -- Already exists!
+  stock_out_approval_id UUID REFERENCES stock_out_approvals(id) ON DELETE SET NULL,  -- Added in 053
+  -- ... other fields
 );
 ```
 
-#### State Persistence Decision
+### Required Migration: NONE
 
-**NO sessionStorage/localStorage:**
-- Matches existing QMHQ creation pattern
-- Panel state resets between pages (intentional)
-- Simpler UX: users know what to expect
+The schema already supports dual reference! The FK `qmhq_id` exists in `inventory_transactions` since migration 023 (line 76).
 
-**Rationale from milestone context:**
-```tsx
-// From QmrlContextPanel (lines 76-82)
-const [isPanelOpen, setIsPanelOpen] = useState(() => {
-  if (typeof window !== 'undefined') {
-    return window.innerWidth >= 768; // Open on desktop, closed on mobile
-  }
-  return true;
-});
-// No sessionStorage - resets per step per user decision
-```
+**What's needed:** Logic change, not schema change.
 
-#### Why NOT Use Third-Party Slider Libraries
-
-| Library | Why Not |
-|---------|---------|
-| **Headless UI Slide Over** | Already have Radix UI primitives, custom solution more flexible |
-| **Radix UI Sheet** | Doesn't exist yet (no Sheet primitive in Radix UI) |
-| **Framer Motion** | Overkill for simple slide animation, Tailwind transitions sufficient |
-| **React Spring** | Complex API for simple use case |
-| **Custom slider libraries** | Existing QmrlContextPanel already solves problem perfectly |
-
-**Existing pattern is superior:**
-- Zero dependencies
-- Proven in production (QMHQ creation workflow)
-- Exact UX needed (default open on desktop)
-- Tailwind animations are smooth enough
-- Full control over behavior
-
----
-
-## Integration Points with Existing Stack
-
-### 1. Status System Integration
-
-**Existing Infrastructure:**
-```sql
--- status_config table (migration 003)
-CREATE TABLE status_config (
-  entity_type public.entity_type, -- ENUM: 'qmrl', 'qmhq'
-  status_group public.status_group, -- ENUM: 'to_do', 'in_progress', 'done'
-  name TEXT,
-  color TEXT,
-  is_default BOOLEAN
-);
-```
-
-**Extension for Stock-Out:**
-```sql
--- 1. Add new entity type
-ALTER TYPE public.entity_type ADD VALUE 'stock_out';
-
--- 2. Insert workflow statuses
-INSERT INTO status_config (entity_type, status_group, name, color, is_default) VALUES
-  ('stock_out', 'to_do', 'Draft', '#9CA3AF', true),
-  ('stock_out', 'to_do', 'Pending Approval', '#F59E0B', false),
-  ('stock_out', 'in_progress', 'Approved', '#10B981', false),
-  ('stock_out', 'done', 'Fulfilled', '#10B981', false),
-  ('stock_out', 'done', 'Rejected', '#EF4444', false);
-
--- 3. Workflow works with existing RPC
-SELECT update_status_with_note(
-  'stock_out',
-  request_id,
-  approved_status_id,
-  'Approved for warehouse transfer',
-  user_id
-);
-```
-
-### 2. Audit System Integration
-
-**Existing Trigger Function:**
-```sql
--- From migration 048 (lines 106-412)
-CREATE FUNCTION create_audit_log() RETURNS TRIGGER;
--- Handles: create, update, delete, status_change, void, approval, etc.
-```
-
-**Add to New Table:**
-```sql
--- Single line addition
-CREATE TRIGGER audit_stock_out_requests
-  AFTER INSERT OR UPDATE OR DELETE ON stock_out_requests
-  FOR EACH ROW
-  EXECUTE FUNCTION create_audit_log();
-```
-
-**Audit Entries Automatically Captured:**
-- Status changes (Draft → Pending → Approved → Fulfilled)
-- Assignment changes
-- Soft deletes (is_active = false)
-- All field updates with old/new values
-
-### 3. RLS Policies
-
-**Existing Pattern:**
-```sql
--- QMRL policies (role-based)
-CREATE POLICY "Inventory can view all"
-  ON qmrl FOR SELECT
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM users
-      WHERE id = auth.uid()
-      AND role IN ('admin', 'quartermaster', 'inventory')
-    )
-  );
-```
-
-**Apply to Stock-Out:**
-```sql
--- Enable RLS
-ALTER TABLE stock_out_requests ENABLE ROW LEVEL SECURITY;
-
--- Inventory role can CRUD stock-out requests
-CREATE POLICY "Inventory can manage stock-out requests"
-  ON stock_out_requests FOR ALL
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM users
-      WHERE id = auth.uid()
-      AND role IN ('inventory', 'admin', 'quartermaster')
-    )
-  );
-
--- Others can view own requests
-CREATE POLICY "Users can view own stock-out requests"
-  ON stock_out_requests FOR SELECT
-  TO authenticated
-  USING (created_by = auth.uid());
-```
-
-### 4. Toast Notifications
-
-**Existing System:**
-```tsx
-// Already installed: @radix-ui/react-toast
-// Component: components/ui/toast.tsx
-// Hook: components/ui/use-toast.ts
-
-// Usage in Server Actions
-import { useToast } from '@/components/ui/use-toast';
-
-const { toast } = useToast();
-
-toast({
-  title: 'Stock-out request approved',
-  description: 'Inventory transaction created',
-  variant: 'success'
-});
-
-toast({
-  title: 'Cannot delete item',
-  description: 'Item is referenced by 3 purchase orders',
-  variant: 'destructive'
-});
-```
-
-**Existing Variants:**
-- `default` - Neutral notification
-- `success` - Green, for confirmations
-- `destructive` - Red, for errors/warnings
-- Supports actions (undo buttons)
-
----
-
-## What NOT to Add
-
-### State Management Libraries
-| Library | Why Not Needed |
-|---------|---------------|
-| **Zustand** | Status state lives in database, no global client state required |
-| **Redux Toolkit** | Server Components + Server Actions sufficient, database is source of truth |
-| **XState** | Status_config table + PostgreSQL constraints already implement state machine |
-| **Jotai/Recoil** | Form state handled by react-hook-form, no atom-based state needed |
-
-### UI Component Libraries (Additional)
-| Library | Why Not Needed |
-|---------|---------------|
-| **Headless UI** | Radix UI already provides Dialog, Popover, Toast |
-| **Mantine** | Full component library, conflicts with existing Tailwind + Radix pattern |
-| **Ant Design** | Opinionated UI, doesn't fit dark theme aesthetic |
-| **Material UI** | Heavy bundle, unnecessary when Radix + Tailwind already in use |
-
-### Animation Libraries
-| Library | Why Not Needed |
-|---------|---------------|
-| **Framer Motion** | Tailwind transitions sufficient for slide animations |
-| **React Spring** | No complex physics-based animations required |
-| **GSAP** | Overkill for simple UI transitions |
-
-### ORM Libraries
-| Library | Why Not Needed |
-|---------|---------------|
-| **Prisma** | Supabase client already provides type-safe queries |
-| **Drizzle** | Not needed, direct SQL migrations work well |
-| **TypeORM** | Supabase JS client sufficient |
-
----
-
-## Recommended File Structure
-
-### New Files to Create
-
-```
-/lib
-  /workflows
-    stock-out-workflow.ts              # Workflow state definitions, helpers
-  /database
-    deletion-checks.ts                 # Pre-delete reference checking helpers
-
-/components
-  /layout
-    context-slider.tsx                 # Reusable slider container (extracted pattern)
-  /inventory
-    stock-out-request-form.tsx         # Request creation form
-    stock-out-approval-ui.tsx          # Approval/rejection interface
-    stock-out-context.tsx              # Context slider content
-    item-context.tsx                   # Item details panel
-    warehouse-stock-context.tsx        # Warehouse stock levels panel
-  /items
-    delete-item-dialog.tsx             # Delete with reference checking
-  /warehouses
-    delete-warehouse-dialog.tsx        # Delete with reference checking
-
-/app/(dashboard)
-  /inventory
-    /stock-out
-      /request
-        new/page.tsx                   # Create stock-out request
-        [id]/page.tsx                  # View request details
-      /approve
-        page.tsx                       # List pending requests
-        [id]/page.tsx                  # Approve/reject request
-
-/app/actions
-  stock-out.ts                         # Server actions for workflow
-  deletion.ts                          # Server actions for delete checks
-
-/lib/validations
-  stock-out.ts                         # Zod schemas
-
-/supabase/migrations
-  0XX_stock_out_requests.sql           # Main table + indexes
-  0XX_stock_out_status_config.sql      # Status workflow entries
-  0XX_fk_constraint_audit.sql          # Change CASCADE to RESTRICT
-  0XX_deletion_protection_rpc.sql      # check_entity_references()
-```
-
----
-
-## Development Workflow
-
-### Phase 1: Database Schema (Day 1)
-
+**Verification:**
 ```bash
-# Create migrations
-npx supabase migration new stock_out_requests
-npx supabase migration new stock_out_status_config
-npx supabase migration new fk_constraint_audit
-npx supabase migration new deletion_protection_rpc
-
-# Apply locally
-npx supabase db reset
-
-# Generate TypeScript types
-npx supabase gen types typescript --local > types/database.ts
+# Confirmed in codebase
+grep -n "qmhq_id" supabase/migrations/023_inventory_transactions.sql
+# Line 76:   qmhq_id UUID REFERENCES qmhq(id) ON DELETE SET NULL,
 ```
 
-### Phase 2: Deletion Protection (Day 2)
+---
 
-```sql
--- 1. Audit all CASCADE constraints
--- 2. Change to RESTRICT for master data
--- 3. Create check_entity_references() RPC
--- 4. Test with existing data
+## Component Modification Strategy
+
+### 1. ExecutionDialog Component
+
+**Current props:**
+```typescript
+interface ExecutionDialogProps {
+  approvalId: string;  // Execute this approval's transactions
+  requestId: string;   // Parent request (for navigation)
+  // ...
+}
 ```
+
+**New props (backward compatible):**
+```typescript
+interface ExecutionDialogProps {
+  approvalId: string;     // Keep
+  lineItemId?: string;    // NEW: Optional line item scope
+  requestId: string;      // Keep
+  // ...
+}
+```
+
+**Query change:**
+```typescript
+// Before: Execute all transactions for one approval
+.eq('stock_out_approval_id', approvalId)
+
+// After: Execute transactions for one approval within one line item
+.eq('stock_out_approval_id', approvalId)
+.eq('line_item_id', lineItemId)  // Filter further if provided
+```
+
+**Why no new library:** Existing `useEffect` + `useState` + Supabase client sufficient.
+
+### 2. LineItemTable Component
+
+**Current:** No Execute button (execution is request-level)
+
+**New:** Add Execute button per row
 
 ```tsx
-// 5. Create delete dialog component
-// 6. Create server action with error handling
-// 7. Add to items/warehouses/suppliers pages
+// Add to each row
+{canExecute && lineItem.status === 'approved' && (
+  <Button
+    size="sm"
+    onClick={() => handleExecuteLineItem(lineItem.id)}
+  >
+    <ArrowUpFromLine className="w-4 h-4 mr-2" />
+    Execute
+  </Button>
+)}
 ```
 
-### Phase 3: Context Slider Component (Day 3)
+**Why no new library:** Existing Button component + onClick handler pattern.
 
+### 3. Transaction List Cards
+
+**Current display:**
 ```tsx
-// 1. Extract ContextSlider from QmrlContextPanel
-// 2. Create StockOutContext content component
-// 3. Create ItemContext component
-// 4. Test responsive behavior (desktop + mobile)
+<div className="font-mono">
+  {transaction.approval?.approval_number}
+</div>
 ```
 
-### Phase 4: Stock-Out Workflow (Days 4-5)
-
+**New display:**
 ```tsx
-// 1. Create request form with context slider
-// 2. Create approval list page
-// 3. Create approval/rejection UI
-// 4. Integrate with inventory_transactions
-// 5. Add RLS policies
-// 6. Add tests
+<div>
+  <div className="font-mono text-slate-200">
+    {transaction.approval?.approval_number}
+  </div>
+  {transaction.qmhq?.request_id && (
+    <div className="text-xs text-slate-500 flex items-center gap-1">
+      <span>via {transaction.qmhq.request_id}</span>
+      <Link href={`/qmhq/${transaction.qmhq_id}`}>
+        <ExternalLink className="w-3 h-3" />
+      </Link>
+    </div>
+  )}
+</div>
 ```
+
+**Why no new library:** Existing Link, conditional rendering, Tailwind classes.
 
 ---
 
 ## Type Safety
 
-All features leverage existing TypeScript setup:
+### Existing Type Generation (Keep)
 
+```bash
+# Types auto-generated from Supabase schema
+supabase gen types typescript --local > types/database.ts
+```
+
+**Current types already include:**
 ```typescript
-// types/database.ts (extend existing)
-
-export interface StockOutRequest {
-  id: string;
-  request_id: string; // STOCK-OUT-YYYY-NNNNN
-  item_id: string;
-  warehouse_id: string;
-  quantity: number;
-  reason: string;
-  notes: string | null;
-  status_id: string;
-  approved_by: string | null;
-  approved_at: string | null;
-  rejection_reason: string | null;
-  fulfilled_at: string | null;
-  inventory_transaction_id: string | null;
-  created_by: string;
-  updated_by: string;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
+// types/database.ts (auto-generated)
+export interface Tables {
+  inventory_transactions: {
+    qmhq_id: string | null;  // Already typed!
+    stock_out_approval_id: string | null;
+    // ...
+  };
 }
+```
 
-// lib/validations/stock-out.ts
+**No manual type changes needed.** The FK `qmhq_id` is already in the schema, so TypeScript types already reflect it.
 
-import { z } from 'zod';
+---
 
-export const stockOutRequestSchema = z.object({
-  item_id: z.string().uuid('Invalid item'),
-  warehouse_id: z.string().uuid('Invalid warehouse'),
-  quantity: z.number().positive('Quantity must be positive'),
-  reason: z.string().min(10, 'Reason must be at least 10 characters'),
-  notes: z.string().optional(),
-});
+## Data Flow
 
-export type StockOutRequestInput = z.infer<typeof stockOutRequestSchema>;
+### Per-Line-Item Execution Flow
 
-export const stockOutApprovalSchema = z.object({
-  request_id: z.string().uuid(),
-  note: z.string().min(10, 'Approval note must be at least 10 characters'),
-});
+```
+1. User clicks "Execute" on LineItemTable row
+   ↓
+2. onClick handler sets lineItemId state
+   ↓
+3. ExecutionDialog opens with { approvalId, lineItemId }
+   ↓
+4. Dialog queries:
+   SELECT * FROM inventory_transactions
+   WHERE stock_out_approval_id = $approvalId
+     AND line_item_id = $lineItemId  -- NEW filter
+     AND status = 'pending'
+   ↓
+5. User confirms → UPDATE status = 'completed'
+   ↓
+6. Trigger: update_sor_line_item_execution_status()
+   (already exists, handles partial execution)
+```
 
-export const stockOutRejectionSchema = z.object({
-  request_id: z.string().uuid(),
-  reason: z.string().min(20, 'Rejection reason must be at least 20 characters'),
-});
+**Existing patterns reused:**
+- State management: `useState` for selected line item
+- Query filtering: Supabase `.eq()` chaining
+- Status updates: Existing trigger (migration 053, lines 308-370)
+
+### QMHQ Reference Propagation Flow
+
+```
+1. Admin approves stock-out request line item
+   ↓
+2. Approval creates inventory_transactions (status='pending')
+   ↓
+3. NEW: Copy parent stock_out_requests.qmhq_id → transaction.qmhq_id
+   ↓
+4. Executor views transaction list
+   ↓
+5. UI SELECT includes qmhq:qmhq(request_id) join
+   ↓
+6. Dual reference renders: SOR + via QMHQ
+```
+
+**Implementation location:** Approval creation logic (currently in `ApprovalDialog` component or approval RPC if exists).
+
+**Query example:**
+```typescript
+// When creating transaction during approval
+const { data: request } = await supabase
+  .from('stock_out_requests')
+  .select('qmhq_id')
+  .eq('id', requestId)
+  .single();
+
+const { error } = await supabase
+  .from('inventory_transactions')
+  .insert({
+    movement_type: 'inventory_out',
+    item_id: lineItem.item_id,
+    warehouse_id: selectedWarehouseId,
+    quantity: approvedQuantity,
+    reason: requestReason,
+    status: 'pending',
+    stock_out_approval_id: approvalId,
+    qmhq_id: request?.qmhq_id  // Propagate QMHQ link
+  });
 ```
 
 ---
 
-## Performance Considerations
+## Anti-Patterns to Avoid
 
-### Database Indexes
+### ❌ Don't Add These
 
-```sql
--- Stock-out requests
-CREATE INDEX idx_stock_out_requests_status
-  ON stock_out_requests(status_id, created_at DESC);
+| Anti-Pattern | Why Not |
+|--------------|---------|
+| Separate "execution queue" table | `inventory_transactions` with `status='pending'` already serves this |
+| RPC function for dual reference query | Simple SELECT with nested join sufficient |
+| Redux/Zustand for execution state | Component-local `useState` adequate (execution is isolated action) |
+| WebSocket for real-time execution status | User manually triggers execution, no live updates needed |
+| Database view for dual reference | Nullable FK + JOIN simpler, no materialized view overhead |
+| New transaction reference table | Existing FKs (`qmhq_id`, `stock_out_approval_id`) sufficient |
 
-CREATE INDEX idx_stock_out_requests_item
-  ON stock_out_requests(item_id) WHERE is_active = true;
+### ✅ Use Existing Patterns
 
-CREATE INDEX idx_stock_out_requests_warehouse
-  ON stock_out_requests(warehouse_id) WHERE is_active = true;
+| Pattern | Where Already Used | Why Reuse |
+|---------|-------------------|-----------|
+| Per-row actions | ApprovalDialog multi-select | Proven pattern for line-item operations |
+| Nullable FK for optional relations | `invoice_line_items.po_line_item_id` | Same concept (optional parent link) |
+| Nested SELECT joins | `qmhq` detail page queries | Supabase client handles efficiently |
+| Conditional secondary info | Fulfillment progress bars | Dual display pattern established |
+| Status transition triggers | `compute_sor_request_status()` | Already handles partial execution |
 
--- Reference lookup (for deletion checks)
-CREATE INDEX idx_po_line_items_item_lookup
-  ON po_line_items(item_id) WHERE is_active = true;
+---
 
-CREATE INDEX idx_inventory_transactions_item
-  ON inventory_transactions(item_id);
+## Migration Plan
 
-CREATE INDEX idx_qmhq_item_lookup
-  ON qmhq(item_id) WHERE route_type = 'item' AND is_active = true;
+### Step 1: Verify Schema (No Migration Needed)
+
+```bash
+# Confirm qmhq_id FK exists
+psql -c "SELECT column_name, data_type
+         FROM information_schema.columns
+         WHERE table_name = 'inventory_transactions'
+         AND column_name = 'qmhq_id';"
 ```
 
-### Query Patterns
+**Expected:** Column exists (added in migration 023).
 
-**Server Component (list page):**
-```tsx
-async function StockOutRequestsPage() {
-  const supabase = createServerClient();
+### Step 2: Add QMHQ Propagation Logic
 
-  // Single query with joins
-  const { data: requests } = await supabase
-    .from('stock_out_requests')
-    .select(`
-      *,
-      status:status_config(name, color),
-      item:items(name, sku),
-      warehouse:warehouses(name),
-      created_by_user:users!created_by(full_name)
-    `)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
+**Location:** `components/stock-out-requests/approval-dialog.tsx` (or approval RPC if exists)
 
-  return <RequestsList requests={requests} />;
-}
+**Change:**
+```typescript
+// Before: Create transaction without qmhq_id
+await supabase.from('inventory_transactions').insert({ ... });
+
+// After: Fetch parent qmhq_id and propagate
+const { data: request } = await supabase
+  .from('stock_out_requests')
+  .select('qmhq_id')
+  .eq('id', requestId)
+  .single();
+
+await supabase.from('inventory_transactions').insert({
+  ...transactionData,
+  qmhq_id: request?.qmhq_id  // Add this line
+});
 ```
 
-**Context Slider (client component with data props):**
-```tsx
-// Parent passes data as props
-<ContextSlider>
-  <StockOutContext item={item} warehouse={warehouse} stockLevel={stockLevel} />
-</ContextSlider>
+### Step 3: Update Transaction Queries
 
-// No additional queries inside slider component
-// Data fetched once by parent, passed down
+**Location:** Transaction list pages (inventory dashboard, warehouse detail, etc.)
+
+**Change:**
+```typescript
+// Before: Basic SELECT
+.select('id, quantity, status, ...')
+
+// After: Include QMHQ join
+.select(`
+  id,
+  quantity,
+  status,
+  stock_out_approval:stock_out_approvals(approval_number),
+  qmhq:qmhq(id, request_id)  -- Add this join
+`)
 ```
 
-### Caching Strategy
+### Step 4: Modify ExecutionDialog
 
-- **Use Next.js revalidatePath()** after mutations
-- **No client-side caching** (database is source of truth)
-- **Server Components** for read-heavy pages
-- **Server Actions** for mutations
+**Location:** `components/stock-out-requests/execution-dialog.tsx`
 
-```tsx
-// Server Action
-export async function approveStockOut(requestId: string) {
-  'use server';
+**Changes:**
+1. Add `lineItemId?: string` to props
+2. Add `.eq('line_item_id', lineItemId)` filter if prop provided
+3. Update dialog title to show line-item scope
 
-  // ... approval logic
+### Step 5: Add Execute Buttons to LineItemTable
 
-  // Revalidate affected pages
-  revalidatePath('/inventory/stock-out');
-  revalidatePath('/inventory/stock-out/approve');
-  revalidatePath(`/inventory/stock-out/request/${requestId}`);
-}
-```
+**Location:** `components/stock-out-requests/line-item-table.tsx`
+
+**Changes:**
+1. Add Execute button column
+2. Add `onExecuteLineItem` callback prop
+3. Show button only for `status='approved'` line items
+
+### Step 6: Update Transaction Display
+
+**Location:** Transaction cards/lists across app
+
+**Changes:**
+1. Add conditional QMHQ reference rendering
+2. Use lighter text color for secondary reference
+3. Add "via" prefix for clarity
+4. Link to QMHQ detail page with ExternalLink icon
 
 ---
 
 ## Testing Strategy
 
-### Database Layer Tests
+### Unit Tests (Optional)
 
-```sql
--- Test 1: Deletion protection
-BEGIN;
-  INSERT INTO items (name, sku) VALUES ('Test Item', 'TEST-001');
-  INSERT INTO po_line_items (po_id, item_id, quantity)
-    VALUES (test_po_id, test_item_id, 10);
+Not currently in codebase, but if added:
+- Test `qmhq_id` propagation in approval creation
+- Test query filters for per-line execution
+- Test conditional rendering of dual references
 
-  -- Should fail with FK violation
-  DELETE FROM items WHERE id = test_item_id;
-  -- Expected: ERROR: update or delete on table "items" violates foreign key constraint
-ROLLBACK;
+### Manual Testing Checklist
 
--- Test 2: Status workflow
-BEGIN;
-  INSERT INTO stock_out_requests (item_id, warehouse_id, quantity, status_id)
-    VALUES (item_id, warehouse_id, 10, draft_status_id);
+**Per-Line Execution:**
+- [ ] Create stock-out request with 3 line items
+- [ ] Approve all 3 line items
+- [ ] Execute line item 1 → verify only item 1 completes
+- [ ] Execute line item 2 → verify item 2 completes, item 3 still pending
+- [ ] Verify request status = `partially_executed`
 
-  -- Change to pending
-  UPDATE stock_out_requests SET status_id = pending_status_id;
+**QMHQ Linking:**
+- [ ] Create QMHQ item route with item A, qty 10
+- [ ] Click "Request Stock-Out" → creates SOR linked to QMHQ
+- [ ] Approve SOR → verify `inventory_transactions.qmhq_id` populated
+- [ ] View transaction list → verify QMHQ reference shows
 
-  -- Check audit log created
-  SELECT * FROM audit_logs
-  WHERE entity_type = 'stock_out'
-    AND action = 'status_change';
-ROLLBACK;
-```
-
-### Application Layer Tests
-
-```typescript
-describe('Stock-Out Workflow', () => {
-  it('prevents invalid status transitions', async () => {
-    // Test status validation
-  });
-
-  it('requires note for rejection', async () => {
-    // Test rejection validation
-  });
-
-  it('creates inventory transaction on fulfillment', async () => {
-    // Test inventory integration
-  });
-});
-
-describe('Deletion Protection', () => {
-  it('prevents deletion of referenced item', async () => {
-    // Test FK constraint
-  });
-
-  it('shows friendly warning with reference counts', async () => {
-    // Test pre-flight check
-  });
-
-  it('allows deletion of unreferenced item', async () => {
-    // Test successful soft delete
-  });
-});
-
-describe('Context Slider', () => {
-  it('opens by default on desktop', () => {
-    // Test responsive behavior
-  });
-
-  it('shows floating button on mobile', () => {
-    // Test mobile UX
-  });
-
-  it('locks body scroll when open on mobile', () => {
-    // Test scroll management
-  });
-});
-```
+**Dual Reference Display:**
+- [ ] Execute stock-out from QMHQ-linked SOR
+- [ ] View inventory dashboard → verify shows "SOR-2026-00001" + "via QMHQ-2026-00123"
+- [ ] Click QMHQ reference → verify navigates to QMHQ detail
+- [ ] Execute stock-out from manual SOR → verify only SOR reference shows (no "via")
 
 ---
 
-## Security Considerations
+## Risk Assessment
 
-### RLS Policies
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| FK `qmhq_id` doesn't exist | LOW | Already verified in migration 023 |
+| QMHQ reference breaks stock-in | LOW | FK is nullable, stock-in doesn't set it |
+| Per-line execution breaks status trigger | LOW | Existing trigger handles partial execution |
+| Type generation fails after logic change | LOW | No schema change, no type regen needed |
+| UI confusion with dual references | MEDIUM | Use "via" prefix, lighter color for secondary |
 
-```sql
--- Enable RLS on new table
-ALTER TABLE stock_out_requests ENABLE ROW LEVEL SECURITY;
+**Overall risk:** LOW — All changes are additive (props, conditional rendering) or FK population (no schema change).
 
--- Inventory role can CRUD all requests
-CREATE POLICY "Inventory full access"
-  ON stock_out_requests FOR ALL
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM users
-      WHERE id = auth.uid()
-      AND role IN ('inventory', 'admin', 'quartermaster')
-    )
-  );
+---
 
--- Requesters can view own
-CREATE POLICY "Users view own"
-  ON stock_out_requests FOR SELECT
-  TO authenticated
-  USING (created_by = auth.uid());
-```
+## Success Criteria
 
-### Server Actions
+### Database Layer
+- ✅ FK `qmhq_id` exists in `inventory_transactions` (already verified)
+- ✅ Approval creation propagates `stock_out_requests.qmhq_id` → `inventory_transactions.qmhq_id`
+- ✅ Existing triggers handle per-line execution without modification
 
-```typescript
-export async function approveStockOut(requestId: string, note: string) {
-  'use server';
+### UI Layer
+- ✅ `ExecutionDialog` accepts `lineItemId` prop and filters accordingly
+- ✅ `LineItemTable` shows Execute button per row for approved items
+- ✅ Transaction lists show dual reference when `qmhq_id` present
+- ✅ QMHQ reference links to QMHQ detail page
+- ✅ Conditional rendering hides "via QMHQ" when not applicable
 
-  // 1. Authenticate
-  const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
-
-  // 2. Authorize
-  const { data: userProfile } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (!['inventory', 'admin', 'quartermaster'].includes(userProfile.role)) {
-    throw new Error('Insufficient permissions');
-  }
-
-  // 3. Execute with SECURITY DEFINER RPC (prevents RLS bypass)
-  const { error } = await supabase.rpc('update_status_with_note', {
-    p_entity_type: 'stock_out',
-    p_entity_id: requestId,
-    p_new_status_id: approvedStatusId,
-    p_note: note,
-    p_user_id: user.id
-  });
-
-  // 4. Revalidate
-  revalidatePath('/inventory/stock-out');
-}
-```
+### User Experience
+- ✅ Admin can execute each approved line item independently
+- ✅ Executor sees both SOR and QMHQ references in transaction history
+- ✅ Request status accurately reflects per-line execution progress
+- ✅ No breaking changes to existing stock-in or manual stock-out flows
 
 ---
 
 ## Confidence Assessment
 
-| Feature | Confidence | Rationale |
-|---------|------------|-----------|
-| **Stock-out workflow** | HIGH | Existing RPC (`update_status_with_note`) proven in QMRL/QMHQ, 52 migrations show stability |
-| **Deletion protection** | HIGH | Native PostgreSQL FK constraints, standard SQL approach, error code 23503 well-documented |
-| **Context slider** | HIGH | 640-line `QmrlContextPanel` component already implements exact pattern needed |
-| **Form handling** | HIGH | react-hook-form + Zod used throughout 37,410-line codebase |
-| **Audit logging** | HIGH | Existing trigger system handles all entity types, deduplication logic proven |
-| **RLS policies** | MEDIUM | Pattern is clear from existing tables, requires careful permission testing |
-| **Integration** | HIGH | All features extend existing patterns, no paradigm shifts |
+| Area | Confidence | Rationale |
+|------|------------|-----------|
+| Schema adequacy | HIGH | FK `qmhq_id` already exists, verified in migration 023 |
+| Component patterns | HIGH | Per-row actions, nested joins, conditional rendering all established |
+| Type safety | HIGH | No schema change, existing types include `qmhq_id` |
+| Execution logic | HIGH | Existing trigger handles partial execution, tested in v1.6 |
+| Risk | LOW | Additive changes only, no deletions or breaking changes |
 
-**Overall confidence:** HIGH
-
-Zero new dependencies required. All features leverage existing, battle-tested stack components. Integration points are well-defined. Risk is minimal.
+**Overall confidence:** HIGH — This is composition of existing patterns, not new paradigm introduction.
 
 ---
 
 ## Sources
 
-**Codebase Analysis (PRIMARY):**
-- `/components/qmhq/qmrl-context-panel.tsx` - Side panel pattern (640 lines)
-- `/supabase/migrations/048_status_update_with_note.sql` - Status workflow RPC (412 lines)
-- `/supabase/migrations/003_status_config.sql` - Status system architecture (100 lines)
-- `/supabase/migrations/011_qmhq.sql` - FK constraint patterns
-- `/package.json` - Dependency versions (Next.js 14.2.13, React 18.3.1, Supabase 2.50.0)
-- `/CLAUDE.md` - Architecture patterns, component structure
+**Verified in codebase:**
+- `supabase/migrations/023_inventory_transactions.sql` (line 76: `qmhq_id` FK)
+- `supabase/migrations/052_stock_out_requests.sql` (SOR schema, `qmhq_id` 1:1 link)
+- `supabase/migrations/053_stock_out_validation.sql` (execution triggers, line 308-370)
+- `components/stock-out-requests/execution-dialog.tsx` (current execution logic)
+- `package.json` (current dependencies)
+- `.planning/phases/28-stock-out-request-approval-ui/28-CONTEXT.md` (v1.6 context)
 
-**PostgreSQL Documentation:**
-- Foreign key constraints with ON DELETE RESTRICT (standard SQL-92)
-- Error code 23503: foreign_key_violation
-- CHECK constraints for state validation
-- Trigger functions for audit logging
-
-**Next.js Documentation:**
-- Server Components for data fetching
-- Server Actions for mutations
-- `revalidatePath()` for cache invalidation
-- App Router patterns
-
-**Tailwind CSS:**
-- Transition utilities for animations
-- Responsive design (mobile-first)
-- Transform utilities for slide effects
-
----
-
-## Final Recommendation
-
-**DO NOT install any new npm packages.**
-
-All three features are fully achievable with the existing QM System stack:
-
-1. **Stock-out approval workflow**
-   - Extend `status_config` table with `stock_out` entity type
-   - Reuse `update_status_with_note()` RPC for transactions
-   - Follow QMRL/QMHQ form patterns
-
-2. **Entity deletion protection**
-   - Change FK constraints from `CASCADE` to `RESTRICT`
-   - Create `check_entity_references()` RPC for pre-flight checks
-   - Use existing Dialog + Toast components for warnings
-
-3. **Context side slider**
-   - Extract pattern from `QmrlContextPanel` (640 lines)
-   - Create reusable `ContextSlider` container component
-   - Use Tailwind transitions (no Framer Motion needed)
-
-**Benefits of this approach:**
-- Zero bundle size increase
-- No additional maintenance burden
-- Consistent patterns across codebase
-- Faster development (familiar patterns)
-- Lower risk (battle-tested components)
-
-This assessment prioritizes architectural patterns and existing capabilities over adding new dependencies, ensuring long-term maintainability and consistency with the established QM System architecture.
+**Confidence:** HIGH — All capabilities verified in existing code, no external docs consulted

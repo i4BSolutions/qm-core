@@ -1,1236 +1,1218 @@
-# Pitfalls Research: v1.5 Feature Additions
+# Pitfalls Research: Per-Line-Item Execution Migration
 
-**Project:** QM System v1.5
-**Domain:** Adding comments, responsive typography, two-step selectors, and currency unification to existing internal management system
-**Researched:** 2026-02-07
+**Project:** QM System - Stock-Out Request Logic Repair
+**Domain:** Changing from atomic request execution to per-line-item execution in existing inventory system
+**Researched:** 2026-02-11
 **Overall Confidence:** HIGH
 
 ---
 
 ## Executive Summary
 
-Adding features to an existing system with RLS policies, audit logging, and polymorphic patterns requires careful integration planning. The four features in v1.5 each have specific pitfalls that are amplified by QM System's architectural constraints:
+Changing execution granularity from atomic (whole-request) to per-line-item in an inventory system with existing computed status aggregation, transaction linking, and audit logging creates specific integration pitfalls. The QM System currently executes all approved items in a request atomically. The planned change introduces per-line-item execution with individual Execute buttons, requiring careful handling of:
 
-1. **Comments System** - Polymorphic pattern integration with existing audit/RLS infrastructure
-2. **Responsive Typography** - Large financial numbers requiring overflow handling without data loss
-3. **Two-Step Selectors** - Cascading state management in existing form flows
-4. **Currency Unification** - Decimal precision and cascade inheritance in multi-table system
+1. **Parent Status Computation** - Computed request status aggregates from child line items; stale status if triggers fire in wrong order
+2. **Transaction Linking Integrity** - Dual references (SOR + QMHQ) on inventory transactions; orphaned records if links break
+3. **Audit Log Explosion** - Per-line execution multiplies audit events; unbounded growth without selective logging
+4. **Partial Execution Race Conditions** - Multiple lines executing concurrently; stock depletion conflicts and duplicate execution
+5. **UI State Synchronization** - Parent detail page displays aggregated child states; stale display without proper invalidation
 
-**Critical Finding:** The existing system already uses polymorphic associations (file_attachments) and has 50+ migrations with complex RLS policies. Adding comments naively will cause performance degradation and audit log explosions.
+**Critical Finding:** The existing system has 3-level status aggregation (inventory_transactions → stock_out_line_items → stock_out_requests) with AFTER triggers computing parent status. Adding per-line-item execution breaks the implicit assumption that all child updates complete atomically, causing status computation timing issues and audit log multiplication.
 
 ---
 
-## 1. Comments System Pitfalls
+## 1. Parent Status Computation Pitfalls
 
-### Pitfall 1.1: Polymorphic RLS Performance Degradation
+### Pitfall 1.1: Stale Parent Status from Out-of-Order Trigger Execution
 
 **What goes wrong:**
-RLS policies on polymorphic comments table cause sequential scans instead of index usage, degrading from <50ms to >5000ms queries as comment count grows.
+Parent request status shows incorrect computed value after per-line-item execution because child line item status updates don't fire parent status recomputation trigger, or triggers fire but parent reads stale child data.
 
 **Why it happens:**
-- Comments table uses `entity_type` + `entity_id` (no foreign key constraint)
-- RLS policy must join to parent table (qmrl/qmhq) to check ownership
-- Non-LEAKPROOF functions in RLS prevent index usage
-- PostgreSQL forces RLS filtering before index optimization
+- Current system: `inventory_transactions` AFTER INSERT triggers `update_sor_line_item_execution_status()` which updates `stock_out_line_items.status`
+- That UPDATE triggers `compute_sor_request_status()` on `stock_out_requests`
+- 3-level cascade: inventory_transactions → line_items → requests
+- **NEW RISK:** Per-line execution means triggers fire multiple times in rapid succession instead of once
+- PostgreSQL trigger execution order within same transaction not guaranteed
+- Parent status computation reads aggregated child counts; if multiple children updating simultaneously, aggregation query may see partial state
 
 **Warning signs:**
-- Query EXPLAIN shows Seq Scan on comments table
-- Response time increases linearly with total comment count (not per-entity count)
-- Database CPU spikes when loading entity detail pages
+- Request status stuck at "partially_executed" even after all lines executed
+- UI shows "Executed" badge but database has "approved" status
+- Refresh/reload fixes status temporarily, then breaks again
+- EXPLAIN ANALYZE on status computation query shows varying row counts between calls
 
 **Prevention strategy:**
+
 ```sql
--- WRONG: This RLS policy prevents index usage
-CREATE POLICY comments_select ON comments FOR SELECT USING (
-  CASE entity_type
-    WHEN 'qmrl' THEN EXISTS (SELECT 1 FROM qmrl WHERE id = entity_id AND can_view_qmrl(id))
-    WHEN 'qmhq' THEN EXISTS (SELECT 1 FROM qmhq WHERE id = entity_id AND can_view_qmhq(id))
-  END
-);
+-- WRONG: Trigger reads child state during concurrent updates
+CREATE OR REPLACE FUNCTION compute_sor_request_status()
+RETURNS TRIGGER AS $$
+DECLARE
+  total_count INT;
+  executed_count INT;
+BEGIN
+  -- This query races with other line item updates in same transaction
+  SELECT COUNT(*), COUNT(*) FILTER (WHERE status = 'executed')
+  INTO total_count, executed_count
+  FROM stock_out_line_items
+  WHERE request_id = NEW.request_id AND is_active = true;
 
--- RIGHT: Use LEAKPROOF helper functions + partial indexes
-CREATE FUNCTION can_view_comment(comment_id UUID) RETURNS BOOLEAN AS $$
-  -- Complex logic here
-$$ LANGUAGE plpgsql STABLE LEAKPROOF;
+  -- Status computed from potentially stale counts
+  IF executed_count = total_count THEN
+    UPDATE stock_out_requests SET status = 'executed' WHERE id = NEW.request_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-CREATE INDEX idx_comments_qmrl
-  ON comments(entity_id)
-  WHERE entity_type = 'qmrl' AND deleted_at IS NULL;
+-- RIGHT: Use row-level locking + explicit ordering
+CREATE OR REPLACE FUNCTION compute_sor_request_status()
+RETURNS TRIGGER AS $$
+DECLARE
+  total_count INT;
+  executed_count INT;
+  parent_id UUID;
+BEGIN
+  -- Lock parent row to serialize status computation
+  parent_id := COALESCE(NEW.request_id, OLD.request_id);
+  PERFORM 1 FROM stock_out_requests WHERE id = parent_id FOR UPDATE;
 
-CREATE INDEX idx_comments_qmhq
-  ON comments(entity_id)
-  WHERE entity_type = 'qmhq' AND deleted_at IS NULL;
+  -- Now aggregate with guaranteed consistency
+  SELECT COUNT(*), COUNT(*) FILTER (WHERE status = 'executed')
+  INTO total_count, executed_count
+  FROM stock_out_line_items
+  WHERE request_id = parent_id AND is_active = true;
+
+  UPDATE stock_out_requests
+  SET status = CASE
+    WHEN executed_count = 0 THEN 'approved'::sor_request_status
+    WHEN executed_count = total_count THEN 'executed'::sor_request_status
+    ELSE 'partially_executed'::sor_request_status
+  END,
+  updated_at = NOW()
+  WHERE id = parent_id;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
 ```
 
-**Phase to address:** Phase 2 (Database Schema) - Must design RLS correctly from the start
+**Detection:**
+- Add logging to status computation trigger: `RAISE NOTICE 'Computing status for request % with counts: total=%, executed=%', parent_id, total_count, executed_count;`
+- Query audit_logs for requests with multiple status updates in <1 second intervals
+- Automated test: Execute 3 line items concurrently in parallel transactions, assert final status = 'executed'
+
+**Phase to address:** Phase 29 (Per-Line Execution UI) - Must update trigger function BEFORE deploying UI
+
+**Confidence:** HIGH - PostgreSQL trigger behavior documented, existing QM System uses this exact pattern
 
 **Sources:**
-- [PostgreSQL RLS Performance Pitfalls](https://www.permit.io/blog/postgres-rls-implementation-guide)
-- [Optimizing Postgres RLS](https://scottpierce.dev/posts/optimizing-postgres-rls/)
+- [PostgreSQL Trigger Behavior Documentation](https://www.postgresql.org/docs/current/trigger-definition.html)
+- [Aggregation Operations in Distributed SQL](https://medium.com/towards-data-engineering/aggregation-operations-in-distributed-sql-query-engines-516c464e8e19)
 
 ---
 
-### Pitfall 1.2: Audit Log Explosion with High-Frequency Comments
+### Pitfall 1.2: Missing Status Recomputation on Direct Child Updates
 
 **What goes wrong:**
-Audit triggers on comments table generate 1 audit log entry per comment action, causing audit_logs table to grow 10x faster than business data, eventually degrading all queries.
+Admin manually updates a line item status (e.g., cancels an executed line) but parent request status doesn't update to reflect the change, showing "executed" when it should be "partially_executed".
 
 **Why it happens:**
-- Generic audit trigger (existing in QM System) logs every INSERT/UPDATE/DELETE
-- Comments are high-frequency: users post multiple replies per discussion
-- Audit log queries become slow (no partitioning in place)
-- Existing audit queries like "show history for qmrl" start timing out
+- Status computation trigger only fires on inventory_transactions INSERT/UPDATE
+- Direct UPDATE to stock_out_line_items.status bypasses trigger
+- No trigger on line_items table itself to propagate to parent
+- Admin UI or manual SQL updates can modify line item status directly
 
 **Warning signs:**
-- audit_logs table grows >100MB per month
-- History tab pagination becomes slow
-- Database storage alerts trigger frequently
+- Status inconsistencies after admin interventions
+- Manual status corrections needed after voiding transactions
+- Database constraints allow status combinations that should be impossible (e.g., request='executed' with any line='approved')
 
 **Prevention strategy:**
-```sql
--- DON'T blindly apply generic audit trigger to comments
--- CREATE TRIGGER comments_audit AFTER INSERT OR UPDATE OR DELETE...
 
--- INSTEAD: Selective audit logging
-CREATE TRIGGER comments_audit_significant_only
-  AFTER INSERT OR UPDATE OR DELETE ON comments
+```sql
+-- Add trigger on line_items table itself
+CREATE OR REPLACE FUNCTION propagate_line_item_status_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Only recompute if status actually changed
+  IF OLD.status IS DISTINCT FROM NEW.status THEN
+    -- Delegate to existing status computation function
+    -- Use a fake NEW/OLD with request_id populated
+    PERFORM compute_sor_request_status_for_request(NEW.request_id);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_propagate_li_status ON stock_out_line_items;
+CREATE TRIGGER trg_propagate_li_status
+  AFTER UPDATE ON stock_out_line_items
   FOR EACH ROW
-  WHEN (
-    -- Only log creates and deletes, not every edit
-    TG_OP IN ('INSERT', 'DELETE')
-    OR (TG_OP = 'UPDATE' AND OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL)
-  )
-  EXECUTE FUNCTION create_audit_log();
-
--- OR: Use separate comments_audit_logs table with retention policy
-CREATE TABLE comments_audit_logs (
-  -- Lightweight schema, auto-purge after 90 days
-) PARTITION BY RANGE (created_at);
-```
-
-**Phase to address:** Phase 2 (Database Schema) - Design audit strategy upfront
-
-**Sources:**
-- [Audit Trigger Performance](https://www.techtarget.com/searchdatamanagement/tip/Pros-and-cons-of-using-SQL-Server-audit-triggers-for-DBAs)
-- [PostgreSQL Triggers in 2026](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/)
-
----
-
-### Pitfall 1.3: Soft Delete Conflicts with Unique Constraints on Nested Replies
-
-**What goes wrong:**
-Users delete a comment, then try to post another reply to the same parent. Database rejects with unique constraint violation even though previous comment is soft-deleted.
-
-**Why it happens:**
-- QM System uses soft delete pattern (`deleted_at IS NULL` = active)
-- Comments may have unique constraint on `(parent_id, created_by)` to prevent duplicate replies
-- Soft-deleted rows still occupy constraint space
-- Existing file_attachments table has similar pattern but doesn't have this issue (no uniqueness needed)
-
-**Warning signs:**
-- Error: `duplicate key value violates unique constraint "comments_unique_reply"`
-- User reports "I deleted my comment but can't reply again"
-- Database has soft-deleted comments with same parent_id + created_by
-
-**Prevention strategy:**
-```sql
--- WRONG: Naive unique constraint
-ALTER TABLE comments ADD CONSTRAINT comments_unique_reply
-  UNIQUE (parent_id, created_by);
-
--- RIGHT: Partial unique index excluding soft-deleted
-CREATE UNIQUE INDEX comments_unique_active_reply
-  ON comments(parent_id, created_by)
-  WHERE deleted_at IS NULL;
-```
-
-**Phase to address:** Phase 2 (Database Schema) - Design soft-delete-aware constraints
-
-**Sources:**
-- [Why Soft Delete Can Backfire](https://dev.to/mrakdon/why-soft-delete-can-backfire-on-data-consistency-4epl)
-- [Soft Delete Best Practices](https://www.martyfriedel.com/blog/deleting-data-soft-hard-or-audit)
-
----
-
-### Pitfall 1.4: N+1 Query Problem with Nested Comment Replies
-
-**What goes wrong:**
-Loading a QMRL detail page with 50 comments makes 150+ database queries (1 for comments list + 1 per comment for reply count + 1 per comment for user info), causing 2-3 second page load times.
-
-**Why it happens:**
-- React component loops through comments and fetches replies for each
-- Supabase client doesn't automatically batch requests
-- Nested comment structure encourages recursive fetching
-
-**Warning signs:**
-- Browser DevTools Network tab shows 100+ Supabase requests for single page load
-- Page load time increases linearly with comment count
-- Database shows connection pool exhaustion during peak usage
-
-**Prevention strategy:**
-```typescript
-// WRONG: Fetch comments, then fetch replies in loop
-const comments = await supabase.from('comments').select('*').eq('entity_id', qmrlId);
-for (const comment of comments) {
-  const replies = await supabase.from('comments').select('*').eq('parent_id', comment.id);
-}
-
-// RIGHT: Use nested select to fetch in single query
-const { data } = await supabase
-  .from('comments')
-  .select(`
-    *,
-    user:created_by(full_name, email),
-    replies:comments!parent_id(
-      *,
-      user:created_by(full_name, email)
-    )
-  `)
-  .eq('entity_id', qmrlId)
-  .is('parent_id', null)
-  .order('created_at', { ascending: false });
-
-// ALTERNATIVE: Use recursive CTE view for deep nesting
-CREATE VIEW comments_with_replies AS
-WITH RECURSIVE comment_tree AS (
-  -- Base case: top-level comments
-  SELECT *, 0 as depth, ARRAY[id] as path
-  FROM comments WHERE parent_id IS NULL
-  UNION ALL
-  -- Recursive case: replies
-  SELECT c.*, ct.depth + 1, ct.path || c.id
-  FROM comments c
-  JOIN comment_tree ct ON c.parent_id = ct.id
-  WHERE ct.depth < 3 -- Limit nesting to prevent infinite recursion
-)
-SELECT * FROM comment_tree;
-```
-
-**Phase to address:** Phase 3 (UI Components) - Design data fetching pattern correctly
-
-**Sources:**
-- [PostgreSQL Nested Comments Performance](https://www.slingacademy.com/article/postgresql-efficiently-store-comments-nested-comments/)
-- [Scaling Threaded Comments at Disqus](https://cra.mr/2010/05/30/scaling-threaded-comments-on-django-at-disqus/)
-
----
-
-### Pitfall 1.5: React Key Prop Mistakes Causing Comment State Bugs
-
-**What goes wrong:**
-User posts new comment, UI shows wrong commenter name or reply button doesn't work. Deleting a comment causes adjacent comment to lose its state.
-
-**Why it happens:**
-- Using array index as React key: `comments.map((c, idx) => <Comment key={idx} />)`
-- When new comment inserted at top, all indexes shift
-- React reconciliation reuses component instances incorrectly
-- Component state (expanded replies, edit mode) attached to wrong comment
-
-**Warning signs:**
-- UI shows wrong user avatar after posting new comment
-- Reply textarea appears under wrong comment
-- "Edit" button edits different comment than clicked
-- Issue only appears after adding/removing comments, not on initial load
-
-**Prevention strategy:**
-```tsx
-// WRONG: Array index as key
-{comments.map((comment, index) => (
-  <CommentCard key={index} comment={comment} />
-))}
-
-// WRONG: Random keys (causes remount on every render)
-{comments.map(comment => (
-  <CommentCard key={Math.random()} comment={comment} />
-))}
-
-// RIGHT: Stable unique ID from database
-{comments.map(comment => (
-  <CommentCard key={comment.id} comment={comment} />
-))}
-
-// RIGHT: For optimistic UI before DB insert, use temp ID
-const tempId = `temp_${Date.now()}_${Math.random()}`;
-const optimisticComment = { id: tempId, ... };
-```
-
-**Phase to address:** Phase 3 (UI Components) - Code review checklist item
-
-**Sources:**
-- [React Key Prop Best Practices](https://www.developerway.com/posts/react-key-attribute)
-- [Missing Key Prop Mistakes](https://medium.com/@chanukachandrayapa/react-key-prop-best-practices-from-state-mismanagement-to-optimized-rendering-cb85c62287f6)
-
----
-
-## 2. Responsive Typography Pitfalls
-
-### Pitfall 2.1: Large Financial Numbers Overflow on Mobile Without Detection
-
-**What goes wrong:**
-Invoice amount "12,475,937.47 MMK" displays as "12,475,93..." on mobile, truncating actual number. User approves invoice thinking it's 12M when it's actually 124M.
-
-**Why it happens:**
-- Fixed font size + `overflow: hidden` + `text-overflow: ellipsis`
-- Ellipsis appears at end, making "12,475,937.47" → "12,475,93..." look plausible
-- Financial numbers in QM System can be 15 digits (DECIMAL(15,2))
-- No visual indicator that truncation occurred (no tooltip, no warning color)
-
-**Warning signs:**
-- User reports "approved wrong amount"
-- QA finds mobile screenshots with "..." in financial fields
-- Accessibility audit flags missing tooltips on truncated text
-
-**Prevention strategy:**
-```tsx
-// WRONG: Blind truncation
-<div className="text-base overflow-hidden text-ellipsis whitespace-nowrap">
-  {formatCurrency(amount, currency)}
-</div>
-
-// RIGHT: Responsive font size with clamp() + tooltip for full value
-<div className="relative group">
-  <div
-    className="whitespace-nowrap overflow-hidden text-ellipsis"
-    style={{ fontSize: 'clamp(0.75rem, 2.5vw, 1rem)' }}
-    title={`${formatCurrency(amount, currency)} (${formatCurrency(amountEusd, 'EUSD')})`}
-  >
-    {formatCurrency(amount, currency)}
-  </div>
-  {/* Always show full value on hover/tap */}
-  <div className="absolute z-10 hidden group-hover:block bg-gray-900 text-white px-2 py-1 rounded text-sm whitespace-nowrap">
-    {formatCurrency(amount, currency)} = {formatCurrency(amountEusd, 'EUSD')}
-  </div>
-</div>
-
-// ALTERNATIVE: Line-clamp with expansion button for very large numbers
-{amount.toString().length > 12 && (
-  <button onClick={() => setExpanded(!expanded)}>
-    {expanded ? 'Collapse' : 'Show full'}
-  </button>
-)}
-```
-
-**Phase to address:** Phase 4 (Responsive Typography) - Design financial display component
-
-**Sources:**
-- [CSS Clamp for Responsive Typography](https://css-tricks.com/linearly-scale-font-size-with-css-clamp-based-on-the-viewport/)
-- [Design for Truncation](https://medium.com/design-bootcamp/design-for-truncation-946951d5b6b8)
-
----
-
-### Pitfall 2.2: EUSD Calculation Display Mismatch Due to Font Size Scaling
-
-**What goes wrong:**
-PO shows "2,500,000 MMK = 1,190 EUSD" on desktop but "2,500,000 MMK = " on mobile (EUSD completely hidden). User loses critical equivalent amount information.
-
-**Why it happens:**
-- QM System design: always show amount + EUSD together
-- Layout uses `flex` with `justify-between` for "MMK" | "EUSD"
-- On mobile, container width collapses, EUSD pushed off-screen
-- Responsive font sizing doesn't help if entire element is hidden
-
-**Warning signs:**
-- Mobile screenshots missing EUSD values
-- User reports "can't see USD equivalent on phone"
-- Lighthouse accessibility audit flags hidden content
-
-**Prevention strategy:**
-```tsx
-// WRONG: Side-by-side layout that breaks on mobile
-<div className="flex justify-between gap-4">
-  <span className="text-lg">{formatCurrency(amount, currency)}</span>
-  <span className="text-sm text-gray-600">{formatCurrency(amountEusd, 'EUSD')}</span>
-</div>
-
-// RIGHT: Vertical stack on mobile, horizontal on desktop
-<div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-4">
-  <span className="font-semibold" style={{ fontSize: 'clamp(0.875rem, 2.5vw, 1.125rem)' }}>
-    {formatCurrency(amount, currency)}
-  </span>
-  <span className="text-gray-600" style={{ fontSize: 'clamp(0.75rem, 2vw, 0.875rem)' }}>
-    ≈ {formatCurrency(amountEusd, 'EUSD')}
-  </span>
-</div>
-
-// ALTERNATIVE: Always inline with separator
-<span className="whitespace-nowrap">
-  {formatCurrency(amount, currency)}
-  <span className="mx-2 text-gray-400">≈</span>
-  {formatCurrency(amountEusd, 'EUSD')}
-</span>
-```
-
-**Phase to address:** Phase 4 (Responsive Typography) - Test on real mobile devices
-
-**Sources:**
-- [Tailwind Text Overflow](https://tailwindcss.com/docs/text-overflow)
-- [Overflow Content Patterns](https://carbondesignsystem.com/patterns/overflow-content/)
-
----
-
-### Pitfall 2.3: Accessibility Failure for Screen Readers with Truncated Numbers
-
-**What goes wrong:**
-Screen reader announces "twelve million four hundred seventy-five thousand nine hundred thirty-seven point four seven" for visual "12,475,93..." but user hears full number, creating disconnect between visual and auditory UX.
-
-**Why it happens:**
-- `text-overflow: ellipsis` is purely visual CSS
-- Screen readers read full DOM text content
-- No semantic indication of truncation
-- Blind users get different information than sighted users
-
-**Warning signs:**
-- Accessibility audit fails WCAG 2.1 AA
-- Screen reader testing reveals inconsistency
-- Low vision users with zoom enabled can't read truncated text
-
-**Prevention strategy:**
-```tsx
-// WRONG: No accessibility consideration
-<div className="overflow-hidden text-ellipsis">
-  {amount.toLocaleString()}
-</div>
-
-// RIGHT: Proper ARIA labels + visually hidden full value
-<div className="relative">
-  <div
-    className="overflow-hidden text-ellipsis"
-    aria-label={`Amount: ${amount.toLocaleString()} ${currency}, equivalent to ${amountEusd.toLocaleString()} EUSD`}
-  >
-    <span aria-hidden="true">{formatCurrency(amount, currency)}</span>
-  </div>
-  <span className="sr-only">
-    {amount.toLocaleString()} {currency} equals {amountEusd.toLocaleString()} EUSD
-  </span>
-</div>
-
-// BEST: Avoid truncation for critical financial data
-// Use responsive font sizing that always shows full number
-```
-
-**Phase to address:** Phase 4 (Responsive Typography) + Phase 7 (Accessibility QA)
-
-**Sources:**
-- [The Ballad of Text Overflow](https://www.tpgi.com/the-ballad-of-text-overflow/)
-- [Font Size Requirements WCAG 2.1](https://font-converters.com/accessibility/font-size-requirements)
-
----
-
-## 3. Two-Step Selector Pitfalls
-
-### Pitfall 3.1: Form State Race Condition When Parent Selector Changes
-
-**What goes wrong:**
-User selects "Purchase Order PO-2025-00042" in first dropdown, child dropdown populates with 5 line items, user selects "Item: Laptop". Then user changes parent to "PO-2025-00043", but form still shows "Item: Laptop" (which doesn't exist in the new PO). Form submits with invalid data.
-
-**Why it happens:**
-- React Hook Form doesn't automatically clear child field when parent changes
-- `useWatch` triggers child data fetch but doesn't reset child value
-- Validation only checks "is a line item selected" not "is it from current PO"
-
-**Warning signs:**
-- Database foreign key violation on form submit
-- User reports "selected item disappeared after changing PO"
-- Form validation passes but API returns 400 error
-
-**Prevention strategy:**
-```tsx
-// WRONG: Child field not cleared on parent change
-const selectedPO = watch('purchase_order_id');
-
-useEffect(() => {
-  if (selectedPO) {
-    fetchLineItems(selectedPO);
-  }
-}, [selectedPO]);
-
-// RIGHT: Reset child field when parent changes
-const selectedPO = watch('purchase_order_id');
-const previousPO = useRef(selectedPO);
-
-useEffect(() => {
-  if (selectedPO !== previousPO.current) {
-    setValue('line_item_id', null); // Clear child selection
-    previousPO.current = selectedPO;
-  }
-
-  if (selectedPO) {
-    fetchLineItems(selectedPO);
-  }
-}, [selectedPO, setValue]);
-
-// ALTERNATIVE: Use React Hook Form's built-in dependencies
-register('line_item_id', {
-  validate: (value) => {
-    if (!value) return 'Please select a line item';
-    const lineItem = lineItems.find(li => li.id === value);
-    return lineItem?.purchase_order_id === selectedPO || 'Invalid line item for selected PO';
-  }
-});
-```
-
-**Phase to address:** Phase 5 (Two-Step Selector) - Form component implementation
-
-**Sources:**
-- [React Hook Form Cascading Dropdown](https://github.com/orgs/react-hook-form/discussions/5068)
-- [Build Dynamic Dependent Dropdown](https://dev.to/jps27cse/build-dynamic-dependent-dropdown-using-react-js-3d9c)
-
----
-
-### Pitfall 3.2: Disabled State Not Obvious Enough for Second Dropdown
-
-**What goes wrong:**
-User opens invoice creation form, second dropdown (line items) appears enabled but empty. User clicks it, nothing happens. User reports "line items dropdown is broken."
-
-**Why it happens:**
-- First dropdown (PO) starts empty, no selection
-- Second dropdown enabled state based on `selectedPO !== null`
-- Visual disabled state too subtle (slightly grayed out vs fully disabled)
-- No helper text explaining dependency
-
-**Warning signs:**
-- User support tickets: "dropdown won't open" or "no items to select"
-- UX testing shows users clicking disabled dropdowns repeatedly
-- Accessibility audit flags unclear disabled states
-
-**Prevention strategy:**
-```tsx
-// WRONG: Subtle disabled state with no explanation
-<Select
-  disabled={!selectedPO}
-  options={lineItems}
-  placeholder="Select line item"
-/>
-
-// RIGHT: Obvious disabled state + helper text
-<div className="space-y-1">
-  <Select
-    disabled={!selectedPO}
-    options={lineItems}
-    placeholder={selectedPO ? "Select line item" : "Select a PO first"}
-    className={!selectedPO ? "opacity-50 cursor-not-allowed" : ""}
-  />
-  {!selectedPO && (
-    <p className="text-sm text-amber-600 flex items-center gap-1">
-      <InfoIcon className="h-4 w-4" />
-      Select a purchase order above to load available line items
-    </p>
-  )}
-</div>
-
-// ALTERNATIVE: Hide second dropdown until parent selected
-{selectedPO && (
-  <Select
-    label="Line Item *"
-    options={lineItems}
-    {...register('line_item_id')}
-  />
-)}
-```
-
-**Phase to address:** Phase 5 (Two-Step Selector) - UX design
-
-**Sources:**
-- [Cascading Dropdown in React](https://cluemediator.com/cascading-dropdown-in-react)
-- [How to Build Dependent Dropdowns](https://www.freecodecamp.org/news/how-to-build-dependent-dropdowns-in-react/)
-
----
-
-### Pitfall 3.3: Loading State Confusion When Fetching Child Options
-
-**What goes wrong:**
-User selects PO in first dropdown, second dropdown shows old line items from previous PO for 500ms while new data fetches, then suddenly swaps to new items. User already clicked wrong item.
-
-**Why it happens:**
-- `useEffect` fetches child data asynchronously
-- UI doesn't show loading state during fetch
-- Stale data remains visible until new data arrives
-- React batching delays re-render
-
-**Warning signs:**
-- User reports "selected item but it changed to something else"
-- Race condition bugs in production logs
-- Form submissions with mismatched parent-child IDs
-
-**Prevention strategy:**
-```tsx
-// WRONG: No loading state, stale data visible
-const [lineItems, setLineItems] = useState([]);
-
-useEffect(() => {
-  if (selectedPO) {
-    fetchLineItems(selectedPO).then(setLineItems);
-  }
-}, [selectedPO]);
-
-// RIGHT: Show loading state, clear stale data immediately
-const [lineItems, setLineItems] = useState([]);
-const [isLoadingLineItems, setIsLoadingLineItems] = useState(false);
-
-useEffect(() => {
-  if (selectedPO) {
-    setIsLoadingLineItems(true);
-    setLineItems([]); // Clear immediately
-    setValue('line_item_id', null); // Clear selection
-
-    fetchLineItems(selectedPO)
-      .then(setLineItems)
-      .finally(() => setIsLoadingLineItems(false));
-  } else {
-    setLineItems([]);
-  }
-}, [selectedPO, setValue]);
-
-return (
-  <Select
-    disabled={isLoadingLineItems || !selectedPO}
-    options={lineItems}
-    placeholder={isLoadingLineItems ? "Loading..." : "Select line item"}
-    isLoading={isLoadingLineItems}
-  />
-);
-```
-
-**Phase to address:** Phase 5 (Two-Step Selector) - Error handling and UX
-
-**Sources:**
-- [React Hook Form Form State](https://www.react-hook-form.com/api/useform/formstate/)
-- [Managing Forms with React Hook Form](https://claritydev.net/blog/managing-forms-with-react-hook-form)
-
----
-
-### Pitfall 3.4: Edit Mode Initialization Timing Issue
-
-**What goes wrong:**
-User opens "Edit Invoice" page with existing PO and line item selected. First dropdown shows correct PO, but second dropdown is empty. Changing PO makes line items appear.
-
-**Why it happens:**
-- Form initializes with `setValue('purchase_order_id', existingPO)` and `setValue('line_item_id', existingItem)`
-- `useEffect` watches `selectedPO` but initial value set before component mount doesn't trigger effect
-- Line items never fetched for pre-selected PO
-
-**Warning signs:**
-- Edit forms show empty child dropdowns on load
-- Creating works, editing broken
-- Browser console shows "useEffect ran 0 times" on edit page load
-
-**Prevention strategy:**
-```tsx
-// WRONG: useEffect doesn't run on initial value
-const selectedPO = watch('purchase_order_id');
-
-useEffect(() => {
-  if (selectedPO) {
-    fetchLineItems(selectedPO); // Never runs if selectedPO set before mount
-  }
-}, [selectedPO]);
-
-// RIGHT: Separate initial fetch + watch for changes
-const selectedPO = watch('purchase_order_id');
-const isEditMode = !!initialData;
-
-// Initial fetch for edit mode
-useEffect(() => {
-  if (isEditMode && initialData.purchase_order_id) {
-    fetchLineItems(initialData.purchase_order_id);
-  }
-}, [isEditMode, initialData.purchase_order_id]);
-
-// Watch for subsequent changes
-useEffect(() => {
-  if (!isEditMode && selectedPO) {
-    fetchLineItems(selectedPO);
-  }
-}, [selectedPO, isEditMode]);
-
-// ALTERNATIVE: Use defaultValues + separate effect
-const { control, setValue } = useForm({
-  defaultValues: async () => {
-    if (invoiceId) {
-      const data = await fetchInvoice(invoiceId);
-      const lineItems = await fetchLineItems(data.purchase_order_id);
-      setLineItems(lineItems); // Pre-populate child options
-      return data;
-    }
-    return {};
-  }
-});
-```
-
-**Phase to address:** Phase 5 (Two-Step Selector) - Edit mode testing
-
-**Sources:**
-- [Cascading Dropdown Edit Mode](https://github.com/orgs/react-hook-form/discussions/5068)
-- [React Hook Form Advanced Usage](https://www.react-hook-form.com/advanced-usage/)
-
----
-
-## 4. Currency Unification Pitfalls
-
-### Pitfall 4.1: Floating Point Precision Loss in Currency Calculations
-
-**What goes wrong:**
-User enters "9.95 USD" with exchange rate "1350.00". System calculates EUSD as "0.0073703703703..." then rounds to "0.01 EUSD". Later recalculation shows "0.00 EUSD". Financial reports don't match.
-
-**Why it happens:**
-- JavaScript uses IEEE 754 floating point: `0.1 + 0.2 !== 0.3`
-- QM System uses DECIMAL(15,2) in database but JavaScript numbers in frontend
-- Intermediate calculations (`amount / exchange_rate`) lose precision
-- Multiple round-trips between DB and frontend compound errors
-
-**Warning signs:**
-- Financial totals off by 0.01 - 0.05
-- "Sum of EUSD doesn't match total EUSD" in reports
-- Database has `9.949999999` or `10.0000001` instead of `10.00`
-
-**Prevention strategy:**
-```typescript
-// WRONG: JavaScript floating point math
-const amountEusd = (amount / exchangeRate).toFixed(2);
-// 9.95 / 1350 = 0.007370370370370371 → "0.01"
-// But next calculation might give "0.00" due to rounding
-
-// WRONG: PostgreSQL DECIMAL but JS calculations
-const result = await db.query(
-  `SELECT ${amount} / ${exchangeRate} as amount_eusd` // Uses DECIMAL math
-);
-const displayValue = result.amount_eusd * 1.1; // Converts to JS float, loses precision
-
-// RIGHT: Use integer-based currency (cents/smallest unit)
-// Store 995 cents instead of 9.95 dollars
-const amountCents = 995;
-const exchangeRate = 1350;
-const amountEusdCents = Math.round((amountCents * 10000) / exchangeRate);
-// 995 * 10000 / 1350 = 7370 → 0.7370 EUSD
-
-// RIGHT: Use Decimal.js library for JavaScript calculations
-import Decimal from 'decimal.js';
-
-Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
-const amountEusd = new Decimal(amount)
-  .dividedBy(new Decimal(exchangeRate))
-  .toDecimalPlaces(2)
-  .toNumber();
-
-// BEST: Do ALL calculations in PostgreSQL, never in JavaScript
-const { data } = await supabase.rpc('calculate_eusd', {
-  p_amount: amount,
-  p_currency: currency,
-  p_exchange_rate: exchangeRate
-});
-// PostgreSQL function uses NUMERIC type, maintains precision
-```
-
-**Phase to address:** Phase 6 (Currency Unification) - Architecture decision
-
-**Sources:**
-- [Floats Don't Work for Storing Cents](https://www.moderntreasury.com/journal/floats-dont-work-for-storing-cents)
-- [Why Never Use Float for Money](https://dzone.com/articles/never-use-float-and-double-for-monetary-calculatio)
-
----
-
-### Pitfall 4.2: Currency Cascade Breaking Existing Invoice Independence
-
-**What goes wrong:**
-Invoice created with "USD 2100.00" at rate "7.14" (15,000 MMK equivalent). Later, PO currency changed to "EUR" and rate updated to "8.50". Existing invoice recalculates, now shows wrong EUSD equivalent.
-
-**Why it happens:**
-- QM System PRD states: "Invoice currency and exchange rate are independent from PO"
-- V1.5 currency unification introduces cascade/inheritance from parent
-- Existing invoices have NULL currency (inherited from PO before)
-- Migration adds `currency` column with DEFAULT from parent → overwrites intentional independence
-
-**Warning signs:**
-- Audit reports show currency values changing on old invoices
-- User complaints: "My approved invoice amount changed"
-- Database migration fails constraint checks
-
-**Prevention strategy:**
-```sql
--- WRONG: Naively add currency cascade
-ALTER TABLE invoices ADD COLUMN currency TEXT;
-UPDATE invoices SET currency = (
-  SELECT currency FROM purchase_orders WHERE id = invoices.purchase_order_id
-); -- This overwrites independence!
-
--- RIGHT: Preserve existing independence, only cascade for new records
--- Step 1: Add column with NULL allowed
-ALTER TABLE invoices ADD COLUMN currency TEXT;
-
--- Step 2: Backfill ONLY if invoice truly inherited (created before currency tracking)
-UPDATE invoices
-SET currency = po.currency
-FROM purchase_orders po
-WHERE invoices.purchase_order_id = po.id
-  AND invoices.created_at < '2025-01-15' -- Before v1.4 currency independence
-  AND invoices.currency IS NULL;
-
--- Step 3: For newer invoices, keep their explicit currency
--- (Don't update rows where currency should have been set explicitly)
-
--- Step 4: Add constraint for future inserts
-ALTER TABLE invoices
-  ALTER COLUMN currency SET NOT NULL; -- Only after backfill
-```
-
-**Phase to address:** Phase 6 (Currency Unification) - Migration design + regression testing
-
----
-
-### Pitfall 4.3: Exchange Rate Inheritance Overriding User Intent
-
-**What goes wrong:**
-User creates invoice from PO with exchange rate "1350 MMK/USD". Before submitting invoice, exchange rate changes to "1355 MMK/USD" (daily market rate update). Form auto-refreshes, replaces user's entered rate, calculations change, user doesn't notice.
-
-**Why it happens:**
-- Currency unification implements "inherit from parent" as live/reactive
-- Form watches parent entity, re-fetches on any change
-- User entered rate gets overwritten by inherited rate
-- No confirmation dialog when external change overwrites user input
-
-**Warning signs:**
-- User reports "I entered one rate but invoice saved with different rate"
-- Financial audits show invoices with today's rate despite being created yesterday
-- Unit tests pass but E2E tests fail with timing issues
-
-**Prevention strategy:**
-```tsx
-// WRONG: Always inherit parent rate reactively
-const selectedPO = watch('purchase_order_id');
-
-useEffect(() => {
-  if (selectedPO) {
-    const po = purchaseOrders.find(p => p.id === selectedPO);
-    setValue('currency', po.currency); // Overwrites user choice
-    setValue('exchange_rate', po.exchange_rate);
-  }
-}, [selectedPO]);
-
-// RIGHT: Inherit only on initial selection, warn on conflicts
-const selectedPO = watch('purchase_order_id');
-const [userModifiedRate, setUserModifiedRate] = useState(false);
-
-useEffect(() => {
-  if (selectedPO && !userModifiedRate) {
-    const po = purchaseOrders.find(p => p.id === selectedPO);
-    setValue('currency', po.currency);
-    setValue('exchange_rate', po.exchange_rate, { shouldDirty: false });
-  }
-}, [selectedPO, userModifiedRate]);
-
-// Mark as user-modified when manual edit
-<Input
-  {...register('exchange_rate', {
-    onChange: () => setUserModifiedRate(true)
-  })}
-/>
-
-// Show warning if PO rate differs from user's entered rate
-{userModifiedRate && poExchangeRate !== currentRate && (
-  <Alert variant="warning">
-    Your rate ({currentRate}) differs from PO rate ({poExchangeRate}).
-    <button onClick={() => setValue('exchange_rate', poExchangeRate)}>
-      Use PO rate instead
-    </button>
-  </Alert>
-)}
-```
-
-**Phase to address:** Phase 6 (Currency Unification) - UX design for inheritance behavior
-
-**Sources:**
-- [Cascading Failures in Financial Systems](https://www.sciencedirect.com/science/article/pii/S0167637724000580)
-- [Commercial Spreads Hidden Errors](https://www.besmartee.com/blog/commercial-spreads-hidden-errors/)
-
----
-
-### Pitfall 4.4: EUSD Recalculation Cascade Without Audit Trail
-
-**What goes wrong:**
-Admin updates exchange rate for "MMK" from 1350 to 1360. System recalculates all `amount_eusd` columns across 500 invoices, 200 POs, 1000 line items. Audit log shows 1700 "update" actions with full JSONB diff, making audit_logs table explode in size. No way to distinguish "recalculation" from "user edited amount."
-
-**Why it happens:**
-- QM System uses generated columns: `amount_eusd GENERATED ALWAYS AS (amount / exchange_rate)`
-- Currency unification changes this to function-based: `UPDATE items SET amount_eusd = calculate_eusd(amount, currency)`
-- Generic audit trigger logs every UPDATE
-- No distinction between "data change" vs "calculation change"
-
-**Warning signs:**
-- Audit table grows 10x after exchange rate update
-- History tab shows "Updated financial_transaction" for every row even though user only changed rate once
-- Database storage alert triggers
-
-**Prevention strategy:**
-```sql
--- WRONG: Trigger cascading updates that audit everything
-CREATE FUNCTION update_all_eusd_for_currency(p_currency TEXT, p_new_rate DECIMAL)
+  WHEN (OLD.status IS DISTINCT FROM NEW.status)
+  EXECUTE FUNCTION propagate_line_item_status_change();
+
+-- Extract status computation logic into reusable function
+CREATE OR REPLACE FUNCTION compute_sor_request_status_for_request(p_request_id UUID)
 RETURNS VOID AS $$
+DECLARE
+  total_count INT;
+  executed_count INT;
+  cancelled_count INT;
+  new_status sor_request_status;
 BEGIN
-  UPDATE invoices SET exchange_rate = p_new_rate WHERE currency = p_currency;
-  -- Triggers audit log for every invoice! 500 audit entries
+  -- Lock parent
+  PERFORM 1 FROM stock_out_requests WHERE id = p_request_id FOR UPDATE;
+
+  -- Aggregate
+  SELECT
+    COUNT(*),
+    COUNT(*) FILTER (WHERE status = 'executed'),
+    COUNT(*) FILTER (WHERE status = 'cancelled')
+  INTO total_count, executed_count, cancelled_count
+  FROM stock_out_line_items
+  WHERE request_id = p_request_id AND is_active = true;
+
+  -- Compute new status
+  IF cancelled_count = total_count THEN
+    new_status := 'cancelled';
+  ELSIF executed_count = total_count THEN
+    new_status := 'executed';
+  ELSIF executed_count > 0 THEN
+    new_status := 'partially_executed';
+  ELSE
+    new_status := 'approved';
+  END IF;
+
+  UPDATE stock_out_requests
+  SET status = new_status, updated_at = NOW()
+  WHERE id = p_request_id;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**Detection:**
+- Add CHECK constraint: `ALTER TABLE stock_out_requests ADD CONSTRAINT status_matches_children CHECK (check_status_consistency(id));`
+- Periodic batch job: find requests where computed status != stored status, log discrepancies
+
+**Phase to address:** Phase 29 (Per-Line Execution UI) - Add line_items trigger alongside inventory trigger update
+
+**Confidence:** HIGH - Missing trigger is a known pattern in multi-level aggregation systems
+
+**Sources:**
+- [PostgreSQL Triggers Performance Impact](https://infinitelambda.com/postgresql-triggers/)
+
+---
+
+## 2. Transaction Linking Integrity Pitfalls
+
+### Pitfall 2.1: Orphaned Inventory Transactions from Missing SOR Reference
+
+**What goes wrong:**
+Inventory transaction created during per-line execution but `stock_out_approval_id` remains NULL or points to wrong approval, breaking the lineage chain and preventing status rollup.
+
+**Why it happens:**
+- Current atomic execution: UI passes approval_id array, backend loops and inserts transactions with correct `stock_out_approval_id`
+- **NEW RISK:** Per-line UI passes single line_item_id, must resolve to approval_id at execution time
+- Multiple approvals per line item possible (partial approval workflow)
+- UI doesn't know which approval to execute — must query "pending approvals for line_item"
+- Race condition: Approval A creates transaction, Approval B queries "pending" and sees A's transaction as pending, executes again
+
+**Warning signs:**
+- Inventory transactions exist with NULL `stock_out_approval_id` but non-NULL `qmhq_id`
+- Line item status stuck at "approved" despite transactions existing
+- Duplicate transactions for same line item and warehouse
+- Referential integrity errors: `SELECT COUNT(*) FROM inventory_transactions WHERE stock_out_approval_id NOT IN (SELECT id FROM stock_out_approvals);` returns > 0
+
+**Prevention strategy:**
+
+```sql
+-- Validation trigger: block inventory_out without valid SOR link
+CREATE OR REPLACE FUNCTION validate_sor_transaction_link()
+RETURNS TRIGGER AS $$
+DECLARE
+  approval_exists BOOLEAN;
+  approval_executed BOOLEAN;
+BEGIN
+  IF NEW.movement_type = 'inventory_out' AND NEW.reason = 'request' THEN
+    -- Must have stock_out_approval_id
+    IF NEW.stock_out_approval_id IS NULL THEN
+      RAISE EXCEPTION 'Stock-out transactions for reason=request must reference stock_out_approval_id';
+    END IF;
+
+    -- Approval must exist and be approved
+    SELECT
+      a.id IS NOT NULL,
+      a.line_item_id IS NOT NULL  -- Basic existence check
+    INTO approval_exists, approval_executed
+    FROM stock_out_approvals a
+    WHERE a.id = NEW.stock_out_approval_id
+      AND a.decision = 'approved'
+      AND a.is_active = true;
+
+    IF NOT approval_exists THEN
+      RAISE EXCEPTION 'stock_out_approval_id % does not exist or is not approved', NEW.stock_out_approval_id;
+    END IF;
+  END IF;
+
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- RIGHT: Use generated columns (no audit) or single audit entry for cascade
-CREATE FUNCTION update_all_eusd_for_currency(p_currency TEXT, p_new_rate DECIMAL)
-RETURNS VOID AS $$
-BEGIN
-  -- Single audit entry for the exchange rate change
-  INSERT INTO audit_logs (entity_type, action, changes_summary)
-  VALUES ('exchange_rates', 'update',
-    format('Updated %s rate to %s, affecting %s invoices',
-      p_currency, p_new_rate,
-      (SELECT COUNT(*) FROM invoices WHERE currency = p_currency)
-    )
-  );
-
-  -- Update without triggering per-row audits
-  ALTER TABLE invoices DISABLE TRIGGER invoices_audit;
-  UPDATE invoices SET exchange_rate = p_new_rate WHERE currency = p_currency;
-  ALTER TABLE invoices ENABLE TRIGGER invoices_audit;
-END;
-$$ LANGUAGE plpgsql;
-
--- BEST: Keep GENERATED columns, never recalculate old records
--- amount_eusd always reflects historical rate at time of transaction
+DROP TRIGGER IF EXISTS trg_validate_sor_link ON inventory_transactions;
+CREATE TRIGGER trg_validate_sor_link
+  BEFORE INSERT OR UPDATE ON inventory_transactions
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_sor_transaction_link();
 ```
 
-**Phase to address:** Phase 6 (Currency Unification) - Audit strategy design
+**Application-level prevention:**
 
----
-
-## 5. Integration Pitfalls (System-Wide)
-
-### Pitfall 5.1: Polymorphic Comments Breaking Existing RLS Helper Functions
-
-**What goes wrong:**
-Adding comments table with RLS policy that calls `owns_qmrl(entity_id)` helper function. Existing QMRL detail page loads slow (2-3s), query EXPLAIN shows function called 10x per query.
-
-**Why it happens:**
-- QM System has 6 existing RLS helper functions: `get_user_role()`, `owns_qmrl()`, `owns_qmhq()`, etc.
-- New comments table RLS policy adds CASE statement calling these functions
-- PostgreSQL query planner can't optimize function calls in RLS (not LEAKPROOF)
-- Each page load: 1 query for qmrl + 1 for comments = 2 policy evaluations = 20 function calls
-
-**Warning signs:**
-- Database CPU usage doubles after comments deployment
-- Query planner shows nested loop with function calls
-- `pg_stat_statements` shows `owns_qmrl()` called 10,000 times per hour
-
-**Prevention strategy:**
-```sql
--- EXISTING: Helper function (not LEAKPROOF)
-CREATE FUNCTION owns_qmrl(qmrl_id UUID) RETURNS BOOLEAN AS $$
-  SELECT requester_id = auth.uid() FROM qmrl WHERE id = qmrl_id;
-$$ LANGUAGE sql STABLE;
-
--- NEW COMMENTS RLS: Naive approach (slow)
-CREATE POLICY comments_select ON comments FOR SELECT USING (
-  (entity_type = 'qmrl' AND owns_qmrl(entity_id))
-  OR (entity_type = 'qmhq' AND owns_qmhq(entity_id))
-);
-
--- BETTER: Inline RLS logic, avoid function calls
-CREATE POLICY comments_select ON comments FOR SELECT USING (
-  deleted_at IS NULL AND (
-    get_user_role() IN ('admin', 'quartermaster', 'proposal', 'frontline')
-    OR (
-      entity_type = 'qmrl' AND EXISTS (
-        SELECT 1 FROM qmrl WHERE id = entity_id AND requester_id = auth.uid()
-      )
-    )
-    OR (
-      entity_type = 'qmhq' AND EXISTS (
-        SELECT 1 FROM qmhq q
-        JOIN qmrl r ON q.qmrl_id = r.id
-        WHERE q.id = entity_id AND r.requester_id = auth.uid()
-      )
-    )
-  )
-);
-
--- BEST: Mark helper functions as LEAKPROOF (requires careful security review)
-CREATE FUNCTION owns_qmrl(qmrl_id UUID) RETURNS BOOLEAN AS $$
-  SELECT requester_id = auth.uid() FROM qmrl WHERE id = qmrl_id;
-$$ LANGUAGE sql STABLE LEAKPROOF; -- Only if security reviewed!
-```
-
-**Phase to address:** Phase 2 (Database Schema) - RLS performance testing before deployment
-
-**Sources:**
-- [Common Postgres RLS Footguns](https://www.bytebase.com/blog/postgres-row-level-security-footguns/)
-- [PostgreSQL RLS Limitations](https://www.bytebase.com/blog/postgres-row-level-security-limitations-and-alternatives/)
-
----
-
-### Pitfall 5.2: Adding Currency Fields to 15+ Tables Without Migration Rollback Plan
-
-**What goes wrong:**
-Migration 051 adds `currency` and `exchange_rate` columns to invoices, line_items, financial_transactions, items, etc. Migration fails on line_items table (constraint violation). Rollback script doesn't exist. Production database stuck in partial state.
-
-**Why it happens:**
-- Currency unification touches many tables simultaneously
-- Migration script assumes all data is clean (some rows have NULL amounts)
-- No dry-run testing on production-like dataset
-- No rollback script prepared
-
-**Warning signs:**
-- Migration takes >5 minutes (should be <30s)
-- Production deploy fails halfway through migration
-- Cannot rollback without manual SQL intervention
-
-**Prevention strategy:**
-```bash
-# WRONG: Single migration file, no rollback
-# 051_currency_unification.sql (3000 lines)
-ALTER TABLE invoices ADD COLUMN currency TEXT;
-ALTER TABLE line_items ADD COLUMN currency TEXT;
--- ... 15 more tables
--- No down migration!
-
-# RIGHT: Incremental migrations with explicit rollbacks
-# 051_currency_invoices.sql
-ALTER TABLE invoices ADD COLUMN currency TEXT;
-
-# 051_currency_invoices_down.sql
-ALTER TABLE invoices DROP COLUMN currency;
-
-# 052_currency_line_items.sql (separate file)
-ALTER TABLE line_items ADD COLUMN currency TEXT;
-
-# Test rollback in staging BEFORE production deploy
-psql staging_db < 051_currency_invoices.sql
-psql staging_db < 052_currency_line_items.sql
-# Rollback test
-psql staging_db < 052_currency_line_items_down.sql
-psql staging_db < 051_currency_invoices_down.sql
-
-# BEST: Feature flags for gradual rollout
-ALTER TABLE invoices ADD COLUMN currency TEXT; -- Deploy
--- Don't use in app yet, behind feature flag
--- Week 1: Enable for test department
--- Week 2: Enable for all departments
--- Week 3: Make NOT NULL after data validated
-```
-
-**Phase to address:** Phase 6 (Currency Unification) - Migration planning
-
----
-
-### Pitfall 5.3: Two-Step Selectors Reusing Wrong Data Fetching Hooks
-
-**What goes wrong:**
-Invoice form uses new two-step selector (PO → Line Items). Developer copies code from existing PO create form which fetches "open POs only." Invoice creation fails because user wants to invoice a closed PO (edge case: void invoice, re-invoice).
-
-**Why it happens:**
-- QM System has existing hooks: `useOpenPurchaseOrders()`, `useWarehouses()`, etc.
-- New two-step selector copies pattern without understanding filter logic
-- Business rule mismatch: PO create needs "open POs", Invoice needs "all POs with uninvoiced items"
-
-**Warning signs:**
-- User reports "Can't select my PO in invoice form"
-- Filter shows 5 POs but user has 10 POs
-- E2E test fails: "Expected PO-2025-00042 in dropdown, not found"
-
-**Prevention strategy:**
 ```typescript
-// WRONG: Reuse existing hook without checking filters
-import { useOpenPurchaseOrders } from '@/lib/hooks/usePurchaseOrders';
+// WRONG: Execute by line_item_id without approval resolution
+async function executeLineItem(lineItemId: string, warehouseId: string) {
+  const { data: lineItem } = await supabase
+    .from('stock_out_line_items')
+    .select('item_id, requested_quantity')
+    .eq('id', lineItemId)
+    .single();
 
-function InvoiceForm() {
-  const { data: purchaseOrders } = useOpenPurchaseOrders(); // Only open POs!
-  // ...
+  // Missing: which approval? Creates orphaned transaction
+  await supabase.from('inventory_transactions').insert({
+    movement_type: 'inventory_out',
+    item_id: lineItem.item_id,
+    warehouse_id: warehouseId,
+    quantity: lineItem.requested_quantity,
+    stock_out_approval_id: null, // ORPHANED!
+    reason: 'request',
+  });
 }
 
-// RIGHT: Create specific hook with correct business logic
-function useInvoiceablePurchaseOrders() {
-  return useQuery(['invoiceable-pos'], async () => {
-    const { data } = await supabase
-      .from('purchase_orders')
-      .select(`
-        *,
-        line_items:po_line_items(quantity, invoiced_quantity)
-      `)
-      .not('status', 'eq', 'cancelled') // Allow closed POs if partially invoiced
-      .order('created_at', { ascending: false });
+// RIGHT: Execute by approval_id with explicit linking
+async function executeApproval(approvalId: string) {
+  // Fetch approval with validation
+  const { data: approval } = await supabase
+    .from('stock_out_approvals')
+    .select(`
+      id,
+      approved_quantity,
+      line_item:stock_out_line_items!inner(
+        id,
+        item_id,
+        request:stock_out_requests!inner(id, status)
+      )
+    `)
+    .eq('id', approvalId)
+    .eq('decision', 'approved')
+    .single();
 
-    // Filter to POs with uninvoiced quantities
-    return data?.filter(po => {
-      const totalQuantity = po.line_items.reduce((sum, li) => sum + li.quantity, 0);
-      const invoicedQuantity = po.line_items.reduce((sum, li) => sum + li.invoiced_quantity, 0);
-      return invoicedQuantity < totalQuantity;
-    }) || [];
+  if (!approval) throw new Error('Approval not found or not approved');
+
+  // Get warehouse from approval record (stored during approval)
+  const { data: approvalWarehouse } = await supabase
+    .from('stock_out_approval_warehouses')
+    .select('warehouse_id')
+    .eq('approval_id', approvalId)
+    .single();
+
+  // Create transaction with explicit approval link
+  await supabase.from('inventory_transactions').insert({
+    movement_type: 'inventory_out',
+    item_id: approval.line_item.item_id,
+    warehouse_id: approvalWarehouse.warehouse_id,
+    quantity: approval.approved_quantity,
+    stock_out_approval_id: approvalId, // EXPLICIT LINK
+    reason: 'request',
+    status: 'completed',
   });
 }
 ```
 
-**Phase to address:** Phase 5 (Two-Step Selector) - Requirements review
+**Detection:**
+- Database view: `CREATE VIEW orphaned_sor_transactions AS SELECT * FROM inventory_transactions WHERE movement_type='inventory_out' AND reason='request' AND stock_out_approval_id IS NULL;`
+- Monitoring: Alert if orphaned_sor_transactions count > 0
+- Weekly batch: Attempt to reconcile orphans by matching item_id + quantity + timestamp to approvals
+
+**Phase to address:** Phase 29 (Per-Line Execution UI) - Add validation trigger AND refactor execution API
+
+**Confidence:** HIGH - Orphaned records are a documented risk when adding foreign key relationships to existing systems
+
+**Sources:**
+- [Referential Integrity Challenges](https://www.acceldata.io/blog/referential-integrity-why-its-vital-for-databases)
+- [Why Referential Data Integrity Is Important](https://www.montecarlodata.com/blog-how-to-maintain-referential-data-integrity/)
 
 ---
 
-### Pitfall 5.4: Responsive Typography Breaking Existing Table Layouts
+### Pitfall 2.2: Dual Reference Inconsistency (SOR + QMHQ)
 
 **What goes wrong:**
-Invoice list table shows "Amount", "EUSD", "Status" columns. After adding responsive font sizing with `clamp()`, "EUSD" column text overlaps with "Status" column on tablets (768px width).
+Inventory transaction has both `stock_out_approval_id` (SOR flow) and `qmhq_id` (QMHQ item route), but these point to unrelated records or only one is populated when both should be.
 
 **Why it happens:**
-- Existing table uses fixed column widths
-- New responsive font sizing makes text grow on certain viewport widths
-- CSS `clamp(0.75rem, 2.5vw, 1rem)` hits 2.5vw = 19.2px at 768px (larger than expected)
-- No responsive table testing in QA process
+- QMHQ item routes can create SOR (1:1 relationship via `stock_out_requests.qmhq_id`)
+- SOR-linked QMHQ execution should populate BOTH `stock_out_approval_id` AND `qmhq_id`
+- Manual SOR (not from QMHQ) only populates `stock_out_approval_id`
+- **NEW RISK:** Per-line execution UI might not pass QMHQ context to execution API
+- Backend must infer QMHQ link by traversing: approval → line_item → request → qmhq
 
 **Warning signs:**
-- Tablet screenshots show overlapping text
-- Horizontal scroll appears on mobile (table too wide)
-- Column alignment broken on certain viewport widths only
+- QMHQ detail page shows "No stock-out transactions" but SOR shows "Executed"
+- Inventory transactions with `stock_out_approval_id` but NULL `qmhq_id` when parent SOR has non-NULL `qmhq_id`
+- QMHQ status doesn't auto-update after SOR execution
+- Query: `SELECT COUNT(*) FROM inventory_transactions it JOIN stock_out_approvals a ON it.stock_out_approval_id = a.id JOIN stock_out_line_items li ON a.line_item_id = li.id JOIN stock_out_requests r ON li.request_id = r.id WHERE r.qmhq_id IS NOT NULL AND it.qmhq_id IS NULL;` returns > 0
 
 **Prevention strategy:**
-```tsx
-// WRONG: Apply responsive font sizing without testing layout impact
-<td className="px-4 py-2" style={{ fontSize: 'clamp(0.75rem, 2.5vw, 1rem)' }}>
-  {formatCurrency(amountEusd, 'EUSD')}
-</td>
 
-// RIGHT: Test on real devices + use container queries
-<table className="@container">
-  <td className="px-2 py-2 @md:px-4">
-    <span className="block @md:inline" style={{ fontSize: 'clamp(0.75rem, 1.5vw, 0.875rem)' }}>
-      {formatCurrency(amountEusd, 'EUSD')}
-    </span>
-  </td>
-</table>
-
-// ALTERNATIVE: Use Tailwind responsive classes instead of clamp
-<td className="px-2 py-2 text-xs sm:text-sm md:text-base">
-  {formatCurrency(amountEusd, 'EUSD')}
-</td>
-
-// QA Checklist:
-// - Test on real iPhone SE (375px)
-// - Test on real iPad (768px)
-// - Test on desktop (1920px)
-// - Test with Chrome DevTools device emulation is NOT sufficient
-```
-
-**Phase to address:** Phase 4 (Responsive Typography) - QA on real devices
-
----
-
-### Pitfall 5.5: Comments Notification Spam from Audit System
-
-**What goes wrong:**
-Every comment post triggers audit log entry. Admin has email notification enabled for all audit logs. Users post 50 comments in busy day. Admin receives 50 emails: "New audit log: Created new comment."
-
-**Why it happens:**
-- Existing system: audit logs trigger email notifications for admins
-- Comments are high-frequency, not business-critical
-- No differentiation between "critical audit event" (invoice voided) vs "routine event" (comment posted)
-
-**Warning signs:**
-- Admin complaints: "Too many emails"
-- Notification system rate-limited or flagged as spam
-- Important audit notifications buried in comment noise
-
-**Prevention strategy:**
 ```sql
--- WRONG: Treat all audit events equally
-CREATE TRIGGER comments_audit AFTER INSERT ON comments
-FOR EACH ROW EXECUTE FUNCTION create_audit_log();
--- Sends notification for every comment!
-
--- RIGHT: Categorize audit events by importance
-ALTER TABLE audit_logs ADD COLUMN severity TEXT
-  CHECK (severity IN ('critical', 'important', 'routine'));
-
-CREATE FUNCTION create_audit_log_with_severity(severity_level TEXT)
+-- Trigger: Auto-populate qmhq_id from SOR chain
+CREATE OR REPLACE FUNCTION auto_populate_qmhq_from_sor()
 RETURNS TRIGGER AS $$
+DECLARE
+  linked_qmhq_id UUID;
 BEGIN
-  INSERT INTO audit_logs (entity_type, action, severity, ...)
-  VALUES (TG_TABLE_NAME, ..., severity_level, ...);
+  -- Only for stock-out transactions with approval link
+  IF NEW.movement_type = 'inventory_out'
+     AND NEW.reason = 'request'
+     AND NEW.stock_out_approval_id IS NOT NULL
+  THEN
+    -- Traverse: approval → line_item → request → qmhq
+    SELECT r.qmhq_id INTO linked_qmhq_id
+    FROM stock_out_approvals a
+    JOIN stock_out_line_items li ON a.line_item_id = li.id
+    JOIN stock_out_requests r ON li.request_id = r.id
+    WHERE a.id = NEW.stock_out_approval_id;
+
+    -- If SOR is QMHQ-linked, populate qmhq_id
+    IF linked_qmhq_id IS NOT NULL THEN
+      NEW.qmhq_id := linked_qmhq_id;
+    END IF;
+  END IF;
+
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Comments are routine
-CREATE TRIGGER comments_audit AFTER INSERT ON comments
-FOR EACH ROW EXECUTE FUNCTION create_audit_log_with_severity('routine');
+DROP TRIGGER IF EXISTS trg_auto_populate_qmhq ON inventory_transactions;
+CREATE TRIGGER trg_auto_populate_qmhq
+  BEFORE INSERT ON inventory_transactions
+  FOR EACH ROW
+  EXECUTE FUNCTION auto_populate_qmhq_from_sor();
 
--- Invoices are critical
-CREATE TRIGGER invoices_audit AFTER INSERT OR UPDATE ON invoices
-FOR EACH ROW EXECUTE FUNCTION create_audit_log_with_severity('critical');
+-- Validation constraint: qmhq_id consistency
+CREATE OR REPLACE FUNCTION check_qmhq_sor_consistency(txn_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  txn_qmhq_id UUID;
+  sor_qmhq_id UUID;
+BEGIN
+  SELECT it.qmhq_id, r.qmhq_id
+  INTO txn_qmhq_id, sor_qmhq_id
+  FROM inventory_transactions it
+  JOIN stock_out_approvals a ON it.stock_out_approval_id = a.id
+  JOIN stock_out_line_items li ON a.line_item_id = li.id
+  JOIN stock_out_requests r ON li.request_id = r.id
+  WHERE it.id = txn_id;
 
--- Notification logic filters by severity
--- Only send email for 'critical' and 'important', not 'routine'
+  -- If SOR has QMHQ, transaction must match
+  IF sor_qmhq_id IS NOT NULL THEN
+    RETURN txn_qmhq_id = sor_qmhq_id;
+  END IF;
+
+  RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Add CHECK constraint (PostgreSQL 12+)
+ALTER TABLE inventory_transactions
+  ADD CONSTRAINT qmhq_sor_consistency
+  CHECK (check_qmhq_sor_consistency(id));
 ```
 
-**Phase to address:** Phase 3 (Comments UI) - Notification strategy design
+**Application-level prevention:**
+- Execution API accepts `approvalId` only (not both approvalId + qmhqId)
+- Backend resolves QMHQ link automatically via trigger
+- UI displays both references: "SOR-2026-00123-A01 (from QMHQ-2026-00456)"
+
+**Detection:**
+- Monitoring query: Find transactions with mismatched QMHQ references
+- Add to daily data integrity check report
+- Automated repair job: `UPDATE inventory_transactions SET qmhq_id = (SELECT r.qmhq_id FROM ...) WHERE ...`
+
+**Phase to address:** Phase 29 (Per-Line Execution UI) - Add auto-populate trigger + validation constraint
+
+**Confidence:** MEDIUM - Dual references are complex, need testing with real data flows
+
+**Sources:**
+- [Outbox Pattern for Dual-Write Problem](https://www.enterpriseintegrationpatterns.com/)
+- [ERP Integration Patterns](https://roi-consulting.com/erp-integration-patterns-what-they-are-and-why-you-should-care/)
 
 ---
 
-## Summary and Recommendations
+## 3. Audit Log Explosion Pitfalls
 
-### Phase-Specific Risk Matrix
+### Pitfall 3.1: Multiplicative Audit Events from Per-Line Execution
 
-| Phase | High-Risk Pitfalls | Mitigation |
-|-------|-------------------|------------|
-| **Phase 2: Database Schema** | 1.1 (RLS Performance), 1.2 (Audit Explosion), 4.1 (Float Precision), 5.1 (RLS Integration) | Design RLS correctly first time, use LEAKPROOF functions, test with 10K+ comments, use DECIMAL not float |
-| **Phase 3: Comments UI** | 1.4 (N+1 Queries), 1.5 (React Keys), 5.5 (Notification Spam) | Use nested selects, stable keys, audit severity levels |
-| **Phase 4: Responsive Typography** | 2.1 (Number Overflow), 2.2 (EUSD Hidden), 2.3 (A11y), 5.4 (Table Layout) | Test on real devices, always show EUSD, add tooltips |
-| **Phase 5: Two-Step Selector** | 3.1 (Race Condition), 3.3 (Loading State), 3.4 (Edit Mode), 5.3 (Wrong Hooks) | Clear child on parent change, show loading, test edit mode |
-| **Phase 6: Currency Unification** | 4.1 (Precision Loss), 4.2 (Breaking Independence), 4.3 (Rate Override), 4.4 (Recalc Cascade), 5.2 (Migration Rollback) | Use Decimal.js, preserve independence, warn on conflicts, incremental migrations |
+**What goes wrong:**
+Audit log table grows 10x faster than before because per-line-item execution fires audit triggers for EACH line instead of once per request, degrading query performance and storage costs.
 
-### Testing Requirements
+**Why it happens:**
+- Current atomic execution: 1 request with 5 lines → execute all → 5 inventory_transactions INSERTs → 5 audit log entries
+- **NEW SYSTEM:** Same 5 lines → execute individually → 5 separate executions → 5 inventory_transactions + 5 line_item UPDATEs + 5 request UPDATEs (status recomputation) → 15 audit log entries
+- **Multiplication factor:** 3x audit logs for same business operation
+- Generic audit trigger logs EVERY INSERT/UPDATE on tracked tables
+- No filtering for "significant" vs "transient" changes
 
-**Must-Have Tests Before Production:**
-1. RLS performance test with 10,000+ comments
-2. Responsive typography on real devices (iPhone SE, iPad, desktop)
-3. Two-step selector edit mode initialization
-4. Currency precision: round-trip DB → JS → DB maintains 2 decimals
-5. Migration rollback on staging environment
+**Warning signs:**
+- `audit_logs` table size growing >100MB per month (vs <30MB before)
+- History tab pagination becomes slow (>2s load time)
+- Database storage alerts triggering weekly instead of monthly
+- Queries like "show all changes for request X" timing out
 
-### Open Research Questions
+**Prevention strategy:**
 
-1. **Comments Depth Limit:** Should replies be limited to 2 levels (Reddit-style) or unlimited (Slack-style)?
-   - **Impact on:** Query performance, UI complexity
-   - **Research needed:** User behavior analysis, competitor benchmarking
+```sql
+-- Selective audit logging for inventory_transactions
+CREATE OR REPLACE FUNCTION audit_inventory_transaction()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Only log INSERTs and status changes, not every UPDATE
+  IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status) THEN
+    INSERT INTO audit_logs (
+      entity_type,
+      entity_id,
+      action,
+      old_values,
+      new_values,
+      changed_by,
+      changed_at,
+      summary
+    ) VALUES (
+      'inventory_transaction',
+      NEW.id,
+      LOWER(TG_OP),
+      CASE WHEN TG_OP = 'UPDATE' THEN row_to_json(OLD) ELSE NULL END,
+      row_to_json(NEW),
+      NEW.updated_by,
+      NOW(),
+      CASE
+        WHEN TG_OP = 'INSERT' THEN 'Created stock-out for ' || (SELECT item_name FROM items WHERE id = NEW.item_id)
+        WHEN TG_OP = 'UPDATE' THEN 'Status changed: ' || OLD.status || ' → ' || NEW.status
+      END
+    );
+  END IF;
 
-2. **Currency Historical Rates:** Should system store exchange rate snapshots for old transactions?
-   - **Impact on:** Migration complexity, report accuracy
-   - **Research needed:** Financial audit requirements, compliance needs
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-3. **Responsive Typography Breakpoints:** Are Tailwind defaults sufficient or does QM need custom breakpoints?
-   - **Impact on:** Design system consistency
-   - **Research needed:** Analytics on user device distribution
+-- Don't audit parent status recomputation (too noisy)
+CREATE OR REPLACE FUNCTION audit_sor_request()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Skip auto-computed status changes (created by triggers)
+  IF TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status THEN
+    -- Only log if updated_by is set (user action) not trigger action
+    IF NEW.updated_by IS DISTINCT FROM OLD.updated_by THEN
+      -- User-initiated status change, log it
+      INSERT INTO audit_logs (...) VALUES (...);
+    END IF;
+    -- Else: trigger-computed status change, skip logging
+  ELSIF TG_OP = 'INSERT' THEN
+    INSERT INTO audit_logs (...) VALUES (...);
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**Alternative: Summary audit entries**
+
+Instead of logging every inventory_transaction separately, log one summary entry per execution:
+
+```sql
+-- Create execution summary table
+CREATE TABLE stock_out_execution_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID REFERENCES stock_out_requests(id),
+  executed_at TIMESTAMPTZ DEFAULT NOW(),
+  executed_by UUID REFERENCES users(id),
+  line_items_count INT,
+  total_quantity DECIMAL(15,2),
+  summary JSONB -- {line_item_id: {item_name, quantity, warehouse}}
+);
+
+-- Log execution as single summary entry instead of per-transaction
+CREATE OR REPLACE FUNCTION log_execution_summary()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Aggregate execution details
+  INSERT INTO stock_out_execution_logs (request_id, executed_by, line_items_count, total_quantity, summary)
+  SELECT
+    r.id,
+    NEW.created_by,
+    COUNT(DISTINCT a.line_item_id),
+    SUM(NEW.quantity),
+    jsonb_object_agg(li.id, jsonb_build_object(
+      'item_name', i.name,
+      'quantity', NEW.quantity,
+      'warehouse', w.name
+    ))
+  FROM inventory_transactions it
+  JOIN stock_out_approvals a ON it.stock_out_approval_id = a.id
+  JOIN stock_out_line_items li ON a.line_item_id = li.id
+  JOIN stock_out_requests r ON li.request_id = r.id
+  JOIN items i ON li.item_id = i.id
+  JOIN warehouses w ON it.warehouse_id = w.id
+  WHERE it.id = NEW.id
+  GROUP BY r.id;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**Detection:**
+- Monitor audit_logs table growth rate: `SELECT pg_size_pretty(pg_total_relation_size('audit_logs'));` weekly
+- Identify noisy entities: `SELECT entity_type, COUNT(*) FROM audit_logs WHERE changed_at > NOW() - INTERVAL '7 days' GROUP BY entity_type ORDER BY COUNT(*) DESC;`
+- Threshold alert: If audit_logs rows increase >50% week-over-week, investigate
+
+**Phase to address:**
+- Phase 29 (Per-Line Execution UI) - Implement selective audit logging
+- Phase 30 (Optimization) - Add execution summary logging if needed
+
+**Confidence:** HIGH - Audit log explosion is documented issue with high-frequency operations
+
+**Sources:**
+- [Cascade Delete Audit Considerations](https://learn.microsoft.com/en-us/power-apps/developer/data-platform/auditing/delete-audit-data)
+- [PostgreSQL Triggers Performance Impact](https://infinitelambda.com/postgresql-triggers/)
+
+---
+
+### Pitfall 3.2: Audit Log Query Performance Degradation
+
+**What goes wrong:**
+History tab on request detail page takes >10 seconds to load because audit log query lacks proper indexes for polymorphic queries, and table has millions of rows.
+
+**Why it happens:**
+- Query pattern: `SELECT * FROM audit_logs WHERE entity_type = 'stock_out_request' AND entity_id = $1 ORDER BY changed_at DESC LIMIT 50;`
+- Polymorphic (entity_type, entity_id) means no foreign key index
+- Sequential scan required if no composite index exists
+- With 1M+ audit rows, sequential scan = seconds
+
+**Prevention strategy:**
+
+```sql
+-- Partial indexes per entity type
+CREATE INDEX idx_audit_logs_sor_request
+  ON audit_logs(entity_id, changed_at DESC)
+  WHERE entity_type = 'stock_out_request' AND deleted_at IS NULL;
+
+CREATE INDEX idx_audit_logs_sor_line_item
+  ON audit_logs(entity_id, changed_at DESC)
+  WHERE entity_type = 'stock_out_line_item' AND deleted_at IS NULL;
+
+CREATE INDEX idx_audit_logs_inventory_txn
+  ON audit_logs(entity_id, changed_at DESC)
+  WHERE entity_type = 'inventory_transaction' AND deleted_at IS NULL;
+
+-- Composite index for filtering by entity type first
+CREATE INDEX idx_audit_logs_entity_lookup
+  ON audit_logs(entity_type, entity_id, changed_at DESC)
+  WHERE deleted_at IS NULL;
+```
+
+**Application-level optimization:**
+
+```typescript
+// Fetch related audit logs efficiently
+async function getRequestHistory(requestId: string) {
+  // Instead of querying all audit_logs and filtering in app:
+  // Query with specific entity_type to use partial index
+  const { data: requestLogs } = await supabase
+    .from('audit_logs')
+    .select('*')
+    .eq('entity_type', 'stock_out_request')
+    .eq('entity_id', requestId)
+    .order('changed_at', { ascending: false })
+    .limit(50);
+
+  // Fetch related line item logs separately (also uses index)
+  const { data: lineItemIds } = await supabase
+    .from('stock_out_line_items')
+    .select('id')
+    .eq('request_id', requestId);
+
+  const { data: lineItemLogs } = await supabase
+    .from('audit_logs')
+    .eq('entity_type', 'stock_out_line_item')
+    .in('entity_id', lineItemIds.map(li => li.id))
+    .order('changed_at', { ascending: false })
+    .limit(200);
+
+  // Merge and sort in application
+  return [...requestLogs, ...lineItemLogs].sort((a, b) =>
+    new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
+  );
+}
+```
+
+**Detection:**
+- EXPLAIN ANALYZE on history queries: If shows "Seq Scan on audit_logs", index missing
+- Add slow query logging: `log_min_duration_statement = 1000` (log queries >1s)
+- APM tool (e.g., pganalyze) to identify slow audit queries
+
+**Phase to address:** Phase 29 (Per-Line Execution UI) - Add indexes in same migration as execution logic
+
+**Confidence:** HIGH - Polymorphic query performance is well-documented issue
+
+**Sources:**
+- [Stale Stats and Query Performance](https://pganalyze.com/docs/explain/insights/stale-stats)
+
+---
+
+## 4. Partial Execution Race Conditions
+
+### Pitfall 4.1: Concurrent Execution Stock Depletion
+
+**What goes wrong:**
+Two line items for same item executing simultaneously from different requests deplete warehouse stock below zero, or second execution fails with "insufficient stock" even though stock was available when user clicked Execute.
+
+**Why it happens:**
+- Stock validation: `SELECT SUM(quantity) FROM inventory_transactions WHERE item_id = X AND warehouse_id = Y;`
+- Line 1 validation: Stock = 100, need 60 → Pass
+- Line 2 validation: Stock = 100, need 50 → Pass (reads SAME 100 because Line 1 not committed)
+- Line 1 executes: Stock = 40
+- Line 2 executes: Stock = -10 (NEGATIVE!)
+- Or with CHECK constraint: Line 2 fails with "insufficient stock" error
+
+**Why it happens (root cause):**
+- PostgreSQL default isolation level: READ COMMITTED
+- Stock calculation is non-serializable: Two transactions can read same stock level
+- No row-level locking on warehouse_stock or items table during validation
+- Optimistic concurrency control assumes conflicts are rare (wrong for high-volume inventory)
+
+**Warning signs:**
+- Intermittent "insufficient stock" errors during execution
+- Negative stock levels in warehouse (if no CHECK constraint)
+- User reports: "It said stock available, but execution failed"
+- Database logs show deadlock errors on inventory_transactions
+
+**Prevention strategy:**
+
+```sql
+-- Advisory lock per item+warehouse during stock validation
+CREATE OR REPLACE FUNCTION validate_stock_with_lock(
+  p_item_id UUID,
+  p_warehouse_id UUID,
+  p_quantity DECIMAL
+) RETURNS BOOLEAN AS $$
+DECLARE
+  current_stock DECIMAL;
+  lock_key BIGINT;
+BEGIN
+  -- Generate deterministic lock key from item+warehouse UUIDs
+  lock_key := ('x' || substr(md5(p_item_id::text || p_warehouse_id::text), 1, 15))::bit(60)::bigint;
+
+  -- Acquire advisory lock (released at transaction end)
+  PERFORM pg_advisory_xact_lock(lock_key);
+
+  -- Now compute stock with exclusive lock held
+  SELECT COALESCE(SUM(
+    CASE movement_type
+      WHEN 'inventory_in' THEN quantity
+      WHEN 'inventory_out' THEN -quantity
+    END
+  ), 0)
+  INTO current_stock
+  FROM inventory_transactions
+  WHERE item_id = p_item_id
+    AND warehouse_id = p_warehouse_id
+    AND is_active = true
+    AND status = 'completed';
+
+  RETURN current_stock >= p_quantity;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Use in execution validation
+CREATE OR REPLACE FUNCTION validate_sor_execution()
+RETURNS TRIGGER AS $$
+DECLARE
+  has_stock BOOLEAN;
+BEGIN
+  IF NEW.movement_type = 'inventory_out' THEN
+    has_stock := validate_stock_with_lock(NEW.item_id, NEW.warehouse_id, NEW.quantity);
+
+    IF NOT has_stock THEN
+      RAISE EXCEPTION 'Insufficient stock for item % in warehouse %', NEW.item_id, NEW.warehouse_id;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**Alternative: Serializable isolation level**
+
+```sql
+-- Set isolation level for execution transactions only
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+-- Perform stock validation and execution
+INSERT INTO inventory_transactions (...) VALUES (...);
+
+COMMIT;
+-- If serialization conflict occurs, PostgreSQL aborts transaction
+-- Application must retry
+```
+
+**Application-level handling:**
+
+```typescript
+async function executeLineItemWithRetry(approvalId: string, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Execute with serializable isolation
+      const { data, error } = await supabase.rpc('execute_stock_out_approval', {
+        p_approval_id: approvalId
+      });
+
+      if (error) throw error;
+      return data;
+
+    } catch (error) {
+      // Check if serialization failure (PostgreSQL error code 40001)
+      if (error.code === '40001' && attempt < maxRetries) {
+        // Wait with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt)));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+```
+
+**Detection:**
+- Monitor for serialization failures: `SELECT COUNT(*) FROM pg_stat_database WHERE datname = 'qm_system' AND xact_rollback > 0;`
+- Alert on negative stock: `SELECT i.name, w.name, SUM(CASE movement_type WHEN 'inventory_in' THEN quantity ELSE -quantity END) AS stock FROM inventory_transactions it JOIN items i ON it.item_id = i.id JOIN warehouses w ON it.warehouse_id = w.id GROUP BY i.id, w.id HAVING SUM(...) < 0;`
+- Load testing: Execute 10 concurrent line items for same item, verify final stock = expected
+
+**Phase to address:** Phase 29 (Per-Line Execution UI) - Implement advisory locks or serializable isolation
+
+**Confidence:** HIGH - Race conditions in stock validation are well-documented in inventory systems
+
+**Sources:**
+- [Atomic Updates and Data Consistency](https://medium.com/insiderengineering/atomic-updates-keeping-your-data-consistent-in-a-changing-world-f6aacf38f71a)
+- [PostgreSQL Trigger Documentation](https://www.postgresql.org/docs/current/plpgsql-trigger.html)
+
+---
+
+### Pitfall 4.2: Duplicate Execution from UI Race Condition
+
+**What goes wrong:**
+User clicks Execute button, page doesn't disable button immediately, user clicks again, two execution requests sent, same approval executed twice, double stock-out.
+
+**Why it happens:**
+- Network latency: First request in flight, button still enabled
+- No idempotency key on execution API
+- Database allows multiple inventory_transactions for same approval (no UNIQUE constraint)
+- UI state doesn't optimistically mark as "executing"
+
+**Prevention strategy:**
+
+```sql
+-- Idempotency: One transaction per approval
+CREATE UNIQUE INDEX idx_one_execution_per_approval
+  ON inventory_transactions(stock_out_approval_id)
+  WHERE movement_type = 'inventory_out'
+    AND reason = 'request'
+    AND is_active = true;
+
+-- This prevents duplicate INSERTs for same approval
+-- Second execution attempt fails with "duplicate key value violates unique constraint"
+```
+
+**Application-level prevention:**
+
+```typescript
+// UI: Optimistic state update
+function ExecuteButton({ approvalId }: { approvalId: string }) {
+  const [isExecuting, setIsExecuting] = useState(false);
+
+  const handleExecute = async () => {
+    // Disable button immediately
+    setIsExecuting(true);
+
+    try {
+      await executeApproval(approvalId);
+      // Success: page will re-fetch and button will disappear
+    } catch (error) {
+      // Re-enable only on error
+      setIsExecuting(false);
+      toast.error(error.message);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleExecute}
+      disabled={isExecuting}
+      className={isExecuting ? 'opacity-50 cursor-not-allowed' : ''}
+    >
+      {isExecuting ? 'Executing...' : 'Execute'}
+    </button>
+  );
+}
+
+// API: Idempotency key
+async function executeApproval(approvalId: string, idempotencyKey?: string) {
+  const key = idempotencyKey || approvalId; // Use approvalId as natural idempotency key
+
+  // Check if already executed
+  const { data: existing } = await supabase
+    .from('inventory_transactions')
+    .select('id')
+    .eq('stock_out_approval_id', approvalId)
+    .eq('movement_type', 'inventory_out')
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (existing) {
+    // Already executed, return success (idempotent)
+    return { alreadyExecuted: true, transactionId: existing.id };
+  }
+
+  // Proceed with execution
+  const { data, error } = await supabase.rpc('execute_stock_out_approval', {
+    p_approval_id: approvalId
+  });
+
+  if (error) throw error;
+  return { alreadyExecuted: false, transactionId: data.id };
+}
+```
+
+**Detection:**
+- Query for duplicate executions: `SELECT stock_out_approval_id, COUNT(*) FROM inventory_transactions WHERE movement_type='inventory_out' AND reason='request' AND is_active=true GROUP BY stock_out_approval_id HAVING COUNT(*) > 1;`
+- Monitor API logs for 409 Conflict responses (duplicate execution attempts)
+- Automated test: Click execute button rapidly 5 times, verify only 1 transaction created
+
+**Phase to address:** Phase 29 (Per-Line Execution UI) - Add UNIQUE constraint + idempotency check
+
+**Confidence:** HIGH - Duplicate request prevention is standard best practice
+
+**Sources:**
+- [SQL ON DELETE CASCADE Best Practices](https://www.datacamp.com/tutorial/sql-on-delete-cascade)
+
+---
+
+## 5. UI State Synchronization Pitfalls
+
+### Pitfall 5.1: Stale Aggregated Data on Parent Detail Page
+
+**What goes wrong:**
+Request detail page shows "Approved (0/5 executed)" but user just executed 2 lines in another tab/window, display doesn't update until manual refresh, user executes same lines again thinking they're still pending.
+
+**Why it happens:**
+- Detail page fetches request + line items + approvals on mount
+- Stores in component state
+- Per-line execution happens in child component (modal/drawer)
+- Child closes after execution, parent state not invalidated
+- Parent displays stale aggregated counts
+
+**Prevention strategy:**
+
+```typescript
+// Use query invalidation pattern (React Query/SWR)
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+function RequestDetailPage({ requestId }: { requestId: string }) {
+  const queryClient = useQueryClient();
+
+  // Fetch with cache key
+  const { data: request, isLoading } = useQuery({
+    queryKey: ['stock-out-request', requestId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('stock_out_requests')
+        .select(`
+          *,
+          line_items:stock_out_line_items(
+            *,
+            approvals:stock_out_approvals(*)
+          )
+        `)
+        .eq('id', requestId)
+        .single();
+      return data;
+    },
+    // Refetch on window focus to catch external updates
+    refetchOnWindowFocus: true,
+  });
+
+  // Child component invalidates cache after execution
+  const handleExecutionComplete = () => {
+    // Invalidate this request's cache
+    queryClient.invalidateQueries({ queryKey: ['stock-out-request', requestId] });
+    // Also invalidate list page cache
+    queryClient.invalidateQueries({ queryKey: ['stock-out-requests'] });
+  };
+
+  return (
+    <div>
+      <RequestHeader request={request} />
+      <LineItemsTable
+        lineItems={request.line_items}
+        onExecutionComplete={handleExecutionComplete}
+      />
+    </div>
+  );
+}
+
+// Execution modal
+function ExecuteApprovalModal({ approvalId, onComplete }: Props) {
+  const handleExecute = async () => {
+    await executeApproval(approvalId);
+    onComplete(); // Triggers parent cache invalidation
+    closeModal();
+  };
+
+  return <Modal>...</Modal>;
+}
+```
+
+**Alternative: Real-time subscriptions**
+
+```typescript
+function RequestDetailPage({ requestId }: { requestId: string }) {
+  const [request, setRequest] = useState(null);
+
+  useEffect(() => {
+    // Initial fetch
+    fetchRequest(requestId).then(setRequest);
+
+    // Subscribe to changes
+    const channel = supabase
+      .channel(`request-${requestId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'stock_out_line_items',
+        filter: `request_id=eq.${requestId}`,
+      }, (payload) => {
+        // Re-fetch on any line item change
+        fetchRequest(requestId).then(setRequest);
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'inventory_transactions',
+      }, (payload) => {
+        // Check if related to this request
+        if (payload.new.stock_out_approval_id) {
+          fetchRequest(requestId).then(setRequest);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [requestId]);
+
+  return <div>...</div>;
+}
+```
+
+**Detection:**
+- User acceptance testing: Open request in two tabs, execute in tab 1, verify tab 2 updates within 5 seconds
+- Automated E2E test: Simulate concurrent access, assert stale data not shown
+- Monitor user feedback: "I executed twice by accident" reports
+
+**Phase to address:** Phase 29 (Per-Line Execution UI) - Implement query invalidation from start
+
+**Confidence:** MEDIUM - UI state sync is standard React pattern, but real-time sync adds complexity
+
+**Sources:**
+- No specific external sources; standard React/frontend state management pattern
+
+---
+
+### Pitfall 5.2: Optimistic UI Update Rollback Failures
+
+**What goes wrong:**
+UI optimistically shows "Executed" status and removes Execute button, but backend execution fails (stock shortage), UI doesn't rollback to previous state, user stuck seeing "Executed" when actually still "Approved".
+
+**Why it happens:**
+- Optimistic update pattern: Immediately update local state before API response
+- API call fails (validation error, network timeout, server error)
+- Error handler doesn't restore previous state
+- User sees success UI but database still has old state
+
+**Prevention strategy:**
+
+```typescript
+function ExecuteButton({ approval }: { approval: Approval }) {
+  const queryClient = useQueryClient();
+  const [isExecuting, setIsExecuting] = useState(false);
+
+  const handleExecute = async () => {
+    setIsExecuting(true);
+
+    // Snapshot current state for rollback
+    const previousData = queryClient.getQueryData(['stock-out-request', approval.request_id]);
+
+    // Optimistic update
+    queryClient.setQueryData(['stock-out-request', approval.request_id], (old: any) => {
+      return {
+        ...old,
+        line_items: old.line_items.map((li: any) =>
+          li.id === approval.line_item_id
+            ? { ...li, status: 'executed' }
+            : li
+        ),
+      };
+    });
+
+    try {
+      // Execute API call
+      await executeApproval(approval.id);
+
+      // Success: Refetch to get authoritative state
+      await queryClient.invalidateQueries({ queryKey: ['stock-out-request', approval.request_id] });
+
+      toast.success('Execution successful');
+
+    } catch (error) {
+      // Rollback optimistic update
+      queryClient.setQueryData(['stock-out-request', approval.request_id], previousData);
+
+      toast.error(`Execution failed: ${error.message}`);
+
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  return <button onClick={handleExecute} disabled={isExecuting}>Execute</button>;
+}
+```
+
+**Alternative: No optimistic updates for critical operations**
+
+For stock execution (high-risk, irreversible), consider NOT using optimistic updates:
+- Show loading spinner during API call
+- Only update UI after confirmed success
+- Reduces complexity and eliminates rollback logic
+
+**Detection:**
+- Manual testing: Kill backend server mid-execution, verify UI shows error and reverts
+- E2E test: Mock API failure, assert UI state rolled back
+- Monitor toast notifications: Track error toast frequency to identify rollback scenarios
+
+**Phase to address:** Phase 29 (Per-Line Execution UI) - Decide optimistic vs pessimistic UI pattern
+
+**Confidence:** MEDIUM - Optimistic UI is useful for perceived performance but adds complexity
+
+**Sources:**
+- No specific external sources; standard React/UX pattern
+
+---
+
+## Phase-Specific Warnings
+
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| **Phase 29: Per-Line Execution UI** | Stale parent status from race conditions | Add row-level locking in `compute_sor_request_status()` |
+| **Phase 29: Per-Line Execution UI** | Orphaned inventory transactions | Add validation trigger requiring `stock_out_approval_id` |
+| **Phase 29: Per-Line Execution UI** | Audit log explosion | Implement selective audit logging (skip auto-computed status) |
+| **Phase 29: Per-Line Execution UI** | Concurrent stock depletion | Use advisory locks in stock validation function |
+| **Phase 29: Per-Line Execution UI** | Duplicate execution | Add UNIQUE index on (stock_out_approval_id) for inventory_transactions |
+| **Phase 29: Per-Line Execution UI** | Stale UI after execution | Use query invalidation or real-time subscriptions |
+| **Phase 30: QMHQ Integration** | Dual reference inconsistency | Add trigger to auto-populate `qmhq_id` from SOR chain |
+| **Phase 30: QMHQ Integration** | QMHQ status not updating | Ensure execution triggers update QMHQ status via qmhq_id link |
+| **Phase 31: Performance Optimization** | Audit log query slowness | Add partial indexes per entity_type on audit_logs |
+| **Phase 32: Testing & Validation** | Race conditions not caught | Load test: Execute 10 concurrent approvals for same item |
+
+---
+
+## Critical Integration Checklist
+
+Before deploying per-line-item execution:
+
+- [ ] **Status Computation:** Add row-level locking (`FOR UPDATE`) in `compute_sor_request_status()` function
+- [ ] **Status Propagation:** Add trigger on `stock_out_line_items` to propagate status changes to parent
+- [ ] **Transaction Linking:** Add validation trigger requiring `stock_out_approval_id` for stock-out transactions
+- [ ] **Dual Reference:** Add trigger to auto-populate `qmhq_id` from SOR chain (approval → line_item → request → qmhq)
+- [ ] **Audit Selectivity:** Modify audit triggers to skip auto-computed status changes
+- [ ] **Audit Indexes:** Add partial indexes on `audit_logs(entity_id, changed_at)` per entity_type
+- [ ] **Stock Validation:** Add advisory locks to `validate_stock_with_lock()` function
+- [ ] **Idempotency:** Add UNIQUE index on `inventory_transactions(stock_out_approval_id)` for executions
+- [ ] **UI Cache Invalidation:** Implement query invalidation after execution
+- [ ] **Error Handling:** Add try-catch with rollback logic for optimistic UI updates
+- [ ] **Load Testing:** Execute 10+ concurrent approvals and verify no negative stock
+- [ ] **Data Integrity:** Query for orphaned transactions, mismatched QMHQ references, duplicate executions
+- [ ] **Monitoring:** Set up alerts for audit log growth, slow queries, serialization failures
+
+---
+
+## Open Questions for Validation
+
+- **Execution granularity confirmation:** Is per-line-item execution with individual Execute buttons the final decision, or might it change to per-approval execution?
+- **QMHQ status update:** Should SOR execution auto-update QMHQ status to "done" group, or remain manual?
+- **Audit retention policy:** How long to retain audit logs? Should old logs be archived/partitioned?
+- **Stock lock duration:** Advisory locks released at transaction end—is this sufficient, or need application-level locking?
+- **Real-time requirements:** Is 5-second refresh acceptable for multi-tab scenarios, or need instant real-time sync?
+- **Rollback scenario:** If execution partially succeeds (3/5 lines) then fails, should already-executed lines remain executed or rollback?
+
+---
+
+## Confidence Assessment
+
+| Area | Confidence | Reasoning |
+|------|------------|-----------|
+| Parent Status Computation | HIGH | Documented PostgreSQL trigger behavior + existing QM System pattern |
+| Transaction Linking | HIGH | Referential integrity well-documented, orphaned records common pitfall |
+| Audit Log Explosion | HIGH | High-frequency operations known to cause audit growth issues |
+| Race Conditions | HIGH | Concurrent stock validation races well-documented in inventory systems |
+| Dual Reference Integrity | MEDIUM | Complex pattern, need real-world testing to validate assumptions |
+| UI State Sync | MEDIUM | Standard React patterns, but real-time complexity varies by approach |
+| Optimistic UI Rollback | MEDIUM | Depends on implementation details, less documentation on inventory-specific scenarios |
+
+---
+
+## Research Methodology
+
+1. **Existing codebase analysis:** Examined QM System migrations (052, 053, 054) to understand current status computation, transaction linking, and audit patterns
+2. **Context gathering:** Read Phase 27 and Phase 28 planning documents to understand atomic → per-line-item execution change
+3. **Web research:** Searched for granularity changes, partial execution patterns, multi-level aggregation triggers, dual reference linking, audit log management
+4. **Pattern identification:** Cross-referenced QM System patterns with documented pitfalls from PostgreSQL docs, ERP integration patterns, inventory system best practices
+5. **Mitigation design:** Proposed concrete SQL functions and application code based on PostgreSQL official docs and established patterns
 
 ---
 
 ## Sources
 
-### Comments System
-- [Polymorphic Associations Database Design](https://patrickkarsh.medium.com/polymorphic-associations-database-design-basics-17faf2eb313)
-- [PostgreSQL Nested Comments Performance](https://www.slingacademy.com/article/postgresql-efficiently-store-comments-nested-comments/)
-- [Scaling Threaded Comments at Disqus](https://cra.mr/2010/05/30/scaling-threaded-comments-on-django-at-disqus/)
-- [PostgreSQL RLS Implementation Guide](https://www.permit.io/blog/postgres-rls-implementation-guide)
-- [Common Postgres RLS Footguns](https://www.bytebase.com/blog/postgres-row-level-security-footguns/)
-- [Why Soft Delete Can Backfire](https://dev.to/mrakdon/why-soft-delete-can-backfire-on-data-consistency-4epl)
-- [React Key Prop Best Practices](https://www.developerway.com/posts/react-key-attribute)
+- [PostgreSQL Trigger Behavior Documentation](https://www.postgresql.org/docs/current/trigger-definition.html)
+- [PostgreSQL Triggers Performance Impact](https://infinitelambda.com/postgresql-triggers/)
+- [Aggregation Operations in Distributed SQL](https://medium.com/towards-data-engineering/aggregation-operations-in-distributed-sql-query-engines-516c464e8e19)
+- [Referential Integrity Challenges](https://www.acceldata.io/blog/referential-integrity-why-its-vital-for-databases)
+- [Why Referential Data Integrity Is Important](https://www.montecarlodata.com/blog-how-to-maintain-referential-data-integrity/)
+- [Atomic Updates and Data Consistency](https://medium.com/insiderengineering/atomic-updates-keeping-your-data-consistent-in-a-changing-world-f6aacf38f71a)
+- [Cascade Delete Audit Considerations](https://learn.microsoft.com/en-us/power-apps/developer/data-platform/auditing/delete-audit-data)
+- [Outbox Pattern for Dual-Write Problem](https://www.enterpriseintegrationpatterns.com/)
+- [ERP Integration Patterns](https://roi-consulting.com/erp-integration-patterns-what-they-are-and-why-you-should-care/)
+- [Stale Stats and Query Performance](https://pganalyze.com/docs/explain/insights/stale-stats)
+- [SQL ON DELETE CASCADE Best Practices](https://www.datacamp.com/tutorial/sql-on-delete-cascade)
+- [Inventory Management Workflow](https://www.posnation.com/blog/inventory-management-workflow)
+- [ER Diagram for Inventory Management System](https://www.kladana.com/blog/inventory-management/er-diagram-for-inventory-management-system/)
 
-### Responsive Typography
-- [CSS Clamp for Financial Numbers](https://css-tricks.com/linearly-scale-font-size-with-css-clamp-based-on-the-viewport/)
-- [Design for Truncation](https://medium.com/design-bootcamp/design-for-truncation-946951d5b6b8)
-- [The Ballad of Text Overflow](https://www.tpgi.com/the-ballad-of-text-overflow/)
-- [Font Size Requirements WCAG](https://font-converters.com/accessibility/font-size-requirements)
+---
 
-### Two-Step Selectors
-- [How to Build Dependent Dropdowns in React](https://www.freecodecamp.org/news/how-to-build-dependent-dropdowns-in-react/)
-- [React Hook Form Cascading Dropdown](https://github.com/orgs/react-hook-form/discussions/5068)
-- [Managing Forms with React Hook Form](https://claritydev.net/blog/managing-forms-with-react-hook-form)
-
-### Currency Unification
-- [Floats Don't Work for Storing Cents](https://www.moderntreasury.com/journal/floats-dont-work-for-storing-cents)
-- [Never Use Float for Money](https://dzone.com/articles/never-use-float-and-double-for-monetary-calculatio)
-- [Cascading Failures in Financial Systems](https://www.sciencedirect.com/science/article/pii/S0167637724000580)
-- [Commercial Spreads Hidden Errors](https://www.besmartee.com/blog/commercial-spreads-hidden-errors/)
-
-### PostgreSQL & Performance
-- [PostgreSQL Triggers in 2026](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/)
-- [Audit Trigger Performance](https://www.techtarget.com/searchdatamanagement/tip/Pros-and-cons-of-using-SQL-Server-audit-triggers-for-DBAs)
-- [Optimizing Postgres RLS](https://scottpierce.dev/posts/optimizing-postgres-rls/)
+*Research completed: 2026-02-11*
+*Researcher: Claude Sonnet 4.5 (GSD Project Research Agent)*
+*Next step: Use findings to inform Phase 29 implementation plan*
