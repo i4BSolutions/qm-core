@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 ## Current Position
 
-Phase: 33 of 35 (Dual Reference Display) ✓ VERIFIED
-Plan: All complete — verified passed (6/6 must-haves)
-Status: Phase 33 complete, ready for Phase 34
-Last activity: 2026-02-11 — Phase 33 verified and closed
+Phase: 34 of 35 (Database Trigger Hardening)
+Plan: 01 of 02 complete
+Status: Phase 34 in progress
+Last activity: 2026-02-11 — Completed 34-01 (Advisory locks and row-level locking)
 
 Progress: [████████████████████████████████████████████████████████░] 94% (33 of 35 phases)
 
@@ -84,6 +84,9 @@ Recent decisions affecting v1.7:
 - [Phase 32]: Stepped progress bar uses layered absolute positioning for funnel visualization
 - [Phase 33]: Dual reference display with circular navigation prevention (Suppress self-links via currentQmhqId prop)
 - [Phase 33]: Independent nested data fetching (Components fetch own data when context allows, reduces coupling)
+- [Phase 34]: Transaction-level advisory locks for automatic cleanup (pg_advisory_xact_lock prevents session lock leaks)
+- [Phase 34]: Lock ordering prevents deadlocks (line item trigger context -> parent request FOR UPDATE)
+- [Phase 34]: Data migration before CHECK constraint (fixes orphaned records to prevent deployment failures)
 
 ### Pending Todos
 
@@ -92,8 +95,8 @@ None.
 ### Blockers/Concerns
 
 **From v1.7 Planning:**
-- Advisory lock patterns need validation during Phase 34 (database trigger hardening)
-- Concurrent execution threshold testing needed (target: 10+ concurrent executions with <1s lock wait time)
+- ✓ Advisory lock patterns implemented in Phase 34-01 (transaction-level locks for stock and approval validation)
+- Concurrent execution threshold testing needed (target: 10+ concurrent executions with <100ms lock wait time) — to be monitored in Phase 35
 - Real-time subscription vs query invalidation decision needed for Phase 35 (depends on multi-tab usage patterns)
 
 **Known Tech Debt:**
@@ -103,9 +106,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Phase 33 verified and closed
+Stopped at: Completed 34-01 (Advisory locks and row-level locking for trigger hardening)
 Resume file: None
-Next action: `/gsd:plan-phase 34`
+Next action: Execute 34-02 (QMHQ auto-population and idempotency constraints)
 
 ## Performance Metrics
 
@@ -126,8 +129,9 @@ Next action: `/gsd:plan-phase 34`
 | 32-qmhq-transaction-linking | 01 | 2min | 2 | 2 | 2026-02-11 |
 | 32-qmhq-transaction-linking | 02 | 5min | 2 | 1 | 2026-02-11 |
 | 33-dual-reference-display | 01 | 6min | 2 | 3 | 2026-02-11 |
+| 34-database-trigger-hardening | 01 | 1min | 2 | 3 | 2026-02-11 |
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-11 - Completed 33-01 (Dual reference display for stock-out transactions)*
+*Last updated: 2026-02-11 - Completed 34-01 (Advisory locks and row-level locking for trigger hardening)*
 
