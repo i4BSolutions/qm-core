@@ -1,550 +1,403 @@
-# Stack Research: Stock-Out Execution Logic Repair
+# Technology Stack
 
-**Research Date:** 2026-02-11
-**Milestone:** v1.7 Stock-Out Execution Fix
-**Confidence:** HIGH
-
-## Summary
-
-**Zero new dependencies required.** The existing QM System stack (Next.js 14, Supabase PostgreSQL, React 18, TypeScript, Radix UI) fully supports all three new features:
-
-1. **Per-line-item execution** → Modify existing `ExecutionDialog` component props + query filters
-2. **QMHQ-to-transaction linking** → Add nullable FK `qmhq_id` to `inventory_transactions` table
-3. **Dual reference display** → Extend SELECT queries with nested join + conditional rendering
-
-**No library upgrades, no new npm packages, no new UI primitives.** This is an architectural refinement using established patterns.
+**Project:** QM System v1.8 - UI Standardization, Flow Tracking, RBAC Overhaul
+**Researched:** 2026-02-11
 
 ---
 
-## Core Stack (No Changes)
+## NEW Stack Additions
 
-### Framework & Runtime
-| Technology | Current Version | Status | Notes |
-|------------|----------------|--------|-------|
-| Next.js | 14.2.13 | ✓ Keep | App Router, Server Components stable |
-| React | 18.3.1 | ✓ Keep | State management sufficient for per-line actions |
-| TypeScript | 5.6.2 | ✓ Keep | Strict mode, types auto-generated from Supabase |
+### Flow Visualization (Admin Flow Tracking Page)
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **NONE REQUIRED** | - | Flow visualization | Use native CSS + existing components. Linear chain QMRL→QMHQ→PO→Invoice→Stock does not require graph library overhead. |
 
-### Database & Backend
-| Technology | Current Version | Status | Notes |
-|------------|----------------|--------|-------|
-| PostgreSQL | via Supabase | ✓ Keep | 57 migrations, FK constraints, triggers, RLS |
-| @supabase/supabase-js | 2.50.0 | ✓ Keep | Client handles FK queries, nested SELECT joins |
-| @supabase/ssr | 0.8.0 | ✓ Keep | Server-side rendering integration |
+**Rationale:** React Flow (latest v11.x) is powerful for complex node-based UIs with dragging, zooming, and custom layouts, but introduces unnecessary complexity for a **simple linear chain visualization**. The flow tracking page shows a sequential chain with clear parent-child relationships, not a complex DAG requiring interaction.
 
-### UI & Styling
-| Technology | Current Version | Status | Notes |
-|------------|----------------|--------|-------|
-| Tailwind CSS | 3.4.13 | ✓ Keep | Utility classes for dual reference display |
-| Radix UI | Various ^1.x-2.x | ✓ Keep | Dialog, Tooltip, Tabs already used |
-| lucide-react | 0.447.0 | ✓ Keep | Icons (ExternalLink for QMHQ references) |
-| sonner | 2.0.7 | ✓ Keep | Toast notifications for execution feedback |
+**Implementation approach:**
+- Use existing `Table`, `Badge`, `Card` components
+- CSS Flexbox/Grid for horizontal timeline layout
+- Lucide icons (`ChevronRight`, `ArrowRight`) for connectors
+- Conditional rendering based on data presence
+- No additional dependencies needed
+
+Sources:
+- [React Flow Documentation](https://reactflow.dev)
+- [Supabase Best Practices](https://supabase.com/docs/guides/database/postgres/enums)
+
+---
+
+### UI Standardization (Page Layout Consistency)
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **NONE REQUIRED** | - | Consistent layouts | Current stack sufficient. Create reusable layout components from existing primitives. |
+
+**Current stack already provides:**
+- ✅ `@tanstack/react-table` (v8.21.3) - table sorting, filtering, pagination
+- ✅ shadcn/ui primitives (Radix UI) - `Card`, `Badge`, `Table`, `Input`, `Select`, `Skeleton`
+- ✅ Tailwind CSS design tokens - status colors, typography scale, shadows
+- ✅ `Pagination` component - consistent pagination
+- ✅ `use-search` hook - debounced search
+
+**What's needed:** Composition patterns, not new libraries.
+
+**Implementation approach:**
+1. **Create `<PageShell>` component** - Standard page wrapper with title, actions, filters
+2. **Create `<DataTableShell>` component** - Wraps `@tanstack/react-table` with search, filters, pagination
+3. **Create `<FilterBar>` component** - Reusable filter controls (search, selects, date pickers)
+4. **Document layout patterns** - Establish conventions in component library
+
+**Example pattern:**
+```tsx
+<PageShell
+  title="QMRL Requests"
+  action={<Button>New Request</Button>}
+>
+  <FilterBar
+    search={searchQuery}
+    onSearchChange={setSearchQuery}
+    filters={[
+      { type: 'select', label: 'Category', value: categoryFilter, onChange: setCategoryFilter },
+      { type: 'select', label: 'Assigned To', value: assignedFilter, onChange: setAssignedFilter }
+    ]}
+  />
+  <DataTableShell
+    columns={columns}
+    data={filteredData}
+    pagination={{ page: currentPage, pageSize, total }}
+  />
+</PageShell>
+```
+
+Sources:
+- [shadcn/ui Next.js Templates](https://www.shadcn.io/template)
+- [Next.js & shadcn/ui Admin Dashboard](https://vercel.com/templates/next.js/next-js-and-shadcn-ui-admin-dashboard)
+
+---
+
+### RBAC Overhaul (7 Roles → 3 Roles)
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **NONE REQUIRED** | - | Role migration | PostgreSQL native ALTER TYPE + data migration. No ORM changes needed. |
+
+**Database changes required:**
+1. **Create new enum** `user_role_new` with values: `admin`, `qmrl_user`, `qmhq_user`
+2. **Map existing roles** to new roles via data migration
+3. **Update RLS policies** to reference new roles
+4. **Drop old enum**, rename new enum to `user_role`
+
+**Migration strategy (SAFE):**
+```sql
+-- Step 1: Create new enum
+CREATE TYPE user_role_new AS ENUM ('admin', 'qmrl_user', 'qmhq_user');
+
+-- Step 2: Add temporary column
+ALTER TABLE users ADD COLUMN role_new user_role_new;
+
+-- Step 3: Migrate data with explicit mapping
+UPDATE users SET role_new =
+  CASE role::text
+    WHEN 'admin' THEN 'admin'::user_role_new
+    WHEN 'quartermaster' THEN 'admin'::user_role_new
+    WHEN 'finance' THEN 'qmhq_user'::user_role_new
+    WHEN 'inventory' THEN 'qmhq_user'::user_role_new
+    WHEN 'proposal' THEN 'qmhq_user'::user_role_new
+    WHEN 'frontline' THEN 'qmrl_user'::user_role_new
+    WHEN 'requester' THEN 'qmrl_user'::user_role_new
+  END;
+
+-- Step 4: Drop old column, rename new
+ALTER TABLE users DROP COLUMN role;
+ALTER TABLE users RENAME COLUMN role_new TO role;
+
+-- Step 5: Drop old enum
+DROP TYPE user_role;
+ALTER TYPE user_role_new RENAME TO user_role;
+```
+
+**Why NOT unsafe direct ALTER TYPE:**
+PostgreSQL `ALTER TYPE ADD VALUE` is safe, but **removing enum values is unsafe** per Supabase docs: "Even if you delete every occurrence of an Enum value within a table, the target value could still exist in upper index pages. If you delete the pg_enum entry you'll break the index."
+
+**Frontend changes:**
+- Update `types/database.ts` (auto-generated from Supabase)
+- Update `lib/hooks/use-permissions.ts` permission matrix
+- Update `components/layout/sidebar.tsx` navigation logic
+- Update RLS policies in migrations
+
+**No external dependencies needed** - Supabase client handles enum typing automatically.
+
+Sources:
+- [Supabase Enum Management](https://supabase.com/docs/guides/database/postgres/enums)
+- [PostgreSQL ALTER TYPE](https://www.postgresql.org/docs/current/sql-altertype.html)
+
+---
+
+## Supporting Libraries (Already in Stack)
 
 ### Forms & Validation
-| Technology | Current Version | Status | Notes |
-|------------|----------------|--------|-------|
-| react-hook-form | 7.53.0 | ✓ Keep | Not needed (execution is button action, not form) |
-| Zod | 3.23.8 | ✓ Keep | Not needed (validation in database triggers) |
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| react-hook-form | ^7.53.0 | Form state management | All forms (already used) |
+| zod | ^3.23.8 | Schema validation | All form validation |
+| @hookform/resolvers | ^3.9.0 | Zod + RHF integration | All forms |
+
+### UI Primitives (shadcn/ui via Radix)
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| @radix-ui/react-dialog | ^1.1.15 | Modals, dialogs | Confirmations, forms |
+| @radix-ui/react-dropdown-menu | ^2.1.16 | Dropdowns | Action menus |
+| @radix-ui/react-select | ^2.2.6 | Select inputs | Filters, forms |
+| @radix-ui/react-tabs | ^1.1.13 | Tabbed interfaces | Detail pages |
+| @radix-ui/react-toast | ^1.2.15 | Notifications | Success/error feedback |
+| @radix-ui/react-tooltip | ^1.1.3 | Tooltips | Help text, context |
+
+### Data Display
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| @tanstack/react-table | ^8.21.3 | Advanced tables | List pages with sorting/filtering |
+| lucide-react | ^0.447.0 | Icons | All UI icons |
+| date-fns | ^3.6.0 | Date formatting | All date displays |
+
+### Styling
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| tailwindcss | ^3.4.13 | Utility CSS | All styling |
+| tailwindcss-animate | ^1.0.7 | Animations | Transitions, feedback |
+| class-variance-authority | ^0.7.1 | Component variants | Button, Badge variations |
+| tailwind-merge | ^2.5.2 | Class merging | cn() utility |
+| clsx | ^2.1.1 | Conditional classes | Dynamic styling |
+
+### File Handling
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| react-dropzone | ^14.3.8 | File uploads | Attachment uploads |
+| react-pdf | ^10.0.0 | PDF preview | Document viewer |
+| file-saver | ^2.0.5 | File downloads | Export functionality |
+| jszip | ^3.10.1 | Bulk downloads | Multiple file exports |
 
 ---
 
-## Required Stack Additions: NONE
+## Alternatives Considered
 
-### Why Existing Stack Is Sufficient
-
-**Feature 1: Per-Line-Item Execution**
-
-Current implementation (`ExecutionDialog.tsx`, lines 68-232):
-- Accepts `approvalId` prop → filters transactions by `stock_out_approval_id`
-- Already handles granular execution (one approval at a time)
-- **What changes:** Accept `lineItemId` prop in addition to `approvalId`
-- **Why no new library:** React props + Supabase query filters sufficient
-
-**Feature 2: QMHQ-to-Transaction Linking**
-
-Current schema (`inventory_transactions` table):
-```sql
--- Existing FKs (migration 023)
-qmhq_id UUID REFERENCES qmhq(id) ON DELETE SET NULL  -- Already exists!
-stock_out_approval_id UUID REFERENCES stock_out_approvals(id) ON DELETE SET NULL  -- Added in 053
-```
-
-**Discovery:** `qmhq_id` FK already exists in `inventory_transactions` (migration 023, line 76). No schema change needed!
-
-**What's missing:** Population logic. Currently, `qmhq_id` is only populated for direct QMHQ fulfillment (item route). Stock-out approvals don't copy the parent `stock_out_requests.qmhq_id` to transactions.
-
-**Fix:** Modify approval creation logic to propagate QMHQ reference:
-```typescript
-// In approval RPC or client-side transaction creation
-const { data: request } = await supabase
-  .from('stock_out_requests')
-  .select('qmhq_id')
-  .eq('id', requestId)
-  .single();
-
-// When creating inventory_transaction
-await supabase.from('inventory_transactions').insert({
-  ...otherFields,
-  stock_out_approval_id: approvalId,
-  qmhq_id: request?.qmhq_id  // Propagate parent QMHQ link
-});
-```
-
-**Why no new library:** Simple FK copy operation, no ORM needed.
-
-**Feature 3: Dual Reference Display**
-
-Current pattern (already used in codebase):
-```tsx
-// Example: QMHQ detail page shows QMRL reference
-<Link href={`/qmrl/${qmhq.qmrl_id}`}>
-  <span className="font-mono">{qmrl.request_id}</span>
-  <ExternalLink className="w-3 h-3" />
-</Link>
-```
-
-**What changes:** Add conditional secondary reference in transaction lists:
-```tsx
-// Primary reference (always show)
-<div className="font-mono text-slate-200">
-  {transaction.stock_out_approval?.approval_number}
-</div>
-
-// Secondary reference (show if exists)
-{transaction.qmhq?.request_id && (
-  <div className="text-xs text-slate-500">
-    via {transaction.qmhq.request_id}
-  </div>
-)}
-```
-
-**Why no new library:** Conditional rendering + existing Supabase nested SELECT.
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| **Flow Viz** | Native CSS + existing components | React Flow v11.x | Overkill for linear chain. React Flow adds 300KB+ for draggable nodes, zooming, complex layouts - none needed for sequential QMRL→QMHQ→PO→Invoice→Stock display. |
+| **Flow Viz** | Native CSS | D3.js | Too low-level, steep learning curve for simple horizontal timeline. |
+| **Layout** | Composition of existing primitives | New UI framework | Current stack complete. Adding Mantine, Ant Design, or Material-UI duplicates functionality and increases bundle size. |
+| **Enum Migration** | ALTER TYPE with new enum + migration | Drizzle ORM | Project uses Supabase client, not ORM. Adding Drizzle introduces migration complexity without value - raw SQL safer and more direct. |
+| **Enum Migration** | PostgreSQL enum | Lookup table | Enum appropriate here: small, fixed set (3 roles). Lookup table overkill for simple role system. |
 
 ---
 
-## Database Schema Impact
+## Installation
 
-### Existing Schema (Keep)
+### No New Dependencies Required
 
-```sql
--- stock_out_requests (migration 052)
-CREATE TABLE stock_out_requests (
-  qmhq_id UUID REFERENCES qmhq(id) ON DELETE SET NULL,  -- 1:1 link
-  -- ... other fields
-);
-
--- stock_out_approvals (migration 052)
-CREATE TABLE stock_out_approvals (
-  line_item_id UUID REFERENCES stock_out_line_items(id) ON DELETE CASCADE,
-  approval_number TEXT UNIQUE,  -- SOR-YYYY-NNNNN-A01
-  -- ... other fields
-);
-
--- inventory_transactions (migration 023)
-CREATE TABLE inventory_transactions (
-  qmhq_id UUID REFERENCES qmhq(id) ON DELETE SET NULL,  -- Already exists!
-  stock_out_approval_id UUID REFERENCES stock_out_approvals(id) ON DELETE SET NULL,  -- Added in 053
-  -- ... other fields
-);
-```
-
-### Required Migration: NONE
-
-The schema already supports dual reference! The FK `qmhq_id` exists in `inventory_transactions` since migration 023 (line 76).
-
-**What's needed:** Logic change, not schema change.
-
-**Verification:**
-```bash
-# Confirmed in codebase
-grep -n "qmhq_id" supabase/migrations/023_inventory_transactions.sql
-# Line 76:   qmhq_id UUID REFERENCES qmhq(id) ON DELETE SET NULL,
-```
-
----
-
-## Component Modification Strategy
-
-### 1. ExecutionDialog Component
-
-**Current props:**
-```typescript
-interface ExecutionDialogProps {
-  approvalId: string;  // Execute this approval's transactions
-  requestId: string;   // Parent request (for navigation)
-  // ...
-}
-```
-
-**New props (backward compatible):**
-```typescript
-interface ExecutionDialogProps {
-  approvalId: string;     // Keep
-  lineItemId?: string;    // NEW: Optional line item scope
-  requestId: string;      // Keep
-  // ...
-}
-```
-
-**Query change:**
-```typescript
-// Before: Execute all transactions for one approval
-.eq('stock_out_approval_id', approvalId)
-
-// After: Execute transactions for one approval within one line item
-.eq('stock_out_approval_id', approvalId)
-.eq('line_item_id', lineItemId)  // Filter further if provided
-```
-
-**Why no new library:** Existing `useEffect` + `useState` + Supabase client sufficient.
-
-### 2. LineItemTable Component
-
-**Current:** No Execute button (execution is request-level)
-
-**New:** Add Execute button per row
-
-```tsx
-// Add to each row
-{canExecute && lineItem.status === 'approved' && (
-  <Button
-    size="sm"
-    onClick={() => handleExecuteLineItem(lineItem.id)}
-  >
-    <ArrowUpFromLine className="w-4 h-4 mr-2" />
-    Execute
-  </Button>
-)}
-```
-
-**Why no new library:** Existing Button component + onClick handler pattern.
-
-### 3. Transaction List Cards
-
-**Current display:**
-```tsx
-<div className="font-mono">
-  {transaction.approval?.approval_number}
-</div>
-```
-
-**New display:**
-```tsx
-<div>
-  <div className="font-mono text-slate-200">
-    {transaction.approval?.approval_number}
-  </div>
-  {transaction.qmhq?.request_id && (
-    <div className="text-xs text-slate-500 flex items-center gap-1">
-      <span>via {transaction.qmhq.request_id}</span>
-      <Link href={`/qmhq/${transaction.qmhq_id}`}>
-        <ExternalLink className="w-3 h-3" />
-      </Link>
-    </div>
-  )}
-</div>
-```
-
-**Why no new library:** Existing Link, conditional rendering, Tailwind classes.
-
----
-
-## Type Safety
-
-### Existing Type Generation (Keep)
+All features can be implemented with existing stack:
 
 ```bash
-# Types auto-generated from Supabase schema
-supabase gen types typescript --local > types/database.ts
+# Current dependencies already sufficient
+# No npm install needed
 ```
 
-**Current types already include:**
-```typescript
-// types/database.ts (auto-generated)
-export interface Tables {
-  inventory_transactions: {
-    qmhq_id: string | null;  // Already typed!
-    stock_out_approval_id: string | null;
-    // ...
-  };
-}
-```
-
-**No manual type changes needed.** The FK `qmhq_id` is already in the schema, so TypeScript types already reflect it.
-
----
-
-## Data Flow
-
-### Per-Line-Item Execution Flow
-
-```
-1. User clicks "Execute" on LineItemTable row
-   ↓
-2. onClick handler sets lineItemId state
-   ↓
-3. ExecutionDialog opens with { approvalId, lineItemId }
-   ↓
-4. Dialog queries:
-   SELECT * FROM inventory_transactions
-   WHERE stock_out_approval_id = $approvalId
-     AND line_item_id = $lineItemId  -- NEW filter
-     AND status = 'pending'
-   ↓
-5. User confirms → UPDATE status = 'completed'
-   ↓
-6. Trigger: update_sor_line_item_execution_status()
-   (already exists, handles partial execution)
-```
-
-**Existing patterns reused:**
-- State management: `useState` for selected line item
-- Query filtering: Supabase `.eq()` chaining
-- Status updates: Existing trigger (migration 053, lines 308-370)
-
-### QMHQ Reference Propagation Flow
-
-```
-1. Admin approves stock-out request line item
-   ↓
-2. Approval creates inventory_transactions (status='pending')
-   ↓
-3. NEW: Copy parent stock_out_requests.qmhq_id → transaction.qmhq_id
-   ↓
-4. Executor views transaction list
-   ↓
-5. UI SELECT includes qmhq:qmhq(request_id) join
-   ↓
-6. Dual reference renders: SOR + via QMHQ
-```
-
-**Implementation location:** Approval creation logic (currently in `ApprovalDialog` component or approval RPC if exists).
-
-**Query example:**
-```typescript
-// When creating transaction during approval
-const { data: request } = await supabase
-  .from('stock_out_requests')
-  .select('qmhq_id')
-  .eq('id', requestId)
-  .single();
-
-const { error } = await supabase
-  .from('inventory_transactions')
-  .insert({
-    movement_type: 'inventory_out',
-    item_id: lineItem.item_id,
-    warehouse_id: selectedWarehouseId,
-    quantity: approvedQuantity,
-    reason: requestReason,
-    status: 'pending',
-    stock_out_approval_id: approvalId,
-    qmhq_id: request?.qmhq_id  // Propagate QMHQ link
-  });
-```
-
----
-
-## Anti-Patterns to Avoid
-
-### ❌ Don't Add These
-
-| Anti-Pattern | Why Not |
-|--------------|---------|
-| Separate "execution queue" table | `inventory_transactions` with `status='pending'` already serves this |
-| RPC function for dual reference query | Simple SELECT with nested join sufficient |
-| Redux/Zustand for execution state | Component-local `useState` adequate (execution is isolated action) |
-| WebSocket for real-time execution status | User manually triggers execution, no live updates needed |
-| Database view for dual reference | Nullable FK + JOIN simpler, no materialized view overhead |
-| New transaction reference table | Existing FKs (`qmhq_id`, `stock_out_approval_id`) sufficient |
-
-### ✅ Use Existing Patterns
-
-| Pattern | Where Already Used | Why Reuse |
-|---------|-------------------|-----------|
-| Per-row actions | ApprovalDialog multi-select | Proven pattern for line-item operations |
-| Nullable FK for optional relations | `invoice_line_items.po_line_item_id` | Same concept (optional parent link) |
-| Nested SELECT joins | `qmhq` detail page queries | Supabase client handles efficiently |
-| Conditional secondary info | Fulfillment progress bars | Dual display pattern established |
-| Status transition triggers | `compute_sor_request_status()` | Already handles partial execution |
-
----
-
-## Migration Plan
-
-### Step 1: Verify Schema (No Migration Needed)
+### Type Generation (After Enum Migration)
 
 ```bash
-# Confirm qmhq_id FK exists
-psql -c "SELECT column_name, data_type
-         FROM information_schema.columns
-         WHERE table_name = 'inventory_transactions'
-         AND column_name = 'qmhq_id';"
+# Regenerate types from Supabase schema after role enum changes
+npx supabase gen types typescript --local > types/database.ts
 ```
 
-**Expected:** Column exists (added in migration 023).
+---
 
-### Step 2: Add QMHQ Propagation Logic
+## Integration Points
 
-**Location:** `components/stock-out-requests/approval-dialog.tsx` (or approval RPC if exists)
+### 1. Flow Tracking Page (`/admin/flow-tracking`)
 
-**Change:**
+**Data flow:**
+1. Search by QMRL ID → Supabase query QMRL table
+2. Join QMHQ (via `parent_qmrl_id`)
+3. Join PO (via `qmhq_id`)
+4. Join Invoice (via `po_id`)
+5. Join `inventory_transactions` (via `invoice_id`, type='stock_in')
+
+**Query pattern:**
 ```typescript
-// Before: Create transaction without qmhq_id
-await supabase.from('inventory_transactions').insert({ ... });
-
-// After: Fetch parent qmhq_id and propagate
-const { data: request } = await supabase
-  .from('stock_out_requests')
-  .select('qmhq_id')
-  .eq('id', requestId)
+const { data } = await supabase
+  .from('qmrl')
+  .select(`
+    *,
+    qmhq:qmhq!parent_qmrl_id(*,
+      purchase_orders(*,
+        invoices(*,
+          inventory_transactions(*)
+        )
+      )
+    )
+  `)
+  .eq('request_id', searchId)
   .single();
-
-await supabase.from('inventory_transactions').insert({
-  ...transactionData,
-  qmhq_id: request?.qmhq_id  // Add this line
-});
 ```
 
-### Step 3: Update Transaction Queries
+**UI components:**
+- `PageShell` - Standard page wrapper
+- `Input` + `Search` icon - ID search
+- `Card` - Each entity in chain
+- `Badge` - Status indicators
+- `ChevronRight` icon - Connectors
+- `Skeleton` - Loading states
 
-**Location:** Transaction list pages (inventory dashboard, warehouse detail, etc.)
+### 2. UI Standardization
 
-**Change:**
-```typescript
-// Before: Basic SELECT
-.select('id, quantity, status, ...')
-
-// After: Include QMHQ join
-.select(`
-  id,
-  quantity,
-  status,
-  stock_out_approval:stock_out_approvals(approval_number),
-  qmhq:qmhq(id, request_id)  -- Add this join
-`)
+**Component hierarchy:**
+```
+<PageShell>
+  └─ <FilterBar>
+      ├─ <Input> (search)
+      ├─ <Select> (filters)
+      └─ <DatePicker> (date filters)
+  └─ <DataTableShell>
+      ├─ @tanstack/react-table (core)
+      ├─ <Table> (shadcn wrapper)
+      └─ <Pagination>
 ```
 
-### Step 4: Modify ExecutionDialog
+**Files to create:**
+- `components/layout/page-shell.tsx`
+- `components/layout/filter-bar.tsx`
+- `components/tables/data-table-shell.tsx`
 
-**Location:** `components/stock-out-requests/execution-dialog.tsx`
+**Pattern documentation:**
+- Add to `/components/README.md` with usage examples
+- Update CLAUDE.md with standardized patterns
 
-**Changes:**
-1. Add `lineItemId?: string` to props
-2. Add `.eq('line_item_id', lineItemId)` filter if prop provided
-3. Update dialog title to show line-item scope
+### 3. RBAC Overhaul
 
-### Step 5: Add Execute Buttons to LineItemTable
+**Affected files:**
+1. `supabase/migrations/0XX_role_overhaul.sql` - Enum migration
+2. `types/database.ts` - Auto-regenerated
+3. `lib/hooks/use-permissions.ts` - New permission matrix
+4. `components/layout/sidebar.tsx` - New navigation logic
+5. All RLS policies - Update role checks
 
-**Location:** `components/stock-out-requests/line-item-table.tsx`
+**New permission matrix:**
+| Resource | Admin | QMRL User | QMHQ User |
+|----------|-------|-----------|-----------|
+| Users | CRUD | - | - |
+| QMRL | CRUD | CRUD | R |
+| QMHQ | CRUD | R | CRUD |
+| PO | CRUD | - | CRUD |
+| Invoice | CRUD | - | CRUD |
+| Inventory | CRUD | - | CRUD |
+| Items | CRUD | R | CRUD |
+| Warehouses | CRUD | - | CRUD |
 
-**Changes:**
-1. Add Execute button column
-2. Add `onExecuteLineItem` callback prop
-3. Show button only for `status='approved'` line items
-
-### Step 6: Update Transaction Display
-
-**Location:** Transaction cards/lists across app
-
-**Changes:**
-1. Add conditional QMHQ reference rendering
-2. Use lighter text color for secondary reference
-3. Add "via" prefix for clarity
-4. Link to QMHQ detail page with ExternalLink icon
-
----
-
-## Testing Strategy
-
-### Unit Tests (Optional)
-
-Not currently in codebase, but if added:
-- Test `qmhq_id` propagation in approval creation
-- Test query filters for per-line execution
-- Test conditional rendering of dual references
-
-### Manual Testing Checklist
-
-**Per-Line Execution:**
-- [ ] Create stock-out request with 3 line items
-- [ ] Approve all 3 line items
-- [ ] Execute line item 1 → verify only item 1 completes
-- [ ] Execute line item 2 → verify item 2 completes, item 3 still pending
-- [ ] Verify request status = `partially_executed`
-
-**QMHQ Linking:**
-- [ ] Create QMHQ item route with item A, qty 10
-- [ ] Click "Request Stock-Out" → creates SOR linked to QMHQ
-- [ ] Approve SOR → verify `inventory_transactions.qmhq_id` populated
-- [ ] View transaction list → verify QMHQ reference shows
-
-**Dual Reference Display:**
-- [ ] Execute stock-out from QMHQ-linked SOR
-- [ ] View inventory dashboard → verify shows "SOR-2026-00001" + "via QMHQ-2026-00123"
-- [ ] Click QMHQ reference → verify navigates to QMHQ detail
-- [ ] Execute stock-out from manual SOR → verify only SOR reference shows (no "via")
-
----
-
-## Risk Assessment
-
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| FK `qmhq_id` doesn't exist | LOW | Already verified in migration 023 |
-| QMHQ reference breaks stock-in | LOW | FK is nullable, stock-in doesn't set it |
-| Per-line execution breaks status trigger | LOW | Existing trigger handles partial execution |
-| Type generation fails after logic change | LOW | No schema change, no type regen needed |
-| UI confusion with dual references | MEDIUM | Use "via" prefix, lighter color for secondary |
-
-**Overall risk:** LOW — All changes are additive (props, conditional rendering) or FK population (no schema change).
-
----
-
-## Success Criteria
-
-### Database Layer
-- ✅ FK `qmhq_id` exists in `inventory_transactions` (already verified)
-- ✅ Approval creation propagates `stock_out_requests.qmhq_id` → `inventory_transactions.qmhq_id`
-- ✅ Existing triggers handle per-line execution without modification
-
-### UI Layer
-- ✅ `ExecutionDialog` accepts `lineItemId` prop and filters accordingly
-- ✅ `LineItemTable` shows Execute button per row for approved items
-- ✅ Transaction lists show dual reference when `qmhq_id` present
-- ✅ QMHQ reference links to QMHQ detail page
-- ✅ Conditional rendering hides "via QMHQ" when not applicable
-
-### User Experience
-- ✅ Admin can execute each approved line item independently
-- ✅ Executor sees both SOR and QMHQ references in transaction history
-- ✅ Request status accurately reflects per-line execution progress
-- ✅ No breaking changes to existing stock-in or manual stock-out flows
+**Migration testing:**
+1. Backup production before migration
+2. Test in local Supabase first
+3. Verify user role mapping matches business requirements
+4. Check all RLS policies still enforce correctly
 
 ---
 
 ## Confidence Assessment
 
-| Area | Confidence | Rationale |
-|------|------------|-----------|
-| Schema adequacy | HIGH | FK `qmhq_id` already exists, verified in migration 023 |
-| Component patterns | HIGH | Per-row actions, nested joins, conditional rendering all established |
-| Type safety | HIGH | No schema change, existing types include `qmhq_id` |
-| Execution logic | HIGH | Existing trigger handles partial execution, tested in v1.6 |
-| Risk | LOW | Additive changes only, no deletions or breaking changes |
+| Area | Confidence | Notes |
+|------|------------|-------|
+| Flow Visualization | **HIGH** | Native CSS sufficient for linear chain. Verified existing components cover all needs. No graph library required. |
+| UI Standardization | **HIGH** | Current stack complete. Pattern composition from existing primitives (shadcn/ui + Tailwind). Zero new dependencies. |
+| RBAC Migration | **MEDIUM** | PostgreSQL enum migration well-documented. Safe strategy established. Risk: RLS policy updates must be thorough - missing policy = broken feature. Requires careful testing. |
 
-**Overall confidence:** HIGH — This is composition of existing patterns, not new paradigm introduction.
+---
+
+## What NOT to Add
+
+### Don't Add These Libraries
+
+1. **React Flow / D3.js / Recharts** - Flow tracking is linear chain, not complex visualization
+2. **New UI framework** (Mantine, Ant Design, MUI) - shadcn/ui already provides all primitives
+3. **ORM** (Drizzle, Prisma, TypeORM) - Supabase client sufficient, raw SQL safer for enum migration
+4. **State management** (Zustand, Redux) - React Server Components + URL params handle state
+5. **Animation libraries** (Framer Motion, GSAP) - `motion` library already in stack (v11.11.4), tailwindcss-animate sufficient
+6. **Form builders** (Formik, Final Form) - react-hook-form already established
+7. **Date libraries beyond date-fns** (Moment, Day.js, Luxon) - date-fns adequate
+8. **CSS-in-JS** (Emotion, styled-components) - Tailwind + CVA pattern established
+
+### Why Minimal Additions
+
+**Current bundle health:**
+- Next.js 14.2.13 - stable, modern
+- TypeScript strict mode - type safety
+- Tailwind + shadcn/ui - consistent design system
+- Supabase client - auth, db, realtime
+- Form handling - react-hook-form + zod
+
+**Adding libraries increases:**
+- Bundle size (slower page loads)
+- Maintenance burden (dependency updates, security patches)
+- Learning curve (team onboarding)
+- Build complexity (tree-shaking, optimization)
+
+**Philosophy:** Compose from existing primitives before adding dependencies.
 
 ---
 
 ## Sources
 
-**Verified in codebase:**
-- `supabase/migrations/023_inventory_transactions.sql` (line 76: `qmhq_id` FK)
-- `supabase/migrations/052_stock_out_requests.sql` (SOR schema, `qmhq_id` 1:1 link)
-- `supabase/migrations/053_stock_out_validation.sql` (execution triggers, line 308-370)
-- `components/stock-out-requests/execution-dialog.tsx` (current execution logic)
-- `package.json` (current dependencies)
-- `.planning/phases/28-stock-out-request-approval-ui/28-CONTEXT.md` (v1.6 context)
+### Primary (HIGH Confidence)
+- [Supabase Enum Management](https://supabase.com/docs/guides/database/postgres/enums) - Official enum handling guidance
+- [PostgreSQL ALTER TYPE Documentation](https://www.postgresql.org/docs/current/sql-altertype.html) - Official PostgreSQL docs
+- [shadcn/ui Next.js Installation](https://ui.shadcn.com/docs/installation/next) - Official integration guide
 
-**Confidence:** HIGH — All capabilities verified in existing code, no external docs consulted
+### Secondary (MEDIUM Confidence)
+- [React Flow Documentation](https://reactflow.dev) - Flow library comparison (decided against)
+- [Next.js & shadcn/ui Templates](https://vercel.com/templates/next.js/next-js-and-shadcn-ui-admin-dashboard) - Layout pattern examples
+- [shadcn/ui Templates Collection](https://shadcntemplates.com) - Community patterns
+
+### Community Resources (Context)
+- [GitHub: sequelize enum migration issues](https://github.com/sequelize/sequelize/issues/2554) - Enum migration pitfalls
+- [GitHub: awesome-shadcn-ui](https://github.com/birobirobiro/awesome-shadcn-ui) - Component patterns
+- [Medium: shadcn/ui + Next.js 14 integration](https://medium.com/zestgeek/how-to-integrate-shadcn-into-next-js-14-a-step-by-step-guide-917bb1946cba) - Setup guide
+
+---
+
+## Implementation Checklist
+
+### Phase 1: UI Standardization (Zero Dependencies)
+- [ ] Create `PageShell` component
+- [ ] Create `FilterBar` component
+- [ ] Create `DataTableShell` wrapper for TanStack Table
+- [ ] Document patterns in `components/README.md`
+- [ ] Refactor 2-3 existing pages to validate pattern
+- [ ] Update CLAUDE.md with standard layout conventions
+
+### Phase 2: RBAC Overhaul (Database Migration)
+- [ ] Write migration: new enum + data mapping
+- [ ] Test migration on local Supabase
+- [ ] Update `use-permissions.ts` with new matrix
+- [ ] Update sidebar navigation logic
+- [ ] Update all RLS policies (verify each table)
+- [ ] Regenerate TypeScript types
+- [ ] Test permission enforcement (admin, qmrl_user, qmhq_user)
+- [ ] Backup production + execute migration
+
+### Phase 3: Flow Tracking Page (Composition)
+- [ ] Create `/admin/flow-tracking/page.tsx`
+- [ ] Implement search by QMRL ID
+- [ ] Build join query (QMRL→QMHQ→PO→Invoice→Stock)
+- [ ] Create timeline/chain layout with CSS
+- [ ] Use `Card` + `Badge` + `ChevronRight` for visualization
+- [ ] Add admin-only route protection
+- [ ] Test with complete chains and partial chains
+
+---
+
+**Total New Dependencies:** 0
+
+**Complexity:** Low (composition) to Medium (enum migration testing)
+
+**Risk Areas:**
+1. RLS policy updates - must be comprehensive
+2. User role mapping - verify business logic correctness
+3. Frontend permission checks - update all role conditionals
+
+**Recommended:** Execute phases sequentially. UI standardization first (low risk), validates patterns for flow tracking page. RBAC last (highest risk), requires production backup.

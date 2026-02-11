@@ -1,280 +1,271 @@
 # Project Research Summary
 
-**Project:** v1.7 Stock-Out Execution Logic Repair
-**Domain:** Internal inventory management system (QM System)
+**Project:** QM System v1.8 - UI/UX Standardization, Flow Tracking, RBAC Overhaul
+**Domain:** Internal ticket, expense, and inventory management system
 **Researched:** 2026-02-11
 **Confidence:** HIGH
 
 ## Executive Summary
 
-The v1.7 milestone repairs the stock-out execution logic by shifting from request-level atomic execution to per-line-item granular execution. Research confirms that no new technology stack is required—the existing Next.js 14, Supabase PostgreSQL, and React 18 infrastructure fully supports the changes. The fix requires three integration layers: (1) execution model shift from batch to line-item-level, (2) QMHQ linking through FK propagation, and (3) dual reference display (SOR + QMHQ) in transaction records.
+QM System v1.8 introduces three complementary features: UI component consistency audit/standardization, admin-only end-to-end flow tracking (QMRL→QMHQ→PO→Invoice→Stock), and RBAC simplification from 7 roles to 3 (Admin, QMRL, QMHQ). All three features integrate cleanly with the existing Next.js 14 + Supabase architecture without requiring major refactoring or new external dependencies.
 
-The recommended approach leverages existing patterns: the FK `qmhq_id` already exists in `inventory_transactions` (migration 023), status computation triggers already aggregate by line_item_id, and the codebase already implements per-row action patterns (approval dialogs). The core work is refactoring UI components to accept `lineItemId` scoping, adding QMHQ reference propagation logic during approval creation, and implementing dual reference rendering components.
+**The recommended approach** is a phased rollout prioritizing non-breaking changes first. UI standardization leverages the existing shadcn/ui + Radix + Tailwind pattern already in place—no new libraries needed, just composition of reusable components from existing primitives. Flow tracking uses native PostgreSQL VIEWs (not complex graph libraries) since the data model is a linear chain, not a complex DAG. The RBAC migration is the most invasive change, requiring a PostgreSQL enum migration using the safe rename-create-migrate-drop pattern, followed by comprehensive RLS policy updates.
 
-Critical risks center on multi-level status aggregation timing (3-level cascade: transactions → line_items → requests), transaction linking integrity (orphaned records if FK not populated), and concurrent execution race conditions (stock depletion conflicts). Mitigation strategies include row-level locking in status triggers, validation triggers requiring valid FK links, advisory locks for stock validation, and idempotency constraints to prevent duplicate execution.
+**Key risks:** (1) RBAC enum migration requires careful sequencing—PostgreSQL doesn't support dropping enum values directly, so we must use the expand-and-contract pattern with full verification before column swap. (2) RLS policy recreation must happen atomically to avoid windows where tables are unprotected or over-protected. (3) UI component refactoring can break working forms if not done incrementally with feature flags. All risks are mitigatable with proper testing, atomic transactions, and phased rollouts.
 
 ## Key Findings
 
 ### Recommended Stack
 
-**Zero new dependencies required.** The existing stack provides all necessary capabilities:
+**Zero new dependencies required.** All three features can be implemented using the existing stack: Next.js 14, Supabase PostgreSQL, shadcn/ui components, Tailwind CSS, @tanstack/react-table, and react-hook-form.
 
-**Core technologies:**
-- **Next.js 14.2.13 (App Router)**: Server components and client components sufficient for per-line action handlers — no state management library needed
-- **PostgreSQL via Supabase**: Existing FK `qmhq_id` in `inventory_transactions` (migration 023) supports dual linking; triggers already handle per-line-item status aggregation
-- **React 18.3.1**: `useState` and `useEffect` adequate for execution dialog scoping; no additional libraries required
-- **Radix UI + Tailwind CSS**: Existing Dialog, Tooltip, Link components reusable for dual reference display with conditional rendering
+**Core technologies (already in stack):**
+- **PostgreSQL VIEWs** (not MATERIALIZED): Real-time flow tracking with 5-table JOIN across QMRL→QMHQ→PO→Invoice→Stock. Performance sufficient for admin-only access with proper indexing.
+- **Native CSS + existing components**: Flow visualization as horizontal timeline/card layout using existing Card, Badge, ChevronRight icons—no React Flow, D3.js, or graph libraries needed.
+- **PostgreSQL enum migration**: Safe rename-create-migrate-drop pattern for changing user_role from 7 values to 3 values without dropping references.
+- **shadcn/ui + CVA pattern**: Already established—UI standardization is composition of existing primitives (Button, Input, Card, Badge), not new framework.
 
-**What changes (logic only, no new libraries):**
-- `ExecutionDialog` component: Accept optional `lineItemId` prop, filter queries by line item
-- Approval creation logic: Propagate `stock_out_requests.qmhq_id` → `inventory_transactions.qmhq_id`
-- Transaction display: Conditional rendering shows "SOR-YYYY-NNNNN (via QMHQ-YYYY-NNNNN)" with links
-
-**Source quality:** HIGH — All capabilities verified in existing codebase (migrations 023, 052, 053, components, package.json)
+**Why no new libraries:**
+- Flow tracking is a **linear chain**, not a complex node-graph requiring React Flow's dragging/zooming.
+- UI primitives (Radix + Tailwind) already cover all standardization needs—creating reusable patterns, not importing new frameworks.
+- RBAC migration uses raw SQL (safer than ORM for enum changes) and auto-generated TypeScript types from Supabase CLI.
 
 ### Expected Features
 
-**Must have (table stakes):**
-- **Per-line-item execution UI** — Execute button per approved line item (not just request-level batch)
-- **QMHQ transaction visibility** — QMHQ detail page shows stock-out transactions from linked SORs
-- **Dual reference traceability** — Transaction records show both SOR approval number AND parent QMHQ number
-- **Status accuracy** — Line item status reflects per-line execution (partially_executed when only some approvals executed)
-- **Stock validation** — Cannot execute if warehouse stock insufficient at execution time
+**Must have (table stakes for v1.8):**
 
-**Should have (differentiators):**
-- **Request-level execution fallback** — Keep "Execute All" button for bulk operations (optional, power user feature)
-- **Execution history granularity** — Audit logs track which line item was executed when (selective logging to prevent explosion)
+*UI Standardization:*
+- Consistent button styles, spacing, colors across all 54 page files
+- Uniform form inputs (height, border, focus states)
+- Standardized loading states (skeletons), empty states, error messages
+- Icon usage consistency (Lucide throughout)
 
-**Defer (v2+):**
-- **Execution scheduling** — Auto-execute at scheduled time
-- **Execution approval** — Two-step execution (propose + confirm by different user)
-- **Warehouse selection at execution** — Override approval warehouse during execution
-- **Partial quantity execution** — Execute less than approved quantity
+*Flow Tracking:*
+- Search by QMRL ID → show full chain QMRL→QMHQ→PO→Invoice→Stock
+- Status indicators at each level (QMRL status, QMHQ status, PO smart status)
+- Route-specific downstream display (Item route shows stock-out, PO route shows invoices)
+- Admin-only access (permission check + RLS policy)
+
+*RBAC Consolidation:*
+- 7 roles → 3 roles: Admin, QMRL, QMHQ
+- Clear role mapping: (admin, quartermaster → Admin), (finance, inventory, proposal → QMHQ), (frontline, requester → QMRL)
+- Migration preserves all existing user permissions
+- Simplified permission matrix (36 sets vs 84 sets)
+
+**Should have (competitive differentiators):**
+- UI: Automated duplication detection (jscpd tool), component usage guidelines in docs
+- Flow Tracking: Expandable/collapsible nodes, progress percentages, financial/inventory summaries
+- RBAC: Role simulation for admins to test permissions before assigning
+
+**Defer (v2+ enhancements):**
+- UI: Visual regression testing (Percy/Chromatic), Storybook documentation, strict linting enforcement
+- Flow Tracking: Interactive tree visualization with React Flow, real-time updates via WebSockets, historical snapshots
+- RBAC: Granular permission overrides (attribute-based), temporary elevated access workflows
 
 ### Architecture Approach
 
-The existing architecture uses approval-level pending transactions with batch execution through an RPC-style pattern. The new architecture shifts execution granularity to line-item-level while preserving the same data flow: approval creation populates `inventory_transactions` with `status='pending'`, execution updates status to `completed`, triggers compute line item and request statuses from aggregated transactions.
+**Integration with existing architecture:** All features extend current patterns without breaking changes. The system uses Next.js 14 Server Components with force-dynamic SSR, Supabase client for queries, and comprehensive RLS policies (132+ references across 62 migrations). New features integrate at three levels: database (VIEW + enum migration), middleware (role checks), and UI (component composition).
 
 **Major components:**
 
-1. **LineItemExecutionDialog** (NEW) — Scoped execution dialog that filters pending transactions by `lineItemId`, displays approvals for that line only, executes subset of transactions
-2. **QMHQ Reference Propagation** (LOGIC CHANGE) — Approval creation fetches `stock_out_requests.qmhq_id`, copies to `inventory_transactions.qmhq_id` for dual linking
-3. **TransactionReference Component** (NEW) — Parses `reference_no` field ("SOR-2026-00001 (QMHQ: QMHQ-2026-00042)"), renders clickable links to both SOR and QMHQ detail pages
-4. **Status Computation Triggers** (ENHANCEMENT) — Add row-level locking (`FOR UPDATE` on parent request) to serialize status recomputation during concurrent executions
+1. **UI Standardization Layer** — Extract duplicate patterns into `/components/ui/composite/` (StatusBadge, AmountDisplay, EmptyState, FilterBar). Use existing Radix primitives + CVA for variants. Incremental migration with feature flags to avoid breaking working forms.
 
-**Integration pattern:** Option A (Copy qmhq_id during approval) chosen over JOIN query or database view because it maintains existing direct FK filter pattern, requires no schema migration, and optimizes query performance with indexed FK lookup.
+2. **Flow Tracking System** — PostgreSQL VIEW joining 5 tables (QMRL→QMHQ→PO→Invoice→Inventory). Server Component fetches data, Client Component renders card-based layout (not tree/graph—simpler for MVP). RLS policy restricts to admin-only. Indexes already exist on FK columns.
+
+3. **RBAC Migration Pipeline** — Rename old enum to `user_role_old`, create new enum with 3 values, add temporary column, migrate data with CASE mapping, swap columns, drop old enum. RLS policies recreated atomically in same transaction. Frontend permission matrix simplified from 84 to 36 permission sets.
 
 ### Critical Pitfalls
 
-1. **Stale Parent Status from Trigger Race Conditions** — Multiple line items executing concurrently fire status computation triggers in rapid succession; parent request status aggregation query reads partial child state. **Prevention:** Add row-level locking (`PERFORM 1 FROM stock_out_requests WHERE id = parent_id FOR UPDATE`) in `compute_sor_request_status()` to serialize status computation. Add trigger on `stock_out_line_items` table itself to propagate direct status updates (not just from transactions).
+1. **Enum Migration Without Data Remapping Strategy** — PostgreSQL doesn't support `ALTER TYPE ... DROP VALUE`. Must use expand-and-contract pattern: create new enum, add temp column, map old roles to new roles (quartermaster→admin, finance→qmhq, requester→qmrl), verify 100% coverage, swap columns, drop old enum. Skipping verification leaves users with invalid roles (locked out). **Solution:** Write mapping function, run verification query before swap, include rollback script.
 
-2. **Orphaned Inventory Transactions from Missing FK Link** — Per-line execution UI passes `lineItemId`, but transaction creation forgets to set `stock_out_approval_id`, breaking lineage chain and preventing status rollup. **Prevention:** Add BEFORE INSERT validation trigger requiring `stock_out_approval_id` for all `movement_type='inventory_out'` with `reason='request'`. Execution API accepts `approvalId` (not line_item_id) to ensure explicit FK link.
+2. **RLS Policy Cascade Failures After Role Change** — Recreating 132+ RLS policies without atomic transaction creates window where tables are unprotected (data breach) or over-protected (empty results). Dropping policies out of dependency order causes cascade delete conflicts with foreign keys. **Solution:** Single transaction: drop children first, recreate parents first, add verification query to ensure all RLS-enabled tables have policies.
 
-3. **Dual Reference Inconsistency (SOR + QMHQ Mismatch)** — Transaction has `stock_out_approval_id` but NULL `qmhq_id` when parent SOR has non-NULL `qmhq_id`, making transaction invisible on QMHQ detail page. **Prevention:** Add BEFORE INSERT trigger `auto_populate_qmhq_from_sor()` that traverses approval → line_item → request → qmhq chain and sets `qmhq_id` automatically. Add CHECK constraint validating consistency.
+3. **Flow Tracking Query Becomes N+1 Performance Nightmare** — Building UI with component-per-level data fetching creates 2000+ queries for 100 QMRLs with nested QMHQ/PO/Invoice. System already has N+1 patterns and force-dynamic (no caching). **Solution:** Single denormalized JOIN query fetching all data, client-side grouping, proper indexes on FK columns, pagination (20 QMRLs per page).
 
-4. **Concurrent Execution Stock Depletion** — Two line items for same item execute simultaneously, both validate stock = 100, both approve, final stock = -10 (negative). **Prevention:** Use advisory locks (`pg_advisory_xact_lock()`) in stock validation function to serialize stock checks per item+warehouse. Alternative: SERIALIZABLE isolation level with retry logic for serialization failures.
+4. **Middleware Authorization Breaking on Deployment** — CVE-2025-29927 header injection bypass, session refresh race conditions, or Edge runtime incompatibilities cause random logouts or auth failures. Works locally, breaks in Vercel preview. **Solution:** Add `x-middleware-subrequest` header check, explicit session refresh, test in Vercel preview before production, monitor error logs.
 
-5. **Audit Log Explosion** — Per-line execution multiplies audit events 3x (5 lines × (1 transaction + 1 line_item UPDATE + 1 request UPDATE) = 15 logs vs 5 logs before). **Prevention:** Selective audit logging (skip auto-computed status changes by checking if `updated_by` changed). Consider summary execution logs instead of per-transaction logs.
+5. **UI Standardization Breaking Working Pages** — Refactoring 50+ files with find-replace changes props, removes custom validation, breaks edge cases. Invoice form loses currency formatting, stock-out form loses warehouse filtering. **Solution:** Parallel implementation (FormInputV2), incremental migration with feature flags, scope boundaries (simple forms first, complex forms last), maintain API compatibility layer.
 
 ## Implications for Roadmap
 
-Based on research, this milestone decomposes into 4 sequential phases:
+Based on research, suggested phase structure with **minimal dependencies** and **incremental risk**:
 
-### Phase 1: QMHQ Linking Fix (Quick Win)
+### Phase 1: UI Component Standardization (Non-Breaking, Foundation)
+**Rationale:** Establishes reusable patterns for Flow Tracking page and prepares consistent UI for RBAC role changes. No breaking changes—new components coexist with old patterns during migration. Reduces risk of compound failures by stabilizing UI foundation first.
 
-**Rationale:** Unblocks QMHQ transaction visibility immediately; zero schema changes, single file modification in approval dialog.
-
-**Delivers:** QMHQ detail page shows stock-out transactions from linked SORs; dual reference format established.
-
-**Addresses:**
-- QMHQ transaction visibility (table stakes feature)
-- Dual reference traceability foundation
-
-**Implementation:**
-- Modify `components/stock-out-requests/approval-dialog.tsx`: Fetch `qmhq_id` from parent request, copy to transaction insert, format `reference_no` as "SOR-YYYY-NNNNN (QMHQ: QMHQ-YYYY-NNNNN)"
-- Test: Approve SOR linked to QMHQ → verify transaction appears on QMHQ detail page
-
-**Avoids:** Orphaned transaction pitfall (sets FK correctly from start)
-
-**Research flag:** SKIP — Direct FK copy is standard pattern, no research needed.
-
----
-
-### Phase 2: Dual Reference Display UI
-
-**Rationale:** Builds on Phase 1 reference format; display-only component with no data mutations (low risk).
-
-**Delivers:** Clickable SOR/QMHQ references in transaction lists across all pages (QMHQ detail, SOR detail, inventory dashboard).
+**Delivers:**
+- Reusable layout components (PageShell, FilterBar, DataTableShell)
+- Composite components (StatusBadge, AmountDisplay, EmptyState, LoadingSkeleton)
+- Component usage guidelines documentation
+- 2-3 pilot pages migrated to validate patterns
 
 **Addresses:**
-- Dual reference traceability (table stakes feature)
-- Bidirectional navigation UX
-
-**Implementation:**
-- Create `components/inventory/transaction-reference.tsx`: Parse `reference_no` with regex, render as linked code blocks
-- Integrate into QMHQ detail transaction table, SOR detail transaction tab, inventory dashboard transaction list
-- Handle NULL cases (manual SORs with no QMHQ link show only SOR reference)
-
-**Avoids:** No pitfalls (read-only display component)
-
-**Research flag:** SKIP — Conditional rendering pattern already established in codebase.
-
----
-
-### Phase 3: Database Trigger Hardening
-
-**Rationale:** Must complete BEFORE deploying per-line execution UI; prevents race conditions, orphaned transactions, status inconsistencies.
-
-**Delivers:** Database-level guarantees for data integrity during concurrent operations.
-
-**Addresses:**
-- Stale parent status pitfall
-- Orphaned transactions pitfall
-- Dual reference consistency pitfall
-- Concurrent stock depletion pitfall
-- Duplicate execution pitfall
-
-**Implementation:**
-- **Status computation locking:** Add `FOR UPDATE` in `compute_sor_request_status()` function
-- **Line item status propagation:** Add trigger on `stock_out_line_items` table to fire status recomputation on direct updates
-- **Transaction linking validation:** Add BEFORE INSERT trigger requiring `stock_out_approval_id` for SOR executions
-- **Auto-populate QMHQ link:** Add BEFORE INSERT trigger traversing approval → request → qmhq chain
-- **Stock validation locking:** Implement `validate_stock_with_lock()` with advisory locks
-- **Idempotency constraint:** Add UNIQUE index on `inventory_transactions(stock_out_approval_id)` WHERE movement_type='inventory_out'
-- **Selective audit logging:** Modify audit triggers to skip auto-computed status changes
-- **Audit indexes:** Add partial indexes per entity_type on `audit_logs(entity_id, changed_at)`
-
-**Migration:** `0XX_execution_integrity_triggers.sql`
-
-**Avoids:** ALL 5 critical pitfalls
-
-**Research flag:** MEDIUM — Advisory locks and serializable isolation patterns need validation with load testing.
-
----
-
-### Phase 4: Per-Line-Item Execution UI
-
-**Rationale:** Depends on Phase 3 triggers being in place; final user-facing feature delivery.
-
-**Delivers:** Execute button per line item, scoped execution dialog, status updates reflect per-line execution.
-
-**Addresses:**
-- Per-line-item execution UI (table stakes feature)
-- Status accuracy (table stakes feature)
-
-**Implementation:**
-- Copy `components/stock-out-requests/execution-dialog.tsx` to `line-item-execution-dialog.tsx`: Add `lineItemId` prop (required), filter query by line item, update title
-- Modify `components/stock-out-requests/line-item-table.tsx`: Add Actions column, Execute button per row (enabled when `status IN ('approved', 'partially_executed')`), pass `lineItemId` to dialog
-- Modify `app/(dashboard)/inventory/stock-out-requests/[id]/page.tsx`: Import LineItemExecutionDialog, wire up to line item table
-- Implement query invalidation or real-time subscription for UI state sync after execution
-- Add optimistic UI with rollback logic OR pessimistic loading states (TBD based on risk tolerance)
+- Feature: Consistent button styles, spacing, form inputs (table stakes)
+- Architecture: Composition from existing Radix + CVA primitives
+- Pitfall: "UI standardization breaking working pages" avoided via incremental approach with feature flags
 
 **Avoids:**
-- Stale UI pitfall (via query invalidation)
-- Optimistic rollback failures (via proper error handling)
+- Find-replace refactoring across all 54 pages (high breakage risk)
+- New UI framework overhead (leverages existing stack)
 
-**Research flag:** LOW — Per-row action pattern already used in approval dialogs; conditional rendering established; React Query invalidation is standard.
+**Research Flag:** Standard patterns—no additional research needed. Well-documented component composition.
+
+---
+
+### Phase 2: RBAC Overhaul (Breaking Change, Maintenance Window)
+**Rationale:** Must complete before Flow Tracking page (which uses admin-only check on new role system). Most invasive change—affects database enum, 132+ RLS policies, permission matrix, sidebar navigation. Requires maintenance window. Complete this before adding new admin features to avoid testing complexity.
+
+**Delivers:**
+- PostgreSQL enum migration (7 roles → 3 roles) with expand-and-contract pattern
+- Updated RLS policies (atomic transaction, dependency-ordered recreation)
+- Simplified permission matrix (84 → 36 sets)
+- Sidebar navigation updated to new roles
+- Role mapping verification: 100% users migrated correctly
+
+**Uses:**
+- Stack: PostgreSQL enum migration, Supabase RLS policies
+- Pattern: Expand-and-contract (avoid unsafe DROP TYPE)
+
+**Implements:**
+- Architecture: RBAC Migration Pipeline with temp columns, mapping function, verification queries
+
+**Addresses:**
+- Feature: Clear role definitions, migration path for existing users (table stakes)
+- Pitfall: "Enum migration without data remapping" avoided via verification queries
+- Pitfall: "RLS policy cascade failures" avoided via atomic transaction + dependency ordering
+
+**Avoids:**
+- Unsafe `ALTER TYPE ... DROP VALUE` (PostgreSQL rejects)
+- Non-atomic policy recreation (data breach window)
+
+**Research Flag:** Needs testing—complex migration. Consider `/gsd:research-phase` for RLS policy dependency mapping if uncertainty arises during implementation.
+
+---
+
+### Phase 3: End-to-End Flow Tracking (Additive, Admin-Only)
+**Rationale:** Depends on Phase 2 (uses new admin role check). Additive feature—doesn't touch existing pages, only creates new admin route. Low risk to existing functionality. Benefits from Phase 1 standardized components (StatusBadge, FilterBar).
+
+**Delivers:**
+- `/admin/flow-tracker` route with admin-only access
+- PostgreSQL VIEW joining QMRL→QMHQ→PO→Invoice→Stock
+- Card-based layout (not tree/graph) with route-specific downstream display
+- Search by QMRL ID with status filters
+- Performance validated with EXPLAIN ANALYZE (indexed JOINs)
+
+**Uses:**
+- Stack: PostgreSQL VIEW (not MATERIALIZED), existing Card/Badge/ChevronRight components
+- Pattern: Single denormalized query, client-side grouping, pagination
+
+**Implements:**
+- Architecture: Flow Tracking System (Server Component query + Client Component layout)
+
+**Addresses:**
+- Feature: Search by QMRL ID, status indicators, route-specific display (table stakes)
+- Pitfall: "N+1 query performance nightmare" avoided via single JOIN query + indexes
+- Pitfall: "Materialized view without refresh" avoided by using regular VIEW (real-time data)
+
+**Avoids:**
+- React Flow library (300KB+ for simple linear chain)
+- Component-per-level data fetching (N+1 queries)
+- MATERIALIZED VIEW (adds refresh complexity for no benefit at current scale)
+
+**Research Flag:** Standard patterns—JOIN query + card layout. No additional research needed unless performance issues arise (then consider `/gsd:research-phase` for query optimization).
+
+---
+
+### Phase 4: UI Consistency Rollout (Incremental, Low-Risk)
+**Rationale:** Uses standardized components from Phase 1 to migrate remaining pages incrementally. Prioritizes simple pages first (low risk), complex forms last (high risk). Doesn't block Phases 2-3—can run in parallel with other work or post-v1.8.
+
+**Delivers:**
+- 80%+ pages migrated to standardized components
+- Reduced duplicate code (improved bundle size)
+- Consistent UX across all pages
+- Feature flag removed after full validation
+
+**Addresses:**
+- Feature: Uniform spacing, consistent loading/empty states, standardized error messages (table stakes)
+- Pitfall: "UI standardization breaking pages" avoided via scope boundaries (simple → complex) and feature flags
+
+**Avoids:**
+- All-at-once migration (high breakage risk)
+- Breaking custom validation in complex forms (migration checklist includes validation transfer)
+
+**Research Flag:** No research needed—uses patterns established in Phase 1.
 
 ---
 
 ### Phase Ordering Rationale
 
-- **Phase 1 before Phase 2:** Must establish data format (dual reference in `reference_no`) before building display component
-- **Phase 3 before Phase 4:** Database integrity triggers MUST be deployed before per-line execution UI goes live; prevents data corruption from race conditions
-- **Phase 2 independent of Phase 3:** Display component can be built in parallel with trigger work (no dependencies)
-- **Sequential vs parallel:** Phases 1-2 can run in parallel if resources available; Phase 3 must complete before Phase 4 starts
+**Why this sequence:**
+1. **Phase 1 first (UI patterns):** Non-breaking foundation. Creates reusable components for Phase 3 (Flow Tracking page). Validates composition approach before high-risk RBAC changes.
+2. **Phase 2 second (RBAC):** Most invasive change—requires maintenance window. Must complete before Phase 3 (which uses new admin role). Separating from UI changes reduces compound failure risk.
+3. **Phase 3 third (Flow Tracking):** Additive feature depending on Phase 2 admin role. Benefits from Phase 1 reusable components. No risk to existing pages.
+4. **Phase 4 last (UI rollout):** Incremental cleanup. Can run in parallel with other work or defer to v1.9 if timeline tight.
 
-**Dependency graph:**
-```
-Phase 1 (QMHQ Linking) ──→ Phase 2 (Dual Reference UI)
-                       ↘
-Phase 3 (Triggers) ────────→ Phase 4 (Per-Line Execution UI)
-```
+**Why this grouping:**
+- Phases 1+4 = UI consistency (can run together if using feature flags)
+- Phase 2 = RBAC (isolated, breaking change)
+- Phase 3 = Flow Tracking (isolated, additive)
+- No circular dependencies—each phase builds on previous
 
 **How this avoids pitfalls:**
-- Trigger hardening (Phase 3) deployed BEFORE UI (Phase 4) prevents race conditions from Day 1
-- QMHQ linking fix (Phase 1) ensures dual references populate correctly from start
-- Audit indexes (Phase 3) prevent performance degradation as execution volume scales
+- Enum migration completed (Phase 2) before adding admin features (Phase 3)—avoids testing new features with unstable role system
+- UI patterns established (Phase 1) before building Flow Tracking page (Phase 3)—reuses components, consistent UX
+- RLS policies stabilized (Phase 2) before incremental UI rollout (Phase 4)—reduces moving parts during testing
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-- **Phase 3 (Database Triggers):** Advisory lock patterns and serializable isolation need load testing validation; concurrent execution scenarios need E2E test design
-- **Phase 4 (Per-Line UI):** Real-time subscription vs query invalidation decision depends on multi-tab usage patterns; optimistic vs pessimistic UI needs UX input
+**Needs deeper research during planning:**
+- **Phase 2 (RBAC):** RLS policy dependency mapping if verification query reveals unexpected policy interdependencies. Consider `/gsd:research-phase` if policy recreation order is unclear.
+- **Phase 3 (Flow Tracking):** Query optimization if EXPLAIN ANALYZE shows sequential scans or JOIN cost >1000. Consider `/gsd:research-phase` for materialized view strategy if performance unacceptable.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1 (QMHQ Linking):** FK copy is established pattern (already used for other entities)
-- **Phase 2 (Dual Reference Display):** Conditional rendering and Link components already in codebase
+**Standard patterns (skip research-phase):**
+- **Phase 1 (UI Standardization):** Well-documented component composition. Existing Radix + CVA pattern already proven.
+- **Phase 4 (UI Rollout):** Uses Phase 1 patterns—no new unknowns.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | FK `qmhq_id` verified in migration 023; triggers verified in migration 053; component patterns verified in codebase |
-| Features | HIGH | Requirements derived from existing v1.6 UAT feedback and QMHQ integration needs; table stakes clearly defined |
-| Architecture | HIGH | Option A (copy qmhq_id) chosen based on existing patterns; trigger aggregation by line_item_id already works |
-| Pitfalls | HIGH | Race conditions, orphaned records, audit explosion documented in PostgreSQL and inventory system literature; mitigations proven |
+| Stack | **HIGH** | Zero new dependencies. Verified existing Radix + Tailwind + PostgreSQL sufficient. No React Flow, D3.js, or new UI framework needed. |
+| Features | **HIGH** | Clear table stakes identified from internal tools research. MVP scoped appropriately—defer complex visualizations and advanced RBAC to v2. |
+| Architecture | **HIGH** | Existing Next.js 14 + Supabase patterns extend cleanly. PostgreSQL enum migration pattern well-documented (Supabase official docs). Flow tracking uses standard JOIN query (no exotic patterns). |
+| Pitfalls | **MEDIUM-HIGH** | Enum migration risks well-understood (expand-and-contract pattern validated). RLS policy recreation requires careful sequencing but transaction boundary clear. Main uncertainty: production database scale (100K+ rows?) may affect query performance—verification needed during Phase 3. |
 
 **Overall confidence:** HIGH
 
-Research validated against existing codebase (migrations 023, 052, 053, component files, package.json). No external dependencies required. All architectural patterns already established in QM System (per-row actions, nullable FKs, status triggers, conditional rendering). Pitfalls identified from documented PostgreSQL trigger behavior and inventory system race condition patterns.
-
 ### Gaps to Address
 
-**During Phase 3 planning:**
-- **Advisory lock hash function stability:** Validate that MD5-based lock key generation from UUIDs produces consistent keys across PostgreSQL versions (test on local and remote Supabase instances)
-- **Trigger execution order:** Confirm PostgreSQL fires BEFORE triggers before AFTER triggers within same transaction (verify behavior with multi-trigger INSERT test)
+**Database scale unknown:** Research assumes <10K QMRLs (regular VIEW sufficient). If production has 100K+ rows, Flow Tracking query may timeout—requires materialized view + refresh strategy. **Handle during Phase 3:** Add query performance testing with production-scale data before deploying.
 
-**During Phase 4 planning:**
-- **Real-time subscription performance:** Measure Supabase real-time channel latency for multi-tab scenarios; fall back to query invalidation if >5 second lag
-- **Optimistic UI trade-off:** Decide based on execution failure rate (if stock validation fails >10%, use pessimistic loading; if <2%, use optimistic with rollback)
+**RLS policy interdependencies not mapped:** Migration assumes policies can be dropped/recreated in parent-first order, but foreign key cascades might conflict. **Handle during Phase 2:** Run dependency query to map actual policy relationships before writing migration script.
 
-**During load testing:**
-- **Concurrent execution threshold:** Determine max concurrent line item executions system can handle before advisory lock contention causes delays (target: 10+ concurrent executions with <1s lock wait time)
+**Custom validation in forms not catalogued:** UI standardization assumes most validation is generic (required, min/max), but some forms may have complex business logic (exchange rate bounds, warehouse-item compatibility). **Handle during Phase 1:** Audit pilot pages for custom validation patterns, create migration checklist for Phase 4.
 
-**Validation needed:**
-- QMHQ status auto-update: Should SOR execution trigger QMHQ status change to "done" group? (Business logic decision, not technical)
-- Audit retention policy: How long to retain audit logs? Should implement table partitioning if >1 year retention? (Ops decision)
+**Session refresh timing in production:** Middleware changes tested locally and Vercel preview, but production traffic patterns may reveal edge cases (multiple tabs, long-lived sessions). **Handle during Phase 2 rollout:** Monitor auth error rates for 24h after deployment, prepare rollback script.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-
-**Verified in QM System codebase:**
-- `supabase/migrations/023_inventory_transactions.sql` (line 76) — FK `qmhq_id` already exists
-- `supabase/migrations/052_stock_out_requests.sql` — SOR schema, `qmhq_id` 1:1 link
-- `supabase/migrations/053_stock_out_validation.sql` (lines 308-370) — Status computation triggers aggregate by `line_item_id`
-- `components/stock-out-requests/execution-dialog.tsx` (lines 109-114) — Current batch execution query pattern
-- `components/stock-out-requests/approval-dialog.tsx` — Approval creation (location for qmhq_id propagation)
-- `.planning/phases/28-stock-out-request-approval-ui/28-CONTEXT.md` — v1.6 baseline context
-- `package.json` — Current dependencies (verified no additions needed)
-
-**PostgreSQL official documentation:**
-- [PostgreSQL Trigger Behavior Documentation](https://www.postgresql.org/docs/current/trigger-definition.html) — Trigger execution order, FOR UPDATE locking
-- [PostgreSQL Trigger Functions](https://www.postgresql.org/docs/current/plpgsql-trigger.html) — Row-level locking patterns
-- [PostgreSQL Constraints](https://www.postgresql.org/docs/current/ddl-constraints.html) — Foreign key constraints, CHECK constraints
+- [Supabase Enum Management](https://supabase.com/docs/guides/database/postgres/enums) — Official enum handling guidance, expand-and-contract pattern
+- [PostgreSQL ALTER TYPE Documentation](https://www.postgresql.org/docs/current/sql-altertype.html) — Confirms enum value removal not supported
+- [Row Level Security | Supabase Docs](https://supabase.com/docs/guides/database/postgres/row-level-security) — RLS policy patterns and performance
+- [Next.js Server and Client Components](https://nextjs.org/docs/app/getting-started/server-and-client-components) — Official App Router patterns
+- [Querying Joins and Nested tables | Supabase Docs](https://supabase.com/docs/guides/database/joins-and-nesting) — Automatic join detection for flow tracking query
 
 ### Secondary (MEDIUM confidence)
+- [CVE-2025-29927: Next.js Middleware Authorization Bypass](https://projectdiscovery.io/blog/nextjs-middleware-authorization-bypass) — Middleware security hardening
+- [shadcn/ui Next.js Installation](https://ui.shadcn.com/docs/installation/next) — Component composition patterns (existing pattern)
+- [Design System Checklist | Figma](https://www.figma.com/community/file/875222888436956377/design-system-checklist) — UI audit methodology
+- [Freshservice: Parent-Child ticket tracking](https://support.freshservice.com/support/solutions/articles/50000010738) — Flow tracking UI patterns
+- [RBAC Implementation Best Practices](https://www.osohq.com/learn/rbac-best-practices) — Role consolidation strategies
 
-**Inventory system patterns:**
-- [Warehouse Transaction Approval Cycles](https://asapsystems.com/warehouse-management/inventory-features/transaction-approval-cycles/) — Granular execution patterns
-- [Inventory journal approval workflows - Dynamics 365](https://learn.microsoft.com/en-us/dynamics365/supply-chain/inventory/inventory-journal-workflow) — Multi-level status aggregation
-
-**Database integrity patterns:**
-- [Referential Integrity Challenges](https://www.acceldata.io/blog/referential-integrity-why-its-vital-for-databases) — Orphaned record prevention
-- [Atomic Updates and Data Consistency](https://medium.com/insiderengineering/atomic-updates-keeping-your-data-consistent-in-a-changing-world-f6aacf38f71a) — Concurrent execution race conditions
-- [PostgreSQL Triggers Performance Impact](https://infinitelambda.com/postgresql-triggers/) — Selective audit logging, trigger optimization
-
-**Supabase patterns:**
-- [Supabase Querying Joins and Nested Tables](https://supabase.com/docs/guides/database/joins-and-nesting) — Nested JOIN pattern (evaluated but not chosen)
-- [Cascade Deletes | Supabase Docs](https://supabase.com/docs/guides/database/postgres/cascade-deletes) — Foreign key constraint patterns
-
-### Tertiary (LOW confidence)
-
-**ERP integration patterns:**
-- [ERP Integration Patterns](https://roi-consulting.com/erp-integration-patterns-what-they-are-and-why-you-should-care/) — Dual reference linking concepts (general guidance, not specific implementation)
+### Tertiary (Context)
+- QM System codebase: 54 page files, 25+ UI components, 69 client components, 62 database migrations, 132+ RLS policy references
+- Existing architecture: Next.js 14 force-dynamic SSR, Supabase client, shadcn/ui + Radix + CVA pattern, @tanstack/react-table, react-hook-form
+- Known concerns: N+1 query patterns, no pagination on large lists, force-dynamic on all pages (no caching)
 
 ---
-
 *Research completed: 2026-02-11*
-*Ready for roadmap: YES*
+*Ready for roadmap: **yes***
+*Next step: Orchestrator proceeds to requirements definition*

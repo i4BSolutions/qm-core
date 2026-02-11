@@ -1,1218 +1,513 @@
-# Pitfalls Research: Per-Line-Item Execution Migration
+# Pitfalls Research
 
-**Project:** QM System - Stock-Out Request Logic Repair
-**Domain:** Changing from atomic request execution to per-line-item execution in existing inventory system
+**Domain:** UI Standardization, Request Flow Tracking, and RBAC Role Overhaul for Existing Internal Management System
 **Researched:** 2026-02-11
-**Overall Confidence:** HIGH
+**Confidence:** HIGH
 
----
+## Critical Pitfalls
 
-## Executive Summary
-
-Changing execution granularity from atomic (whole-request) to per-line-item in an inventory system with existing computed status aggregation, transaction linking, and audit logging creates specific integration pitfalls. The QM System currently executes all approved items in a request atomically. The planned change introduces per-line-item execution with individual Execute buttons, requiring careful handling of:
-
-1. **Parent Status Computation** - Computed request status aggregates from child line items; stale status if triggers fire in wrong order
-2. **Transaction Linking Integrity** - Dual references (SOR + QMHQ) on inventory transactions; orphaned records if links break
-3. **Audit Log Explosion** - Per-line execution multiplies audit events; unbounded growth without selective logging
-4. **Partial Execution Race Conditions** - Multiple lines executing concurrently; stock depletion conflicts and duplicate execution
-5. **UI State Synchronization** - Parent detail page displays aggregated child states; stale display without proper invalidation
-
-**Critical Finding:** The existing system has 3-level status aggregation (inventory_transactions → stock_out_line_items → stock_out_requests) with AFTER triggers computing parent status. Adding per-line-item execution breaks the implicit assumption that all child updates complete atomically, causing status computation timing issues and audit log multiplication.
-
----
-
-## 1. Parent Status Computation Pitfalls
-
-### Pitfall 1.1: Stale Parent Status from Out-of-Order Trigger Execution
+### Pitfall 1: Enum Migration Without Data Remapping Strategy
 
 **What goes wrong:**
-Parent request status shows incorrect computed value after per-line-item execution because child line item status updates don't fire parent status recomputation trigger, or triggers fire but parent reads stale child data.
+Changing PostgreSQL enum values (7 roles → 3 roles) without a clear data migration strategy causes users to lose access or get locked out. The database has 66 migrations, 132+ references to `get_user_role()`, and active users with roles like `quartermaster`, `finance`, `inventory`, `proposal`, `frontline` that need mapping to new `qmrl`/`qmhq` roles. PostgreSQL enums cannot have values removed or reordered without dropping and recreating the type, which breaks foreign key references and RLS policies.
 
 **Why it happens:**
-- Current system: `inventory_transactions` AFTER INSERT triggers `update_sor_line_item_execution_status()` which updates `stock_out_line_items.status`
-- That UPDATE triggers `compute_sor_request_status()` on `stock_out_requests`
-- 3-level cascade: inventory_transactions → line_items → requests
-- **NEW RISK:** Per-line execution means triggers fire multiple times in rapid succession instead of once
-- PostgreSQL trigger execution order within same transaction not guaranteed
-- Parent status computation reads aggregated child counts; if multiple children updating simultaneously, aggregation query may see partial state
+Developers assume enum changes work like adding a column. They create a new migration that attempts `ALTER TYPE user_role DROP VALUE 'quartermaster'`, which PostgreSQL rejects. They then try to drop and recreate the enum, but fail because 132+ RLS policies, functions, and table columns reference the enum type. The migration script doesn't address the existing user data, leaving users stranded with invalid role values.
+
+**How to avoid:**
+Use the **expand-and-contract pattern** for enum migrations:
+
+1. **Expand Phase** (Migration 1):
+   - Create temporary enum `user_role_new` with only 3 values: `admin`, `qmrl`, `qmhq`
+   - Add new column `role_new user_role_new` to users table
+   - Create mapping function that converts old role → new role:
+     ```sql
+     admin → admin
+     quartermaster → admin
+     finance → qmhq
+     inventory → qmhq
+     proposal → qmrl
+     frontline → qmrl
+     requester → qmrl
+     ```
+   - Update all existing users: `UPDATE users SET role_new = map_old_role_to_new(role)`
+   - Verify 100% of users have `role_new` populated
+
+2. **Contract Phase** (Migration 2, deployed AFTER verify):
+   - Drop all RLS policies referencing `role` column
+   - Drop functions `get_user_role()`, `has_role()` that return old enum
+   - Rename column: `ALTER TABLE users RENAME COLUMN role TO role_old`
+   - Rename column: `ALTER TABLE users RENAME COLUMN role_new TO role`
+   - Drop old enum: `DROP TYPE user_role` (now safe, no references)
+   - Rename new enum: `ALTER TYPE user_role_new RENAME TO user_role`
+   - Recreate RLS policies using new enum
+   - Recreate functions using new enum
+
+3. **Cleanup Phase** (Migration 3):
+   - Drop `role_old` column after 1+ week of monitoring
 
 **Warning signs:**
-- Request status stuck at "partially_executed" even after all lines executed
-- UI shows "Executed" badge but database has "approved" status
-- Refresh/reload fixes status temporarily, then breaks again
-- EXPLAIN ANALYZE on status computation query shows varying row counts between calls
-
-**Prevention strategy:**
-
-```sql
--- WRONG: Trigger reads child state during concurrent updates
-CREATE OR REPLACE FUNCTION compute_sor_request_status()
-RETURNS TRIGGER AS $$
-DECLARE
-  total_count INT;
-  executed_count INT;
-BEGIN
-  -- This query races with other line item updates in same transaction
-  SELECT COUNT(*), COUNT(*) FILTER (WHERE status = 'executed')
-  INTO total_count, executed_count
-  FROM stock_out_line_items
-  WHERE request_id = NEW.request_id AND is_active = true;
-
-  -- Status computed from potentially stale counts
-  IF executed_count = total_count THEN
-    UPDATE stock_out_requests SET status = 'executed' WHERE id = NEW.request_id;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- RIGHT: Use row-level locking + explicit ordering
-CREATE OR REPLACE FUNCTION compute_sor_request_status()
-RETURNS TRIGGER AS $$
-DECLARE
-  total_count INT;
-  executed_count INT;
-  parent_id UUID;
-BEGIN
-  -- Lock parent row to serialize status computation
-  parent_id := COALESCE(NEW.request_id, OLD.request_id);
-  PERFORM 1 FROM stock_out_requests WHERE id = parent_id FOR UPDATE;
-
-  -- Now aggregate with guaranteed consistency
-  SELECT COUNT(*), COUNT(*) FILTER (WHERE status = 'executed')
-  INTO total_count, executed_count
-  FROM stock_out_line_items
-  WHERE request_id = parent_id AND is_active = true;
-
-  UPDATE stock_out_requests
-  SET status = CASE
-    WHEN executed_count = 0 THEN 'approved'::sor_request_status
-    WHEN executed_count = total_count THEN 'executed'::sor_request_status
-    ELSE 'partially_executed'::sor_request_status
-  END,
-  updated_at = NOW()
-  WHERE id = parent_id;
-
-  RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
-```
-
-**Detection:**
-- Add logging to status computation trigger: `RAISE NOTICE 'Computing status for request % with counts: total=%, executed=%', parent_id, total_count, executed_count;`
-- Query audit_logs for requests with multiple status updates in <1 second intervals
-- Automated test: Execute 3 line items concurrently in parallel transactions, assert final status = 'executed'
-
-**Phase to address:** Phase 29 (Per-Line Execution UI) - Must update trigger function BEFORE deploying UI
-
-**Confidence:** HIGH - PostgreSQL trigger behavior documented, existing QM System uses this exact pattern
-
-**Sources:**
-- [PostgreSQL Trigger Behavior Documentation](https://www.postgresql.org/docs/current/trigger-definition.html)
-- [Aggregation Operations in Distributed SQL](https://medium.com/towards-data-engineering/aggregation-operations-in-distributed-sql-query-engines-516c464e8e19)
-
----
-
-### Pitfall 1.2: Missing Status Recomputation on Direct Child Updates
-
-**What goes wrong:**
-Admin manually updates a line item status (e.g., cancels an executed line) but parent request status doesn't update to reflect the change, showing "executed" when it should be "partially_executed".
-
-**Why it happens:**
-- Status computation trigger only fires on inventory_transactions INSERT/UPDATE
-- Direct UPDATE to stock_out_line_items.status bypasses trigger
-- No trigger on line_items table itself to propagate to parent
-- Admin UI or manual SQL updates can modify line item status directly
-
-**Warning signs:**
-- Status inconsistencies after admin interventions
-- Manual status corrections needed after voiding transactions
-- Database constraints allow status combinations that should be impossible (e.g., request='executed' with any line='approved')
-
-**Prevention strategy:**
-
-```sql
--- Add trigger on line_items table itself
-CREATE OR REPLACE FUNCTION propagate_line_item_status_change()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Only recompute if status actually changed
-  IF OLD.status IS DISTINCT FROM NEW.status THEN
-    -- Delegate to existing status computation function
-    -- Use a fake NEW/OLD with request_id populated
-    PERFORM compute_sor_request_status_for_request(NEW.request_id);
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_propagate_li_status ON stock_out_line_items;
-CREATE TRIGGER trg_propagate_li_status
-  AFTER UPDATE ON stock_out_line_items
-  FOR EACH ROW
-  WHEN (OLD.status IS DISTINCT FROM NEW.status)
-  EXECUTE FUNCTION propagate_line_item_status_change();
-
--- Extract status computation logic into reusable function
-CREATE OR REPLACE FUNCTION compute_sor_request_status_for_request(p_request_id UUID)
-RETURNS VOID AS $$
-DECLARE
-  total_count INT;
-  executed_count INT;
-  cancelled_count INT;
-  new_status sor_request_status;
-BEGIN
-  -- Lock parent
-  PERFORM 1 FROM stock_out_requests WHERE id = p_request_id FOR UPDATE;
-
-  -- Aggregate
-  SELECT
-    COUNT(*),
-    COUNT(*) FILTER (WHERE status = 'executed'),
-    COUNT(*) FILTER (WHERE status = 'cancelled')
-  INTO total_count, executed_count, cancelled_count
-  FROM stock_out_line_items
-  WHERE request_id = p_request_id AND is_active = true;
-
-  -- Compute new status
-  IF cancelled_count = total_count THEN
-    new_status := 'cancelled';
-  ELSIF executed_count = total_count THEN
-    new_status := 'executed';
-  ELSIF executed_count > 0 THEN
-    new_status := 'partially_executed';
-  ELSE
-    new_status := 'approved';
-  END IF;
-
-  UPDATE stock_out_requests
-  SET status = new_status, updated_at = NOW()
-  WHERE id = p_request_id;
-END;
-$$ LANGUAGE plpgsql;
-```
-
-**Detection:**
-- Add CHECK constraint: `ALTER TABLE stock_out_requests ADD CONSTRAINT status_matches_children CHECK (check_status_consistency(id));`
-- Periodic batch job: find requests where computed status != stored status, log discrepancies
-
-**Phase to address:** Phase 29 (Per-Line Execution UI) - Add line_items trigger alongside inventory trigger update
-
-**Confidence:** HIGH - Missing trigger is a known pattern in multi-level aggregation systems
-
-**Sources:**
-- [PostgreSQL Triggers Performance Impact](https://infinitelambda.com/postgresql-triggers/)
-
----
-
-## 2. Transaction Linking Integrity Pitfalls
-
-### Pitfall 2.1: Orphaned Inventory Transactions from Missing SOR Reference
-
-**What goes wrong:**
-Inventory transaction created during per-line execution but `stock_out_approval_id` remains NULL or points to wrong approval, breaking the lineage chain and preventing status rollup.
-
-**Why it happens:**
-- Current atomic execution: UI passes approval_id array, backend loops and inserts transactions with correct `stock_out_approval_id`
-- **NEW RISK:** Per-line UI passes single line_item_id, must resolve to approval_id at execution time
-- Multiple approvals per line item possible (partial approval workflow)
-- UI doesn't know which approval to execute — must query "pending approvals for line_item"
-- Race condition: Approval A creates transaction, Approval B queries "pending" and sees A's transaction as pending, executes again
-
-**Warning signs:**
-- Inventory transactions exist with NULL `stock_out_approval_id` but non-NULL `qmhq_id`
-- Line item status stuck at "approved" despite transactions existing
-- Duplicate transactions for same line item and warehouse
-- Referential integrity errors: `SELECT COUNT(*) FROM inventory_transactions WHERE stock_out_approval_id NOT IN (SELECT id FROM stock_out_approvals);` returns > 0
-
-**Prevention strategy:**
-
-```sql
--- Validation trigger: block inventory_out without valid SOR link
-CREATE OR REPLACE FUNCTION validate_sor_transaction_link()
-RETURNS TRIGGER AS $$
-DECLARE
-  approval_exists BOOLEAN;
-  approval_executed BOOLEAN;
-BEGIN
-  IF NEW.movement_type = 'inventory_out' AND NEW.reason = 'request' THEN
-    -- Must have stock_out_approval_id
-    IF NEW.stock_out_approval_id IS NULL THEN
-      RAISE EXCEPTION 'Stock-out transactions for reason=request must reference stock_out_approval_id';
-    END IF;
-
-    -- Approval must exist and be approved
-    SELECT
-      a.id IS NOT NULL,
-      a.line_item_id IS NOT NULL  -- Basic existence check
-    INTO approval_exists, approval_executed
-    FROM stock_out_approvals a
-    WHERE a.id = NEW.stock_out_approval_id
-      AND a.decision = 'approved'
-      AND a.is_active = true;
-
-    IF NOT approval_exists THEN
-      RAISE EXCEPTION 'stock_out_approval_id % does not exist or is not approved', NEW.stock_out_approval_id;
-    END IF;
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_validate_sor_link ON inventory_transactions;
-CREATE TRIGGER trg_validate_sor_link
-  BEFORE INSERT OR UPDATE ON inventory_transactions
-  FOR EACH ROW
-  EXECUTE FUNCTION validate_sor_transaction_link();
-```
-
-**Application-level prevention:**
-
-```typescript
-// WRONG: Execute by line_item_id without approval resolution
-async function executeLineItem(lineItemId: string, warehouseId: string) {
-  const { data: lineItem } = await supabase
-    .from('stock_out_line_items')
-    .select('item_id, requested_quantity')
-    .eq('id', lineItemId)
-    .single();
-
-  // Missing: which approval? Creates orphaned transaction
-  await supabase.from('inventory_transactions').insert({
-    movement_type: 'inventory_out',
-    item_id: lineItem.item_id,
-    warehouse_id: warehouseId,
-    quantity: lineItem.requested_quantity,
-    stock_out_approval_id: null, // ORPHANED!
-    reason: 'request',
-  });
-}
-
-// RIGHT: Execute by approval_id with explicit linking
-async function executeApproval(approvalId: string) {
-  // Fetch approval with validation
-  const { data: approval } = await supabase
-    .from('stock_out_approvals')
-    .select(`
-      id,
-      approved_quantity,
-      line_item:stock_out_line_items!inner(
-        id,
-        item_id,
-        request:stock_out_requests!inner(id, status)
-      )
-    `)
-    .eq('id', approvalId)
-    .eq('decision', 'approved')
-    .single();
-
-  if (!approval) throw new Error('Approval not found or not approved');
-
-  // Get warehouse from approval record (stored during approval)
-  const { data: approvalWarehouse } = await supabase
-    .from('stock_out_approval_warehouses')
-    .select('warehouse_id')
-    .eq('approval_id', approvalId)
-    .single();
-
-  // Create transaction with explicit approval link
-  await supabase.from('inventory_transactions').insert({
-    movement_type: 'inventory_out',
-    item_id: approval.line_item.item_id,
-    warehouse_id: approvalWarehouse.warehouse_id,
-    quantity: approval.approved_quantity,
-    stock_out_approval_id: approvalId, // EXPLICIT LINK
-    reason: 'request',
-    status: 'completed',
-  });
-}
-```
-
-**Detection:**
-- Database view: `CREATE VIEW orphaned_sor_transactions AS SELECT * FROM inventory_transactions WHERE movement_type='inventory_out' AND reason='request' AND stock_out_approval_id IS NULL;`
-- Monitoring: Alert if orphaned_sor_transactions count > 0
-- Weekly batch: Attempt to reconcile orphans by matching item_id + quantity + timestamp to approvals
-
-**Phase to address:** Phase 29 (Per-Line Execution UI) - Add validation trigger AND refactor execution API
-
-**Confidence:** HIGH - Orphaned records are a documented risk when adding foreign key relationships to existing systems
-
-**Sources:**
-- [Referential Integrity Challenges](https://www.acceldata.io/blog/referential-integrity-why-its-vital-for-databases)
-- [Why Referential Data Integrity Is Important](https://www.montecarlodata.com/blog-how-to-maintain-referential-data-integrity/)
-
----
-
-### Pitfall 2.2: Dual Reference Inconsistency (SOR + QMHQ)
-
-**What goes wrong:**
-Inventory transaction has both `stock_out_approval_id` (SOR flow) and `qmhq_id` (QMHQ item route), but these point to unrelated records or only one is populated when both should be.
-
-**Why it happens:**
-- QMHQ item routes can create SOR (1:1 relationship via `stock_out_requests.qmhq_id`)
-- SOR-linked QMHQ execution should populate BOTH `stock_out_approval_id` AND `qmhq_id`
-- Manual SOR (not from QMHQ) only populates `stock_out_approval_id`
-- **NEW RISK:** Per-line execution UI might not pass QMHQ context to execution API
-- Backend must infer QMHQ link by traversing: approval → line_item → request → qmhq
-
-**Warning signs:**
-- QMHQ detail page shows "No stock-out transactions" but SOR shows "Executed"
-- Inventory transactions with `stock_out_approval_id` but NULL `qmhq_id` when parent SOR has non-NULL `qmhq_id`
-- QMHQ status doesn't auto-update after SOR execution
-- Query: `SELECT COUNT(*) FROM inventory_transactions it JOIN stock_out_approvals a ON it.stock_out_approval_id = a.id JOIN stock_out_line_items li ON a.line_item_id = li.id JOIN stock_out_requests r ON li.request_id = r.id WHERE r.qmhq_id IS NOT NULL AND it.qmhq_id IS NULL;` returns > 0
-
-**Prevention strategy:**
-
-```sql
--- Trigger: Auto-populate qmhq_id from SOR chain
-CREATE OR REPLACE FUNCTION auto_populate_qmhq_from_sor()
-RETURNS TRIGGER AS $$
-DECLARE
-  linked_qmhq_id UUID;
-BEGIN
-  -- Only for stock-out transactions with approval link
-  IF NEW.movement_type = 'inventory_out'
-     AND NEW.reason = 'request'
-     AND NEW.stock_out_approval_id IS NOT NULL
-  THEN
-    -- Traverse: approval → line_item → request → qmhq
-    SELECT r.qmhq_id INTO linked_qmhq_id
-    FROM stock_out_approvals a
-    JOIN stock_out_line_items li ON a.line_item_id = li.id
-    JOIN stock_out_requests r ON li.request_id = r.id
-    WHERE a.id = NEW.stock_out_approval_id;
-
-    -- If SOR is QMHQ-linked, populate qmhq_id
-    IF linked_qmhq_id IS NOT NULL THEN
-      NEW.qmhq_id := linked_qmhq_id;
-    END IF;
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_auto_populate_qmhq ON inventory_transactions;
-CREATE TRIGGER trg_auto_populate_qmhq
-  BEFORE INSERT ON inventory_transactions
-  FOR EACH ROW
-  EXECUTE FUNCTION auto_populate_qmhq_from_sor();
-
--- Validation constraint: qmhq_id consistency
-CREATE OR REPLACE FUNCTION check_qmhq_sor_consistency(txn_id UUID)
-RETURNS BOOLEAN AS $$
-DECLARE
-  txn_qmhq_id UUID;
-  sor_qmhq_id UUID;
-BEGIN
-  SELECT it.qmhq_id, r.qmhq_id
-  INTO txn_qmhq_id, sor_qmhq_id
-  FROM inventory_transactions it
-  JOIN stock_out_approvals a ON it.stock_out_approval_id = a.id
-  JOIN stock_out_line_items li ON a.line_item_id = li.id
-  JOIN stock_out_requests r ON li.request_id = r.id
-  WHERE it.id = txn_id;
-
-  -- If SOR has QMHQ, transaction must match
-  IF sor_qmhq_id IS NOT NULL THEN
-    RETURN txn_qmhq_id = sor_qmhq_id;
-  END IF;
-
-  RETURN TRUE;
-END;
-$$ LANGUAGE plpgsql STABLE;
-
--- Add CHECK constraint (PostgreSQL 12+)
-ALTER TABLE inventory_transactions
-  ADD CONSTRAINT qmhq_sor_consistency
-  CHECK (check_qmhq_sor_consistency(id));
-```
-
-**Application-level prevention:**
-- Execution API accepts `approvalId` only (not both approvalId + qmhqId)
-- Backend resolves QMHQ link automatically via trigger
-- UI displays both references: "SOR-2026-00123-A01 (from QMHQ-2026-00456)"
-
-**Detection:**
-- Monitoring query: Find transactions with mismatched QMHQ references
-- Add to daily data integrity check report
-- Automated repair job: `UPDATE inventory_transactions SET qmhq_id = (SELECT r.qmhq_id FROM ...) WHERE ...`
-
-**Phase to address:** Phase 29 (Per-Line Execution UI) - Add auto-populate trigger + validation constraint
-
-**Confidence:** MEDIUM - Dual references are complex, need testing with real data flows
-
-**Sources:**
-- [Outbox Pattern for Dual-Write Problem](https://www.enterpriseintegrationpatterns.com/)
-- [ERP Integration Patterns](https://roi-consulting.com/erp-integration-patterns-what-they-are-and-why-you-should-care/)
-
----
-
-## 3. Audit Log Explosion Pitfalls
-
-### Pitfall 3.1: Multiplicative Audit Events from Per-Line Execution
-
-**What goes wrong:**
-Audit log table grows 10x faster than before because per-line-item execution fires audit triggers for EACH line instead of once per request, degrading query performance and storage costs.
-
-**Why it happens:**
-- Current atomic execution: 1 request with 5 lines → execute all → 5 inventory_transactions INSERTs → 5 audit log entries
-- **NEW SYSTEM:** Same 5 lines → execute individually → 5 separate executions → 5 inventory_transactions + 5 line_item UPDATEs + 5 request UPDATEs (status recomputation) → 15 audit log entries
-- **Multiplication factor:** 3x audit logs for same business operation
-- Generic audit trigger logs EVERY INSERT/UPDATE on tracked tables
-- No filtering for "significant" vs "transient" changes
-
-**Warning signs:**
-- `audit_logs` table size growing >100MB per month (vs <30MB before)
-- History tab pagination becomes slow (>2s load time)
-- Database storage alerts triggering weekly instead of monthly
-- Queries like "show all changes for request X" timing out
-
-**Prevention strategy:**
-
-```sql
--- Selective audit logging for inventory_transactions
-CREATE OR REPLACE FUNCTION audit_inventory_transaction()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Only log INSERTs and status changes, not every UPDATE
-  IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status) THEN
-    INSERT INTO audit_logs (
-      entity_type,
-      entity_id,
-      action,
-      old_values,
-      new_values,
-      changed_by,
-      changed_at,
-      summary
-    ) VALUES (
-      'inventory_transaction',
-      NEW.id,
-      LOWER(TG_OP),
-      CASE WHEN TG_OP = 'UPDATE' THEN row_to_json(OLD) ELSE NULL END,
-      row_to_json(NEW),
-      NEW.updated_by,
-      NOW(),
-      CASE
-        WHEN TG_OP = 'INSERT' THEN 'Created stock-out for ' || (SELECT item_name FROM items WHERE id = NEW.item_id)
-        WHEN TG_OP = 'UPDATE' THEN 'Status changed: ' || OLD.status || ' → ' || NEW.status
-      END
-    );
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Don't audit parent status recomputation (too noisy)
-CREATE OR REPLACE FUNCTION audit_sor_request()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Skip auto-computed status changes (created by triggers)
-  IF TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status THEN
-    -- Only log if updated_by is set (user action) not trigger action
-    IF NEW.updated_by IS DISTINCT FROM OLD.updated_by THEN
-      -- User-initiated status change, log it
-      INSERT INTO audit_logs (...) VALUES (...);
-    END IF;
-    -- Else: trigger-computed status change, skip logging
-  ELSIF TG_OP = 'INSERT' THEN
-    INSERT INTO audit_logs (...) VALUES (...);
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-```
-
-**Alternative: Summary audit entries**
-
-Instead of logging every inventory_transaction separately, log one summary entry per execution:
-
-```sql
--- Create execution summary table
-CREATE TABLE stock_out_execution_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  request_id UUID REFERENCES stock_out_requests(id),
-  executed_at TIMESTAMPTZ DEFAULT NOW(),
-  executed_by UUID REFERENCES users(id),
-  line_items_count INT,
-  total_quantity DECIMAL(15,2),
-  summary JSONB -- {line_item_id: {item_name, quantity, warehouse}}
-);
-
--- Log execution as single summary entry instead of per-transaction
-CREATE OR REPLACE FUNCTION log_execution_summary()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Aggregate execution details
-  INSERT INTO stock_out_execution_logs (request_id, executed_by, line_items_count, total_quantity, summary)
-  SELECT
-    r.id,
-    NEW.created_by,
-    COUNT(DISTINCT a.line_item_id),
-    SUM(NEW.quantity),
-    jsonb_object_agg(li.id, jsonb_build_object(
-      'item_name', i.name,
-      'quantity', NEW.quantity,
-      'warehouse', w.name
-    ))
-  FROM inventory_transactions it
-  JOIN stock_out_approvals a ON it.stock_out_approval_id = a.id
-  JOIN stock_out_line_items li ON a.line_item_id = li.id
-  JOIN stock_out_requests r ON li.request_id = r.id
-  JOIN items i ON li.item_id = i.id
-  JOIN warehouses w ON it.warehouse_id = w.id
-  WHERE it.id = NEW.id
-  GROUP BY r.id;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-```
-
-**Detection:**
-- Monitor audit_logs table growth rate: `SELECT pg_size_pretty(pg_total_relation_size('audit_logs'));` weekly
-- Identify noisy entities: `SELECT entity_type, COUNT(*) FROM audit_logs WHERE changed_at > NOW() - INTERVAL '7 days' GROUP BY entity_type ORDER BY COUNT(*) DESC;`
-- Threshold alert: If audit_logs rows increase >50% week-over-week, investigate
+- Migration attempts `ALTER TYPE ... DROP VALUE` (PostgreSQL will reject)
+- Migration attempts `DROP TYPE user_role` but fails with "type is still referenced"
+- No mapping table or function to convert old roles to new roles
+- No verification query to check 100% user coverage before column swap
+- RLS policy recreation not in same transaction as enum change
 
 **Phase to address:**
-- Phase 29 (Per-Line Execution UI) - Implement selective audit logging
-- Phase 30 (Optimization) - Add execution summary logging if needed
-
-**Confidence:** HIGH - Audit log explosion is documented issue with high-frequency operations
-
-**Sources:**
-- [Cascade Delete Audit Considerations](https://learn.microsoft.com/en-us/power-apps/developer/data-platform/auditing/delete-audit-data)
-- [PostgreSQL Triggers Performance Impact](https://infinitelambda.com/postgresql-triggers/)
+Phase 1: Database Foundation - Must include complete enum migration strategy with verification steps before proceeding to middleware/UI changes.
 
 ---
 
-### Pitfall 3.2: Audit Log Query Performance Degradation
+### Pitfall 2: RLS Policy Cascade Failures After Role Change
 
 **What goes wrong:**
-History tab on request detail page takes >10 seconds to load because audit log query lacks proper indexes for polymorphic queries, and table has millions of rows.
+After changing role enum, recreating RLS policies without accounting for dependency order causes cascade failures. The system has 132+ references to `get_user_role()` across 9 migration files. Policies on tables like `qmrl`, `qmhq`, `purchase_orders`, `invoices`, `financial_transactions`, `file_attachments`, `comments` all check role. Dropping and recreating policies out of order breaks foreign key cascades or leaves tables unprotected (RLS disabled but no policies = all data public).
 
 **Why it happens:**
-- Query pattern: `SELECT * FROM audit_logs WHERE entity_type = 'stock_out_request' AND entity_id = $1 ORDER BY changed_at DESC LIMIT 50;`
-- Polymorphic (entity_type, entity_id) means no foreign key index
-- Sequential scan required if no composite index exists
-- With 1M+ audit rows, sequential scan = seconds
+Developer drops all policies at once, recreates `get_user_role()` function with new enum, then recreates policies. But during the window between drop and recreate, tables are UNPROTECTED. If deployment fails mid-migration or transaction rollback occurs, production database is left with RLS enabled but no policies (queries return empty results) or RLS disabled entirely (data breach).
 
-**Prevention strategy:**
+Additionally, foreign key constraints with `ON DELETE CASCADE` can conflict with RLS policies. If a parent record deletion cascades to children, but the user doesn't have RLS permissions on the child table, the cascade fails with a permission error.
 
-```sql
--- Partial indexes per entity type
-CREATE INDEX idx_audit_logs_sor_request
-  ON audit_logs(entity_id, changed_at DESC)
-  WHERE entity_type = 'stock_out_request' AND deleted_at IS NULL;
+**How to avoid:**
 
-CREATE INDEX idx_audit_logs_sor_line_item
-  ON audit_logs(entity_id, changed_at DESC)
-  WHERE entity_type = 'stock_out_line_item' AND deleted_at IS NULL;
+1. **Atomic Policy Recreation:**
+   ```sql
+   BEGIN;
+     -- Drop policies in dependency order (children first, parents last)
+     DROP POLICY IF EXISTS comments_select_policy ON comments;
+     DROP POLICY IF EXISTS file_attachments_select_policy ON file_attachments;
+     DROP POLICY IF EXISTS qmhq_select_policy ON qmhq;
+     DROP POLICY IF EXISTS qmrl_select_policy ON qmrl;
 
-CREATE INDEX idx_audit_logs_inventory_txn
-  ON audit_logs(entity_id, changed_at DESC)
-  WHERE entity_type = 'inventory_transaction' AND deleted_at IS NULL;
+     -- Recreate functions
+     CREATE OR REPLACE FUNCTION get_user_role() ...;
 
--- Composite index for filtering by entity type first
-CREATE INDEX idx_audit_logs_entity_lookup
-  ON audit_logs(entity_type, entity_id, changed_at DESC)
-  WHERE deleted_at IS NULL;
-```
+     -- Recreate policies in reverse order (parents first, children last)
+     CREATE POLICY qmrl_select_policy ON qmrl ...;
+     CREATE POLICY qmhq_select_policy ON qmhq ...;
+     CREATE POLICY file_attachments_select_policy ON file_attachments ...;
+     CREATE POLICY comments_select_policy ON comments ...;
+   COMMIT;
+   ```
 
-**Application-level optimization:**
+2. **Policy Verification Query:**
+   After migration, verify every table with RLS enabled has at least one policy:
+   ```sql
+   SELECT tablename
+   FROM pg_tables
+   WHERE schemaname = 'public'
+     AND tablename IN (
+       SELECT tablename FROM pg_policies WHERE schemaname = 'public'
+     )
+     AND rowsecurity = true
+   EXCEPT
+   SELECT tablename FROM pg_policies WHERE schemaname = 'public';
+   ```
+   Result should be empty. If not, tables have RLS enabled but no policies.
 
-```typescript
-// Fetch related audit logs efficiently
-async function getRequestHistory(requestId: string) {
-  // Instead of querying all audit_logs and filtering in app:
-  // Query with specific entity_type to use partial index
-  const { data: requestLogs } = await supabase
-    .from('audit_logs')
-    .select('*')
-    .eq('entity_type', 'stock_out_request')
-    .eq('entity_id', requestId)
-    .order('changed_at', { ascending: false })
-    .limit(50);
-
-  // Fetch related line item logs separately (also uses index)
-  const { data: lineItemIds } = await supabase
-    .from('stock_out_line_items')
-    .select('id')
-    .eq('request_id', requestId);
-
-  const { data: lineItemLogs } = await supabase
-    .from('audit_logs')
-    .eq('entity_type', 'stock_out_line_item')
-    .in('entity_id', lineItemIds.map(li => li.id))
-    .order('changed_at', { ascending: false })
-    .limit(200);
-
-  // Merge and sort in application
-  return [...requestLogs, ...lineItemLogs].sort((a, b) =>
-    new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
-  );
-}
-```
-
-**Detection:**
-- EXPLAIN ANALYZE on history queries: If shows "Seq Scan on audit_logs", index missing
-- Add slow query logging: `log_min_duration_statement = 1000` (log queries >1s)
-- APM tool (e.g., pganalyze) to identify slow audit queries
-
-**Phase to address:** Phase 29 (Per-Line Execution UI) - Add indexes in same migration as execution logic
-
-**Confidence:** HIGH - Polymorphic query performance is well-documented issue
-
-**Sources:**
-- [Stale Stats and Query Performance](https://pganalyze.com/docs/explain/insights/stale-stats)
-
----
-
-## 4. Partial Execution Race Conditions
-
-### Pitfall 4.1: Concurrent Execution Stock Depletion
-
-**What goes wrong:**
-Two line items for same item executing simultaneously from different requests deplete warehouse stock below zero, or second execution fails with "insufficient stock" even though stock was available when user clicked Execute.
-
-**Why it happens:**
-- Stock validation: `SELECT SUM(quantity) FROM inventory_transactions WHERE item_id = X AND warehouse_id = Y;`
-- Line 1 validation: Stock = 100, need 60 → Pass
-- Line 2 validation: Stock = 100, need 50 → Pass (reads SAME 100 because Line 1 not committed)
-- Line 1 executes: Stock = 40
-- Line 2 executes: Stock = -10 (NEGATIVE!)
-- Or with CHECK constraint: Line 2 fails with "insufficient stock" error
-
-**Why it happens (root cause):**
-- PostgreSQL default isolation level: READ COMMITTED
-- Stock calculation is non-serializable: Two transactions can read same stock level
-- No row-level locking on warehouse_stock or items table during validation
-- Optimistic concurrency control assumes conflicts are rare (wrong for high-volume inventory)
+3. **Cascade Delete Compatibility:**
+   Review all `ON DELETE CASCADE` constraints to ensure they don't conflict with RLS:
+   - `users` → `qmrl.created_by` (SET NULL safer than CASCADE)
+   - `users` → `qmhq.assigned_to` (SET NULL safer)
+   - Auth user deletion should cascade properly (already ON DELETE CASCADE)
 
 **Warning signs:**
-- Intermittent "insufficient stock" errors during execution
-- Negative stock levels in warehouse (if no CHECK constraint)
-- User reports: "It said stock available, but execution failed"
-- Database logs show deadlock errors on inventory_transactions
+- Migration script drops policies but doesn't recreate them in same transaction
+- No verification query after policy recreation
+- Mixed cascade constraint types (`CASCADE` on parent, `RESTRICT` on child)
+- RLS policy uses foreign key relationship but cascade delete is configured
+- Empty query results after migration (RLS enabled, no matching policies)
 
-**Prevention strategy:**
-
-```sql
--- Advisory lock per item+warehouse during stock validation
-CREATE OR REPLACE FUNCTION validate_stock_with_lock(
-  p_item_id UUID,
-  p_warehouse_id UUID,
-  p_quantity DECIMAL
-) RETURNS BOOLEAN AS $$
-DECLARE
-  current_stock DECIMAL;
-  lock_key BIGINT;
-BEGIN
-  -- Generate deterministic lock key from item+warehouse UUIDs
-  lock_key := ('x' || substr(md5(p_item_id::text || p_warehouse_id::text), 1, 15))::bit(60)::bigint;
-
-  -- Acquire advisory lock (released at transaction end)
-  PERFORM pg_advisory_xact_lock(lock_key);
-
-  -- Now compute stock with exclusive lock held
-  SELECT COALESCE(SUM(
-    CASE movement_type
-      WHEN 'inventory_in' THEN quantity
-      WHEN 'inventory_out' THEN -quantity
-    END
-  ), 0)
-  INTO current_stock
-  FROM inventory_transactions
-  WHERE item_id = p_item_id
-    AND warehouse_id = p_warehouse_id
-    AND is_active = true
-    AND status = 'completed';
-
-  RETURN current_stock >= p_quantity;
-END;
-$$ LANGUAGE plpgsql;
-
--- Use in execution validation
-CREATE OR REPLACE FUNCTION validate_sor_execution()
-RETURNS TRIGGER AS $$
-DECLARE
-  has_stock BOOLEAN;
-BEGIN
-  IF NEW.movement_type = 'inventory_out' THEN
-    has_stock := validate_stock_with_lock(NEW.item_id, NEW.warehouse_id, NEW.quantity);
-
-    IF NOT has_stock THEN
-      RAISE EXCEPTION 'Insufficient stock for item % in warehouse %', NEW.item_id, NEW.warehouse_id;
-    END IF;
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-```
-
-**Alternative: Serializable isolation level**
-
-```sql
--- Set isolation level for execution transactions only
-BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-
--- Perform stock validation and execution
-INSERT INTO inventory_transactions (...) VALUES (...);
-
-COMMIT;
--- If serialization conflict occurs, PostgreSQL aborts transaction
--- Application must retry
-```
-
-**Application-level handling:**
-
-```typescript
-async function executeLineItemWithRetry(approvalId: string, maxRetries = 3) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      // Execute with serializable isolation
-      const { data, error } = await supabase.rpc('execute_stock_out_approval', {
-        p_approval_id: approvalId
-      });
-
-      if (error) throw error;
-      return data;
-
-    } catch (error) {
-      // Check if serialization failure (PostgreSQL error code 40001)
-      if (error.code === '40001' && attempt < maxRetries) {
-        // Wait with exponential backoff
-        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt)));
-        continue;
-      }
-      throw error;
-    }
-  }
-}
-```
-
-**Detection:**
-- Monitor for serialization failures: `SELECT COUNT(*) FROM pg_stat_database WHERE datname = 'qm_system' AND xact_rollback > 0;`
-- Alert on negative stock: `SELECT i.name, w.name, SUM(CASE movement_type WHEN 'inventory_in' THEN quantity ELSE -quantity END) AS stock FROM inventory_transactions it JOIN items i ON it.item_id = i.id JOIN warehouses w ON it.warehouse_id = w.id GROUP BY i.id, w.id HAVING SUM(...) < 0;`
-- Load testing: Execute 10 concurrent line items for same item, verify final stock = expected
-
-**Phase to address:** Phase 29 (Per-Line Execution UI) - Implement advisory locks or serializable isolation
-
-**Confidence:** HIGH - Race conditions in stock validation are well-documented in inventory systems
-
-**Sources:**
-- [Atomic Updates and Data Consistency](https://medium.com/insiderengineering/atomic-updates-keeping-your-data-consistent-in-a-changing-world-f6aacf38f71a)
-- [PostgreSQL Trigger Documentation](https://www.postgresql.org/docs/current/plpgsql-trigger.html)
+**Phase to address:**
+Phase 1: Database Foundation - Include policy dependency graph, atomic recreation script, and verification queries as pre-merge checklist.
 
 ---
 
-### Pitfall 4.2: Duplicate Execution from UI Race Condition
+### Pitfall 3: Middleware Authorization Breaking on Deployment
 
 **What goes wrong:**
-User clicks Execute button, page doesn't disable button immediately, user clicks again, two execution requests sent, same approval executed twice, double stock-out.
+Next.js middleware updates to check new 3-role system deploy successfully but break authentication flow due to CVE-2025-29927 (authorization bypass via `x-middleware-subrequest` header), middleware execution order changes, or session refresh timing issues. The system uses `middleware.ts` + `lib/supabase/middleware.ts` with session timeout tracking in `localStorage`. Middleware changes that don't account for Vercel vs. self-hosted environments, Edge runtime constraints, or Auth.js version differences cause users to be logged out randomly or unable to access protected routes.
 
 **Why it happens:**
-- Network latency: First request in flight, button still enabled
-- No idempotency key on execution API
-- Database allows multiple inventory_transactions for same approval (no UNIQUE constraint)
-- UI state doesn't optimistically mark as "executing"
+Developer updates `middleware.ts` to check for `admin`, `qmrl`, or `qmhq` roles instead of old 7 roles. They test locally (works fine), deploy to Vercel (breaks). Root causes:
+- **CVE-2025-29927**: Self-hosted deployments with `output: standalone` are vulnerable to middleware bypass via header injection. Vercel deployments are NOT affected, but if later migrating to self-hosted, security holes open.
+- **Session refresh race condition**: Middleware refreshes auth tokens, but if session update fails, subsequent requests use stale session. User appears logged in but queries fail due to expired JWT.
+- **Edge runtime limitations**: Middleware runs in Edge runtime (no Node.js APIs). If new role checking logic uses Node-only features (filesystem, crypto modules), deployment succeeds but middleware fails at runtime.
 
-**Prevention strategy:**
+**How to avoid:**
 
-```sql
--- Idempotency: One transaction per approval
-CREATE UNIQUE INDEX idx_one_execution_per_approval
-  ON inventory_transactions(stock_out_approval_id)
-  WHERE movement_type = 'inventory_out'
-    AND reason = 'request'
-    AND is_active = true;
+1. **Security Hardening:**
+   - Add header check to reject requests with `x-middleware-subrequest`:
+     ```typescript
+     // In middleware.ts
+     if (request.headers.get('x-middleware-subrequest')) {
+       return new Response('Forbidden', { status: 403 });
+     }
+     ```
+   - Note: Only critical if planning self-hosted deployment. Vercel already blocks this.
 
--- This prevents duplicate INSERTs for same approval
--- Second execution attempt fails with "duplicate key value violates unique constraint"
-```
+2. **Session Refresh Guard:**
+   ```typescript
+   const { data: { session }, error } = await supabase.auth.getSession();
 
-**Application-level prevention:**
+   if (error) {
+     console.error('Session fetch error:', error);
+     return NextResponse.redirect(new URL('/login', request.url));
+   }
 
-```typescript
-// UI: Optimistic state update
-function ExecuteButton({ approvalId }: { approvalId: string }) {
-  const [isExecuting, setIsExecuting] = useState(false);
+   // Explicit refresh before role check
+   const { data: { session: refreshedSession } } =
+     await supabase.auth.refreshSession();
 
-  const handleExecute = async () => {
-    // Disable button immediately
-    setIsExecuting(true);
+   if (!refreshedSession) {
+     return NextResponse.redirect(new URL('/login', request.url));
+   }
+   ```
 
-    try {
-      await executeApproval(approvalId);
-      // Success: page will re-fetch and button will disappear
-    } catch (error) {
-      // Re-enable only on error
-      setIsExecuting(false);
-      toast.error(error.message);
-    }
-  };
+3. **Edge Runtime Compatibility:**
+   - Test that role-checking function works in Edge runtime
+   - Avoid using `fs`, `crypto` (Node built-ins)
+   - Use `@supabase/ssr` package methods designed for Edge
 
-  return (
-    <button
-      onClick={handleExecute}
-      disabled={isExecuting}
-      className={isExecuting ? 'opacity-50 cursor-not-allowed' : ''}
-    >
-      {isExecuting ? 'Executing...' : 'Execute'}
-    </button>
-  );
-}
+4. **Deployment Testing Checklist:**
+   - [ ] Test in Vercel preview deployment before production
+   - [ ] Verify session refresh works across page navigations
+   - [ ] Test with multiple tabs open (session sync)
+   - [ ] Test session timeout (6 hours) forces re-login
+   - [ ] Test role change: admin → qmrl (user should be logged out and re-login)
 
-// API: Idempotency key
-async function executeApproval(approvalId: string, idempotencyKey?: string) {
-  const key = idempotencyKey || approvalId; // Use approvalId as natural idempotency key
+**Warning signs:**
+- Middleware works locally, fails in Vercel preview
+- Users report random logouts after deployment
+- Auth errors in Vercel logs: "Session expired" or "Invalid JWT"
+- Middleware uses `require()` or Node.js built-ins
+- No header injection protection for self-hosted deployments
 
-  // Check if already executed
-  const { data: existing } = await supabase
-    .from('inventory_transactions')
-    .select('id')
-    .eq('stock_out_approval_id', approvalId)
-    .eq('movement_type', 'inventory_out')
-    .eq('is_active', true)
-    .maybeSingle();
-
-  if (existing) {
-    // Already executed, return success (idempotent)
-    return { alreadyExecuted: true, transactionId: existing.id };
-  }
-
-  // Proceed with execution
-  const { data, error } = await supabase.rpc('execute_stock_out_approval', {
-    p_approval_id: approvalId
-  });
-
-  if (error) throw error;
-  return { alreadyExecuted: false, transactionId: data.id };
-}
-```
-
-**Detection:**
-- Query for duplicate executions: `SELECT stock_out_approval_id, COUNT(*) FROM inventory_transactions WHERE movement_type='inventory_out' AND reason='request' AND is_active=true GROUP BY stock_out_approval_id HAVING COUNT(*) > 1;`
-- Monitor API logs for 409 Conflict responses (duplicate execution attempts)
-- Automated test: Click execute button rapidly 5 times, verify only 1 transaction created
-
-**Phase to address:** Phase 29 (Per-Line Execution UI) - Add UNIQUE constraint + idempotency check
-
-**Confidence:** HIGH - Duplicate request prevention is standard best practice
-
-**Sources:**
-- [SQL ON DELETE CASCADE Best Practices](https://www.datacamp.com/tutorial/sql-on-delete-cascade)
+**Phase to address:**
+Phase 2: Middleware & Auth Updates - Deploy with feature flag, test in staging, monitor error rates before full rollout.
 
 ---
 
-## 5. UI State Synchronization Pitfalls
-
-### Pitfall 5.1: Stale Aggregated Data on Parent Detail Page
+### Pitfall 4: Flow Tracking Query Becomes N+1 Performance Nightmare
 
 **What goes wrong:**
-Request detail page shows "Approved (0/5 executed)" but user just executed 2 lines in another tab/window, display doesn't update until manual refresh, user executes same lines again thinking they're still pending.
+Admin flow tracking page that joins across `qmrl → qmhq → purchase_orders → invoices → inventory_transactions → stock_out_requests → stock_out_approvals` becomes unusably slow. Developer builds the page with multiple sequential queries in React components, creating N+1 patterns. With 100+ QMRLs, each having 5+ QMHQ lines, each with 3+ POs, the page makes 2000+ database queries and takes 30+ seconds to load.
 
 **Why it happens:**
-- Detail page fetches request + line items + approvals on mount
-- Stores in component state
-- Per-line execution happens in child component (modal/drawer)
-- Child closes after execution, parent state not invalidated
-- Parent displays stale aggregated counts
-
-**Prevention strategy:**
-
-```typescript
-// Use query invalidation pattern (React Query/SWR)
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-
-function RequestDetailPage({ requestId }: { requestId: string }) {
-  const queryClient = useQueryClient();
-
-  // Fetch with cache key
-  const { data: request, isLoading } = useQuery({
-    queryKey: ['stock-out-request', requestId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('stock_out_requests')
-        .select(`
-          *,
-          line_items:stock_out_line_items(
-            *,
-            approvals:stock_out_approvals(*)
-          )
-        `)
-        .eq('id', requestId)
-        .single();
-      return data;
-    },
-    // Refetch on window focus to catch external updates
-    refetchOnWindowFocus: true,
-  });
-
-  // Child component invalidates cache after execution
-  const handleExecutionComplete = () => {
-    // Invalidate this request's cache
-    queryClient.invalidateQueries({ queryKey: ['stock-out-request', requestId] });
-    // Also invalidate list page cache
-    queryClient.invalidateQueries({ queryKey: ['stock-out-requests'] });
-  };
-
-  return (
-    <div>
-      <RequestHeader request={request} />
-      <LineItemsTable
-        lineItems={request.line_items}
-        onExecutionComplete={handleExecutionComplete}
-      />
-    </div>
-  );
-}
-
-// Execution modal
-function ExecuteApprovalModal({ approvalId, onComplete }: Props) {
-  const handleExecute = async () => {
-    await executeApproval(approvalId);
-    onComplete(); // Triggers parent cache invalidation
-    closeModal();
-  };
-
-  return <Modal>...</Modal>;
-}
+Developer creates flow tracking page with component structure like:
+```tsx
+<QMRLList>               // Query 1: Fetch all QMRLs
+  {qmrls.map(qmrl =>
+    <QMRLRow qmrl={qmrl}>
+      <QMHQList qmrlId={qmrl.id}>  // Query 2-101: Fetch QMHQ per QMRL
+        {qmhqs.map(qmhq =>
+          <POList qmhqId={qmhq.id}>   // Query 102-601: Fetch POs per QMHQ
+            ...
 ```
 
-**Alternative: Real-time subscriptions**
+Each component fetches its own data on mount. The system already has performance issues (see CONCERNS.md):
+- "All Dashboard Pages Use force-dynamic" - no caching
+- "Large List Fetches Without Pagination" - 100+ items in memory
+- "N+1 Query Patterns" - 5+ queries per page load already
 
-```typescript
-function RequestDetailPage({ requestId }: { requestId: string }) {
-  const [request, setRequest] = useState(null);
+Adding flow tracking multiplies this by 20x.
 
-  useEffect(() => {
-    // Initial fetch
-    fetchRequest(requestId).then(setRequest);
+**How to avoid:**
 
-    // Subscribe to changes
-    const channel = supabase
-      .channel(`request-${requestId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'stock_out_line_items',
-        filter: `request_id=eq.${requestId}`,
-      }, (payload) => {
-        // Re-fetch on any line item change
-        fetchRequest(requestId).then(setRequest);
-      })
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'inventory_transactions',
-      }, (payload) => {
-        // Check if related to this request
-        if (payload.new.stock_out_approval_id) {
-          fetchRequest(requestId).then(setRequest);
-        }
-      })
-      .subscribe();
+1. **Single Denormalized Query Strategy:**
+   ```sql
+   SELECT
+     qmrl.id AS qmrl_id,
+     qmrl.request_id,
+     qmrl.title,
+     qmrl.status_id,
+     qmhq.id AS qmhq_id,
+     qmhq.line_name,
+     qmhq.route_type,
+     po.id AS po_id,
+     po.po_number,
+     po.status AS po_status,
+     inv.id AS invoice_id,
+     inv.invoice_number,
+     inv.is_voided,
+     it.id AS inventory_transaction_id,
+     it.transaction_type
+   FROM qmrl
+   LEFT JOIN qmhq ON qmhq.qmrl_id = qmrl.id
+   LEFT JOIN purchase_orders po ON po.qmhq_id = qmhq.id
+   LEFT JOIN invoices inv ON inv.purchase_order_id = po.id
+   LEFT JOIN inventory_transactions it ON it.invoice_id = inv.id
+   WHERE qmrl.is_active = true
+   ORDER BY qmrl.created_at DESC
+   LIMIT 100;
+   ```
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [requestId]);
+   This returns flat rows. Client-side code groups by `qmrl_id` to reconstruct hierarchy.
 
-  return <div>...</div>;
-}
-```
+2. **Materialized View for Expensive Aggregations:**
+   If query still slow (10+ seconds), create materialized view:
+   ```sql
+   CREATE MATERIALIZED VIEW qmrl_flow_summary AS
+   SELECT
+     qmrl.id,
+     qmrl.request_id,
+     COUNT(DISTINCT qmhq.id) AS total_qmhq_lines,
+     COUNT(DISTINCT po.id) AS total_pos,
+     COUNT(DISTINCT inv.id) AS total_invoices,
+     COUNT(DISTINCT it.id) AS total_inventory_transactions,
+     SUM(CASE WHEN po.status = 'closed' THEN 1 ELSE 0 END) AS closed_pos,
+     MAX(it.created_at) AS last_activity_date
+   FROM qmrl
+   LEFT JOIN qmhq ON qmhq.qmrl_id = qmrl.id
+   LEFT JOIN purchase_orders po ON po.qmhq_id = qmhq.id
+   LEFT JOIN invoices inv ON inv.purchase_order_id = po.id
+   LEFT JOIN inventory_transactions it ON it.invoice_id = inv.id
+   GROUP BY qmrl.id;
 
-**Detection:**
-- User acceptance testing: Open request in two tabs, execute in tab 1, verify tab 2 updates within 5 seconds
-- Automated E2E test: Simulate concurrent access, assert stale data not shown
-- Monitor user feedback: "I executed twice by accident" reports
+   CREATE INDEX idx_qmrl_flow_request_id ON qmrl_flow_summary(request_id);
+   CREATE INDEX idx_qmrl_flow_last_activity ON qmrl_flow_summary(last_activity_date);
+   ```
 
-**Phase to address:** Phase 29 (Per-Line Execution UI) - Implement query invalidation from start
+   Refresh strategy:
+   - **Manual**: Admin page has "Refresh Flow Data" button
+   - **Scheduled**: PostgreSQL cron job refreshes every 30 minutes
+   - **Trigger-based**: Update on major state changes (PO closed, invoice created)
 
-**Confidence:** MEDIUM - UI state sync is standard React pattern, but real-time sync adds complexity
+3. **Pagination + Virtual Scrolling:**
+   Don't load all 100+ QMRLs at once. Use:
+   - Server-side pagination: 20 QMRLs per page
+   - Virtual scrolling library (react-window) if keeping client-side
+   - Infinite scroll with cursor-based pagination
 
-**Sources:**
-- No specific external sources; standard React/frontend state management pattern
+4. **Index Strategy:**
+   Ensure indexes exist on all join columns:
+   ```sql
+   CREATE INDEX IF NOT EXISTS idx_qmhq_qmrl_id ON qmhq(qmrl_id);
+   CREATE INDEX IF NOT EXISTS idx_po_qmhq_id ON purchase_orders(qmhq_id);
+   CREATE INDEX IF NOT EXISTS idx_invoice_po_id ON invoices(purchase_order_id);
+   CREATE INDEX IF NOT EXISTS idx_inventory_invoice_id ON inventory_transactions(invoice_id);
+   ```
+
+   Verify with `EXPLAIN ANALYZE` that indexes are used:
+   ```sql
+   EXPLAIN ANALYZE
+   SELECT ... FROM qmrl LEFT JOIN qmhq ... LIMIT 100;
+   ```
+   Look for "Index Scan" not "Seq Scan" on joined tables.
+
+**Warning signs:**
+- Page load time > 5 seconds in development (will be 20+ in production)
+- Browser DevTools Network tab shows 100+ requests to `/api/*` or Supabase
+- React DevTools shows component tree re-rendering 1000+ times
+- `EXPLAIN ANALYZE` shows "Nested Loop" joins with "Seq Scan" on large tables
+- Database CPU spikes when flow tracking page is accessed
+
+**Phase to address:**
+Phase 3: Flow Tracking Implementation - Include query optimization, indexing strategy, and materialized view as part of initial implementation. DO NOT build UI first then "optimize later."
 
 ---
 
-### Pitfall 5.2: Optimistic UI Update Rollback Failures
+### Pitfall 5: UI Standardization Breaking Working Pages
 
 **What goes wrong:**
-UI optimistically shows "Executed" status and removes Execute button, but backend execution fails (stock shortage), UI doesn't rollback to previous state, user stuck seeing "Executed" when actually still "Approved".
+Refactoring components for consistency (e.g., standardizing all forms to use shared `FormInput`, `FormSelect` components) inadvertently breaks working pages. The codebase has 44K lines of TypeScript with large component files (993 lines for stock-in, 923 for invoice creation). Standardization changes props, removes custom validation logic, or alters state management patterns that working components depend on. After deployment, forms fail to submit, dropdowns don't populate, or validation errors appear incorrectly.
 
 **Why it happens:**
-- Optimistic update pattern: Immediately update local state before API response
-- API call fails (validation error, network timeout, server error)
-- Error handler doesn't restore previous state
-- User sees success UI but database still has old state
+Developer creates standardized components:
+- `FormInput` replaces inline `<input>` tags across 50+ files
+- `FormSelect` replaces custom select implementations
+- New components have different prop names (`value` → `defaultValue`)
+- New components use different validation timing (onBlur → onChange)
+- New components missing features old components had (e.g., inline creation for categories)
 
-**Prevention strategy:**
+Developer uses find-replace to update all files, tests a few pages, deploys. But edge cases break:
+- Invoice form has custom currency formatting in input - new `FormInput` strips formatting
+- Stock-out form has warehouse selection that filters items - new `FormSelect` doesn't trigger filter callback
+- PO line items table has inline editing - new components don't support table context
 
-```typescript
-function ExecuteButton({ approval }: { approval: Approval }) {
-  const queryClient = useQueryClient();
-  const [isExecuting, setIsExecuting] = useState(false);
+**How to avoid:**
 
-  const handleExecute = async () => {
-    setIsExecuting(true);
+1. **Parallel Implementation Strategy:**
+   - Create new standardized components with `v2` suffix: `FormInputV2`, `FormSelectV2`
+   - Migrate pages ONE AT A TIME, testing each fully before next
+   - Keep old and new components side-by-side during transition
+   - Delete old components only after 100% migration confirmed
 
-    // Snapshot current state for rollback
-    const previousData = queryClient.getQueryData(['stock-out-request', approval.request_id]);
+2. **Component API Compatibility Layer:**
+   If old components used certain props, new components should support them:
+   ```typescript
+   interface FormInputProps {
+     value?: string;           // Old prop
+     defaultValue?: string;    // New prop
+     onChange?: (value: string) => void;  // Old signature
+     onValueChange?: (value: string) => void;  // New signature
+   }
 
-    // Optimistic update
-    queryClient.setQueryData(['stock-out-request', approval.request_id], (old: any) => {
-      return {
-        ...old,
-        line_items: old.line_items.map((li: any) =>
-          li.id === approval.line_item_id
-            ? { ...li, status: 'executed' }
-            : li
-        ),
-      };
-    });
+   export function FormInput({ value, defaultValue, onChange, onValueChange, ...rest }: FormInputProps) {
+     const actualValue = value ?? defaultValue;
+     const actualOnChange = onChange ?? onValueChange;
+     // ...
+   }
+   ```
 
-    try {
-      // Execute API call
-      await executeApproval(approval.id);
+3. **Pre-Refactor Testing:**
+   Before changing any component:
+   - [ ] Identify all usages with `grep -r "ComponentName" app/`
+   - [ ] Document edge cases (custom formatting, validation, callbacks)
+   - [ ] Write integration test for each usage context
+   - [ ] Verify test coverage for all form submission paths
 
-      // Success: Refetch to get authoritative state
-      await queryClient.invalidateQueries({ queryKey: ['stock-out-request', approval.request_id] });
+4. **Incremental Rollout with Feature Flag:**
+   ```typescript
+   // lib/feature-flags.ts
+   export const USE_STANDARDIZED_FORMS = process.env.NEXT_PUBLIC_USE_V2_FORMS === 'true';
 
-      toast.success('Execution successful');
+   // In component
+   import { USE_STANDARDIZED_FORMS } from '@/lib/feature-flags';
 
-    } catch (error) {
-      // Rollback optimistic update
-      queryClient.setQueryData(['stock-out-request', approval.request_id], previousData);
+   {USE_STANDARDIZED_FORMS ? <FormInputV2 /> : <FormInput />}
+   ```
 
-      toast.error(`Execution failed: ${error.message}`);
+   Deploy with flag OFF, test in production, enable flag for admin users only, then roll out to all.
 
-    } finally {
-      setIsExecuting(false);
-    }
-  };
+5. **Refactoring Scope Boundaries:**
+   Don't refactor "all forms" at once. Scope boundaries:
+   - **Phase 1**: Simple forms (login, user profile) - low risk
+   - **Phase 2**: List pages with filters - medium risk
+   - **Phase 3**: Multi-step forms (invoice, PO) - high risk
+   - **Phase 4**: Complex forms with business logic (stock-in/out) - highest risk
 
-  return <button onClick={handleExecute} disabled={isExecuting}>Execute</button>;
-}
-```
+**Warning signs:**
+- Refactor PR touches 30+ files
+- PR description says "standardize all forms to use new components"
+- No A/B testing or feature flag strategy mentioned
+- No migration checklist for each affected page
+- Test coverage doesn't increase (indicates components changed but tests didn't)
+- Find-replace used for prop name changes across many files
 
-**Alternative: No optimistic updates for critical operations**
-
-For stock execution (high-risk, irreversible), consider NOT using optimistic updates:
-- Show loading spinner during API call
-- Only update UI after confirmed success
-- Reduces complexity and eliminates rollback logic
-
-**Detection:**
-- Manual testing: Kill backend server mid-execution, verify UI shows error and reverts
-- E2E test: Mock API failure, assert UI state rolled back
-- Monitor toast notifications: Track error toast frequency to identify rollback scenarios
-
-**Phase to address:** Phase 29 (Per-Line Execution UI) - Decide optimistic vs pessimistic UI pattern
-
-**Confidence:** MEDIUM - Optimistic UI is useful for perceived performance but adds complexity
-
-**Sources:**
-- No specific external sources; standard React/UX pattern
-
----
-
-## Phase-Specific Warnings
-
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| **Phase 29: Per-Line Execution UI** | Stale parent status from race conditions | Add row-level locking in `compute_sor_request_status()` |
-| **Phase 29: Per-Line Execution UI** | Orphaned inventory transactions | Add validation trigger requiring `stock_out_approval_id` |
-| **Phase 29: Per-Line Execution UI** | Audit log explosion | Implement selective audit logging (skip auto-computed status) |
-| **Phase 29: Per-Line Execution UI** | Concurrent stock depletion | Use advisory locks in stock validation function |
-| **Phase 29: Per-Line Execution UI** | Duplicate execution | Add UNIQUE index on (stock_out_approval_id) for inventory_transactions |
-| **Phase 29: Per-Line Execution UI** | Stale UI after execution | Use query invalidation or real-time subscriptions |
-| **Phase 30: QMHQ Integration** | Dual reference inconsistency | Add trigger to auto-populate `qmhq_id` from SOR chain |
-| **Phase 30: QMHQ Integration** | QMHQ status not updating | Ensure execution triggers update QMHQ status via qmhq_id link |
-| **Phase 31: Performance Optimization** | Audit log query slowness | Add partial indexes per entity_type on audit_logs |
-| **Phase 32: Testing & Validation** | Race conditions not caught | Load test: Execute 10 concurrent approvals for same item |
+**Phase to address:**
+Phase 4: UI Standardization - Break into sub-phases by component complexity. Each sub-phase targets specific page types with full testing before moving to next.
 
 ---
 
-## Critical Integration Checklist
+## Technical Debt Patterns
 
-Before deploying per-line-item execution:
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Skip enum migration testing in staging | Faster deployment (save 1 day) | Production data corruption, user lockout, requires emergency rollback | Never - enum changes are irreversible without backup restore |
+| Use find-replace for component refactoring | Refactor 50 files in 1 hour vs. 1 week manual | Broken forms, missing validation, production bugs, user trust loss | Never - scope boundaries reduce time to 2-3 days safely |
+| Build flow tracking UI before query optimization | See UI mockup sooner, get stakeholder approval | Page unusable in production, database CPU spikes, requires full rewrite | Only for design review, never deploy to users |
+| Recreate RLS policies without verification | Fewer lines of migration code | Tables unprotected (data breach) or over-protected (empty results) | Never - verification query is 5 lines |
+| Deploy middleware changes without preview testing | Skip staging environment setup | Users locked out, auth bypass vulnerabilities, emergency rollback | Never - Vercel preview deployments are free |
 
-- [ ] **Status Computation:** Add row-level locking (`FOR UPDATE`) in `compute_sor_request_status()` function
-- [ ] **Status Propagation:** Add trigger on `stock_out_line_items` to propagate status changes to parent
-- [ ] **Transaction Linking:** Add validation trigger requiring `stock_out_approval_id` for stock-out transactions
-- [ ] **Dual Reference:** Add trigger to auto-populate `qmhq_id` from SOR chain (approval → line_item → request → qmhq)
-- [ ] **Audit Selectivity:** Modify audit triggers to skip auto-computed status changes
-- [ ] **Audit Indexes:** Add partial indexes on `audit_logs(entity_id, changed_at)` per entity_type
-- [ ] **Stock Validation:** Add advisory locks to `validate_stock_with_lock()` function
-- [ ] **Idempotency:** Add UNIQUE index on `inventory_transactions(stock_out_approval_id)` for executions
-- [ ] **UI Cache Invalidation:** Implement query invalidation after execution
-- [ ] **Error Handling:** Add try-catch with rollback logic for optimistic UI updates
-- [ ] **Load Testing:** Execute 10+ concurrent approvals and verify no negative stock
-- [ ] **Data Integrity:** Query for orphaned transactions, mismatched QMHQ references, duplicate executions
-- [ ] **Monitoring:** Set up alerts for audit log growth, slow queries, serialization failures
+## Integration Gotchas
 
----
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| PostgreSQL enum migration | Using `ALTER TYPE ... DROP VALUE` or `DROP TYPE` directly | Expand-and-contract pattern: add new enum, migrate data, drop old enum in separate transactions |
+| Supabase RLS policy recreation | Dropping all policies, then recreating outside transaction | Atomic transaction: drop children first, recreate parents first, verify with query |
+| Next.js middleware auth | Assuming local behavior matches Vercel Edge runtime | Test in Vercel preview, add header injection protection, verify session refresh timing |
+| Materialized view refresh | Manual `REFRESH MATERIALIZED VIEW` after every data change | Scheduled refresh (30-min cron) or manual trigger via admin UI only |
+| Multi-table JOIN optimization | Building UI with N+1 queries, planning to optimize later | Write denormalized query FIRST, verify with EXPLAIN ANALYZE, then build UI |
 
-## Open Questions for Validation
+## Performance Traps
 
-- **Execution granularity confirmation:** Is per-line-item execution with individual Execute buttons the final decision, or might it change to per-approval execution?
-- **QMHQ status update:** Should SOR execution auto-update QMHQ status to "done" group, or remain manual?
-- **Audit retention policy:** How long to retain audit logs? Should old logs be archived/partitioned?
-- **Stock lock duration:** Advisory locks released at transaction end—is this sufficient, or need application-level locking?
-- **Real-time requirements:** Is 5-second refresh acceptable for multi-tab scenarios, or need instant real-time sync?
-- **Rollback scenario:** If execution partially succeeds (3/5 lines) then fails, should already-executed lines remain executed or rollback?
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| N+1 query cascade in flow tracking | Page load 30+ seconds, 1000+ database queries in DevTools | Single denormalized JOIN query, group results client-side | 100+ QMRLs with 5+ QMHQ each (500+ parent records) |
+| RLS policy function calls on every query | Slow list page loads (5+ seconds), high database CPU | Cache user role in JWT custom claims instead of querying users table | 50+ concurrent users making simultaneous queries |
+| Enum migration without indexes | Query timeout errors after role change | Recreate indexes on new role column before swapping, verify with EXPLAIN | 10K+ users, JOIN queries on role column |
+| Materialized view never refreshed | Flow tracking shows stale data, user confusion | PostgreSQL cron extension or manual refresh UI with last-updated timestamp | First user access after view creation (data is 0 minutes old but appears stale) |
+| force-dynamic on all dashboard pages | Every page load hits database, no caching, slow cold starts | Use ISR where possible, move auth checks to API routes, cache static data | 100+ users accessing dashboard simultaneously (cold start stampede) |
 
----
+## Security Mistakes
 
-## Confidence Assessment
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Deploying middleware changes without CVE-2025-29927 mitigation | Authorization bypass via header injection on self-hosted deployments | Add `x-middleware-subrequest` header check, even if currently on Vercel |
+| Recreating RLS policies outside atomic transaction | Window of time where tables have RLS enabled but no policies (empty results) or RLS disabled (public data) | Wrap all policy changes in single BEGIN/COMMIT transaction, verify before deploy |
+| Using `ON DELETE CASCADE` with RLS policies | Cascade delete fails if user doesn't have RLS permission on child table | Use `ON DELETE SET NULL` for audit fields, verify cascade constraints don't conflict with RLS |
+| Exposing role migration mapping in client code | User role hierarchy visible in browser bundle, attackers know which roles to target | Keep role mapping in database migration only, not in TypeScript constants |
+| No verification query after enum migration | Users with unmapped roles can't be detected until they try to log in | Add `SELECT role, COUNT(*) FROM users GROUP BY role` verification before column swap |
 
-| Area | Confidence | Reasoning |
-|------|------------|-----------|
-| Parent Status Computation | HIGH | Documented PostgreSQL trigger behavior + existing QM System pattern |
-| Transaction Linking | HIGH | Referential integrity well-documented, orphaned records common pitfall |
-| Audit Log Explosion | HIGH | High-frequency operations known to cause audit growth issues |
-| Race Conditions | HIGH | Concurrent stock validation races well-documented in inventory systems |
-| Dual Reference Integrity | MEDIUM | Complex pattern, need real-world testing to validate assumptions |
-| UI State Sync | MEDIUM | Standard React patterns, but real-time complexity varies by approach |
-| Optimistic UI Rollback | MEDIUM | Depends on implementation details, less documentation on inventory-specific scenarios |
+## UX Pitfalls
 
----
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Flow tracking page loads for 30 seconds with no feedback | User thinks page is broken, closes tab, complains to admin | Add skeleton loader, progressive loading (QMRLs first, then details), show "Loading 45/100 requests..." counter |
+| User role changes but not logged out | User sees "Permission denied" errors on actions they previously could do, confused why | Force logout on role change with toast: "Your role has been updated. Please log in again." |
+| Standardized form removes custom validation | User submits invalid data (negative exchange rate), database rejects, generic error shown | Migration checklist includes "transfer all custom validation to new component" verification step |
+| RLS policy recreation causes empty results | User sees "No data available" on pages that previously had data, thinks data was deleted | Add error message: "If you expected to see data, contact admin" + error code for debugging |
+| Materialized view stale data | User sees PO status as "in progress" but they just marked it closed 5 minutes ago | Show last-refresh timestamp: "Data as of 2:30 PM" + manual refresh button |
 
-## Research Methodology
+## "Looks Done But Isn't" Checklist
 
-1. **Existing codebase analysis:** Examined QM System migrations (052, 053, 054) to understand current status computation, transaction linking, and audit patterns
-2. **Context gathering:** Read Phase 27 and Phase 28 planning documents to understand atomic → per-line-item execution change
-3. **Web research:** Searched for granularity changes, partial execution patterns, multi-level aggregation triggers, dual reference linking, audit log management
-4. **Pattern identification:** Cross-referenced QM System patterns with documented pitfalls from PostgreSQL docs, ERP integration patterns, inventory system best practices
-5. **Mitigation design:** Proposed concrete SQL functions and application code based on PostgreSQL official docs and established patterns
+- [ ] **Enum migration:** Migration script succeeds but verification query shows unmapped users still exist
+- [ ] **RLS policies:** All policies recreated but verification query shows tables with RLS enabled but 0 policies
+- [ ] **Middleware auth:** Middleware deploys successfully but session refresh errors appear in logs 6 hours later
+- [ ] **Flow tracking query:** Query returns results in development (10 records) but times out in production (1000 records)
+- [ ] **Component standardization:** All files updated to use new components but custom validation logic was not migrated
+- [ ] **Index creation:** Indexes created on new role column but not on foreign key columns for flow tracking JOINs
+- [ ] **Materialized view:** View created but no refresh strategy (manual button, cron job, trigger)
+- [ ] **Feature flag:** Standardized components deployed but feature flag hard-coded to `true` (can't disable if broken)
 
----
+## Recovery Strategies
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Enum migration breaks user access | HIGH (30-60 min downtime) | 1. Rollback migration to restore old enum. 2. Fix mapping logic. 3. Re-run with verification. 4. Manual verification of all users can log in. |
+| RLS policies dropped but not recreated | CRITICAL (5-10 min window of public data or no access) | 1. Immediately rollback transaction if detected. 2. If committed, run emergency policy recreation script. 3. Audit logs for unauthorized access during window. |
+| Middleware auth breaks on deploy | HIGH (all users locked out until fix) | 1. Revert deployment via Vercel rollback. 2. Test middleware in preview environment. 3. Fix session refresh logic. 4. Gradual rollout with monitoring. |
+| Flow tracking query causes database CPU spike | MEDIUM (page disabled until optimized) | 1. Add feature flag to disable flow tracking page. 2. Create materialized view with indexes. 3. Re-enable with pagination. 4. Monitor database CPU. |
+| Component refactor breaks forms | MEDIUM-HIGH (forms unusable until hotfix) | 1. Identify broken pages via error monitoring. 2. Revert specific component changes via git. 3. Use feature flag to disable new components. 4. Fix validation logic, redeploy. |
+| Materialized view never refreshed | LOW (stale data shown, but functional) | 1. Add manual refresh button to admin UI. 2. Show last-refresh timestamp. 3. Set up cron job for auto-refresh. 4. Add refresh trigger on major state changes. |
+
+## Pitfall-to-Phase Mapping
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| Enum migration without data remapping | Phase 1: Database Foundation | Run verification query: 100% users have new role mapped, 0 users have old role values |
+| RLS policy cascade failures | Phase 1: Database Foundation | Run verification query: all RLS-enabled tables have policies, no tables unprotected |
+| Middleware authorization breaking | Phase 2: Middleware & Auth Updates | Deploy to Vercel preview, test session refresh, verify header injection protection |
+| Flow tracking query N+1 performance | Phase 3: Flow Tracking Implementation | Run EXPLAIN ANALYZE, verify index usage, load test with 1000+ QMRLs |
+| UI standardization breaking pages | Phase 4: UI Standardization | Incremental rollout with feature flag, test each page type before next, monitor error rates |
+| Index missing on new role column | Phase 1: Database Foundation | Run query plan analysis, verify indexes exist on role, foreign keys, join columns |
+| Materialized view no refresh strategy | Phase 3: Flow Tracking Implementation | Manual refresh button works, last-refresh timestamp shown, cron job scheduled |
 
 ## Sources
 
-- [PostgreSQL Trigger Behavior Documentation](https://www.postgresql.org/docs/current/trigger-definition.html)
-- [PostgreSQL Triggers Performance Impact](https://infinitelambda.com/postgresql-triggers/)
-- [Aggregation Operations in Distributed SQL](https://medium.com/towards-data-engineering/aggregation-operations-in-distributed-sql-query-engines-516c464e8e19)
-- [Referential Integrity Challenges](https://www.acceldata.io/blog/referential-integrity-why-its-vital-for-databases)
-- [Why Referential Data Integrity Is Important](https://www.montecarlodata.com/blog-how-to-maintain-referential-data-integrity/)
-- [Atomic Updates and Data Consistency](https://medium.com/insiderengineering/atomic-updates-keeping-your-data-consistent-in-a-changing-world-f6aacf38f71a)
-- [Cascade Delete Audit Considerations](https://learn.microsoft.com/en-us/power-apps/developer/data-platform/auditing/delete-audit-data)
-- [Outbox Pattern for Dual-Write Problem](https://www.enterpriseintegrationpatterns.com/)
-- [ERP Integration Patterns](https://roi-consulting.com/erp-integration-patterns-what-they-are-and-why-you-should-care/)
-- [Stale Stats and Query Performance](https://pganalyze.com/docs/explain/insights/stale-stats)
-- [SQL ON DELETE CASCADE Best Practices](https://www.datacamp.com/tutorial/sql-on-delete-cascade)
-- [Inventory Management Workflow](https://www.posnation.com/blog/inventory-management-workflow)
-- [ER Diagram for Inventory Management System](https://www.kladana.com/blog/inventory-management/er-diagram-for-inventory-management-system/)
+**PostgreSQL Enum Migration:**
+- [Managing Enums in Postgres | Supabase Docs](https://supabase.com/docs/guides/database/postgres/enums)
+- [PostgreSQL: Documentation: 18: 8.7. Enumerated Types](https://www.postgresql.org/docs/current/datatype-enum.html)
+- [Why You Should (and Shouldn't) Use Enums in PostgreSQL | Medium](https://medium.com/@slashgkr/why-you-should-and-shouldnt-use-enums-in-postgresql-1e354203fd62)
+- [Handling PostgreSQL Enum Updates with View Dependencies in Alembic Migrations](https://bakkenbaeck.com/tech/enums-views-alembic-migrations)
+
+**Supabase RLS Policies:**
+- [Row Level Security | Supabase Docs](https://supabase.com/docs/guides/database/postgres/row-level-security)
+- [Supabase Row Level Security (RLS): Complete Guide (2026)](https://designrevision.com/blog/supabase-row-level-security)
+- [Cascade Deletes | Supabase Docs](https://supabase.com/docs/guides/database/postgres/cascade-deletes)
+
+**Next.js Middleware Security:**
+- [CVE-2025-29927: Next.js Middleware Authorization Bypass - Technical Analysis](https://projectdiscovery.io/blog/nextjs-middleware-authorization-bypass)
+- [Understanding CVE-2025-29927: The Next.js Middleware Authorization Bypass Vulnerability](https://securitylabs.datadoghq.com/articles/nextjs-middleware-auth-bypass/)
+- [Postmortem on Next.js Middleware bypass - Vercel](https://vercel.com/blog/postmortem-on-next-js-middleware-bypass)
+
+**PostgreSQL Query Performance:**
+- [Join strategies and performance in PostgreSQL](https://www.cybertec-postgresql.com/en/join-strategies-and-performance-in-postgresql/)
+- [Strategies for Improving Postgres JOIN Performance](https://www.tigerdata.com/learn/strategies-for-improving-postgres-join-performance)
+- [Optimizing Materialized Views in PostgreSQL](https://medium.com/@ShivIyer/optimizing-materialized-views-in-postgresql-best-practices-for-performance-and-efficiency-3e8169c00dc1)
+- [Indexing Materialized Views in Postgres](https://www.crunchydata.com/blog/indexing-materialized-views-in-postgres)
+
+**React Component Refactoring:**
+- [Common Sense Refactoring of a Messy React Component](https://alexkondov.com/refactoring-a-messy-react-component/)
+- [Refactoring A Junior's React Code - Reduced Complexity](https://profy.dev/article/react-junior-code-review-and-refactoring-2)
+- [Modularizing React Applications with Established UI Patterns](https://martinfowler.com/articles/modularizing-react-apps.html)
+
+**Project-Specific Context:**
+- QM System codebase concerns audit (2026-01-27)
+- Database migration analysis: 66 migrations, 132+ RLS policy references
+- Architecture review: 44K lines TypeScript, force-dynamic pages, N+1 query patterns
 
 ---
-
-*Research completed: 2026-02-11*
-*Researcher: Claude Sonnet 4.5 (GSD Project Research Agent)*
-*Next step: Use findings to inform Phase 29 implementation plan*
+*Pitfalls research for: UI Standardization, Request Flow Tracking, and RBAC Role Overhaul*
+*Researched: 2026-02-11*
