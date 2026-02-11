@@ -112,10 +112,11 @@ Plans:
 3. Zero users have invalid or null roles after migration
 4. Role enum supports adding new roles in the future without schema redesign (no hardcoded checks beyond enum definition)
 
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 37-01: TBD (planning not started)
+- [ ] 37-01-PLAN.md — Enum migration with data mapping and function updates (expand-and-contract)
+- [ ] 37-02-PLAN.md — RLS policy recreation across all 20 tables with new role values
 
 ---
 
