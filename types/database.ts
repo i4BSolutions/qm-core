@@ -1981,14 +1981,7 @@ export type Database = {
       entity_type: "qmrl" | "qmhq" | "item"
       item_category: "equipment" | "consumable" | "uniform" | "other"
       status_group: "to_do" | "in_progress" | "done"
-      user_role:
-        | "admin"
-        | "quartermaster"
-        | "finance"
-        | "inventory"
-        | "proposal"
-        | "frontline"
-        | "requester"
+      user_role: "admin" | "qmrl" | "qmhq"
       // Future enums (will be added when tables are created)
       priority_level: "low" | "medium" | "high" | "critical"
       route_type: "item" | "expense" | "po"

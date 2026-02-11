@@ -30,21 +30,25 @@ export type PermissionResource =
   | "stock_out_requests";
 
 /**
- * Permission matrix based on PRD
+ * Permission matrix based on 3-role RBAC model
  *
- * | Resource | Admin | Quartermaster | Finance | Inventory | Proposal | Frontline | Requester |
- * |----------|-------|---------------|---------|-----------|----------|-----------|-----------|
- * | Users | CRUD | R | - | - | - | - | - |
- * | QMRL | CRUD | CRUD | R | R | RU | RU | CR (own) |
- * | QMHQ | CRUD | CRUD | RU | RU | CRUD | R | R (own) |
- * | Financial Trans. | CRUD | R | CRUD | R | R | - | - |
- * | Inventory Trans. | CRUD | CRUD | R | CRUD | R | - | - |
- * | POs | CRUD | CRUD | CRUD | R | CRUD | - | - |
- * | Invoices | CRUD | CRUD | CRUD | RU | R | - | - |
- * | Items | CRUD | CRUD | R | CRUD | R | R | R |
- * | Warehouses | CRUD | CRUD | R | CRUD | R | - | - |
- * | Suppliers | CRUD | CRUD | CRUD | R | CRUD | R | R |
- * | Contact Persons | CRUD | CRUD | R | R | CRUD | CRUD | R |
+ * | Resource | Admin | QMRL | QMHQ |
+ * |----------|-------|------|------|
+ * | Users | CRUD | - | - |
+ * | QMRL | CRUD | CRU | R |
+ * | QMHQ | CRUD | - | CRUD |
+ * | Financial Trans. | CRUD | - | CRUD |
+ * | Inventory Trans. | CRUD | - | R |
+ * | POs | CRUD | - | CRUD |
+ * | Invoices | CRUD | - | CRUD |
+ * | Items | CRUD | R | RU |
+ * | Warehouses | CRUD | R | RU |
+ * | Suppliers | CRUD | R | CRUD |
+ * | Contact Persons | CRUD | CRU | CRUD |
+ * | Departments | CRUD | R | R |
+ * | Categories | CRUD | R | CR |
+ * | Statuses | CRUD | R | CR |
+ * | Stock-Out Requests | CRUD | R | CR |
  */
 
 type PermissionMatrix = {
@@ -56,138 +60,78 @@ type PermissionMatrix = {
 const permissionMatrix: PermissionMatrix = {
   users: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["read"],
-    finance: [],
-    inventory: [],
-    proposal: [],
-    frontline: [],
-    requester: [],
+    qmrl: [],
+    qmhq: [],
   },
   qmrl: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["create", "read", "update", "delete"],
-    finance: ["read"],
-    inventory: ["read"],
-    proposal: ["read", "update"],
-    frontline: ["read", "update"],
-    requester: ["create", "read"], // own only - handled separately
+    qmrl: ["create", "read", "update"],
+    qmhq: ["read"],
   },
   qmhq: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["create", "read", "update", "delete"],
-    finance: ["read", "update"],
-    inventory: ["read", "update"],
-    proposal: ["create", "read", "update", "delete"],
-    frontline: ["read"],
-    requester: ["read"], // own only - handled separately
+    qmrl: [],
+    qmhq: ["create", "read", "update", "delete"],
   },
   financial_transactions: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["read"],
-    finance: ["create", "read", "update", "delete"],
-    inventory: ["read"],
-    proposal: ["read"],
-    frontline: [],
-    requester: [],
+    qmrl: [],
+    qmhq: ["create", "read", "update", "delete"],
   },
   inventory_transactions: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["create", "read", "update", "delete"],
-    finance: ["read"],
-    inventory: ["create", "read", "update", "delete"],
-    proposal: ["read"],
-    frontline: [],
-    requester: [],
+    qmrl: [],
+    qmhq: ["read"],
   },
   purchase_orders: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["create", "read", "update", "delete"],
-    finance: ["create", "read", "update", "delete"],
-    inventory: ["read"],
-    proposal: ["create", "read", "update", "delete"],
-    frontline: [],
-    requester: [],
+    qmrl: [],
+    qmhq: ["create", "read", "update", "delete"],
   },
   invoices: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["create", "read", "update", "delete"],
-    finance: ["create", "read", "update", "delete"],
-    inventory: ["read", "update"],
-    proposal: ["read"],
-    frontline: [],
-    requester: [],
+    qmrl: [],
+    qmhq: ["create", "read", "update", "delete"],
   },
   items: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["create", "read", "update", "delete"],
-    finance: ["read"],
-    inventory: ["create", "read", "update", "delete"],
-    proposal: ["read"],
-    frontline: ["read"],
-    requester: ["read"],
+    qmrl: ["read"],
+    qmhq: ["read", "update"],
   },
   warehouses: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["create", "read", "update", "delete"],
-    finance: ["read"],
-    inventory: ["create", "read", "update", "delete"],
-    proposal: ["read"],
-    frontline: [],
-    requester: [],
+    qmrl: ["read"],
+    qmhq: ["read", "update"],
   },
   suppliers: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["create", "read", "update", "delete"],
-    finance: ["create", "read", "update", "delete"],
-    inventory: ["read"],
-    proposal: ["create", "read", "update", "delete"],
-    frontline: ["read"],
-    requester: ["read"],
+    qmrl: ["read"],
+    qmhq: ["create", "read", "update", "delete"],
   },
   contact_persons: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["create", "read", "update", "delete"],
-    finance: ["read"],
-    inventory: ["read"],
-    proposal: ["create", "read", "update", "delete"],
-    frontline: ["create", "read", "update", "delete"],
-    requester: ["read"],
+    qmrl: ["create", "read", "update"],
+    qmhq: ["create", "read", "update", "delete"],
   },
   departments: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["read"],
-    finance: ["read"],
-    inventory: ["read"],
-    proposal: ["read"],
-    frontline: ["read"],
-    requester: ["read"],
+    qmrl: ["read"],
+    qmhq: ["read"],
   },
   categories: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["create", "read", "update", "delete"],
-    finance: ["read"],
-    inventory: ["read"],
-    proposal: ["create", "read"],
-    frontline: ["read"],
-    requester: ["read"],
+    qmrl: ["read"],
+    qmhq: ["create", "read"],
   },
   statuses: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["create", "read", "update", "delete"],
-    finance: ["read"],
-    inventory: ["read"],
-    proposal: ["create", "read"],
-    frontline: ["read"],
-    requester: ["read"],
+    qmrl: ["read"],
+    qmhq: ["create", "read"],
   },
   stock_out_requests: {
     admin: ["create", "read", "update", "delete"],
-    quartermaster: ["create", "read", "update", "delete"],
-    inventory: ["create", "read", "update", "delete"],
-    proposal: ["create", "read"],
-    finance: ["read"],
-    frontline: ["read"],
-    requester: ["read"],
+    qmrl: ["read"],
+    qmhq: ["create", "read"],
   },
 };
 
@@ -251,12 +195,8 @@ export function usePermissions() {
     canAll,
     permissions,
     isAdmin: role === "admin",
-    isQuartermaster: role === "quartermaster",
-    isFinance: role === "finance",
-    isInventory: role === "inventory",
-    isProposal: role === "proposal",
-    isFrontline: role === "frontline",
-    isRequester: role === "requester",
+    isQmrl: role === "qmrl",
+    isQmhq: role === "qmhq",
   };
 }
 
@@ -276,53 +216,19 @@ export const roleNavigation: Record<UserRole, string[]> = {
     "/item",
     "/admin",
   ],
-  quartermaster: [
+  qmrl: [
+    "/dashboard",
+    "/qmrl",
+    "/item",
+  ],
+  qmhq: [
     "/dashboard",
     "/qmrl",
     "/qmhq",
     "/po",
     "/invoice",
-    "/inventory",
     "/inventory/stock-out-requests",
     "/warehouse",
-    "/item",
-  ],
-  finance: [
-    "/dashboard",
-    "/qmrl",
-    "/qmhq",
-    "/po",
-    "/invoice",
-    "/item",
-  ],
-  inventory: [
-    "/dashboard",
-    "/qmrl",
-    "/qmhq",
-    "/invoice",
-    "/inventory",
-    "/inventory/stock-out-requests",
-    "/warehouse",
-    "/item",
-  ],
-  proposal: [
-    "/dashboard",
-    "/qmrl",
-    "/qmhq",
-    "/po",
-    "/invoice",
-    "/inventory/stock-out-requests",
-    "/item",
-  ],
-  frontline: [
-    "/dashboard",
-    "/qmrl",
-    "/qmhq",
-    "/item",
-  ],
-  requester: [
-    "/dashboard",
-    "/qmrl",
     "/item",
   ],
 };
