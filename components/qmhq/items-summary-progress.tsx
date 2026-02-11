@@ -1,7 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 export interface ItemProgressData {
   itemId: string;
@@ -28,12 +26,14 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
           const pending = Math.max(0, item.approved - item.executed);
 
           // Cap percentages to prevent overflow
-          const requestedPercent = 100;
           const approvedPercent = item.requested > 0
             ? Math.min(100, (item.approved / item.requested) * 100)
             : 0;
           const executedPercent = item.requested > 0
             ? Math.min(100, (item.executed / item.requested) * 100)
+            : 0;
+          const rejectedPercent = item.requested > 0
+            ? Math.min(100, (item.rejected / item.requested) * 100)
             : 0;
 
           return (
@@ -47,14 +47,6 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
                     </span>
                   )}
                   <span className="text-sm text-slate-200">{item.itemName}</span>
-                  {item.rejected > 0 && (
-                    <Badge
-                      variant="outline"
-                      className="border-red-500/30 text-red-400"
-                    >
-                      Rejected: {item.rejected}
-                    </Badge>
-                  )}
                 </div>
                 <span className="text-xs text-slate-400">
                   {item.executed}/{item.requested}
@@ -66,8 +58,15 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
                 {/* Requested baseline (full width) */}
                 <div
                   className="absolute inset-y-0 left-0 bg-slate-600/30 transition-all duration-500"
-                  style={{ width: `${requestedPercent}%` }}
+                  style={{ width: "100%" }}
                 />
+                {/* Rejected segment (from right) */}
+                {rejectedPercent > 0 && (
+                  <div
+                    className="absolute inset-y-0 right-0 bg-red-500/40 transition-all duration-500"
+                    style={{ width: `${rejectedPercent}%` }}
+                  />
+                )}
                 {/* Approved segment */}
                 <div
                   className="absolute inset-y-0 left-0 bg-blue-500/40 transition-all duration-500"
@@ -94,6 +93,12 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
                   <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1" />
                   Executed: {item.executed}
                 </div>
+                {item.rejected > 0 && (
+                  <div className="flex items-center text-red-400">
+                    <span className="w-2 h-2 rounded-full bg-red-500 inline-block mr-1" />
+                    Rejected: {item.rejected}
+                  </div>
+                )}
                 {pending > 0 && (
                   <div className="flex items-center text-amber-400">
                     <span className="w-2 h-2 rounded-full bg-amber-500 inline-block mr-1" />

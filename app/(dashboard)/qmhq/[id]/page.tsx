@@ -474,7 +474,7 @@ export default function QMHQDetailPage() {
             const approvedApprovals = li.approvals?.filter((a: any) => a.decision === 'approved') || [];
             const rejectedApprovals = li.approvals?.filter((a: any) => a.decision === 'rejected') || [];
             approved += approvedApprovals.reduce((sum: number, a: any) => sum + (a.approved_quantity || 0), 0);
-            rejected += rejectedApprovals.length;  // Count rejections (qty is 0 for rejections)
+            rejected += rejectedApprovals.reduce((sum: number, a: any) => sum + (a.approved_quantity || 0), 0);
           }
         }
       }
