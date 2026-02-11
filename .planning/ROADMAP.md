@@ -135,10 +135,11 @@ Plans:
 4. Navigation sidebar shows only sections permitted by the user's current role
 5. Stock-out approvals remain restricted to Admin role only
 
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 38-01: TBD (planning not started)
+- [ ] 38-01-PLAN.md — Update TypeScript types, permission matrix, roleNavigation, and sidebar navigation
+- [ ] 38-02-PLAN.md — Update page-level role checks, admin UI configs, and stock-out approval guards
 
 ---
 
