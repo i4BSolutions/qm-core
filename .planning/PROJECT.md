@@ -2,29 +2,20 @@
 
 ## What This Is
 
-An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with stock-out approval workflows, deletion protection, team collaboration via comments, and responsive financial displays.
+An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with per-line-item stock-out approval and execution workflows, deletion protection, team collaboration via comments, and responsive financial displays.
 
 ## Core Value
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-## Current Milestone: v1.7 Stock-Out Request Logic Repair
-
-**Goal:** Fix stock-out execution to work per line item instead of per request, connect QMHQ item detail to stock-out transactions properly, and display correct references (SOR primary, QMHQ secondary).
-
-**Target features:**
-- Per-line-item stock-out execution (each approved item gets independent Execute button)
-- QMHQ item detail stock-out transaction linking (QMHQ → SOR → executed stock-out)
-- Dual reference display on stock-out transactions (SOR ID primary, parent QMHQ ID secondary)
-
-## Current State (v1.6 Shipped)
+## Current State (v1.7 Shipped)
 
 **Tech Stack:**
 - Next.js 14+ with App Router, TypeScript strict mode
 - Supabase for auth, database, and file storage
 - Tailwind CSS with dark theme support
-- ~42,600 lines of TypeScript
-- 57 database migrations with RLS policies
+- ~43,976 lines of TypeScript
+- 62 database migrations with RLS policies
 
 **Shipped Features:**
 - Email OTP authentication with 7-role RBAC
@@ -33,7 +24,12 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Invoice creation with quantity validation and void cascade
 - Inventory stock-in/out with WAC valuation (multi-currency)
 - Stock-out request/approval workflow with partial approval and atomic execution
-- QMHQ item route integration with stock-out requests (requested/approved qty display)
+- QMHQ item route integration with stock-out requests (requested/approved/rejected/executed qty display)
+- Per-line-item stock-out execution with stock pre-check and confirmation dialog
+- SOR-grouped transaction display with stepped progress visualization on QMHQ detail
+- Dual reference display (SOR primary + QMHQ secondary) on stock-out transactions
+- Database trigger hardening (advisory locks, row-level locking, idempotency constraints)
+- Aggregate fulfillment metrics with cross-tab sync (BroadcastChannel)
 - File attachments with drag-drop upload, preview, and ZIP download
 - File upload in QMRL create form with staged upload pattern
 - Live management dashboard with KPIs and alerts
@@ -134,12 +130,17 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - ✓ User deactivation (no delete) with login blocking — v1.6
 - ✓ Context slider on stock-out request and QMHQ create pages — v1.6
 
+<!-- V1.7 Features -->
+- ✓ Per-line-item stock-out execution instead of whole-request atomic execution — v1.7
+- ✓ QMHQ item detail links stock-out transactions through SOR → execution — v1.7
+- ✓ Stock-out transaction reference shows SOR ID (primary) and parent QMHQ ID (secondary) — v1.7
+- ✓ QMHQ fulfillment metrics (requested/approved/rejected/executed) with cross-tab sync — v1.7
+- ✓ Database advisory locks and idempotency constraints for concurrent execution safety — v1.7
+- ✓ Auto-populate QMHQ link from SOR chain with backfill migration — v1.7
+
 ### Active
 
-<!-- V1.7 Features -->
-- [ ] Per-line-item stock-out execution instead of whole-request atomic execution — v1.7
-- [ ] QMHQ item detail links stock-out transactions through SOR → execution — v1.7
-- [ ] Stock-out transaction reference shows SOR ID (primary) and parent QMHQ ID (secondary) — v1.7
+(None — define in next milestone)
 
 ### Out of Scope
 
@@ -159,6 +160,9 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Specific reference list in delete error — generic error sufficient; defer detailed view
 - Context slider on stock-out approval/execution pages — approval page already shows full context; execution is a dialog
 - Whole-request atomic execution — replaced by per-line-item execution in v1.7
+- Batch "Execute All" button — per-line-item execution is the goal; batch can be added later
+- Advisory lock performance tuning — defer until 10K+ SORs/month
+- Real-time subscription for execution status — query invalidation sufficient for internal tool
 
 ## Context
 
@@ -170,7 +174,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.4 UX Enhancements & Workflow Improvements — Attachments, number formatting, inline creation, multi-tab auth (shipped 2026-02-06)
 - v1.5 UX Polish & Collaboration — Comments, responsive typography, two-step selectors, currency unification (shipped 2026-02-09)
 - v1.6 Stock-Out Approval & Data Integrity — Stock-out approval, deletion protection, user deactivation, context sliders (shipped 2026-02-10)
-- v1.7 Stock-Out Request Logic Repair — Per-line-item execution, QMHQ transaction linking, dual reference display (in progress)
+- v1.7 Stock-Out Request Logic Repair — Per-line-item execution, QMHQ transaction linking, dual reference display (shipped 2026-02-11)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -197,6 +201,15 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Dual enforcement for user deactivation (ban_duration + middleware is_active check)
 - ContextSlider pattern: structural shell + presentational content components
 - Conditional layout pattern (grid only when context is relevant)
+- SOR-grouped transaction display with stepped progress visualization
+- Dual reference display with circular navigation prevention (currentQmhqId prop)
+- Independent nested data fetching (components fetch own data when context allows)
+- Transaction-level advisory locks (pg_advisory_xact_lock) for automatic cleanup
+- Lock ordering (line item → parent request) to prevent deadlocks
+- Auto-populate FK from trigger chain (approval → line_item → request → qmhq_id)
+- Partial unique index for idempotency (scoped to specific transaction types)
+- Per-approval execution with stock pre-check and optimistic UI with rollback
+- BroadcastChannel cross-tab sync pattern (qm-stock-out-execution channel)
 
 ## Key Decisions
 
@@ -227,8 +240,14 @@ Users can reliably create purchase orders, receive inventory, and track request 
 | Admin-only approval via RLS | Database-level enforcement, not just UI guards | ✓ Good |
 | Computed request status from line items | Parent always reflects child state, no manual sync | ✓ Good |
 | Item snapshot at line item creation | Preserves historical accuracy even if item renamed | ✓ Good |
-| Whole-request atomic execution | Simpler UX, prevents partial fulfillment issues | ⚠️ Revisit — changing to per-line-item in v1.7 |
-| Stock shortage blocks entire execution | Ensures all items can be issued together | ⚠️ Revisit — per-line-item execution in v1.7 |
+| Whole-request atomic execution → Per-line-item execution | Originally simpler UX, but per-line granularity needed for partial fulfillment | ✓ Good — replaced in v1.7 |
+| Per-item stock pre-check with tooltip | Disabled Execute button + tooltip when insufficient stock | ✓ Good |
+| Transaction-level advisory locks | pg_advisory_xact_lock for automatic cleanup, prevents session leak | ✓ Good |
+| Lock ordering (line item → parent request) | Prevents deadlocks during concurrent execution | ✓ Good |
+| Auto-populate qmhq_id from SOR chain | Trigger traverses approval → line_item → request to set qmhq_id | ✓ Good |
+| Partial unique index for idempotency | Scoped to completed+active inventory_out only | ✓ Good |
+| Numbers-only metrics display (no progress bar) | Clearer than progress bar for discrete qty values | ✓ Good |
+| BroadcastChannel for cross-tab sync | Real-time updates without polling; Safari fallback included | ✓ Good |
 | Generic deletion error message | Security — doesn't reveal reference details | ✓ Good |
 | Partial indexes for deletion checks | WHERE is_active = true optimizes performance | ✓ Good |
 | Dual enforcement for user deactivation | ban_duration prevents token refresh, middleware catches unexpired tokens | ✓ Good |
@@ -251,4 +270,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
   - Execution is a dialog modal, not a standalone page
 
 ---
-*Last updated: 2026-02-11 after v1.7 milestone started*
+*Last updated: 2026-02-11 after v1.7 milestone*

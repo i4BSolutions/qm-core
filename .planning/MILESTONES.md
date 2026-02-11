@@ -170,3 +170,34 @@
 
 ---
 
+
+## v1.7 Stock-Out Request Logic Repair (Shipped: 2026-02-11)
+
+**Delivered:** Per-line-item stock-out execution replacing whole-request atomic execution, QMHQ transaction linking with SOR-grouped display, dual reference display (SOR primary + QMHQ secondary), database trigger hardening with advisory locks, and aggregate fulfillment metrics.
+
+**Phases completed:** 32-35 (7 plans total)
+
+**Key accomplishments:**
+
+- Built SOR-grouped transaction display with stepped progress visualization (Requested → Approved → Executed) on QMHQ item detail
+- Added dual reference display — SOR approval number (primary badge) + parent QMHQ ID (secondary link) with clickable navigation
+- Hardened database triggers with advisory locks, row-level locking, and idempotency constraints for concurrent execution safety
+- Auto-populated QMHQ link from SOR chain with backfill migration and duplicate cleanup
+- Replaced whole-request execution with per-approval Execute buttons, stock pre-check, confirmation dialog, and cross-tab sync
+- Created FulfillmentMetrics component showing Requested/Approved/Rejected/Executed aggregates with real-time cross-tab updates
+
+**Stats:**
+
+- 42 files modified (+7,902/-550 lines)
+- ~43,976 lines of TypeScript
+- 4 phases, 7 plans, 13 feat commits
+- 1 day from start to ship (2026-02-11)
+
+**Git range:** `ccc88b5` → `24c2864`
+
+**Tech debt accepted:** PO Edit page still 404; context slider deferred for approval/execution pages
+
+**What's next:** TBD — run `/gsd:new-milestone` to define next goals
+
+---
+
