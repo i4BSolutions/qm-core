@@ -89,10 +89,10 @@ Plans:
   2. When transaction is linked to a QMHQ, secondary reference displays parent QMHQ ID (e.g., "via QMHQ-2026-00042")
   3. Both SOR and QMHQ references are clickable links to their respective detail pages
   4. QMHQ item detail displays linked stock-out transactions in a dedicated table
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 33-01: [TBD during planning]
+- [ ] 33-01-PLAN.md — Dual reference display on transactions and linked transactions table
 
 #### Phase 34: Database Trigger Hardening
 **Goal**: Database integrity guarantees prevent race conditions and orphaned records during per-line execution
