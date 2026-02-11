@@ -160,10 +160,11 @@ Plans:
 6. For PO route QMHQs, tracking shows linked POs, invoices, and stock-in status
 7. Only Admin role can access the flow tracking page (enforced by RLS and navigation)
 
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 39-01: TBD (planning not started)
+- [ ] 39-01-PLAN.md — Database VIEW, TypeScript types, and query function for flow chain data layer
+- [ ] 39-02-PLAN.md — Flow tracking page UI with timeline components, search, and admin navigation
 
 ---
 
