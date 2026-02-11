@@ -49,7 +49,12 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
                   <span className="text-sm text-slate-200">{item.itemName}</span>
                 </div>
                 <span className="text-xs text-slate-400">
-                  {item.executed}/{item.requested}
+                  {item.executed}/{item.requested - item.rejected}
+                  {item.rejected > 0 && (
+                    <span className="text-red-400 ml-1">
+                      (-{item.rejected})
+                    </span>
+                  )}
                 </span>
               </div>
 
