@@ -122,10 +122,11 @@ Plans:
   5. QMHQ item detail shows rejected qty (sum of rejections)
   6. QMHQ item detail shows executed/fulfilled qty (sum of stock-out transactions)
   7. Fulfillment Progress on QMHQ detail calculates as (executed qty / approved qty) with requested qty visible
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 35-01: [TBD during planning]
+- [ ] 35-01-PLAN.md — Per-approval execution buttons on SOR detail page with stock pre-check and confirmation dialog
+- [ ] 35-02-PLAN.md — FulfillmentMetrics component on QMHQ item detail page with cross-tab sync
 
 ## Progress
 
