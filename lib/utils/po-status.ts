@@ -193,3 +193,114 @@ export function canCreateInvoice(status: POStatusEnum): boolean {
     status !== "awaiting_delivery"
   );
 }
+
+/**
+ * Generate tooltip text for PO status badge
+ *
+ * Shows progress counts and percentages for invoiced and received quantities.
+ * Provides contextual messages for special states (cancelled, closed, empty).
+ *
+ * @param status - The current PO status
+ * @param totalQty - Total ordered quantity across all line items
+ * @param invoicedQty - Total invoiced quantity
+ * @param receivedQty - Total received quantity
+ * @returns Human-readable tooltip text
+ *
+ * @example
+ * generateStatusTooltip("partially_invoiced", 10, 6, 2)
+ * // Returns: "6/10 invoiced (60%), 2/10 received (20%)"
+ */
+export function generateStatusTooltip(
+  status: POStatusEnum,
+  totalQty: number,
+  invoicedQty: number,
+  receivedQty: number
+): string {
+  // Special cases
+  if (status === "cancelled") {
+    return "This PO has been cancelled";
+  }
+
+  if (status === "closed") {
+    return "Fully matched: ordered = invoiced = received";
+  }
+
+  if (totalQty === 0) {
+    return "No line items";
+  }
+
+  // Handle division by zero
+  const invoicedPercent =
+    totalQty > 0 ? Math.round((invoicedQty / totalQty) * 100) : 0;
+  const receivedPercent =
+    totalQty > 0 ? Math.round((receivedQty / totalQty) * 100) : 0;
+
+  return `${invoicedQty}/${totalQty} invoiced (${invoicedPercent}%), ${receivedQty}/${totalQty} received (${receivedPercent}%)`;
+}
+
+/**
+ * Recompute PO status from aggregates (client-side mirror of database logic)
+ *
+ * This function mirrors the database `calculate_po_status()` function for
+ * page-load safety net display. It follows the same invoice-first priority
+ * logic as the database trigger.
+ *
+ * **IMPORTANT:** This is for display comparison only, NOT for writing back to DB.
+ * The database trigger is the single source of truth for status values.
+ *
+ * @param totalQty - Total ordered quantity across all line items
+ * @param invoicedQty - Total invoiced quantity
+ * @param receivedQty - Total received quantity
+ * @param isCancelled - Whether the PO is manually cancelled
+ * @returns Expected POStatusEnum value based on current quantities
+ *
+ * @example
+ * // PO with 10 items, 6 invoiced, 2 received
+ * const expected = recomputeStatusFromAggregates(10, 6, 2, false);
+ * // Returns: "partially_invoiced" (invoice-first priority)
+ */
+export function recomputeStatusFromAggregates(
+  totalQty: number,
+  invoicedQty: number,
+  receivedQty: number,
+  isCancelled: boolean
+): POStatusEnum {
+  // If cancelled, bypass auto-calc
+  if (isCancelled) {
+    return "cancelled";
+  }
+
+  // If no line items
+  if (totalQty === 0) {
+    return "not_started";
+  }
+
+  // Check if fully matched (closed) - 3-way match
+  if (receivedQty >= totalQty && invoicedQty >= totalQty) {
+    return "closed";
+  }
+
+  // INVOICE TAKES PRIORITY: Check if partially invoiced
+  // Show partially_invoiced even if some items are received
+  if (invoicedQty > 0 && invoicedQty < totalQty) {
+    return "partially_invoiced";
+  }
+
+  // After fully invoiced, check receiving progress
+  // Check if partially received (only after fully invoiced)
+  if (
+    invoicedQty >= totalQty &&
+    receivedQty > 0 &&
+    receivedQty < totalQty
+  ) {
+    return "partially_received";
+  }
+
+  // Check if awaiting delivery (fully invoiced but not received)
+  if (invoicedQty >= totalQty && receivedQty === 0) {
+    return "awaiting_delivery";
+  }
+
+  // Default to not_started
+  return "not_started";
+}
