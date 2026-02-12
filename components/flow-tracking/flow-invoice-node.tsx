@@ -11,31 +11,33 @@ interface FlowInvoiceNodeProps {
 }
 
 export function FlowInvoiceNode({ invoice }: FlowInvoiceNodeProps) {
-  const baseClasses =
-    "border-l-4 border-l-cyan-500 rounded-lg bg-slate-900/50 p-3 sm:p-4 hover:bg-slate-800/50 transition-colors";
   const voidedClasses = invoice.is_voided ? "opacity-50 [&_*]:line-through" : "";
 
   return (
-    <div className="my-3">
+    <div className="my-3 animate-slide-up" style={{ animationDelay: "150ms" }}>
       <Link href={`/invoice/${invoice.id}`}>
-        <div className={cn(baseClasses, voidedClasses)}>
-          {/* Header: icon + Invoice number + status */}
-          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500/20">
-                <FileSpreadsheet className="h-3 w-3 text-cyan-400" />
-              </div>
-              <code className="text-xs font-mono text-cyan-400">
+        <div className={cn("tactical-card corner-accents p-4 group", voidedClasses)}>
+          {/* Scan line effect */}
+          <div className="scan-overlay" />
+
+          {/* Header: Invoice badge + status */}
+          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+            <div className="inline-flex items-center gap-2 rounded bg-slate-800 border border-cyan-500/30 px-3 py-1.5">
+              <FileSpreadsheet className="h-4 w-4 text-cyan-400" />
+              <code className="font-mono text-sm font-semibold tracking-wider text-cyan-400">
                 {invoice.invoice_number}
               </code>
             </div>
-            <Badge variant="secondary">
+            <Badge variant="outline" className="text-xs font-mono uppercase tracking-wider">
               {invoice.status}
             </Badge>
           </div>
 
+          {/* Divider */}
+          <div className="divider-accent" />
+
           {/* Details: dates */}
-          <div className="mt-2 space-y-1 text-xs text-slate-400">
+          <div className="space-y-1.5 text-xs text-slate-400">
             <div className="flex items-center gap-1.5">
               <Calendar className="h-3 w-3 flex-shrink-0" />
               <span>Invoice Date: {new Date(invoice.invoice_date).toLocaleDateString()}</span>

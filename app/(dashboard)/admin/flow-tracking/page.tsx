@@ -33,7 +33,7 @@ export default async function FlowTrackingPage({
       <FlowSearch defaultValue={qmrlId} />
 
       {!qmrlId ? (
-        <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-8 text-center">
+        <div className="command-panel corner-accents text-center">
           <p className="text-slate-400">
             Enter a QMRL ID to view its complete downstream chain
           </p>
@@ -51,18 +51,34 @@ async function FlowTrackingResults({ qmrlId }: { qmrlId: string }) {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4">
-        <p className="text-sm text-red-400">Error: {error}</p>
+      <div className="command-panel corner-accents border-red-500/30">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/20">
+            <span className="text-red-400 text-lg">⚠</span>
+          </div>
+          <div>
+            <p className="font-semibold text-red-400 mb-1">Error Loading Flow Chain</p>
+            <p className="text-sm text-slate-400">{error}</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
-        <p className="text-sm text-amber-400">
-          No QMRL found with ID: {qmrlId}
-        </p>
+      <div className="command-panel corner-accents border-amber-500/30">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/20">
+            <span className="text-amber-400 text-lg">ℹ</span>
+          </div>
+          <div>
+            <p className="font-semibold text-amber-400 mb-1">No QMRL Found</p>
+            <p className="text-sm text-slate-400">
+              No QMRL found with ID: <code className="font-mono text-amber-400">{qmrlId}</code>
+            </p>
+          </div>
+        </div>
       </div>
     );
   }

@@ -11,27 +11,27 @@ interface FlowPONodeProps {
 }
 
 export function FlowPONode({ po }: FlowPONodeProps) {
-  const baseClasses =
-    "border-l-4 border-l-violet-500 rounded-lg bg-slate-900/50 p-3 sm:p-4 hover:bg-slate-800/50 transition-colors";
   const fadedClasses = po.is_cancelled ? "opacity-50" : "";
 
   return (
-    <div className="my-3">
+    <div className="my-3 animate-slide-up" style={{ animationDelay: "100ms" }}>
       <Link href={`/po/${po.id}`}>
-        <div className={cn(baseClasses, fadedClasses)}>
-          {/* Header: icon + PO number + status */}
-          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500/20">
-                <ClipboardCheck className="h-3 w-3 text-violet-400" />
-              </div>
-              <code className="text-xs font-mono text-violet-400">
+        <div className={cn("tactical-card corner-accents p-4 group", fadedClasses)}>
+          {/* Scan line effect */}
+          <div className="scan-overlay" />
+
+          {/* Header: PO badge + status */}
+          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+            <div className="inline-flex items-center gap-2 rounded bg-slate-800 border border-violet-500/30 px-3 py-1.5">
+              <ClipboardCheck className="h-4 w-4 text-violet-400" />
+              <code className="font-mono text-sm font-semibold tracking-wider text-violet-400">
                 {po.po_number}
               </code>
             </div>
             <Badge
-              variant="secondary"
+              variant="outline"
               className={cn(
+                "text-xs font-mono uppercase tracking-wider",
                 po.is_cancelled && "line-through"
               )}
             >
@@ -39,14 +39,19 @@ export function FlowPONode({ po }: FlowPONodeProps) {
             </Badge>
           </div>
 
-          {/* Details: supplier + dates */}
-          <div className="mt-2 space-y-1 text-xs text-slate-400">
-            {po.supplier_name && (
-              <div className="flex items-center gap-1.5">
-                <Building2 className="h-3 w-3 flex-shrink-0" />
-                <span>{po.supplier_name}</span>
-              </div>
-            )}
+          {/* Supplier name as title */}
+          {po.supplier_name && (
+            <h3 className="font-semibold text-slate-200 mb-3 leading-snug flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-slate-400" />
+              {po.supplier_name}
+            </h3>
+          )}
+
+          {/* Divider */}
+          <div className="divider-accent" />
+
+          {/* Details: dates */}
+          <div className="space-y-1.5 text-xs text-slate-400">
             <div className="flex items-center gap-1.5">
               <Calendar className="h-3 w-3 flex-shrink-0" />
               <span>PO Date: {new Date(po.po_date).toLocaleDateString()}</span>
