@@ -17,11 +17,18 @@ import {
   FileText,
   ExternalLink,
   Truck,
+  LockOpen,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { POStatusBadgeWithTooltip, ApprovalStatusBadge } from "@/components/po/po-status-badge";
 import { POProgressBar } from "@/components/po/po-progress-bar";
 import { ReadonlyLineItemsTable } from "@/components/po/po-line-items-table";
@@ -36,8 +43,9 @@ import {
   generateStatusTooltip,
   recomputeStatusFromAggregates,
   PO_STATUS_CONFIG,
+  canUnlockPO,
 } from "@/lib/utils/po-status";
-import { cancelPO } from "@/lib/actions/po-actions";
+import { cancelPO, unlockClosedPO } from "@/lib/actions/po-actions";
 import { useToast } from "@/components/ui/use-toast";
 import { Lock } from "lucide-react";
 import { HistoryTab } from "@/components/history";
@@ -92,6 +100,7 @@ export default function PODetailPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [previousStatus, setPreviousStatus] = useState<string | null>(null);
   const [statusJustChanged, setStatusJustChanged] = useState(false);
+  const [isUnlocking, setIsUnlocking] = useState(false);
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -192,7 +201,7 @@ export default function PODetailPage() {
     if (result.success) {
       toast({
         title: "PO Cancelled",
-        description: `${result.data.poNumber} cancelled. Budget released: ${result.data.releasedAmountEusd.toFixed(2)} EUSD to ${result.data.qmhqRequestId}. New Balance in Hand: ${result.data.newBalanceInHand.toFixed(2)} EUSD`,
+        description: `${result.data.poNumber} has been cancelled successfully`,
       });
       setShowCancelDialog(false);
       setCancelReason("");
@@ -206,6 +215,25 @@ export default function PODetailPage() {
     }
 
     setIsCancelling(false);
+  };
+
+  const handleUnlockPO = async () => {
+    setIsUnlocking(true);
+    const result = await unlockClosedPO(poId);
+    if (result.success) {
+      toast({
+        title: "PO Unlocked",
+        description: `${result.data.poNumber} unlocked for corrections`,
+      });
+      fetchData();
+    } else {
+      toast({
+        title: "Unlock Failed",
+        description: result.error,
+        variant: "destructive",
+      });
+    }
+    setIsUnlocking(false);
   };
 
   const formatDate = (dateStr: string | null | undefined) => {
@@ -227,12 +255,6 @@ export default function PODetailPage() {
       minute: "2-digit",
     });
   };
-
-  // Calculate progress
-  const totalQty = lineItems.reduce((sum, li) => sum + li.quantity, 0);
-  const invoicedQty = lineItems.reduce((sum, li) => sum + (li.invoiced_quantity ?? 0), 0);
-  const receivedQty = lineItems.reduce((sum, li) => sum + (li.received_quantity ?? 0), 0);
-  const progress = calculatePOProgress(totalQty, invoicedQty, receivedQty);
 
   if (isLoading) {
     return (
@@ -263,9 +285,37 @@ export default function PODetailPage() {
     );
   }
 
-  // Admin and QMHQ can edit PO (per 3-role permission matrix)
-  const showEditButton = can("update", "purchase_orders") && canEditPO(po.status as POStatusEnum);
-  const showCancelButton = can("delete", "purchase_orders") && canCancelPO(po.status as POStatusEnum);
+  // Calculate progress
+  const totalQty = lineItems.reduce((sum, li) => sum + li.quantity, 0);
+  const invoicedQty = lineItems.reduce((sum, li) => sum + (li.invoiced_quantity ?? 0), 0);
+  const receivedQty = lineItems.reduce((sum, li) => sum + (li.received_quantity ?? 0), 0);
+  const progress = calculatePOProgress(totalQty, invoicedQty, receivedQty);
+
+  // Guard pre-checks for actions
+  const isTerminalState = po.status === 'cancelled' || po.status === 'closed';
+  const isClosed = po.status === 'closed';
+  const isCancelled = po.status === 'cancelled';
+  const isAdmin = can("delete", "purchase_orders"); // admin-only permission
+
+  // Check for active (non-voided) invoices for cancel guard
+  const hasActiveInvoices = invoices.some(inv => !inv.is_voided && inv.is_active !== false);
+
+  // Cancel button: visible to admins, disabled when dependencies exist or terminal state
+  const showCancelButton = isAdmin && !isCancelled;
+  const canCancelNow = !hasActiveInvoices && !isClosed && !isCancelled;
+
+  // Edit button: visible when user has update permission, hidden for terminal states
+  const showEditButton = can("update", "purchase_orders") && !isTerminalState;
+
+  // Unlock button: visible to admin when PO is closed
+  const showUnlockButton = isAdmin && isClosed;
+
+  // Tooltip reason for disabled cancel
+  const cancelDisabledReason = isClosed
+    ? "Cannot cancel -- PO is closed"
+    : hasActiveInvoices
+    ? "Cannot cancel -- has active invoices"
+    : "";
 
   return (
     <DetailPageLayout
@@ -322,13 +372,38 @@ export default function PODetailPage() {
       actions={
         <>
           {showCancelButton && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowCancelDialog(true)}
+                      disabled={!canCancelNow}
+                      className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Cancel PO
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                {!canCancelNow && (
+                  <TooltipContent>
+                    <p className="text-xs">{cancelDisabledReason}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {showUnlockButton && (
             <Button
               variant="outline"
-              onClick={() => setShowCancelDialog(true)}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+              onClick={handleUnlockPO}
+              disabled={isUnlocking}
+              className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
             >
-              <XCircle className="mr-2 h-4 w-4" />
-              Cancel PO
+              <LockOpen className="mr-2 h-4 w-4" />
+              Unlock PO
             </Button>
           )}
           {showEditButton && (
