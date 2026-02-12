@@ -16,6 +16,7 @@ import { useUser } from "@/components/providers/auth-provider";
 import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
 import type { StockOutReason } from "@/types/database";
+import { FormSection, FormField, PageHeader } from "@/components/composite";
 import { ContextSlider } from "@/components/context-slider/context-slider";
 import { QmrlSliderContent } from "@/components/context-slider/qmrl-slider-content";
 import { QmhqSliderContent } from "@/components/context-slider/qmhq-slider-content";
@@ -526,14 +527,10 @@ export default function NewStockOutRequestPage() {
             </Button>
           </Link>
           <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white tracking-tight">
-                New Stock-Out Request
-              </h1>
-            </div>
-            <p className="text-sm text-slate-400 mt-1">
-              Request items to be issued from warehouse
-            </p>
+            <PageHeader
+              title="New Stock-Out Request"
+              description="Request items to be issued from warehouse"
+            />
           </div>
         </div>
 
@@ -555,27 +552,25 @@ export default function NewStockOutRequestPage() {
       {/* Form */}
       <div className="space-y-6">
         {/* Line Items Section */}
-        <div className="command-panel bg-slate-900/50 border border-slate-800 rounded-lg p-6">
-          <div className="corner-accent top-0 left-0" />
-          <div className="corner-accent top-0 right-0" />
-          <div className="corner-accent bottom-0 left-0" />
-          <div className="corner-accent bottom-0 right-0" />
-
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Line Items</h2>
-            {!qmhqId && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddLineItem}
-                className="gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add Item
-              </Button>
-            )}
-          </div>
+        <FormSection
+          title={
+            <div className="flex items-center justify-between w-full">
+              <span>Line Items</span>
+              {!qmhqId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddLineItem}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Item
+                </Button>
+              )}
+            </div>
+          }
+        >
 
           <div className="space-y-4">
             {lineItems.map((item, index) => (
@@ -657,16 +652,10 @@ export default function NewStockOutRequestPage() {
               </div>
             ))}
           </div>
-        </div>
+        </FormSection>
 
         {/* Reason Section */}
-        <div className="command-panel bg-slate-900/50 border border-slate-800 rounded-lg p-6">
-          <div className="corner-accent top-0 left-0" />
-          <div className="corner-accent top-0 right-0" />
-          <div className="corner-accent bottom-0 left-0" />
-          <div className="corner-accent bottom-0 right-0" />
-
-          <h2 className="text-lg font-semibold text-white mb-4">Reason *</h2>
+        <FormSection title="Reason *">
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {(
@@ -695,26 +684,23 @@ export default function NewStockOutRequestPage() {
               );
             })}
           </div>
-        </div>
+        </FormSection>
 
         {/* Notes Section */}
-        <div className="command-panel bg-slate-900/50 border border-slate-800 rounded-lg p-6">
-          <div className="corner-accent top-0 left-0" />
-          <div className="corner-accent top-0 right-0" />
-          <div className="corner-accent bottom-0 left-0" />
-          <div className="corner-accent bottom-0 right-0" />
-
-          <h2 className="text-lg font-semibold text-white mb-4">
-            Notes <span className="text-slate-500 font-normal">(Optional)</span>
-          </h2>
-
+        <FormSection
+          title={
+            <>
+              Notes <span className="text-slate-500 font-normal">(Optional)</span>
+            </>
+          }
+        >
           <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add any additional notes or instructions..."
             rows={4}
           />
-        </div>
+        </FormSection>
       </div>
 
         {/* Actions */}

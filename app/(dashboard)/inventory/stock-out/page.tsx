@@ -38,6 +38,7 @@ import { CategoryItemSelector } from "@/components/forms/category-item-selector"
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePermissions } from "@/lib/hooks/use-permissions";
 import { useToast } from "@/components/ui/use-toast";
+import { FormSection, FormField, PageHeader } from "@/components/composite";
 import type {
   Item,
   Warehouse as WarehouseType,
@@ -547,38 +548,38 @@ export default function StockOutPage() {
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
 
       {/* Header */}
-      <div className="relative flex items-start justify-between animate-fade-in">
-        <div className="flex items-start gap-4">
-          <Link href={qmhqId ? `/qmhq/${qmhqId}` : "/warehouse"}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="mt-1 hover:bg-amber-500/10 hover:text-amber-500"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-red-500/10 border border-red-500/20 mb-2 w-fit">
-              <ArrowUpFromLine className="h-4 w-4 text-red-500" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-red-500">
-                Stock Out
-              </span>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-200">
-              Issue Stock
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              {qmhqInfo ? (
+      <div className="relative flex items-start gap-4 animate-fade-in">
+        <Link href={qmhqId ? `/qmhq/${qmhqId}` : "/warehouse"}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mt-1 hover:bg-amber-500/10 hover:text-amber-500"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <div className="flex-1">
+          <PageHeader
+            title="Issue Stock"
+            description={
+              qmhqInfo ? (
                 <>
                   For request: <code className="text-amber-400">{qmhqInfo.request_id}</code>
                   <span className="ml-2">{qmhqInfo.line_name}</span>
                 </>
               ) : (
                 "Record inventory issued from warehouse"
-              )}
-            </p>
-          </div>
+              )
+            }
+            badge={
+              <div className="flex items-center gap-2 px-3 py-1 rounded bg-red-500/10 border border-red-500/20 w-fit">
+                <ArrowUpFromLine className="h-4 w-4 text-red-500" />
+                <span className="text-xs font-semibold uppercase tracking-widest text-red-500">
+                  Stock Out
+                </span>
+              </div>
+            }
+          />
         </div>
       </div>
 
@@ -596,11 +597,10 @@ export default function StockOutPage() {
       )}
 
       {/* Item Selection */}
-      <div className="command-panel corner-accents animate-slide-up">
-        <div className="section-header">
-          <Package className="h-4 w-4 text-amber-500" />
-          <h2>Select Item</h2>
-        </div>
+      <FormSection
+        title="Select Item"
+        icon={<Package className="h-4 w-4 text-amber-500" />}
+      >
 
         <div className="space-y-4">
           <div>
@@ -692,24 +692,18 @@ export default function StockOutPage() {
             </div>
           )}
         </div>
-      </div>
+      </FormSection>
 
       {/* Warehouse & Quantity */}
       {selectedItemId && itemWarehouses.length > 0 && (
-        <div
-          className="command-panel corner-accents animate-slide-up"
-          style={{ animationDelay: "50ms" }}
+        <FormSection
+          title="Source Warehouse & Quantity"
+          icon={<Warehouse className="h-4 w-4 text-amber-500" />}
+          animationDelay="50ms"
         >
-          <div className="section-header">
-            <Warehouse className="h-4 w-4 text-amber-500" />
-            <h2>Source Warehouse & Quantity</h2>
-          </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Source Warehouse *
-              </label>
+            <FormField label="Source Warehouse" required>
               <Select
                 value={selectedWarehouseId}
                 onValueChange={setSelectedWarehouseId}
@@ -735,12 +729,15 @@ export default function StockOutPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
 
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Quantity *
-              </label>
+            <FormField
+              label="Quantity"
+              required
+              error={parsedQuantity > maxIssuableQty ? (qmhqId && remainingQmhqQty !== null && parsedQuantity <= availableStock
+                      ? `Exceeds remaining unfulfilled quantity (${remainingQmhqQty})!`
+                      : "Exceeds available stock!") : undefined}
+            >
               <Input
                 type="text"
                 inputMode="numeric"
@@ -769,29 +766,19 @@ export default function StockOutPage() {
                     </span>
                   </p>
                 )}
-                {parsedQuantity > maxIssuableQty && (
-                  <p className="text-red-400">
-                    {qmhqId && remainingQmhqQty !== null && parsedQuantity <= availableStock
-                      ? `Exceeds remaining unfulfilled quantity (${remainingQmhqQty})!`
-                      : "Exceeds available stock!"}
-                  </p>
-                )}
               </div>
-            </div>
+            </FormField>
           </div>
-        </div>
+        </FormSection>
       )}
 
       {/* Reason Selection */}
       {selectedWarehouseId && (
-        <div
-          className="command-panel corner-accents animate-slide-up"
-          style={{ animationDelay: "100ms" }}
+        <FormSection
+          title="Reason"
+          icon={<Package className="h-4 w-4 text-amber-500" />}
+          animationDelay="100ms"
         >
-          <div className="section-header">
-            <Package className="h-4 w-4 text-amber-500" />
-            <h2>Reason</h2>
-          </div>
 
           <div className="space-y-4">
             <div>
@@ -863,44 +850,34 @@ export default function StockOutPage() {
               </div>
             )}
           </div>
-        </div>
+        </FormSection>
       )}
 
       {/* Transaction Details */}
       {selectedWarehouseId && (
-        <div
-          className="command-panel corner-accents animate-slide-up"
-          style={{ animationDelay: "150ms" }}
+        <FormSection
+          title="Transaction Details"
+          icon={<Package className="h-4 w-4 text-amber-500" />}
+          animationDelay="150ms"
         >
-          <div className="section-header">
-            <Package className="h-4 w-4 text-amber-500" />
-            <h2>Transaction Details</h2>
-          </div>
-
           <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Transaction Date
-              </label>
+            <FormField label="Transaction Date">
               <DatePicker
                 date={transactionDate}
                 onDateChange={(date) => date && setTransactionDate(date)}
               />
-            </div>
+            </FormField>
           </div>
 
-          <div className="mt-4">
-            <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-              Notes
-            </label>
+          <FormField label="Notes" className="mt-4">
             <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Optional notes..."
               className="bg-slate-800/50 border-slate-700 min-h-[60px]"
             />
-          </div>
-        </div>
+          </FormField>
+        </FormSection>
       )}
 
       {/* Summary */}
