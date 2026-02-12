@@ -183,10 +183,15 @@ Plans:
 4. All card views use standardized card layout with consistent info density
 5. All pages follow standardized spacing scale (consistent padding and margins)
 
-**Plans:** TBD
+**Plans:** 6 plans
 
 Plans:
-- [ ] 40-01: TBD (planning not started)
+- [ ] 40-01-PLAN.md — Migrate 8 simple list/table pages to PageHeader composite
+- [ ] 40-02-PLAN.md — Migrate 4 card-view list pages to PageHeader + FilterBar + CardViewGrid
+- [ ] 40-03-PLAN.md — Migrate 6 detail pages to DetailPageLayout composite
+- [ ] 40-04-PLAN.md — Migrate 3 simple form pages to FormSection + FormField composites
+- [ ] 40-05-PLAN.md — Migrate 3 medium form pages (QMHQ wizard, PO new) to FormSection composites
+- [ ] 40-06-PLAN.md — Migrate 4 complex form pages (Invoice wizard, Stock In/Out) to FormSection composites
 
 ---
 
@@ -208,7 +213,7 @@ Plans:
 | 37. RBAC Database Migration | v1.8 | 2/2 | ✓ Complete | 2026-02-11 |
 | 38. RBAC Permission Enforcement | v1.8 | 2/2 | ✓ Complete | 2026-02-11 |
 | 39. End-to-End Flow Tracking | v1.8 | 2/2 | ✓ Complete | 2026-02-11 |
-| 40. UI Consistency Rollout | v1.8 | 0/? | Not started | - |
+| 40. UI Consistency Rollout | v1.8 | 0/6 | Planning complete | - |
 
 ---
 *Last updated: 2026-02-11 after Phase 39 execution complete*
