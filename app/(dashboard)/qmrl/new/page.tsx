@@ -24,6 +24,7 @@ import { InlineCreateSelect } from "@/components/forms/inline-create-select";
 import { useStagedFiles } from "@/lib/hooks/use-staged-files";
 import { FileDropzonePreview } from "@/components/files/file-dropzone-preview";
 import { uploadFile } from "@/lib/actions/files";
+import { FormSection, FormField, PageHeader } from "@/components/composite";
 import type { StatusConfig, Category, Department, ContactPerson, User as UserType } from "@/types/database";
 
 type ContactPersonWithDepartment = ContactPerson & {
@@ -272,183 +273,182 @@ export default function NewQMRLPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
-        <div>
-          <div className="flex items-center gap-3 mb-2">
+        <PageHeader
+          title="Create Request Letter"
+          description="Initialize a new QMRL entry in the system"
+          badge={
             <div className="flex items-center gap-2 px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
               <Plus className="h-4 w-4 text-emerald-500" />
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-500">
                 New Entry
               </span>
             </div>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-200">
-            Create Request Letter
-          </h1>
-          <p className="mt-1 text-slate-400">
-            Initialize a new QMRL entry in the system
-          </p>
-        </div>
+          }
+        />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Section 1: Basic Information */}
-        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
-          <div className="section-header">
-            <FileText className="h-4 w-4 text-amber-500" />
-            <h2>Basic Information</h2>
-          </div>
+        <FormSection
+          title="Basic Information"
+          icon={<FileText className="h-5 w-5 text-amber-400" />}
+          animationDelay="100ms"
+        >
+          <FormField
+            label="Request Title"
+            htmlFor="title"
+            required
+          >
+            <Input
+              id="title"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="Enter a clear, descriptive title for this request"
+              className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 text-slate-200"
+              required
+            />
+          </FormField>
 
-          <div className="space-y-5">
-            <div className="grid gap-2">
-              <Label htmlFor="title" className="data-label">
-                Request Title <span className="text-red-400">*</span>
-              </Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Enter a clear, descriptive title for this request"
-                className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 text-slate-200"
-                required
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="request_letter_no" className="data-label">
-                Request Letter No
-              </Label>
-              <Input
-                id="request_letter_no"
-                value={formData.request_letter_no}
-                onChange={(e) => setFormData({ ...formData, request_letter_no: e.target.value })}
-                placeholder="External reference number (e.g., RL-2024-001)"
-                className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 text-slate-200 max-w-md"
-              />
-              <p className="text-xs text-slate-400">External/physical request letter reference number</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div className="grid gap-2">
-                <Label htmlFor="category" className="data-label">Category</Label>
-                <InlineCreateSelect
-                  value={formData.category_id}
-                  onValueChange={(value) => setFormData({ ...formData, category_id: value })}
-                  options={categories}
-                  onOptionsChange={setCategories}
-                  placeholder="Select category"
-                  entityType="qmrl"
-                  createType="category"
-                />
-                <p className="text-xs text-slate-400">Classification only — click [+] to create new</p>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="priority" className="data-label">
-                  Priority Level <span className="text-red-400">*</span>
-                </Label>
-                <Select
-                  value={formData.priority}
-                  onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                >
-                  <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                    <SelectValue placeholder="Select priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {priorities.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className={`h-3 w-3 ${
-                            p.value === "critical" ? "text-red-400" :
-                            p.value === "high" ? "text-amber-400" :
-                            p.value === "medium" ? "text-blue-400" : "text-slate-400"
-                          }`} />
-                          {p.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 2: Contact & Department */}
-        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "200ms" }}>
-          <div className="section-header">
-            <Users className="h-4 w-4 text-amber-500" />
-            <h2>Contact & Department</h2>
-          </div>
-
-          <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="grid gap-2">
-                <Label htmlFor="contact_person" className="data-label">
-                  Contact Person <span className="text-red-400">*</span>
-                </Label>
-                <Select
-                  value={formData.contact_person_id}
-                  onValueChange={(value) => setFormData({ ...formData, contact_person_id: value })}
-                >
-                  <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                    <SelectValue placeholder="Select contact person" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contactPersons.map((cp) => (
-                      <SelectItem key={cp.id} value={cp.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{cp.name}</span>
-                          {cp.position && <span className="text-slate-400">— {cp.position}</span>}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-slate-400">Department will be set automatically</p>
-              </div>
-
-              <div className="grid gap-2">
-                <Label className="data-label">Department</Label>
-                <div className="flex items-center h-10 px-3 rounded-lg border border-slate-700 bg-slate-800/30">
-                  {selectedDepartment ? (
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-amber-500" />
-                      <span className="text-slate-200">{selectedDepartment.name}</span>
-                    </div>
-                  ) : (
-                    <span className="text-slate-500 italic">Select a contact person</span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-400">Based on contact person</p>
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="request_date" className="data-label">
-                Request Date <span className="text-red-400">*</span>
-              </Label>
-              <div className="max-w-xs">
-                <DatePicker
-                  date={requestDate}
-                  onDateChange={setRequestDate}
-                  placeholder="Select request date"
-                />
-              </div>
-              <p className="text-xs text-slate-400">Backdates allowed for late entries</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 3: Assignment & Status */}
-        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "300ms" }}>
-          <div className="section-header">
-            <ClipboardList className="h-4 w-4 text-amber-500" />
-            <h2>Assignment & Status</h2>
-          </div>
+          <FormField
+            label="Request Letter No"
+            htmlFor="request_letter_no"
+            hint="External/physical request letter reference number"
+          >
+            <Input
+              id="request_letter_no"
+              value={formData.request_letter_no}
+              onChange={(e) => setFormData({ ...formData, request_letter_no: e.target.value })}
+              placeholder="External reference number (e.g., RL-2024-001)"
+              className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 text-slate-200 max-w-md"
+            />
+          </FormField>
 
           <div className="grid grid-cols-2 gap-6">
-            <div className="grid gap-2">
-              <Label htmlFor="assigned_to" className="data-label">Assigned To</Label>
+            <FormField
+              label="Category"
+              htmlFor="category"
+              hint="Classification only — click [+] to create new"
+            >
+              <InlineCreateSelect
+                value={formData.category_id}
+                onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                options={categories}
+                onOptionsChange={setCategories}
+                placeholder="Select category"
+                entityType="qmrl"
+                createType="category"
+              />
+            </FormField>
+
+            <FormField
+              label="Priority Level"
+              htmlFor="priority"
+              required
+            >
+              <Select
+                value={formData.priority}
+                onValueChange={(value) => setFormData({ ...formData, priority: value })}
+              >
+                <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorities.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className={`h-3 w-3 ${
+                          p.value === "critical" ? "text-red-400" :
+                          p.value === "high" ? "text-amber-400" :
+                          p.value === "medium" ? "text-blue-400" : "text-slate-400"
+                        }`} />
+                        {p.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          </div>
+        </FormSection>
+
+        {/* Section 2: Contact & Department */}
+        <FormSection
+          title="Contact & Department"
+          icon={<Users className="h-5 w-5 text-amber-400" />}
+          animationDelay="200ms"
+        >
+          <div className="grid grid-cols-2 gap-6">
+            <FormField
+              label="Contact Person"
+              htmlFor="contact_person"
+              required
+              hint="Department will be set automatically"
+            >
+              <Select
+                value={formData.contact_person_id}
+                onValueChange={(value) => setFormData({ ...formData, contact_person_id: value })}
+              >
+                <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                  <SelectValue placeholder="Select contact person" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contactPersons.map((cp) => (
+                    <SelectItem key={cp.id} value={cp.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{cp.name}</span>
+                        {cp.position && <span className="text-slate-400">— {cp.position}</span>}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            <FormField
+              label="Department"
+              hint="Based on contact person"
+            >
+              <div className="flex items-center h-10 px-3 rounded-lg border border-slate-700 bg-slate-800/30">
+                {selectedDepartment ? (
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-amber-500" />
+                    <span className="text-slate-200">{selectedDepartment.name}</span>
+                  </div>
+                ) : (
+                  <span className="text-slate-500 italic">Select a contact person</span>
+                )}
+              </div>
+            </FormField>
+          </div>
+
+          <FormField
+            label="Request Date"
+            htmlFor="request_date"
+            required
+            hint="Backdates allowed for late entries"
+          >
+            <div className="max-w-xs">
+              <DatePicker
+                date={requestDate}
+                onDateChange={setRequestDate}
+                placeholder="Select request date"
+              />
+            </div>
+          </FormField>
+        </FormSection>
+
+        {/* Section 3: Assignment & Status */}
+        <FormSection
+          title="Assignment & Status"
+          icon={<ClipboardList className="h-5 w-5 text-amber-400" />}
+          animationDelay="300ms"
+        >
+          <div className="grid grid-cols-2 gap-6">
+            <FormField
+              label="Assigned To"
+              htmlFor="assigned_to"
+              hint="Current responsible person"
+            >
               <Select
                 value={formData.assigned_to}
                 onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
@@ -465,11 +465,13 @@ export default function NewQMRLPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-slate-400">Current responsible person</p>
-            </div>
+            </FormField>
 
-            <div className="grid gap-2">
-              <Label htmlFor="status" className="data-label">Initial Status</Label>
+            <FormField
+              label="Initial Status"
+              htmlFor="status"
+              hint="Click [+] to create new status"
+            >
               <InlineCreateSelect
                 value={formData.status_id}
                 onValueChange={(value) => setFormData({ ...formData, status_id: value })}
@@ -479,67 +481,66 @@ export default function NewQMRLPage() {
                 entityType="qmrl"
                 createType="status"
               />
-              <p className="text-xs text-slate-400">Click [+] to create new status</p>
-            </div>
+            </FormField>
           </div>
-        </div>
+        </FormSection>
 
         {/* Section 4: Description */}
-        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "400ms" }}>
-          <div className="section-header">
-            <FileText className="h-4 w-4 text-amber-500" />
-            <h2>Description & Notes</h2>
-          </div>
+        <FormSection
+          title="Description & Notes"
+          icon={<FileText className="h-5 w-5 text-amber-400" />}
+          animationDelay="400ms"
+        >
+          <FormField
+            label="Description"
+            htmlFor="description"
+          >
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Provide detailed description of the request, including specific requirements, quantities, or specifications..."
+              className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 min-h-[120px]"
+              rows={5}
+            />
+          </FormField>
 
-          <div className="space-y-5">
-            <div className="grid gap-2">
-              <Label htmlFor="description" className="data-label">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Provide detailed description of the request, including specific requirements, quantities, or specifications..."
-                className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 min-h-[120px]"
-                rows={5}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="notes" className="data-label">Internal Notes</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Additional notes, references, or comments for internal use..."
-                className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50"
-                rows={3}
-              />
-            </div>
-          </div>
-        </div>
+          <FormField
+            label="Internal Notes"
+            htmlFor="notes"
+          >
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Additional notes, references, or comments for internal use..."
+              className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50"
+              rows={3}
+            />
+          </FormField>
+        </FormSection>
 
         {/* Section 5: Attachments */}
-        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "500ms" }}>
-          <div className="section-header">
-            <Paperclip className="h-4 w-4 text-amber-500" />
-            <h2>Attachments</h2>
-            {stagedFiles.length > 0 && (
-              <span className="ml-auto text-xs text-slate-400">
-                {stagedFiles.length} file{stagedFiles.length !== 1 ? 's' : ''} selected
-              </span>
-            )}
-          </div>
-
+        <FormSection
+          title="Attachments"
+          icon={<Paperclip className="h-5 w-5 text-amber-400" />}
+          animationDelay="500ms"
+        >
+          {stagedFiles.length > 0 && (
+            <p className="text-xs text-slate-400">
+              {stagedFiles.length} file{stagedFiles.length !== 1 ? 's' : ''} selected
+            </p>
+          )}
           <FileDropzonePreview
             files={stagedFiles}
             onFilesAdd={addFiles}
             onFileRemove={removeFile}
             disabled={isSubmitting}
           />
-          <p className="text-xs text-slate-400 mt-2">
+          <p className="text-xs text-slate-400">
             Files will be uploaded after the request is created
           </p>
-        </div>
+        </FormSection>
 
         {/* Actions */}
         <div className="flex justify-end gap-4 pt-4 animate-slide-up" style={{ animationDelay: "600ms" }}>

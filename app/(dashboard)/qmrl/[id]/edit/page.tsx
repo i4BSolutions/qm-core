@@ -29,6 +29,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import { InlineCreateSelect } from "@/components/forms/inline-create-select";
+import { FormSection, FormField, PageHeader } from "@/components/composite";
 import type {
   QMRL,
   StatusConfig,
@@ -274,214 +275,204 @@ export default function EditQMRLPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href={`/qmrl/${qmrlId}`}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hover:bg-amber-500/10 hover:text-amber-500"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-200">
-              Edit Request Letter
-            </h1>
-            <p className="text-sm text-slate-400">
-              <code className="text-amber-400">{qmrl.request_id}</code>
-            </p>
-          </div>
-        </div>
+      <div className="flex items-center gap-4">
+        <Link href={`/qmrl/${qmrlId}`}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hover:bg-amber-500/10 hover:text-amber-500"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <PageHeader
+          title="Edit Request Letter"
+          description={<code className="text-amber-400">{qmrl.request_id}</code>}
+        />
       </div>
 
       {/* Basic Information */}
-      <div className="command-panel corner-accents">
-        <div className="section-header">
-          <FileText className="h-4 w-4 text-amber-500" />
-          <h2>Basic Information</h2>
-        </div>
+      <FormSection
+        title="Basic Information"
+        icon={<FileText className="h-5 w-5 text-amber-400" />}
+      >
+        <FormField
+          label="Title"
+          htmlFor="title"
+          required
+        >
+          <Input
+            id="title"
+            value={formData.title}
+            onChange={(e) => handleInputChange("title", e.target.value)}
+            placeholder="Enter request title"
+            className="bg-slate-800/50 border-slate-700 text-slate-200"
+          />
+        </FormField>
 
-        <div className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="title" className="text-slate-300">
-              Title <span className="text-red-400">*</span>
-            </Label>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            label="Request Letter No."
+            htmlFor="request_letter_no"
+          >
             <Input
-              id="title"
-              value={formData.title}
-              onChange={(e) => handleInputChange("title", e.target.value)}
-              placeholder="Enter request title"
-              className="bg-slate-800/50 border-slate-700 text-slate-200"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="request_letter_no" className="text-slate-300">
-                Request Letter No.
-              </Label>
-              <Input
-                id="request_letter_no"
-                value={formData.request_letter_no}
-                onChange={(e) =>
-                  handleInputChange("request_letter_no", e.target.value)
-                }
-                placeholder="e.g., RL-2026-001"
-                className="bg-slate-800/50 border-slate-700 text-slate-200 font-mono"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label className="text-slate-300">Request Date</Label>
-              <DatePicker
-                date={requestDate}
-                onDateChange={setRequestDate}
-                placeholder="Select date"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label className="text-slate-300">Category</Label>
-              <InlineCreateSelect
-                value={formData.category_id}
-                onValueChange={(v) => handleInputChange("category_id", v)}
-                options={categories}
-                onOptionsChange={setCategories}
-                placeholder="Select category"
-                entityType="qmrl"
-                createType="category"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label className="text-slate-300">Priority</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(v) => handleInputChange("priority", v)}
-              >
-                <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {priorities.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      <div className="flex items-center gap-2">
-                        <span className={p.class}>{p.label}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid gap-2">
-            <Label className="text-slate-300">Status</Label>
-            <InlineCreateSelect
-              value={formData.status_id}
-              onValueChange={(v) => handleInputChange("status_id", v)}
-              options={statuses}
-              onOptionsChange={setStatuses}
-              placeholder="Select status"
-              entityType="qmrl"
-              createType="status"
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="description" className="text-slate-300">
-              Description
-            </Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleInputChange("description", e.target.value)}
-              placeholder="Enter description"
-              className="bg-slate-800/50 border-slate-700 text-slate-200"
-              rows={3}
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="notes" className="text-slate-300">
-              Notes
-            </Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => handleInputChange("notes", e.target.value)}
-              placeholder="Additional notes"
-              className="bg-slate-800/50 border-slate-700 text-slate-200"
-              rows={2}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Department & Contact */}
-      <div className="command-panel corner-accents">
-        <div className="section-header">
-          <Building2 className="h-4 w-4 text-amber-500" />
-          <h2>Department & Contact</h2>
-        </div>
-
-        <div className="space-y-4">
-          <div className="grid gap-2">
-            <Label className="text-slate-300">
-              Contact Person <span className="text-red-400">*</span>
-            </Label>
-            <Select
-              value={formData.contact_person_id || "none"}
-              onValueChange={(v) =>
-                handleInputChange("contact_person_id", v === "none" ? "" : v)
+              id="request_letter_no"
+              value={formData.request_letter_no}
+              onChange={(e) =>
+                handleInputChange("request_letter_no", e.target.value)
               }
+              placeholder="e.g., RL-2026-001"
+              className="bg-slate-800/50 border-slate-700 text-slate-200 font-mono"
+            />
+          </FormField>
+
+          <FormField
+            label="Request Date"
+          >
+            <DatePicker
+              date={requestDate}
+              onDateChange={setRequestDate}
+              placeholder="Select date"
+            />
+          </FormField>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            label="Category"
+          >
+            <InlineCreateSelect
+              value={formData.category_id}
+              onValueChange={(v) => handleInputChange("category_id", v)}
+              options={categories}
+              onOptionsChange={setCategories}
+              placeholder="Select category"
+              entityType="qmrl"
+              createType="category"
+            />
+          </FormField>
+
+          <FormField
+            label="Priority"
+          >
+            <Select
+              value={formData.priority}
+              onValueChange={(v) => handleInputChange("priority", v)}
             >
               <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                <SelectValue placeholder="Select contact person" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Select contact person</SelectItem>
-                {contactPersons.map((cp) => (
-                  <SelectItem key={cp.id} value={cp.id}>
-                    {cp.name} {cp.position && `(${cp.position})`}
-                    {cp.departments && (
-                      <span className="text-slate-400 ml-2">
-                        - {cp.departments.name}
-                      </span>
-                    )}
+                {priorities.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>
+                    <div className="flex items-center gap-2">
+                      <span className={p.class}>{p.label}</span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          {selectedDepartment && (
-            <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700">
-              <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
-                Department (auto-filled)
-              </p>
-              <Badge variant="outline" className="text-slate-300">
-                <Building2 className="mr-1 h-3 w-3" />
-                {selectedDepartment.name}
-              </Badge>
-            </div>
-          )}
+          </FormField>
         </div>
-      </div>
+
+        <FormField
+          label="Status"
+        >
+          <InlineCreateSelect
+            value={formData.status_id}
+            onValueChange={(v) => handleInputChange("status_id", v)}
+            options={statuses}
+            onOptionsChange={setStatuses}
+            placeholder="Select status"
+            entityType="qmrl"
+            createType="status"
+          />
+        </FormField>
+
+        <FormField
+          label="Description"
+          htmlFor="description"
+        >
+          <Textarea
+            id="description"
+            value={formData.description}
+            onChange={(e) => handleInputChange("description", e.target.value)}
+            placeholder="Enter description"
+            className="bg-slate-800/50 border-slate-700 text-slate-200"
+            rows={3}
+          />
+        </FormField>
+
+        <FormField
+          label="Notes"
+          htmlFor="notes"
+        >
+          <Textarea
+            id="notes"
+            value={formData.notes}
+            onChange={(e) => handleInputChange("notes", e.target.value)}
+            placeholder="Additional notes"
+            className="bg-slate-800/50 border-slate-700 text-slate-200"
+            rows={2}
+          />
+        </FormField>
+      </FormSection>
+
+      {/* Department & Contact */}
+      <FormSection
+        title="Department & Contact"
+        icon={<Building2 className="h-5 w-5 text-amber-400" />}
+      >
+        <FormField
+          label="Contact Person"
+          required
+        >
+          <Select
+            value={formData.contact_person_id || "none"}
+            onValueChange={(v) =>
+              handleInputChange("contact_person_id", v === "none" ? "" : v)
+            }
+          >
+            <SelectTrigger className="bg-slate-800/50 border-slate-700">
+              <SelectValue placeholder="Select contact person" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Select contact person</SelectItem>
+              {contactPersons.map((cp) => (
+                <SelectItem key={cp.id} value={cp.id}>
+                  {cp.name} {cp.position && `(${cp.position})`}
+                  {cp.departments && (
+                    <span className="text-slate-400 ml-2">
+                      - {cp.departments.name}
+                    </span>
+                  )}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+
+        {selectedDepartment && (
+          <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700">
+            <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
+              Department (auto-filled)
+            </p>
+            <Badge variant="outline" className="text-slate-300">
+              <Building2 className="mr-1 h-3 w-3" />
+              {selectedDepartment.name}
+            </Badge>
+          </div>
+        )}
+      </FormSection>
 
       {/* Assignment */}
-      <div className="command-panel corner-accents">
-        <div className="section-header">
-          <Users className="h-4 w-4 text-amber-500" />
-          <h2>Assignment</h2>
-        </div>
-
-        <div className="grid gap-2">
-          <Label className="text-slate-300">Assigned To</Label>
+      <FormSection
+        title="Assignment"
+        icon={<Users className="h-5 w-5 text-amber-400" />}
+      >
+        <FormField
+          label="Assigned To"
+        >
           <Select
             value={formData.assigned_to || "none"}
             onValueChange={(v) =>
@@ -500,8 +491,8 @@ export default function EditQMRLPage() {
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </div>
+        </FormField>
+      </FormSection>
 
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-4">
