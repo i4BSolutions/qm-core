@@ -16,9 +16,10 @@ import { Pagination } from "@/components/ui/pagination";
 import { PageHeader, FilterBar } from "@/components/composite";
 import { POCard } from "@/components/po/po-card";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
-import { POStatusBadge } from "@/components/po/po-status-badge";
+import { POStatusBadgeWithTooltip } from "@/components/po/po-status-badge";
 import { POProgressBar } from "@/components/po/po-progress-bar";
 import { PO_STATUS_CONFIG, calculatePOProgress } from "@/lib/utils/po-status";
+import { cn } from "@/lib/utils";
 import type {
   PurchaseOrder,
   Supplier,
@@ -163,7 +164,8 @@ export default function POListPage() {
           po.qmhq?.request_id?.toLowerCase().includes(query);
         if (!matchesSearch) return false;
       }
-      if (statusFilter !== "all" && po.status !== statusFilter) return false;
+      if (statusFilter === "active" && (po.status === "closed" || po.status === "cancelled")) return false;
+      if (statusFilter !== "all" && statusFilter !== "active" && po.status !== statusFilter) return false;
       if (supplierFilter !== "all" && po.supplier_id !== supplierFilter) return false;
       return true;
     });
@@ -320,6 +322,7 @@ export default function POListPage() {
           onChange={setStatusFilter}
           options={[
             { value: "all", label: "All Statuses" },
+            { value: "active", label: "Active (excl. Closed/Cancelled)" },
             ...Object.entries(PO_STATUS_CONFIG).map(([key, config]) => ({
               value: key,
               label: config.label,
@@ -398,9 +401,6 @@ export default function POListPage() {
                   <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
                     Status
                   </th>
-                  <th className="text-center py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400 w-32">
-                    Progress
-                  </th>
                   <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
                     Date
                   </th>
@@ -417,11 +417,20 @@ export default function POListPage() {
                   return (
                     <tr
                       key={po.id}
-                      className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer"
+                      className={cn(
+                        "border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer",
+                        po.status === "closed" && "opacity-60",
+                        po.status === "cancelled" && "opacity-50"
+                      )}
                       onClick={() => (window.location.href = `/po/${po.id}`)}
                     >
                       <td className="py-3 px-4">
-                        <code className="text-amber-400 text-sm">{po.po_number}</code>
+                        <code className={cn(
+                          "text-amber-400 text-sm",
+                          po.status === "cancelled" && "line-through text-red-400"
+                        )}>
+                          {po.po_number}
+                        </code>
                       </td>
                       <td className="py-3 px-4">
                         <span className="text-slate-200 font-medium">
@@ -445,19 +454,24 @@ export default function POListPage() {
                         />
                       </td>
                       <td className="py-3 px-4">
-                        <POStatusBadge
-                          status={(po.status || "not_started") as POStatusEnum}
-                          size="sm"
-                        />
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="w-24 mx-auto">
-                          <POProgressBar
-                            invoicedPercent={progress.invoicedPercent}
-                            receivedPercent={progress.receivedPercent}
-                            showLabels={false}
+                        <div className="space-y-1.5">
+                          <POStatusBadgeWithTooltip
+                            status={(po.status || "not_started") as POStatusEnum}
+                            totalQty={po.line_items_aggregate?.total_quantity ?? 0}
+                            invoicedQty={po.line_items_aggregate?.total_invoiced ?? 0}
+                            receivedQty={po.line_items_aggregate?.total_received ?? 0}
                             size="sm"
                           />
+                          {(po.line_items_aggregate?.total_quantity ?? 0) > 0 && (
+                            <div className="w-24">
+                              <POProgressBar
+                                invoicedPercent={progress.invoicedPercent}
+                                receivedPercent={progress.receivedPercent}
+                                showLabels={false}
+                                size="sm"
+                              />
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="py-3 px-4">
@@ -468,7 +482,7 @@ export default function POListPage() {
                 })}
                 {paginatedPOs.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                    <td colSpan={6} className="py-8 text-center text-slate-400">
                       No Purchase Orders found
                     </td>
                   </tr>
