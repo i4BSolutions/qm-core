@@ -28,12 +28,26 @@ Requirements for v1.9 milestone. Each maps to roadmap phases.
 - [ ] **LOCK-03**: PO re-locks automatically when status returns to closed after changes
 - [ ] **LOCK-04**: Closed POs are excluded from invoice creation PO selection dropdown
 
+### PO Cancellation
+
+- [ ] **POCN-01**: User can cancel a PO via Cancel button with confirmation dialog on PO detail page
+- [ ] **POCN-02**: Cancelled PO is excluded from Balance in Hand calculation and shows clear visual indicator
+- [ ] **POCN-03**: User cannot cancel a PO that has any active (non-voided) invoices — voided invoices do not block cancellation
+
+### Invoice Void & Cascade
+
+- [ ] **INVV-01**: User can void an invoice with void reason (required) via confirmation dialog on invoice detail page
+- [ ] **INVV-02**: Voided invoices display with visual distinction (strikethrough styling, "VOIDED" badge) on list and detail pages
+- [ ] **INVV-03**: User cannot void an invoice that has any stock-in transactions
+- [ ] **INVV-04**: When invoice is voided, PO status recalculates automatically (e.g., awaiting_delivery → partially_invoiced)
+- [ ] **INVV-05**: When invoice is voided, QMHQ Balance in Hand recalculates (committed budget released back)
+- [ ] **INVV-06**: After voiding, detailed toast shows cascade effects (PO status change, balance released amount)
+- [ ] **INVV-07**: Voided invoices appear grayed out with VOID label in PO Matching tab (visible for audit trail)
+
 ### Cancellation Guards
 
-- [ ] **GARD-01**: User cannot cancel a PO that has any active (non-voided) invoices, with clear error message showing count
-- [ ] **GARD-02**: User cannot void an invoice that has any stock-in transactions, with clear error message showing count
-- [ ] **GARD-03**: Guard validation enforced at both UI level (disabled buttons with tooltips) and database level (triggers)
-- [ ] **GARD-04**: When guard blocks an action, error message shows dependency chain explaining WHY it's blocked
+- [ ] **GARD-01**: Guard validation enforced at both UI level (disabled buttons with tooltips) and database level (triggers)
+- [ ] **GARD-02**: When guard blocks an action, error message shows dependency chain explaining WHY it's blocked with counts
 
 ### PDF Export
 
@@ -77,33 +91,42 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| POSE-01 | — | Pending |
-| POSE-02 | — | Pending |
-| POSE-03 | — | Pending |
-| POSE-04 | — | Pending |
-| POSE-05 | — | Pending |
-| POPR-01 | — | Pending |
-| POPR-02 | — | Pending |
-| POPR-03 | — | Pending |
-| LOCK-01 | — | Pending |
-| LOCK-02 | — | Pending |
-| LOCK-03 | — | Pending |
-| LOCK-04 | — | Pending |
-| GARD-01 | — | Pending |
-| GARD-02 | — | Pending |
-| GARD-03 | — | Pending |
-| GARD-04 | — | Pending |
-| PDF-01 | — | Pending |
-| PDF-02 | — | Pending |
-| PDF-03 | — | Pending |
-| PDF-04 | — | Pending |
-| PDF-05 | — | Pending |
+| POSE-01 | Phase 41 | Pending |
+| POSE-02 | Phase 41 | Pending |
+| POSE-03 | Phase 41 | Pending |
+| POSE-04 | Phase 41 | Pending |
+| POSE-05 | Phase 41 | Pending |
+| POPR-01 | Phase 42 | Pending |
+| POPR-02 | Phase 42 | Pending |
+| POPR-03 | Phase 42 | Pending |
+| LOCK-01 | Phase 42 | Pending |
+| LOCK-02 | Phase 42 | Pending |
+| LOCK-03 | Phase 42 | Pending |
+| LOCK-04 | Phase 42 | Pending |
+| POCN-01 | Phase 42 | Pending |
+| POCN-02 | Phase 42 | Pending |
+| POCN-03 | Phase 42 | Pending |
+| INVV-01 | Phase 42 | Pending |
+| INVV-02 | Phase 42 | Pending |
+| INVV-03 | Phase 42 | Pending |
+| INVV-04 | Phase 42 | Pending |
+| INVV-05 | Phase 42 | Pending |
+| INVV-06 | Phase 42 | Pending |
+| INVV-07 | Phase 42 | Pending |
+| GARD-01 | Phase 42 | Pending |
+| GARD-02 | Phase 42 | Pending |
+| PDF-01 | Phase 43 | Pending |
+| PDF-02 | Phase 43 | Pending |
+| PDF-03 | Phase 43 | Pending |
+| PDF-04 | Phase 43 | Pending |
+| PDF-05 | Phase 43 | Pending |
 
 **Coverage:**
-- v1 requirements: 21 total
-- Mapped to phases: 0
-- Unmapped: 21
+- v1 requirements: 29 total
+- Mapped to phases: 29
+- Unmapped: 0
+- Coverage: 100%
 
 ---
 *Requirements defined: 2026-02-12*
-*Last updated: 2026-02-12 after initial definition*
+*Last updated: 2026-02-12 after v1.9 roadmap created*
