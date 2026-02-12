@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 ## Current Position
 
 Phase: 41 of 43 (PO Status Engine Enhancement)
-Plan: 1 of ? complete
+Plan: 2 of ? complete
 Status: Executing
-Last activity: 2026-02-12 — Completed 41-01: PO Status Engine Enhancement (database layer + Server Action)
+Last activity: 2026-02-12 — Completed 41-02: PO Status Enhancement UI (tooltips, cancel dialog, visual indicators)
 
-Progress: [████████████████████████████████████░░░░] 94% (103/105 total plans estimated)
+Progress: [████████████████████████████████████░░░░] 95% (104/105 total plans estimated)
 
 ## Performance Metrics
 
@@ -33,7 +33,7 @@ Progress: [███████████████████████
 - v1.6 Stock-Out Approval: Phases 27-31, 12 plans (shipped 2026-02-10)
 - v1.7 Logic Repair: Phases 32-35, 7 plans (shipped 2026-02-11)
 - v1.8 UI/RBAC/Flow: Phases 36-40, 15 plans (shipped 2026-02-12)
-- v1.9 PO Lifecycle: Phases 41-43, 1/? plans (in progress)
+- v1.9 PO Lifecycle: Phases 41-43, 2/? plans (in progress)
 
 ## Accumulated Context
 
@@ -42,6 +42,10 @@ Progress: [███████████████████████
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting v1.9:
 
+- **41-02 Implementation**: Use POStatusBadgeWithTooltip as separate component, preserve existing POStatusBadge unchanged
+- **41-02 Implementation**: Integrate mini progress bar INTO Status column to reduce table columns from 7 to 6
+- **41-02 Implementation**: Use can("delete", "purchase_orders") for admin-only cancellation check (maps to admin role in RBAC matrix)
+- **41-02 Implementation**: Safety-net recompute logs to console.warn only, does NOT override DB status (database is authoritative)
 - **41-01 Implementation**: Invoice-first priority in status calculation - show partially_invoiced until ALL items invoiced, even if some received
 - **41-01 Implementation**: Use pg_advisory_xact_lock on PO UUID for status calculation to prevent concurrent calculation race conditions
 - **41-01 Implementation**: Admin-only cancellation with mandatory reason for financial control
@@ -74,9 +78,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: Completed 41-01-PLAN.md (PO Status Engine Enhancement - database layer + Server Action)
+Stopped at: Completed 41-02-PLAN.md (PO Status Enhancement UI - tooltips, cancel dialog, visual indicators)
 Resume file: None (ready to continue with next plan)
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-12 after completing plan 41-01*
+*Last updated: 2026-02-12 after completing plan 41-02*
