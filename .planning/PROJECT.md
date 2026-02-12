@@ -8,6 +8,19 @@ An internal ticket, expense, and inventory management platform serving as a Sing
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
+## Current Milestone: v1.9 PO Lifecycle, Cancellation Guards & PDF Export
+
+**Goal:** Complete the PO lifecycle with smart status engine, enforce cancellation/void guards, and enable PDF receipt export for key documents.
+
+**Target features:**
+- PO smart lifecycle with 6-state status engine triggered by invoice/stock-in events
+- Per-line-item progress tracking (ordered → invoiced → received)
+- PO matching tab with side-by-side PO vs Invoice vs Stock-In comparison
+- Lock mechanism on Closed POs (no edit/delete unless Admin)
+- PO cancellation blocked when invoices exist
+- Invoice void blocked when stock-in transactions exist
+- PDF receipt export for invoices, QMHQ money-out, and SOR-based stock-out
+
 ## Current State (v1.8 Shipped)
 
 **Tech Stack:**
@@ -152,7 +165,16 @@ Users can reliably create purchase orders, receive inventory, and track request 
 
 ### Active
 
-(None — run `/gsd:new-milestone` to define next goals)
+<!-- V1.9 Features -->
+- [ ] PO smart status engine (Not Started → Partially Invoiced → Awaiting Delivery → Partially Received → Closed → Cancelled)
+- [ ] Per-line-item progress bars on PO detail (ordered/invoiced/received)
+- [ ] Matching tab on PO detail (PO vs Invoice vs Stock-In side-by-side)
+- [ ] Lock mechanism on Closed PO/Invoice/Stock-In (Admin override)
+- [ ] PO cancellation guard (blocked if invoices exist)
+- [ ] Invoice void guard (blocked if stock-in transactions exist)
+- [ ] PDF receipt export for invoices
+- [ ] PDF receipt export for QMHQ money-out transactions
+- [ ] PDF receipt export for SOR-based stock-out transactions
 
 ### Out of Scope
 
@@ -188,6 +210,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.6 Stock-Out Approval & Data Integrity — Stock-out approval, deletion protection, user deactivation, context sliders (shipped 2026-02-10)
 - v1.7 Stock-Out Request Logic Repair — Per-line-item execution, QMHQ transaction linking, dual reference display (shipped 2026-02-11)
 - v1.8 UI Consistency, Flow Tracking & RBAC — Composite UI components, 3-role RBAC, flow tracking (shipped 2026-02-12)
+- v1.9 PO Lifecycle, Cancellation Guards & PDF Export — PO smart status, matching panel, void guards, PDF receipts (in progress)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -293,4 +316,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Composite prop types widened from `string` to `ReactNode` (backward compatible but less type-safe)
 
 ---
-*Last updated: 2026-02-12 after v1.8 milestone*
+*Last updated: 2026-02-12 after v1.9 milestone started*
