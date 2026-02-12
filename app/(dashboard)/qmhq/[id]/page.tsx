@@ -49,6 +49,7 @@ import { ItemsSummaryProgress } from "@/components/qmhq/items-summary-progress";
 import type { ItemProgressData } from "@/components/qmhq/items-summary-progress";
 import { QmhqLinkedTransactions } from "@/components/qmhq/qmhq-linked-transactions";
 import { FulfillmentMetrics } from "@/components/qmhq/fulfillment-metrics";
+import { DetailPageLayout } from "@/components/composite";
 import type {
   QMHQ,
   StatusConfig,
@@ -538,60 +539,51 @@ export default function QMHQDetailPage() {
     .reduce((sum, t) => sum + (t.amount_eusd ?? 0), 0);
 
   return (
-    <div className="space-y-6 relative">
-      {/* Grid overlay */}
-      <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
-
-      {/* Header */}
-      <div className="relative flex items-start justify-between animate-fade-in">
-        <div className="flex items-start gap-4">
-          <Link href="/qmhq">
-            <Button variant="ghost" size="icon" className="mt-1 hover:bg-amber-500/10 hover:text-amber-500">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            {/* Route Type Badge */}
-            <div className="flex items-center gap-3 mb-2">
-              <div className={`flex items-center gap-2 px-3 py-1 rounded border ${routeColors?.bgColor}`}>
-                <RouteIcon className={`h-4 w-4 ${routeColors?.color}`} />
-                <span className={`text-xs font-semibold uppercase tracking-widest ${routeColors?.color}`}>
-                  {routeColors?.label} Route
-                </span>
-              </div>
-              {qmhq.status && (
-                <ClickableStatusBadge
-                  status={qmhq.status}
-                  entityType="qmhq"
-                  entityId={qmhq.id}
-                  onStatusChange={fetchData}
-                />
-              )}
+    <DetailPageLayout
+      backHref="/qmhq"
+      header={
+        <div>
+          {/* Route Type Badge */}
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`flex items-center gap-2 px-3 py-1 rounded border ${routeColors?.bgColor}`}>
+              <RouteIcon className={`h-4 w-4 ${routeColors?.color}`} />
+              <span className={`text-xs font-semibold uppercase tracking-widest ${routeColors?.color}`}>
+                {routeColors?.label} Route
+              </span>
             </div>
-
-            {/* Request ID */}
-            <div className="request-id-badge mb-2">
-              <code className="text-lg">{qmhq.request_id}</code>
-            </div>
-
-            {/* Title */}
-            <h1 className="text-2xl font-bold tracking-tight text-slate-200">
-              {qmhq.line_name}
-            </h1>
-
-            {/* Parent QMRL Link */}
-            {qmhq.qmrl && (
-              <Link href={`/qmrl/${qmhq.qmrl.id}`} className="inline-flex items-center gap-2 mt-2 text-sm text-slate-400 hover:text-amber-400 transition-colors">
-                <span>From:</span>
-                <code className="text-amber-400">{qmhq.qmrl.request_id}</code>
-                <span className="truncate max-w-[200px]">{qmhq.qmrl.title}</span>
-                <ExternalLink className="h-3 w-3" />
-              </Link>
+            {qmhq.status && (
+              <ClickableStatusBadge
+                status={qmhq.status}
+                entityType="qmhq"
+                entityId={qmhq.id}
+                onStatusChange={fetchData}
+              />
             )}
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
+          {/* Request ID */}
+          <div className="request-id-badge mb-2">
+            <code className="text-lg">{qmhq.request_id}</code>
+          </div>
+
+          {/* Title */}
+          <h1 className="text-2xl font-bold tracking-tight text-slate-200">
+            {qmhq.line_name}
+          </h1>
+
+          {/* Parent QMRL Link */}
+          {qmhq.qmrl && (
+            <Link href={`/qmrl/${qmhq.qmrl.id}`} className="inline-flex items-center gap-2 mt-2 text-sm text-slate-400 hover:text-amber-400 transition-colors">
+              <span>From:</span>
+              <code className="text-amber-400">{qmhq.qmrl.request_id}</code>
+              <span className="truncate max-w-[200px]">{qmhq.qmrl.title}</span>
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+          )}
+        </div>
+      }
+      actions={
+        <>
           {can("update", "qmhq") && (
             <Link href={`/qmhq/${qmhqId}/edit`}>
               <Button variant="outline" className="border-slate-700 hover:bg-slate-800 text-slate-300">
@@ -600,12 +592,11 @@ export default function QMHQDetailPage() {
               </Button>
             </Link>
           )}
-        </div>
-      </div>
-
-      {/* Financial Summary for expense/po routes */}
-      {(qmhq.route_type === "expense" || qmhq.route_type === "po") && (
-        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
+        </>
+      }
+      kpiPanel={
+        (qmhq.route_type === "expense" || qmhq.route_type === "po") ? (
+          <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
           <div className="grid grid-cols-5 gap-4">
             {/* QMHQ Amount (Budget) */}
             <div className="text-center p-4 rounded-lg bg-slate-800/30 border border-slate-700">
@@ -686,9 +677,10 @@ export default function QMHQDetailPage() {
               />
             </div>
           </div>
-        </div>
-      )}
-
+          </div>
+        ) : undefined
+      }
+    >
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="animate-slide-up" style={{ animationDelay: "200ms" }}>
         <TabsList className="bg-slate-800/50 border border-slate-700">
@@ -1284,6 +1276,6 @@ export default function QMHQDetailPage() {
         open={isViewModalOpen}
         onOpenChange={setIsViewModalOpen}
       />
-    </div>
+    </DetailPageLayout>
   );
 }

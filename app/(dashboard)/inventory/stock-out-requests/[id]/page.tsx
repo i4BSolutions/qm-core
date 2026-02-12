@@ -24,6 +24,7 @@ import { ApprovalDialog } from "@/components/stock-out-requests/approval-dialog"
 import { RejectionDialog } from "@/components/stock-out-requests/rejection-dialog";
 import { ExecutionConfirmationDialog } from "@/components/stock-out-requests/execution-confirmation-dialog";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
+import { DetailPageLayout } from "@/components/composite";
 import {
   Tooltip,
   TooltipContent,
@@ -582,20 +583,11 @@ export default function StockOutRequestDetailPage() {
   const reasonConfig = STOCK_OUT_REASON_CONFIG[request.reason];
 
   return (
-    <div>
-      {/* Main Content */}
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/inventory/stock-out-requests")}
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
+    <DetailPageLayout
+      backHref="/inventory/stock-out-requests"
+      header={
+        <div>
+          <div className="space-y-3">
             <div className="space-y-1">
               <h1 className="text-2xl font-mono font-bold text-slate-100">
                 {request.request_number}
@@ -604,21 +596,21 @@ export default function StockOutRequestDetailPage() {
                 Requested by {request.requester?.full_name || "Unknown"}
               </p>
             </div>
+            <Badge
+              variant="outline"
+              className={cn(
+                "border text-sm px-3 py-1",
+                statusConfig.bgColor,
+                statusConfig.color
+              )}
+            >
+              {statusConfig.label}
+            </Badge>
           </div>
-          <Badge
-            variant="outline"
-            className={cn(
-              "border text-sm px-3 py-1",
-              statusConfig.bgColor,
-              statusConfig.color
-            )}
-          >
-            {statusConfig.label}
-          </Badge>
         </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3">
+      }
+      actions={
+        <>
           {canCancel && (
             <Button
               onClick={handleCancelRequest}
@@ -638,11 +630,10 @@ export default function StockOutRequestDetailPage() {
               )}
             </Button>
           )}
-        </div>
-      </div>
-
-      {/* Request Info Panel */}
-      <div className="command-panel p-6 space-y-4">
+        </>
+      }
+      kpiPanel={
+        <div className="command-panel p-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <div className="text-xs font-medium text-slate-500 mb-1">
@@ -717,8 +708,9 @@ export default function StockOutRequestDetailPage() {
             </div>
           </div>
         )}
-      </div>
-
+        </div>
+      }
+    >
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
@@ -1040,8 +1032,6 @@ export default function StockOutRequestDetailPage() {
           isExecuting={isExecuting}
         />
       )}
-      </div>
-
-    </div>
+    </DetailPageLayout>
   );
 }

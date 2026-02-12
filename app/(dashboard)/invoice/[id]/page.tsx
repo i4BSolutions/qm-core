@@ -39,6 +39,7 @@ import { HistoryTab } from "@/components/history";
 import { voidInvoice } from "@/lib/actions/invoice-actions";
 import { useToast } from "@/components/ui/use-toast";
 import { CommentsSection } from "@/components/comments";
+import { DetailPageLayout } from "@/components/composite";
 import type {
   Invoice,
   InvoiceLineItem,
@@ -283,77 +284,87 @@ export default function InvoiceDetailPage() {
   );
 
   return (
-    <div className="space-y-6 relative">
-      {/* Grid overlay */}
-      <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
-
-      {/* Error Banner */}
-      {error && (
-        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-red-400" />
-            <p className="text-red-400">{error}</p>
-          </div>
-          <button
-            onClick={fetchData}
-            className="mt-2 text-sm text-red-400 underline hover:text-red-300"
-          >
-            Click to retry
-          </button>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="relative flex items-start justify-between animate-fade-in">
-        <div className="flex items-start gap-4">
-          <Link href="/invoice">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="mt-1 hover:bg-amber-500/10 hover:text-amber-500"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            {/* Status Badge */}
-            <div className="flex items-center gap-3 mb-2">
-              <InvoiceStatusBadge
-                status={(invoice.status || "draft") as InvoiceStatus}
-                isVoided={invoice.is_voided ?? false}
-              />
-            </div>
-
-            {/* Invoice Number */}
-            <div className="request-id-badge mb-2">
-              <code className="text-lg">{invoice.invoice_number}</code>
-            </div>
-
-            {/* Supplier */}
-            {invoice.purchase_order?.supplier && (
-              <h1 className="text-2xl font-bold tracking-tight text-slate-200">
-                {invoice.purchase_order.supplier.company_name ||
-                  invoice.purchase_order.supplier.name}
-              </h1>
-            )}
-
-            {/* Parent PO Link */}
-            {invoice.purchase_order && (
-              <Link
-                href={`/po/${invoice.purchase_order.id}`}
-                className="inline-flex items-center gap-2 mt-2 text-sm text-slate-400 hover:text-amber-400 transition-colors"
+    <DetailPageLayout
+      backHref="/invoice"
+      header={
+        <div>
+          {/* Error Banner */}
+          {error && (
+            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-red-400" />
+                <p className="text-red-400">{error}</p>
+              </div>
+              <button
+                onClick={fetchData}
+                className="mt-2 text-sm text-red-400 underline hover:text-red-300"
               >
-                <span>PO:</span>
-                <code className="text-blue-400">
-                  {invoice.purchase_order.po_number}
-                </code>
-                <ExternalLink className="h-3 w-3" />
-              </Link>
-            )}
-          </div>
-        </div>
+                Click to retry
+              </button>
+            </div>
+          )}
 
-        <div className="flex items-center gap-2">
+          {/* Status Badge */}
+          <div className="flex items-center gap-3 mb-2">
+            <InvoiceStatusBadge
+              status={(invoice.status || "draft") as InvoiceStatus}
+              isVoided={invoice.is_voided ?? false}
+            />
+          </div>
+
+          {/* Invoice Number */}
+          <div className="request-id-badge mb-2">
+            <code className="text-lg">{invoice.invoice_number}</code>
+          </div>
+
+          {/* Supplier */}
+          {invoice.purchase_order?.supplier && (
+            <h1 className="text-2xl font-bold tracking-tight text-slate-200">
+              {invoice.purchase_order.supplier.company_name ||
+                invoice.purchase_order.supplier.name}
+            </h1>
+          )}
+
+          {/* Parent PO Link */}
+          {invoice.purchase_order && (
+            <Link
+              href={`/po/${invoice.purchase_order.id}`}
+              className="inline-flex items-center gap-2 mt-2 text-sm text-slate-400 hover:text-amber-400 transition-colors"
+            >
+              <span>PO:</span>
+              <code className="text-blue-400">
+                {invoice.purchase_order.po_number}
+              </code>
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+          )}
+
+          {/* Voided Warning */}
+          {invoice.is_voided && (
+            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 mt-4">
+              <div className="flex items-start gap-3">
+                <Ban className="h-5 w-5 text-red-400 mt-0.5" />
+                <div>
+                  <p className="font-medium text-red-400">This invoice has been voided</p>
+                  {invoice.void_reason && (
+                    <p className="text-sm text-red-400/80 mt-1">
+                      Reason: {invoice.void_reason}
+                    </p>
+                  )}
+                  {invoice.voided_by_user && (
+                    <p className="text-xs text-slate-400 mt-2">
+                      Voided by {invoice.voided_by_user.full_name} on{" "}
+                      {formatDateTime(invoice.voided_at)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      }
+      actions={
+        <>
           {showVoidButton && (
             <Button
               variant="outline"
@@ -364,37 +375,13 @@ export default function InvoiceDetailPage() {
               Void Invoice
             </Button>
           )}
-        </div>
-      </div>
-
-      {/* Voided Warning */}
-      {invoice.is_voided && (
-        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 animate-slide-up">
-          <div className="flex items-start gap-3">
-            <Ban className="h-5 w-5 text-red-400 mt-0.5" />
-            <div>
-              <p className="font-medium text-red-400">This invoice has been voided</p>
-              {invoice.void_reason && (
-                <p className="text-sm text-red-400/80 mt-1">
-                  Reason: {invoice.void_reason}
-                </p>
-              )}
-              {invoice.voided_by_user && (
-                <p className="text-xs text-slate-400 mt-2">
-                  Voided by {invoice.voided_by_user.full_name} on{" "}
-                  {formatDateTime(invoice.voided_at)}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Financial Summary Panel */}
-      <div
-        className="command-panel corner-accents animate-slide-up"
-        style={{ animationDelay: "100ms" }}
-      >
+        </>
+      }
+      kpiPanel={
+        <div
+          className="command-panel corner-accents animate-slide-up"
+          style={{ animationDelay: "100ms" }}
+        >
         <div className="grid grid-cols-3 gap-4">
           {/* Total Amount with EUSD */}
           <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700">
@@ -433,8 +420,9 @@ export default function InvoiceDetailPage() {
             </p>
           </div>
         </div>
-      </div>
-
+        </div>
+      }
+    >
       {/* Tabs */}
       <Tabs
         value={activeTab}
@@ -835,6 +823,6 @@ export default function InvoiceDetailPage() {
         onConfirm={handleVoid}
         isLoading={isVoiding}
       />
-    </div>
+    </DetailPageLayout>
   );
 }
