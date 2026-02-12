@@ -144,10 +144,12 @@ Plans:
   4. PDFs match app UI styling (colors, fonts, spacing) with professional print-friendly appearance
   5. PDFs include company branding (name, logo if configured) and export timestamp in footer ("Generated on: YYYY-MM-DD HH:MM")
 
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 43-01: TBD (planned during phase planning)
+- [ ] 43-01-PLAN.md -- Shared PDF infrastructure: install @react-pdf/renderer, dark theme styles, template, header, footer, table, status badge, dual currency, download button
+- [ ] 43-02-PLAN.md -- Invoice Receipt PDF document + Download PDF button on invoice detail page
+- [ ] 43-03-PLAN.md -- Stock-Out Receipt PDF + Money-Out Receipt PDF + Download PDF buttons on SOR and QMHQ detail pages
 
 ## Progress
 
@@ -164,7 +166,7 @@ Plans:
 | 36-40. UI Composites → RBAC → Flow Tracking | v1.8 | 15/15 | ✓ Complete | 2026-02-12 |
 | 41. PO Status Engine Enhancement | v1.9 | 2/2 | ✓ Complete | 2026-02-12 |
 | 42. Cancellation Guards & Lock Mechanism | v1.9 | 3/3 | ✓ Complete | 2026-02-12 |
-| 43. PDF Export Infrastructure | v1.9 | 0/? | Not started | - |
+| 43. PDF Export Infrastructure | v1.9 | 0/3 | Not started | - |
 
 ---
-*Last updated: 2026-02-12 after Phase 42 execution complete*
+*Last updated: 2026-02-12 after Phase 43 planning complete*
