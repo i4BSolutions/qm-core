@@ -2,42 +2,29 @@
 
 ## What This Is
 
-An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with per-line-item stock-out approval and execution workflows, deletion protection, team collaboration via comments, and responsive financial displays.
+An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with per-line-item stock-out approval and execution workflows, deletion protection, team collaboration via comments, responsive financial displays, standardized UI via composite components, streamlined 3-role RBAC (Admin/QMRL/QMHQ), and admin-only end-to-end flow tracking.
 
 ## Core Value
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-## Current Milestone: v1.8 UI Consistency, Flow Tracking & RBAC
-
-**Goal:** Standardize UI/UX across all pages, add admin-only end-to-end request tracking, and overhaul RBAC to three roles (Admin, QMRL, QMHQ) with extensibility for future roles.
-
-**Target features:**
-- General UI/UX audit and standardization (buttons, inputs, spacing, layouts)
-- End-to-end flow tracking page (admin-only, search by QMRL ID)
-- RBAC overhaul: remove legacy 7-role system, replace with Admin/QMRL/QMHQ
-- QMRL role: create QMRL, view all QMRLs, no downstream access
-- QMHQ role: create QMHQ, view QMRLs (read-only), view QMHQs/transactions/stock summary/POs
-- Admin: full CRUD, approvals, tracking page, user management
-
-## Current State (v1.7 Shipped)
+## Current State (v1.8 Shipped)
 
 **Tech Stack:**
 - Next.js 14+ with App Router, TypeScript strict mode
 - Supabase for auth, database, and file storage
 - Tailwind CSS with dark theme support
-- ~43,976 lines of TypeScript
-- 62 database migrations with RLS policies
+- ~45,196 lines of TypeScript
+- 66 database migrations with RLS policies (92 policies across 20 tables)
 
 **Shipped Features:**
-- Email OTP authentication with 7-role RBAC
+- Email OTP authentication with 3-role RBAC (Admin/QMRL/QMHQ)
 - QMRL/QMHQ with Notion-style status system
 - Purchase orders with smart status calculation
 - Invoice creation with quantity validation and void cascade
 - Inventory stock-in/out with WAC valuation (multi-currency)
-- Stock-out request/approval workflow with partial approval and atomic execution
+- Stock-out request/approval workflow with partial approval and per-line-item execution
 - QMHQ item route integration with stock-out requests (requested/approved/rejected/executed qty display)
-- Per-line-item stock-out execution with stock pre-check and confirmation dialog
 - SOR-grouped transaction display with stepped progress visualization on QMHQ detail
 - Dual reference display (SOR primary + QMHQ secondary) on stock-out transactions
 - Database trigger hardening (advisory locks, row-level locking, idempotency constraints)
@@ -66,6 +53,10 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Dual currency display (Org + EUSD) on QMHQ detail and list pages
 - Deletion protection for items, statuses, categories, departments, contacts, suppliers
 - User deactivation (no delete) with login blocking and admin reactivation
+- 7 composite UI components (PageHeader, FilterBar, ActionButtons, FormField, FormSection, DetailPageLayout, CardViewGrid)
+- 32 pages migrated to standardized composites
+- Admin-only end-to-end flow tracking (QMRL → QMHQ → PO → Invoice → Stock chain)
+- Server-side layout guards for role-based route protection
 
 ## Requirements
 
@@ -150,11 +141,18 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - ✓ Database advisory locks and idempotency constraints for concurrent execution safety — v1.7
 - ✓ Auto-populate QMHQ link from SOR chain with backfill migration — v1.7
 
+<!-- V1.8 Features -->
+- ✓ Standardized UI via 7 composite components (PageHeader, FilterBar, ActionButtons, FormField, FormSection, DetailPageLayout, CardViewGrid) — v1.8
+- ✓ 32 pages migrated to composite components with consistent headers, filters, forms, and detail layouts — v1.8
+- ✓ RBAC overhauled from 7 roles to 3 (admin, qmrl, qmhq) with expand-and-contract database migration — v1.8
+- ✓ 92 RLS policies recreated for 3-role model across 20 tables — v1.8
+- ✓ Server-side layout guards for role-based route protection — v1.8
+- ✓ Admin-only end-to-end flow tracking page with QMRL chain visualization — v1.8
+- ✓ Navigation sidebar filtered by user role — v1.8
+
 ### Active
 
-- [ ] UI/UX standardization across all pages
-- [ ] End-to-end flow tracking page (admin-only)
-- [ ] RBAC overhaul to Admin/QMRL/QMHQ roles
+(None — run `/gsd:new-milestone` to define next goals)
 
 ### Out of Scope
 
@@ -189,6 +187,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.5 UX Polish & Collaboration — Comments, responsive typography, two-step selectors, currency unification (shipped 2026-02-09)
 - v1.6 Stock-Out Approval & Data Integrity — Stock-out approval, deletion protection, user deactivation, context sliders (shipped 2026-02-10)
 - v1.7 Stock-Out Request Logic Repair — Per-line-item execution, QMHQ transaction linking, dual reference display (shipped 2026-02-11)
+- v1.8 UI Consistency, Flow Tracking & RBAC — Composite UI components, 3-role RBAC, flow tracking (shipped 2026-02-12)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -267,6 +266,13 @@ Users can reliably create purchase orders, receive inventory, and track request 
 | Dual enforcement for user deactivation | ban_duration prevents token refresh, middleware catches unexpired tokens | ✓ Good |
 | Self-deactivation guard | Admin cannot deactivate themselves to prevent lockout | ✓ Good |
 | Conditional slider rendering | Slider only when context exists (QMHQ param), clean UX for manual flows | ✓ Good |
+| Composite UI components | 7 composites for consistent UI without big-bang refactor | ✓ Good |
+| Expand-and-contract RBAC migration | Safe enum migration from 7 to 3 roles, no data loss | ✓ Good |
+| 3-role RBAC (admin/qmrl/qmhq) | Simplified from 7 roles — clearer boundaries | ✓ Good |
+| Server-side layout guards | Route protection at layout level, not just navigation filtering | ✓ Good |
+| PostgreSQL VIEW for flow tracking | Real-time data, simpler than materialized view for <10K QMRLs | ✓ Good |
+| Card-based flow tracking (no graph library) | Linear chain doesn't need React Flow — card layout sufficient | ✓ Good |
+| Surgical JSX replacement for UI migration | Preserve business logic, only replace visual wrapper | ✓ Good |
 
 ## Constraints
 
@@ -282,6 +288,9 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Context slider deferred for stock-out approval/execution pages (CSLR-02, CSLR-03)
   - Approval detail page already shows full request context
   - Execution is a dialog modal, not a standalone page
+- Flow tracking VIEW performance unknown at production scale (assumes <10K QMRLs)
+  - May require materialized view or virtualization if performance insufficient
+- Composite prop types widened from `string` to `ReactNode` (backward compatible but less type-safe)
 
 ---
-*Last updated: 2026-02-11 after v1.8 milestone start*
+*Last updated: 2026-02-12 after v1.8 milestone*

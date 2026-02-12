@@ -201,3 +201,33 @@
 
 ---
 
+
+## v1.8 UI Consistency, Flow Tracking & RBAC (Shipped: 2026-02-12)
+
+**Delivered:** Standardized UI/UX across all pages with 7 composite components, overhauled RBAC from 7 roles to 3 (Admin/QMRL/QMHQ) with 92 RLS policies, and built admin-only end-to-end flow tracking page.
+
+**Phases completed:** 36-40 (15 plans total)
+
+**Key accomplishments:**
+
+- Created 7 composite UI components (PageHeader, FilterBar, ActionButtons, FormField, FormSection, DetailPageLayout, CardViewGrid) and migrated 32 pages
+- Migrated database RBAC from 7-role to 3-role (admin/qmrl/qmhq) using expand-and-contract pattern with zero data loss
+- Recreated 92 RLS policies and updated all frontend permission checks for 3-role model
+- Built admin-only end-to-end flow tracking page with QMRL → QMHQ → PO → Invoice → Stock chain visualization
+- Standardized UI across 25+ list pages, 7 detail pages, and 10 form pages with surgical JSX replacement
+
+**Stats:**
+
+- 101 files modified (+15,611/-2,889 lines)
+- ~45,196 lines of TypeScript
+- 5 phases, 15 plans, 35 commits
+- 2 days from start to ship (2026-02-11 → 2026-02-12)
+
+**Git range:** `5864080` → `d9cddda`
+
+**Tech debt accepted:** Flow tracking VIEW performance unknown at scale; PO Edit page still 404; context slider deferred for approval/execution pages
+
+**What's next:** TBD — run `/gsd:new-milestone` to define next goals
+
+---
+

@@ -70,134 +70,14 @@ Phases 32-35 delivered per-line-item stock-out execution, QMHQ transaction linki
 
 </details>
 
-### ✅ v1.8 UI Consistency, Flow Tracking & RBAC (Shipped 2026-02-12)
+<details>
+<summary>✅ v1.8 UI Consistency, Flow Tracking & RBAC (Phases 36-40) - SHIPPED 2026-02-12</summary>
 
-**Milestone Goal:** Standardize UI/UX across all pages, add admin-only end-to-end request tracking, and overhaul RBAC to three roles (Admin, QMRL, QMHQ) with extensibility for future roles.
+Phases 36-40 delivered 7 composite UI components with 32-page migration, RBAC overhaul from 7 to 3 roles with 92 RLS policies, and admin-only end-to-end flow tracking page.
 
-#### Phase 36: UI Component Standardization
-
-**Goal:** Establish reusable UI patterns through composite components that can be adopted incrementally across the codebase.
-
-**Depends on:** Nothing (first phase of v1.8)
-
-**Requirements:** UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08
-
-**Success Criteria** (what must be TRUE):
-1. User sees consistent page headers with title, description, and action button placement on pilot pages
-2. User sees consistent filter bars with standardized search, dropdown, and date picker layouts on pilot pages
-3. User sees consistent data tables with uniform column sizing, sorting, and pagination on pilot pages
-4. User sees consistent button hierarchy (primary/secondary/ghost) and sizing on pilot pages
-5. User sees consistent form layouts with standardized input sizing, label placement, and error displays on pilot pages
-
-**Plans:** 3 plans
-
-Plans:
-- [x] 36-01-PLAN.md — Core composite components (PageHeader, FilterBar, ActionButtons, FormField, FormSection)
-- [x] 36-02-PLAN.md — Layout composite components (DetailPageLayout, CardViewGrid) + barrel export
-- [x] 36-03-PLAN.md — Migrate 3 pilot pages (QMRL list, PO list, Item detail) to composites
-
----
-
-#### Phase 37: RBAC Database Migration
-
-**Goal:** Safely migrate the database from 7-role enum to 3-role enum using expand-and-contract pattern without data loss.
-
-**Depends on:** Phase 36
-
-**Requirements:** RBAC-01, RBAC-02, RBAC-16
-
-**Success Criteria** (what must be TRUE):
-1. Database user_role enum contains exactly 3 values (admin, qmrl, qmhq)
-2. All existing users are successfully remapped to appropriate new roles (admin/quartermaster → admin, finance/inventory/proposal → qmhq, frontline/requester → qmrl)
-3. Zero users have invalid or null roles after migration
-4. Role enum supports adding new roles in the future without schema redesign (no hardcoded checks beyond enum definition)
-
-**Plans:** 2 plans
-
-Plans:
-- [x] 37-01-PLAN.md — Enum migration with data mapping and function updates (expand-and-contract)
-- [x] 37-02-PLAN.md — RLS policy recreation across all 20 tables with new role values
-
----
-
-#### Phase 38: RBAC Permission Enforcement
-
-**Goal:** Update all RLS policies, navigation, and permission checks to enforce the 3-role model across the application.
-
-**Depends on:** Phase 37
-
-**Requirements:** RBAC-03, RBAC-04, RBAC-05, RBAC-06, RBAC-07, RBAC-08, RBAC-09, RBAC-10, RBAC-11, RBAC-12, RBAC-13, RBAC-14, RBAC-15
-
-**Success Criteria** (what must be TRUE):
-1. QMRL role user can create QMRLs, view all QMRLs, but cannot access QMHQ/PO/Invoice/Inventory pages
-2. QMHQ role user can create QMHQs, view all QMRLs (read-only), view all QMHQs with financial transactions, view stock levels summary, and view PO details
-3. Admin retains full CRUD access to all entities and pages
-4. Navigation sidebar shows only sections permitted by the user's current role
-5. Stock-out approvals remain restricted to Admin role only
-
-**Plans:** 2 plans
-
-Plans:
-- [x] 38-01-PLAN.md — Update TypeScript types, permission matrix, roleNavigation, and sidebar navigation
-- [x] 38-02-PLAN.md — Update page-level role checks, admin UI configs, and stock-out approval guards
-
----
-
-#### Phase 39: End-to-End Flow Tracking
-
-**Goal:** Build admin-only flow tracking page that displays the complete downstream chain from QMRL through all linked entities.
-
-**Depends on:** Phase 38
-
-**Requirements:** FLOW-01, FLOW-02, FLOW-03, FLOW-04, FLOW-05, FLOW-06, FLOW-07, FLOW-08
-
-**Success Criteria** (what must be TRUE):
-1. Admin can access a dedicated flow tracking page from navigation
-2. Admin can search by QMRL ID to view the complete downstream chain (QMRL → QMHQs → POs → Invoices → Stock)
-3. Tracking page displays QMRL with current status, all linked QMHQs with route types and statuses
-4. For Item route QMHQs, tracking shows stock-out requests and execution status
-5. For Expense route QMHQs, tracking shows financial transactions
-6. For PO route QMHQs, tracking shows linked POs, invoices, and stock-in status
-7. Only Admin role can access the flow tracking page (enforced by RLS and navigation)
-
-**Plans:** 2 plans
-
-Plans:
-- [x] 39-01-PLAN.md — Database VIEW, TypeScript types, and query function for flow chain data layer
-- [x] 39-02-PLAN.md — Flow tracking page UI with timeline components, search, and admin navigation
-
----
-
-#### Phase 40: UI Consistency Rollout
-
-**Goal:** Migrate remaining pages to standardized UI components incrementally, starting with simple pages and ending with complex forms.
-
-**Depends on:** Phase 36
-
-**Requirements:** UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08
-
-**Success Criteria** (what must be TRUE):
-1. At least 80% of list pages use standardized PageShell and FilterBar components
-2. At least 80% of forms use standardized form input components
-3. At least 80% of detail pages use standardized detail page layout
-4. All card views use standardized card layout with consistent info density
-5. All pages follow standardized spacing scale (consistent padding and margins)
-
-**Plans:** 6 plans
-
-Plans:
-- [x] 40-01-PLAN.md — Migrate 8 simple list/table pages to PageHeader composite
-- [x] 40-02-PLAN.md — Migrate 4 card-view list pages to PageHeader + FilterBar + CardViewGrid
-- [x] 40-03-PLAN.md — Migrate 6 detail pages to DetailPageLayout composite
-- [x] 40-04-PLAN.md — Migrate 3 simple form pages to FormSection + FormField composites
-- [x] 40-05-PLAN.md — Migrate 3 medium form pages (QMHQ wizard, PO new) to FormSection composites
-- [x] 40-06-PLAN.md — Migrate 4 complex form pages (Invoice wizard, Stock In/Out) to FormSection composites
-
----
+</details>
 
 ## Progress
-
-**Execution Order:** 36 → 37 → 38 → 39 → 40
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -209,11 +89,7 @@ Plans:
 | 23-26. Comments → Currency | v1.5 | 9/9 | ✓ Complete | 2026-02-09 |
 | 27-31. Stock-Out → Sliders | v1.6 | 12/12 | ✓ Complete | 2026-02-10 |
 | 32-35. Linking → Execution UI | v1.7 | 7/7 | ✓ Complete | 2026-02-11 |
-| 36. UI Component Standardization | v1.8 | 3/3 | ✓ Complete | 2026-02-11 |
-| 37. RBAC Database Migration | v1.8 | 2/2 | ✓ Complete | 2026-02-11 |
-| 38. RBAC Permission Enforcement | v1.8 | 2/2 | ✓ Complete | 2026-02-11 |
-| 39. End-to-End Flow Tracking | v1.8 | 2/2 | ✓ Complete | 2026-02-11 |
-| 40. UI Consistency Rollout | v1.8 | 6/6 | ✓ Complete | 2026-02-12 |
+| 36-40. UI Composites → RBAC → Flow Tracking | v1.8 | 15/15 | ✓ Complete | 2026-02-12 |
 
 ---
-*Last updated: 2026-02-12 after Phase 40 execution complete*
+*Last updated: 2026-02-12 after v1.8 milestone archived*
