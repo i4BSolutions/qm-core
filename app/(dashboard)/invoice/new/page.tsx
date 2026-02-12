@@ -40,6 +40,7 @@ import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import { calculateAvailableQuantity } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
+import { FormSection, FormField, PageHeader } from "@/components/composite";
 
 // Step configuration - 3 steps now
 const STEPS = [
@@ -317,31 +318,29 @@ function InvoiceCreateContent() {
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
 
       {/* Header */}
-      <div className="relative flex items-start justify-between animate-fade-in">
-        <div className="flex items-start gap-4">
-          <Link href="/invoice">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="mt-1 hover:bg-amber-500/10 hover:text-amber-500"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-blue-500/10 border border-blue-500/20 mb-2 w-fit">
-              <FileText className="h-4 w-4 text-blue-500" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-blue-500">
-                New Invoice
-              </span>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-200">
-              Create Invoice
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Create an invoice from a Purchase Order
-            </p>
-          </div>
+      <div className="relative flex items-start gap-4 animate-fade-in">
+        <Link href="/invoice">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mt-1 hover:bg-amber-500/10 hover:text-amber-500"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <div className="flex-1">
+          <PageHeader
+            title="Create Invoice"
+            description="Create an invoice from a Purchase Order"
+            badge={
+              <div className="flex items-center gap-2 px-3 py-1 rounded bg-blue-500/10 border border-blue-500/20 w-fit">
+                <FileText className="h-4 w-4 text-blue-500" />
+                <span className="text-xs font-semibold uppercase tracking-widest text-blue-500">
+                  New Invoice
+                </span>
+              </div>
+            }
+          />
         </div>
       </div>
 
@@ -420,11 +419,10 @@ function InvoiceCreateContent() {
         {currentStep === 1 && (
           <div className="space-y-6">
             {/* PO Selection */}
-            <div className="command-panel corner-accents space-y-6">
-              <div className="section-header">
-                <FileText className="h-4 w-4 text-amber-500" />
-                <h2>Select Purchase Order</h2>
-              </div>
+            <FormSection
+              title="Select Purchase Order"
+              icon={<FileText className="h-4 w-4 text-amber-500" />}
+            >
 
               {purchaseOrders.length === 0 ? (
                 <div className="text-center py-12 text-slate-400">
@@ -495,31 +493,24 @@ function InvoiceCreateContent() {
                   })}
                 </div>
               )}
-            </div>
+            </FormSection>
 
             {/* Invoice Header - Only show if PO selected */}
             {selectedPOId && (
-              <div className="command-panel corner-accents space-y-6">
-                <div className="section-header">
-                  <CalendarDays className="h-4 w-4 text-amber-500" />
-                  <h2>Invoice Details</h2>
-                </div>
+              <FormSection
+                title="Invoice Details"
+                icon={<CalendarDays className="h-4 w-4 text-amber-500" />}
+              >
 
                 <div className="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                      Invoice Date *
-                    </label>
+                  <FormField label="Invoice Date" required>
                     <DatePicker
                       date={invoiceDate}
                       onDateChange={(date) => date && setInvoiceDate(date)}
                     />
-                  </div>
+                  </FormField>
 
-                  <div>
-                    <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                      Currency *
-                    </label>
+                  <FormField label="Currency" required>
                     <Select value={currency} onValueChange={setCurrency}>
                       <SelectTrigger className="bg-slate-800/50 border-slate-700">
                         <SelectValue placeholder="Select currency..." />
@@ -531,18 +522,15 @@ function InvoiceCreateContent() {
                         <SelectItem value="CNY">CNY</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
+                  </FormField>
 
-                  <div>
-                    <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                      Exchange Rate (to EUSD) *
-                    </label>
+                  <FormField label="Exchange Rate (to EUSD)" required>
                     <ExchangeRateInput
                       value={exchangeRate}
                       onValueChange={setExchangeRate}
                       className="bg-slate-800/50 border-slate-700"
                     />
-                  </div>
+                  </FormField>
                 </div>
 
                 <div className="p-3 rounded bg-blue-500/10 border border-blue-500/30">
@@ -551,18 +539,17 @@ function InvoiceCreateContent() {
                     differ from the PO if the actual invoice values are different.
                   </p>
                 </div>
-              </div>
+              </FormSection>
             )}
           </div>
         )}
 
         {/* Step 2: Line Items with Multi-select */}
         {currentStep === 2 && (
-          <div className="command-panel corner-accents space-y-6">
-            <div className="section-header">
-              <Package className="h-4 w-4 text-amber-500" />
-              <h2>Select Line Items</h2>
-            </div>
+          <FormSection
+            title="Select Line Items"
+            icon={<Package className="h-4 w-4 text-amber-500" />}
+          >
 
             <p className="text-sm text-slate-400">
               Select items to include in this invoice and adjust quantities and prices as needed.
@@ -701,7 +688,7 @@ function InvoiceCreateContent() {
                 </div>
               </div>
             )}
-          </div>
+          </FormSection>
         )}
 
         {/* Step 3: Summary */}
@@ -710,11 +697,10 @@ function InvoiceCreateContent() {
             <div className="grid gap-6 lg:grid-cols-3">
               {/* Invoice Details */}
               <div className="lg:col-span-2 space-y-6">
-                <div className="command-panel corner-accents">
-                  <div className="section-header">
-                    <FileText className="h-4 w-4 text-amber-500" />
-                    <h2>Invoice Details</h2>
-                  </div>
+                <FormSection
+                  title="Invoice Details"
+                  icon={<FileText className="h-4 w-4 text-amber-500" />}
+                >
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
@@ -758,14 +744,13 @@ function InvoiceCreateContent() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </FormSection>
 
                 {/* Line Items Summary */}
-                <div className="command-panel corner-accents">
-                  <div className="section-header">
-                    <Package className="h-4 w-4 text-amber-500" />
-                    <h2>Line Items ({selectedItems.length})</h2>
-                  </div>
+                <FormSection
+                  title={`Line Items (${selectedItems.length})`}
+                  icon={<Package className="h-4 w-4 text-amber-500" />}
+                >
 
                   <table className="w-full">
                     <thead>
@@ -811,14 +796,13 @@ function InvoiceCreateContent() {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </FormSection>
 
                 {/* Notes */}
-                <div className="command-panel corner-accents">
-                  <div className="section-header">
-                    <CalendarDays className="h-4 w-4 text-amber-500" />
-                    <h2>Notes</h2>
-                  </div>
+                <FormSection
+                  title="Notes"
+                  icon={<CalendarDays className="h-4 w-4 text-amber-500" />}
+                >
 
                   <Textarea
                     value={notes}
@@ -826,7 +810,7 @@ function InvoiceCreateContent() {
                     placeholder="Add any notes for this invoice..."
                     className="bg-slate-800/50 border-slate-700 min-h-[80px]"
                   />
-                </div>
+                </FormSection>
               </div>
 
               {/* Summary Panel */}

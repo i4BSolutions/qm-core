@@ -39,6 +39,7 @@ import { MOVEMENT_TYPE_CONFIG } from "@/lib/utils/inventory";
 import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
+import { FormSection, FormField, PageHeader } from "@/components/composite";
 import type {
   Invoice,
   InvoiceLineItem,
@@ -480,31 +481,29 @@ function StockInContent() {
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
 
       {/* Header */}
-      <div className="relative flex items-start justify-between animate-fade-in">
-        <div className="flex items-start gap-4">
-          <Link href="/warehouse">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="mt-1 hover:bg-amber-500/10 hover:text-amber-500"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 mb-2 w-fit">
-              <ArrowDownToLine className="h-4 w-4 text-emerald-500" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-500">
-                Stock In
-              </span>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-200">
-              Receive Stock
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Record inventory receipt from invoice or manual entry
-            </p>
-          </div>
+      <div className="relative flex items-start gap-4 animate-fade-in">
+        <Link href="/warehouse">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mt-1 hover:bg-amber-500/10 hover:text-amber-500"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <div className="flex-1">
+          <PageHeader
+            title="Receive Stock"
+            description="Record inventory receipt from invoice or manual entry"
+            badge={
+              <div className="flex items-center gap-2 px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 w-fit">
+                <ArrowDownToLine className="h-4 w-4 text-emerald-500" />
+                <span className="text-xs font-semibold uppercase tracking-widest text-emerald-500">
+                  Stock In
+                </span>
+              </div>
+            }
+          />
         </div>
       </div>
 
@@ -522,11 +521,10 @@ function StockInContent() {
       )}
 
       {/* Source Mode Selection */}
-      <div className="command-panel corner-accents animate-slide-up">
-        <div className="section-header">
-          <Package className="h-4 w-4 text-amber-500" />
-          <h2>Source</h2>
-        </div>
+      <FormSection
+        title="Source"
+        icon={<Package className="h-4 w-4 text-amber-500" />}
+      >
 
         <div className="grid grid-cols-2 gap-4">
           <button
@@ -585,20 +583,17 @@ function StockInContent() {
             </div>
           </button>
         </div>
-      </div>
+      </FormSection>
 
       {/* Invoice Mode */}
       {sourceMode === "invoice" && (
         <>
           {/* Invoice Selection */}
-          <div
-            className="command-panel corner-accents animate-slide-up"
-            style={{ animationDelay: "50ms" }}
+          <FormSection
+            title="Select Invoice"
+            icon={<FileText className="h-4 w-4 text-amber-500" />}
+            animationDelay="50ms"
           >
-            <div className="section-header">
-              <FileText className="h-4 w-4 text-amber-500" />
-              <h2>Select Invoice</h2>
-            </div>
 
             {invoices.length === 0 ? (
               <div className="text-center py-8 text-slate-400">
@@ -660,18 +655,15 @@ function StockInContent() {
                 })}
               </div>
             )}
-          </div>
+          </FormSection>
 
           {/* Invoice Line Items */}
           {selectedInvoiceId && stockInLines.length > 0 && (
-            <div
-              className="command-panel corner-accents animate-slide-up"
-              style={{ animationDelay: "100ms" }}
+            <FormSection
+              title="Items to Receive"
+              icon={<Package className="h-4 w-4 text-amber-500" />}
+              animationDelay="100ms"
             >
-              <div className="section-header">
-                <Package className="h-4 w-4 text-amber-500" />
-                <h2>Items to Receive</h2>
-              </div>
 
               {/* Select All */}
               <div className="flex items-center justify-between pb-3 border-b border-slate-700">
@@ -823,21 +815,18 @@ function StockInContent() {
                   );
                 })}
               </div>
-            </div>
+            </FormSection>
           )}
         </>
       )}
 
       {/* Manual Mode */}
       {sourceMode === "manual" && (
-        <div
-          className="command-panel corner-accents animate-slide-up"
-          style={{ animationDelay: "50ms" }}
+        <FormSection
+          title="Item Details"
+          icon={<Package className="h-4 w-4 text-amber-500" />}
+          animationDelay="50ms"
         >
-          <div className="section-header">
-            <Package className="h-4 w-4 text-amber-500" />
-            <h2>Item Details</h2>
-          </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
@@ -953,24 +942,18 @@ function StockInContent() {
               </p>
             </div>
           )}
-        </div>
+        </FormSection>
       )}
 
       {/* Destination Warehouse */}
-      <div
-        className="command-panel corner-accents animate-slide-up"
-        style={{ animationDelay: "150ms" }}
+      <FormSection
+        title="Destination Warehouse"
+        icon={<Warehouse className="h-4 w-4 text-amber-500" />}
+        animationDelay="150ms"
       >
-        <div className="section-header">
-          <Warehouse className="h-4 w-4 text-amber-500" />
-          <h2>Destination Warehouse</h2>
-        </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-              Warehouse *
-            </label>
+          <FormField label="Warehouse" required>
             <Select value={warehouseId} onValueChange={setWarehouseId}>
               <SelectTrigger className="bg-slate-800/50 border-slate-700">
                 <SelectValue placeholder="Select warehouse..." />
@@ -988,31 +971,25 @@ function StockInContent() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </FormField>
 
-          <div>
-            <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-              Transaction Date
-            </label>
+          <FormField label="Transaction Date">
             <DatePicker
               date={transactionDate}
               onDateChange={(date) => date && setTransactionDate(date)}
             />
-          </div>
+          </FormField>
         </div>
 
-        <div className="mt-4">
-          <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-            Notes
-          </label>
+        <FormField label="Notes" className="mt-4">
           <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Optional notes..."
             className="bg-slate-800/50 border-slate-700 min-h-[60px]"
           />
-        </div>
-      </div>
+        </FormField>
+      </FormSection>
 
       {/* Summary */}
       <div
