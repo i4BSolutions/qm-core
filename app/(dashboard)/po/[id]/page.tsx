@@ -22,14 +22,24 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { POStatusBadge, ApprovalStatusBadge } from "@/components/po/po-status-badge";
+import { POStatusBadgeWithTooltip, ApprovalStatusBadge } from "@/components/po/po-status-badge";
 import { POProgressBar } from "@/components/po/po-progress-bar";
 import { ReadonlyLineItemsTable } from "@/components/po/po-line-items-table";
 import { InvoiceStatusBadge } from "@/components/invoice";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { canCreateInvoice } from "@/lib/utils/po-status";
-import { calculatePOProgress, canEditPO, canCancelPO } from "@/lib/utils/po-status";
+import {
+  calculatePOProgress,
+  canEditPO,
+  canCancelPO,
+  generateStatusTooltip,
+  recomputeStatusFromAggregates,
+  PO_STATUS_CONFIG,
+} from "@/lib/utils/po-status";
+import { cancelPO } from "@/lib/actions/po-actions";
+import { useToast } from "@/components/ui/use-toast";
+import { Lock } from "lucide-react";
 import { HistoryTab } from "@/components/history";
 import { usePermissions } from "@/lib/hooks/use-permissions";
 import { CommentsSection } from "@/components/comments";
@@ -52,6 +62,10 @@ interface POWithRelations extends PurchaseOrder {
   qmhq?: Pick<QMHQ, "id" | "request_id" | "line_name" | "amount_eusd"> | null;
   created_by_user?: Pick<UserType, "id" | "full_name"> | null;
   updated_by_user?: Pick<UserType, "id" | "full_name"> | null;
+  cancelled_by_user?: Pick<UserType, "id" | "full_name"> | null;
+  cancellation_reason?: string | null;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
 }
 
 interface POLineItemWithItem extends POLineItem {
@@ -74,6 +88,11 @@ export default function PODetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("details");
   const [isCancelling, setIsCancelling] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [previousStatus, setPreviousStatus] = useState<string | null>(null);
+  const [statusJustChanged, setStatusJustChanged] = useState(false);
+  const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -87,7 +106,8 @@ export default function PODetailPage() {
         supplier:suppliers(*),
         qmhq:qmhq!purchase_orders_qmhq_id_fkey(id, request_id, line_name, amount_eusd),
         created_by_user:users!purchase_orders_created_by_fkey(id, full_name),
-        updated_by_user:users!purchase_orders_updated_by_fkey(id, full_name)
+        updated_by_user:users!purchase_orders_updated_by_fkey(id, full_name),
+        cancelled_by_user:users!purchase_orders_cancelled_by_fkey(id, full_name)
       `)
       .eq("id", poId)
       .single();
@@ -97,6 +117,16 @@ export default function PODetailPage() {
       setIsLoading(false);
       return;
     }
+
+    // Detect status changes for pulse animation
+    if (poData && previousStatus !== null && poData.status !== previousStatus) {
+      setStatusJustChanged(true);
+      toast({
+        title: "Status Updated",
+        description: `${poData.po_number} status: ${PO_STATUS_CONFIG[poData.status as POStatusEnum]?.label || poData.status}`,
+      });
+    }
+    setPreviousStatus(poData?.status || null);
 
     setPO(poData as unknown as POWithRelations);
 
@@ -113,6 +143,23 @@ export default function PODetailPage() {
 
     if (lineItemsData) {
       setLineItems(lineItemsData as POLineItemWithItem[]);
+
+      // Safety-net: recompute status from aggregates and log mismatches
+      const totalQty = lineItemsData.reduce((sum, li) => sum + li.quantity, 0);
+      const invoicedQty = lineItemsData.reduce((sum, li) => sum + (li.invoiced_quantity ?? 0), 0);
+      const receivedQty = lineItemsData.reduce((sum, li) => sum + (li.received_quantity ?? 0), 0);
+
+      const recomputedStatus = recomputeStatusFromAggregates(
+        totalQty,
+        invoicedQty,
+        receivedQty,
+        poData?.status === 'cancelled'
+      );
+
+      // Log mismatch for debugging (don't override DB - it's authoritative)
+      if (poData && recomputedStatus !== poData.status && poData.status !== 'cancelled') {
+        console.warn(`PO status mismatch: DB=${poData.status}, computed=${recomputedStatus}`);
+      }
     }
 
     // Fetch invoices for this PO
@@ -128,7 +175,7 @@ export default function PODetailPage() {
     }
 
     setIsLoading(false);
-  }, [poId]);
+  }, [poId, previousStatus, toast]);
 
   useEffect(() => {
     if (poId) {
@@ -137,24 +184,25 @@ export default function PODetailPage() {
   }, [poId, fetchData]);
 
   const handleCancelPO = async () => {
-    if (!po || !canCancelPO(po.status as POStatusEnum)) return;
-
-    const confirmed = window.confirm("Are you sure you want to cancel this Purchase Order? This action cannot be undone.");
-    if (!confirmed) return;
+    if (!cancelReason.trim()) return; // reason is mandatory
 
     setIsCancelling(true);
-    const supabase = createClient();
+    const result = await cancelPO(poId, cancelReason.trim());
 
-    const { error } = await supabase
-      .from("purchase_orders")
-      .update({ status: "cancelled" })
-      .eq("id", poId);
-
-    if (error) {
-      console.error("Error cancelling PO:", error);
-      alert("Failed to cancel Purchase Order");
+    if (result.success) {
+      toast({
+        title: "PO Cancelled",
+        description: `${result.data.poNumber} cancelled. Budget released: ${result.data.releasedAmountEusd.toFixed(2)} EUSD to ${result.data.qmhqRequestId}. New Balance in Hand: ${result.data.newBalanceInHand.toFixed(2)} EUSD`,
+      });
+      setShowCancelDialog(false);
+      setCancelReason("");
+      fetchData(); // Refresh page data
     } else {
-      fetchData();
+      toast({
+        title: "Cancellation Failed",
+        description: result.error,
+        variant: "destructive",
+      });
     }
 
     setIsCancelling(false);
@@ -217,7 +265,7 @@ export default function PODetailPage() {
 
   // Admin and QMHQ can edit PO (per 3-role permission matrix)
   const showEditButton = can("update", "purchase_orders") && canEditPO(po.status as POStatusEnum);
-  const showCancelButton = canCancelPO(po.status as POStatusEnum);
+  const showCancelButton = can("delete", "purchase_orders") && canCancelPO(po.status as POStatusEnum);
 
   return (
     <DetailPageLayout
@@ -226,13 +274,31 @@ export default function PODetailPage() {
         <div>
           {/* Status Badges */}
           <div className="flex items-center gap-3 mb-2">
-            <POStatusBadge status={(po.status || "not_started") as POStatusEnum} />
+            <POStatusBadgeWithTooltip
+              status={(po.status || "not_started") as POStatusEnum}
+              totalQty={totalQty}
+              invoicedQty={invoicedQty}
+              receivedQty={receivedQty}
+              animate={statusJustChanged}
+              cancellationReason={po.cancellation_reason || undefined}
+            />
             <ApprovalStatusBadge status={po.approval_status || "draft"} />
+            {po.status === "closed" && (
+              <div className="flex items-center gap-1.5 text-emerald-400 text-sm">
+                <Lock className="h-4 w-4" />
+                <span className="font-medium">Fully Matched</span>
+              </div>
+            )}
           </div>
 
           {/* PO Number */}
           <div className="request-id-badge mb-2">
-            <code className="text-lg">{po.po_number}</code>
+            <code className={cn(
+              "text-lg",
+              po.status === "cancelled" && "line-through text-red-400"
+            )}>
+              {po.po_number}
+            </code>
           </div>
 
           {/* Supplier */}
@@ -258,15 +324,10 @@ export default function PODetailPage() {
           {showCancelButton && (
             <Button
               variant="outline"
-              onClick={handleCancelPO}
-              disabled={isCancelling}
+              onClick={() => setShowCancelDialog(true)}
               className="border-red-500/30 text-red-400 hover:bg-red-500/10"
             >
-              {isCancelling ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <XCircle className="mr-2 h-4 w-4" />
-              )}
+              <XCircle className="mr-2 h-4 w-4" />
               Cancel PO
             </Button>
           )}
@@ -463,6 +524,35 @@ export default function PODetailPage() {
               </div>
             </div>
 
+            {/* Cancellation Details (if cancelled) */}
+            {po.status === "cancelled" && po.cancellation_reason && (
+              <div className="command-panel corner-accents lg:col-span-2 border-red-500/30 bg-red-500/5">
+                <div className="section-header">
+                  <XCircle className="h-4 w-4 text-red-400" />
+                  <h2 className="text-red-400">Cancellation Details</h2>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Reason</p>
+                    <p className="text-slate-300">{po.cancellation_reason}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Cancelled At</p>
+                      <p className="text-slate-200">{formatDateTime(po.cancelled_at)}</p>
+                    </div>
+                    {(po as any).cancelled_by_user && (
+                      <div>
+                        <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Cancelled By</p>
+                        <p className="text-slate-200">{(po as any).cancelled_by_user.full_name}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Timestamps */}
             <div className="command-panel corner-accents">
               <div className="section-header">
@@ -638,6 +728,56 @@ export default function PODetailPage() {
 
       {/* Comments Section */}
       <CommentsSection entityType="po" entityId={poId} />
+
+      {/* Cancel Confirmation Dialog */}
+      {showCancelDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="command-panel w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-semibold text-slate-200 mb-2">Cancel Purchase Order</h3>
+            <p className="text-sm text-slate-400 mb-4">
+              This action is permanent and cannot be undone. The committed budget will be released back to QMHQ Balance in Hand.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-xs text-slate-400 uppercase tracking-wider mb-1.5">
+                Cancellation Reason *
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Why is this PO being cancelled?"
+                className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm placeholder-slate-500 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/30 min-h-[80px] resize-none"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowCancelDialog(false);
+                  setCancelReason("");
+                }}
+                className="border-slate-700"
+              >
+                Go Back
+              </Button>
+              <Button
+                onClick={handleCancelPO}
+                disabled={!cancelReason.trim() || isCancelling}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isCancelling ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <XCircle className="mr-2 h-4 w-4" />
+                )}
+                Confirm Cancellation
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DetailPageLayout>
   );
 }
