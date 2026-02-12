@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Plus,
-  Search,
   LayoutGrid,
   List,
   FileText,
@@ -14,7 +13,6 @@ import {
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination";
 import {
@@ -27,6 +25,7 @@ import {
 import { InvoiceCard, InvoiceStatusBadge } from "@/components/invoice";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { INVOICE_STATUS_CONFIG } from "@/lib/utils/invoice-status";
+import { PageHeader, FilterBar, CardViewGrid } from "@/components/composite";
 import type {
   Invoice,
   PurchaseOrder,
@@ -254,171 +253,136 @@ export default function InvoiceListPage() {
       )}
 
       {/* Page Header */}
-      <div className="relative flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-blue-500/10 border border-blue-500/20">
-              <FileText className="h-4 w-4 text-blue-500" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-blue-500">
-                Finance
-              </span>
+      <PageHeader
+        title="Invoices"
+        description={`${totalItems} invoice${totalItems !== 1 ? "s" : ""} found${totalItems !== invoices.length ? ` (of ${invoices.length} total)` : ""}${voidedCount > 0 && !showVoided ? ` + ${voidedCount} voided` : ""}`}
+        badge={
+          <div className="flex items-center gap-2 px-3 py-1 rounded bg-blue-500/10 border border-blue-500/20">
+            <FileText className="h-4 w-4 text-blue-500" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-blue-500">
+              Finance
+            </span>
+          </div>
+        }
+        actions={
+          <>
+            {/* View Toggle */}
+            <div className="flex items-center border border-slate-700 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode("card")}
+                className={`p-2 transition-colors ${
+                  viewMode === "card"
+                    ? "bg-amber-500/20 text-amber-400"
+                    : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 transition-colors ${
+                  viewMode === "list"
+                    ? "bg-amber-500/20 text-amber-400"
+                    : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <List className="h-4 w-4" />
+              </button>
             </div>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-200">
-            Invoices
-          </h1>
-          <p className="mt-1 text-slate-400">
-            {totalItems} invoice{totalItems !== 1 ? "s" : ""} found
-            {totalItems !== invoices.length && (
-              <span className="text-slate-500"> (of {invoices.length} total)</span>
-            )}
-            {voidedCount > 0 && !showVoided && (
-              <span className="text-slate-500"> + {voidedCount} voided</span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* View Toggle */}
-          <div className="flex items-center border border-slate-700 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode("card")}
-              className={`p-2 transition-colors ${
-                viewMode === "card"
-                  ? "bg-amber-500/20 text-amber-400"
-                  : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-2 transition-colors ${
-                viewMode === "list"
-                  ? "bg-amber-500/20 text-amber-400"
-                  : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
-          <Link href="/invoice/new">
-            <Button className="group relative overflow-hidden">
-              <span className="relative z-10 flex items-center gap-2">
-                <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-                New Invoice
-              </span>
-            </Button>
-          </Link>
-        </div>
-      </div>
+            <Link href="/invoice/new">
+              <Button className="group relative overflow-hidden">
+                <span className="relative z-10 flex items-center gap-2">
+                  <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+                  New Invoice
+                </span>
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       {/* Filters Bar */}
-      <div className="command-panel">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="relative flex-1 min-w-[240px] max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              placeholder="Search by invoice#, PO#, supplier..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-slate-800/50 border-slate-700 focus:border-amber-500/50 font-mono text-sm"
-            />
-          </div>
-
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px] bg-slate-800/50 border-slate-700">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              {Object.entries(INVOICE_STATUS_CONFIG).map(([key, config]) => (
-                <SelectItem key={key} value={key}>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        backgroundColor:
-                          key === "draft"
-                            ? "#94a3b8"
-                            : key === "received"
-                            ? "#3b82f6"
-                            : key === "partially_received"
-                            ? "#f59e0b"
-                            : key === "completed"
-                            ? "#10b981"
-                            : "#ef4444",
-                      }}
-                    />
-                    {config.label}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Show Voided Toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowVoided(!showVoided)}
-            className={`border-slate-700 ${
-              showVoided
-                ? "bg-red-500/10 text-red-400 border-red-500/30"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            {showVoided ? (
-              <>
-                <Eye className="h-4 w-4 mr-2" />
-                Showing Voided
-              </>
-            ) : (
-              <>
-                <EyeOff className="h-4 w-4 mr-2" />
-                Hide Voided
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+      <FilterBar>
+        <FilterBar.Search
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by invoice#, PO#, supplier..."
+        />
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px] bg-slate-800/50 border-slate-700">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            {Object.entries(INVOICE_STATUS_CONFIG).map(([key, config]) => (
+              <SelectItem key={key} value={key}>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{
+                      backgroundColor:
+                        key === "draft"
+                          ? "#94a3b8"
+                          : key === "received"
+                          ? "#3b82f6"
+                          : key === "partially_received"
+                          ? "#f59e0b"
+                          : key === "completed"
+                          ? "#10b981"
+                          : "#ef4444",
+                    }}
+                  />
+                  {config.label}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {/* Show Voided Toggle */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowVoided(!showVoided)}
+          className={`border-slate-700 ${
+            showVoided
+              ? "bg-red-500/10 text-red-400 border-red-500/30"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          {showVoided ? (
+            <>
+              <Eye className="h-4 w-4 mr-2" />
+              Showing Voided
+            </>
+          ) : (
+            <>
+              <EyeOff className="h-4 w-4 mr-2" />
+              Hide Voided
+            </>
+          )}
+        </Button>
+      </FilterBar>
 
       {/* Card View - Grouped by Status */}
       {viewMode === "card" && (
-        <div className="grid gap-6 lg:grid-cols-3">
-          {statusGroups.map((group) => (
-            <div key={group.key} className="flex flex-col">
-              {/* Column Header */}
-              <div className="column-header">
-                <div className={group.dotClass} />
-                <h2 className="text-sm font-bold uppercase tracking-widest text-slate-200">
-                  {group.label}
-                </h2>
-                <span className="stat-counter ml-auto">
-                  {groupedInvoices[group.key].length}
-                </span>
-              </div>
-
-              {/* Column Body */}
-              <div className="flex-1 rounded-b-lg border border-t-0 border-slate-700 bg-slate-900/30 p-3 min-h-[400px]">
-                <div className="space-y-3">
-                  {groupedInvoices[group.key].length === 0 ? (
-                    <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-slate-700">
-                      <p className="text-sm text-slate-400">No invoices</p>
-                    </div>
-                  ) : (
-                    groupedInvoices[group.key].map((inv, index) => (
-                      <InvoiceCard
-                        key={inv.id}
-                        invoice={inv}
-                        animationDelay={index * 50}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <CardViewGrid
+          items={paginatedInvoices}
+          groups={statusGroups.map(g => ({ key: g.key, label: g.label, dotClass: g.dotClass }))}
+          groupBy={(inv) => {
+            if (inv.is_voided) return "completed";
+            const status = inv.status || "draft";
+            const group = statusGroups.find((g) => g.statuses.includes(status));
+            return group ? group.key : "pending";
+          }}
+          emptyMessage="No invoices"
+          renderCard={(inv, index) => (
+            <InvoiceCard
+              key={inv.id}
+              invoice={inv}
+              animationDelay={index * 50}
+            />
+          )}
+        />
       )}
 
       {/* List View */}

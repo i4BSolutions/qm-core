@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Plus, Search, LayoutGrid, List, Package, Wallet, ShoppingCart, Radio, ChevronRight, AlertCircle } from "lucide-react";
+import { Plus, LayoutGrid, List, Package, Wallet, ShoppingCart, Radio, ChevronRight, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination";
@@ -17,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { PageHeader, FilterBar, CardViewGrid } from "@/components/composite";
 import type { QMHQ, StatusConfig, Category, User as UserType, QMRL } from "@/types/database";
 
 // Extended QMHQ type with joined relations
@@ -240,257 +240,220 @@ export default function QMHQPage() {
       )}
 
       {/* Page Header */}
-      <div className="relative flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
-              <Radio className="h-4 w-4 text-emerald-500" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-500">
-                Operations
-              </span>
+      <PageHeader
+        title="QMHQ Lines"
+        description={`${totalItems} line${totalItems !== 1 ? "s" : ""} found${totalItems !== qmhqs.length ? ` (of ${qmhqs.length} total)` : ""}`}
+        badge={
+          <div className="flex items-center gap-2 px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
+            <Radio className="h-4 w-4 text-emerald-500" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-emerald-500">
+              Operations
+            </span>
+          </div>
+        }
+        actions={
+          <>
+            {/* View Toggle */}
+            <div className="flex items-center border border-slate-700 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode("card")}
+                className={`p-2 transition-colors ${
+                  viewMode === "card"
+                    ? "bg-amber-500/20 text-amber-400"
+                    : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 transition-colors ${
+                  viewMode === "list"
+                    ? "bg-amber-500/20 text-amber-400"
+                    : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <List className="h-4 w-4" />
+              </button>
             </div>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-200">
-            QMHQ Lines
-          </h1>
-          <p className="mt-1 text-slate-400">
-            {totalItems} line{totalItems !== 1 ? "s" : ""} found
-            {totalItems !== qmhqs.length && (
-              <span className="text-slate-500"> (of {qmhqs.length} total)</span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* View Toggle */}
-          <div className="flex items-center border border-slate-700 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode("card")}
-              className={`p-2 transition-colors ${
-                viewMode === "card"
-                  ? "bg-amber-500/20 text-amber-400"
-                  : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-2 transition-colors ${
-                viewMode === "list"
-                  ? "bg-amber-500/20 text-amber-400"
-                  : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
-          <Link href="/qmhq/new">
-            <Button className="group relative overflow-hidden">
-              <span className="relative z-10 flex items-center gap-2">
-                <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-                New QMHQ
-              </span>
-            </Button>
-          </Link>
-        </div>
-      </div>
+            <Link href="/qmhq/new">
+              <Button className="group relative overflow-hidden">
+                <span className="relative z-10 flex items-center gap-2">
+                  <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+                  New QMHQ
+                </span>
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       {/* Filters Bar */}
-      <div className="command-panel">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="relative flex-1 min-w-[240px] max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              placeholder="Search by name or ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-slate-800/50 border-slate-700 focus:border-amber-500/50 font-mono text-sm"
-            />
-          </div>
-
-          <Select value={routeFilter} onValueChange={setRouteFilter}>
-            <SelectTrigger className="w-[140px] bg-slate-800/50 border-slate-700">
-              <SelectValue placeholder="Route" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Routes</SelectItem>
-              <SelectItem value="item">
+      <FilterBar>
+        <FilterBar.Search
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by name or ID..."
+        />
+        <Select value={routeFilter} onValueChange={setRouteFilter}>
+          <SelectTrigger className="w-[140px] bg-slate-800/50 border-slate-700">
+            <SelectValue placeholder="Route" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Routes</SelectItem>
+            <SelectItem value="item">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-blue-400" />
+                Item
+              </div>
+            </SelectItem>
+            <SelectItem value="expense">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-emerald-400" />
+                Expense
+              </div>
+            </SelectItem>
+            <SelectItem value="po">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4 text-purple-400" />
+                PO
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[160px] bg-slate-800/50 border-slate-700">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            {statuses.map((status) => (
+              <SelectItem key={status.id} value={status.id}>
                 <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-blue-400" />
-                  Item
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: status.color || "#94a3b8" }}
+                  />
+                  {status.name}
                 </div>
               </SelectItem>
-              <SelectItem value="expense">
-                <div className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-emerald-400" />
-                  Expense
-                </div>
-              </SelectItem>
-              <SelectItem value="po">
-                <div className="flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4 text-purple-400" />
-                  PO
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px] bg-slate-800/50 border-slate-700">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              {statuses.map((status) => (
-                <SelectItem key={status.id} value={status.id}>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: status.color || "#94a3b8" }}
-                    />
-                    {status.name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+            ))}
+          </SelectContent>
+        </Select>
+      </FilterBar>
 
       {/* Card View - Kanban Style */}
       {viewMode === "card" && (
-        <div className="grid gap-6 lg:grid-cols-3">
-          {statusGroups.map((group) => (
-            <div key={group.key} className="flex flex-col">
-              {/* Column Header */}
-              <div className="column-header">
-                <div className={group.dotClass} />
-                <h2 className="text-sm font-bold uppercase tracking-widest text-slate-200">
-                  {group.label}
-                </h2>
-                <span className="stat-counter ml-auto">
-                  {groupedQmhqs[group.key].length}
-                </span>
-              </div>
+        <CardViewGrid
+          items={paginatedQmhqs}
+          groups={statusGroups.map(g => ({ key: g.key, label: g.label, dotClass: g.dotClass }))}
+          groupBy={(qmhq) => qmhq.status?.status_group || "to_do"}
+          emptyMessage="No items"
+          renderCard={(qmhq, index) => (
+            <Link key={qmhq.id} href={`/qmhq/${qmhq.id}`} className="block mb-2">
+              <div
+                className="tactical-card corner-accents p-4 animate-slide-up cursor-pointer"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                {/* Scan line effect */}
+                <div className="scan-overlay" />
 
-              {/* Column Body */}
-              <div className="flex-1 rounded-b-lg border border-t-0 border-slate-700 bg-slate-900/30 p-3 min-h-[400px]">
-                <div className="space-y-3">
-                  {groupedQmhqs[group.key].length === 0 ? (
-                    <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-slate-700">
-                      <p className="text-sm text-slate-400">No items</p>
-                    </div>
-                  ) : (
-                    groupedQmhqs[group.key].map((qmhq, index) => (
-                      <Link key={qmhq.id} href={`/qmhq/${qmhq.id}`} className="block mb-2">
-                        <div
-                          className="tactical-card corner-accents p-4 animate-slide-up cursor-pointer"
-                          style={{ animationDelay: `${index * 50}ms` }}
-                        >
-                          {/* Scan line effect */}
-                          <div className="scan-overlay" />
-
-                          {/* Header Row */}
-                          <div className="relative flex items-center justify-between mb-3">
-                            <div className="request-id-badge">
-                              <code>{qmhq.request_id}</code>
-                            </div>
-                            <div className={`flex items-center gap-1.5 px-2 py-1 rounded border ${routeConfig[qmhq.route_type]?.bgColor}`}>
-                              <RouteIcon routeType={qmhq.route_type} />
-                              <span className={`text-xs font-medium ${routeConfig[qmhq.route_type]?.color}`}>
-                                {routeConfig[qmhq.route_type]?.label}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Title */}
-                          <h3 className="font-semibold text-slate-200 mb-2 line-clamp-2 leading-snug">
-                            {qmhq.line_name}
-                          </h3>
-
-                          {/* Parent QMRL */}
-                          {qmhq.qmrl && (
-                            <div className="mb-3 text-xs text-slate-400">
-                              <span className="text-slate-500">From:</span>{" "}
-                              <code className="text-amber-400">{qmhq.qmrl.request_id}</code>
-                            </div>
-                          )}
-
-                          {/* Financial Info for expense/po routes */}
-                          {(qmhq.route_type === "expense" || qmhq.route_type === "po") && qmhq.amount && (
-                            <div className="mb-3 p-2 rounded bg-slate-800/50 border border-slate-700">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs text-slate-400">Amount</span>
-                                <CurrencyDisplay
-                                  amount={qmhq.amount}
-                                  currency={qmhq.currency || "MMK"}
-                                  amountEusd={qmhq.amount_eusd}
-                                  size="sm"
-                                  align="right"
-                                  context="card"
-                                  fluid
-                                />
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Category Tag */}
-                          {qmhq.category && (
-                            <div className="mb-3">
-                              <Badge
-                                variant="outline"
-                                className="text-xs font-medium"
-                                style={{
-                                  borderColor: qmhq.category.color || "rgb(100, 116, 139)",
-                                  color: qmhq.category.color || "rgb(148, 163, 184)",
-                                  backgroundColor: `${qmhq.category.color}10` || "transparent",
-                                }}
-                              >
-                                {qmhq.category.name}
-                              </Badge>
-                            </div>
-                          )}
-
-                          {/* Divider */}
-                          <div className="divider-accent" />
-
-                          {/* Meta Row */}
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-3 text-slate-400">
-                              <span>{formatDate(qmhq.created_at)}</span>
-                              {qmhq.assigned_user && (
-                                <span className="truncate max-w-[80px]">
-                                  {qmhq.assigned_user.full_name?.split(" ")[0]}
-                                </span>
-                              )}
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-slate-400" />
-                          </div>
-
-                          {/* Status Badge */}
-                          {qmhq.status && (
-                            <div className="mt-3 pt-3 border-t border-slate-700/50">
-                              <Badge
-                                variant="outline"
-                                className="text-xs font-mono uppercase tracking-wider"
-                                style={{
-                                  borderColor: qmhq.status.color || undefined,
-                                  color: qmhq.status.color || undefined,
-                                }}
-                              >
-                                {qmhq.status.name}
-                              </Badge>
-                            </div>
-                          )}
-                        </div>
-                      </Link>
-                    ))
-                  )}
+                {/* Header Row */}
+                <div className="relative flex items-center justify-between mb-3">
+                  <div className="request-id-badge">
+                    <code>{qmhq.request_id}</code>
+                  </div>
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded border ${routeConfig[qmhq.route_type]?.bgColor}`}>
+                    <RouteIcon routeType={qmhq.route_type} />
+                    <span className={`text-xs font-medium ${routeConfig[qmhq.route_type]?.color}`}>
+                      {routeConfig[qmhq.route_type]?.label}
+                    </span>
+                  </div>
                 </div>
+
+                {/* Title */}
+                <h3 className="font-semibold text-slate-200 mb-2 line-clamp-2 leading-snug">
+                  {qmhq.line_name}
+                </h3>
+
+                {/* Parent QMRL */}
+                {qmhq.qmrl && (
+                  <div className="mb-3 text-xs text-slate-400">
+                    <span className="text-slate-500">From:</span>{" "}
+                    <code className="text-amber-400">{qmhq.qmrl.request_id}</code>
+                  </div>
+                )}
+
+                {/* Financial Info for expense/po routes */}
+                {(qmhq.route_type === "expense" || qmhq.route_type === "po") && qmhq.amount && (
+                  <div className="mb-3 p-2 rounded bg-slate-800/50 border border-slate-700">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-400">Amount</span>
+                      <CurrencyDisplay
+                        amount={qmhq.amount}
+                        currency={qmhq.currency || "MMK"}
+                        amountEusd={qmhq.amount_eusd}
+                        size="sm"
+                        align="right"
+                        context="card"
+                        fluid
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Category Tag */}
+                {qmhq.category && (
+                  <div className="mb-3">
+                    <Badge
+                      variant="outline"
+                      className="text-xs font-medium"
+                      style={{
+                        borderColor: qmhq.category.color || "rgb(100, 116, 139)",
+                        color: qmhq.category.color || "rgb(148, 163, 184)",
+                        backgroundColor: `${qmhq.category.color}10` || "transparent",
+                      }}
+                    >
+                      {qmhq.category.name}
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Divider */}
+                <div className="divider-accent" />
+
+                {/* Meta Row */}
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-3 text-slate-400">
+                    <span>{formatDate(qmhq.created_at)}</span>
+                    {qmhq.assigned_user && (
+                      <span className="truncate max-w-[80px]">
+                        {qmhq.assigned_user.full_name?.split(" ")[0]}
+                      </span>
+                    )}
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
+                </div>
+
+                {/* Status Badge */}
+                {qmhq.status && (
+                  <div className="mt-3 pt-3 border-t border-slate-700/50">
+                    <Badge
+                      variant="outline"
+                      className="text-xs font-mono uppercase tracking-wider"
+                      style={{
+                        borderColor: qmhq.status.color || undefined,
+                        color: qmhq.status.color || undefined,
+                      }}
+                    >
+                      {qmhq.status.name}
+                    </Badge>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
-        </div>
+            </Link>
+          )}
+        />
       )}
 
       {/* List View */}
