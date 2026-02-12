@@ -11,7 +11,7 @@
 - ✅ **v1.6 Stock-Out Approval & Data Integrity** - Phases 27-31 (shipped 2026-02-10)
 - ✅ **v1.7 Stock-Out Request Logic Repair** - Phases 32-35 (shipped 2026-02-11)
 - ✅ **v1.8 UI Consistency, Flow Tracking & RBAC** - Phases 36-40 (shipped 2026-02-12)
-- 🚧 **v1.9 PO Lifecycle, Cancellation Guards & PDF Export** - Phases 41-43 (in progress)
+- ✅ **v1.9 PO Lifecycle, Cancellation Guards & PDF Export** - Phases 41-43 (shipped 2026-02-12)
 
 ## Phases
 
@@ -78,7 +78,8 @@ Phases 36-40 delivered 7 composite UI components with 32-page migration, RBAC ov
 
 </details>
 
-### v1.9 PO Lifecycle, Cancellation Guards & PDF Export (In Progress)
+<details>
+<summary>✅ v1.9 PO Lifecycle, Cancellation Guards & PDF Export (Phases 41-43) - SHIPPED 2026-02-12</summary>
 
 **Milestone Goal:** Complete the PO lifecycle with smart status engine, enforce cancellation/void guards, and enable PDF receipt export for key documents.
 
@@ -147,9 +148,11 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 43-01-PLAN.md -- Shared PDF infrastructure: install @react-pdf/renderer, dark theme styles, template, header, footer, table, status badge, dual currency, download button
-- [ ] 43-02-PLAN.md -- Invoice Receipt PDF document + Download PDF button on invoice detail page
-- [ ] 43-03-PLAN.md -- Stock-Out Receipt PDF + Money-Out Receipt PDF + Download PDF buttons on SOR and QMHQ detail pages
+- [x] 43-01-PLAN.md -- Shared PDF infrastructure: install @react-pdf/renderer, dark theme styles, template, header, footer, table, status badge, dual currency, download button
+- [x] 43-02-PLAN.md -- Invoice Receipt PDF document + Download PDF button on invoice detail page
+- [x] 43-03-PLAN.md -- Stock-Out Receipt PDF + Money-Out Receipt PDF + Download PDF buttons on SOR and QMHQ detail pages
+
+</details>
 
 ## Progress
 
@@ -166,7 +169,7 @@ Plans:
 | 36-40. UI Composites → RBAC → Flow Tracking | v1.8 | 15/15 | ✓ Complete | 2026-02-12 |
 | 41. PO Status Engine Enhancement | v1.9 | 2/2 | ✓ Complete | 2026-02-12 |
 | 42. Cancellation Guards & Lock Mechanism | v1.9 | 3/3 | ✓ Complete | 2026-02-12 |
-| 43. PDF Export Infrastructure | v1.9 | 0/3 | Not started | - |
+| 43. PDF Export Infrastructure | v1.9 | 3/3 | ✓ Complete | 2026-02-12 |
 
 ---
-*Last updated: 2026-02-12 after Phase 43 planning complete*
+*Last updated: 2026-02-12 after Phase 43 execution complete — v1.9 milestone shipped*
