@@ -184,6 +184,14 @@ export function canCancelPO(status: POStatusEnum): boolean {
 }
 
 /**
+ * Check if PO can be unlocked (admin-only operation)
+ * Only closed POs can be unlocked for corrections
+ */
+export function canUnlockPO(status: POStatusEnum): boolean {
+  return status === "closed";
+}
+
+/**
  * Check if invoices can be created for this PO
  */
 export function canCreateInvoice(status: POStatusEnum): boolean {
