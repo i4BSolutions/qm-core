@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { ItemDialog } from "./item-dialog";
+import { PageHeader } from "@/components/composite";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Item, Category } from "@/types/database";
 
@@ -251,31 +252,26 @@ export default function ItemsPage() {
         </div>
       )}
 
-      {/* Page Header */}
-      <div className="flex items-start justify-between animate-slide-up">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-blue-500/10 border border-blue-500/20">
-              <Box className="h-4 w-4 text-blue-400" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-blue-400">
-                Inventory
-              </span>
-            </div>
+      <PageHeader
+        title="Items"
+        description={`${items.length} item${items.length !== 1 ? "s" : ""} in catalog`}
+        badge={
+          <div className="flex items-center gap-2 px-3 py-1 rounded bg-blue-500/10 border border-blue-500/20">
+            <Box className="h-4 w-4 text-blue-400" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-blue-400">
+              Inventory
+            </span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">
-            Items
-          </h1>
-          <p className="mt-1 text-slate-400">
-            {items.length} item{items.length !== 1 ? "s" : ""} in catalog
-          </p>
-        </div>
-        <Button onClick={handleCreate} className="group relative overflow-hidden">
-          <span className="relative z-10 flex items-center gap-2">
-            <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-            Add Item
-          </span>
-        </Button>
-      </div>
+        }
+        actions={
+          <Button onClick={handleCreate} className="group relative overflow-hidden">
+            <span className="relative z-10 flex items-center gap-2">
+              <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+              Add Item
+            </span>
+          </Button>
+        }
+      />
 
       {/* Data Table */}
       <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>

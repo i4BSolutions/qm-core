@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { WarehouseDialog } from "./warehouse-dialog";
+import { PageHeader } from "@/components/composite";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Warehouse as WarehouseType } from "@/types/database";
 
@@ -166,31 +167,26 @@ export default function WarehousesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-start justify-between animate-slide-up">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-cyan-500/10 border border-cyan-500/20">
-              <Warehouse className="h-4 w-4 text-cyan-400" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-cyan-400">
-                Storage
-              </span>
-            </div>
+      <PageHeader
+        title="Warehouses"
+        description={`${warehouses.length} location${warehouses.length !== 1 ? "s" : ""} configured`}
+        badge={
+          <div className="flex items-center gap-2 px-3 py-1 rounded bg-cyan-500/10 border border-cyan-500/20">
+            <Warehouse className="h-4 w-4 text-cyan-400" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-cyan-400">
+              Storage
+            </span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">
-            Warehouses
-          </h1>
-          <p className="mt-1 text-slate-400">
-            {warehouses.length} location{warehouses.length !== 1 ? "s" : ""} configured
-          </p>
-        </div>
-        <Button onClick={handleCreate} className="group relative overflow-hidden">
-          <span className="relative z-10 flex items-center gap-2">
-            <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-            Add Warehouse
-          </span>
-        </Button>
-      </div>
+        }
+        actions={
+          <Button onClick={handleCreate} className="group relative overflow-hidden">
+            <span className="relative z-10 flex items-center gap-2">
+              <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+              Add Warehouse
+            </span>
+          </Button>
+        }
+      />
 
       {/* Data Table */}
       <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
