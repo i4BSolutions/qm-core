@@ -34,6 +34,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Enums, Tables } from "@/types/database";
+import { StockOutPDFButton } from "@/components/stock-out-requests/stock-out-pdf-button";
 
 // Type aliases
 type SorRequestStatus = Enums<"sor_request_status">;
@@ -611,6 +612,36 @@ export default function StockOutRequestDetailPage() {
       }
       actions={
         <>
+          <StockOutPDFButton
+            request={{
+              request_number: request.request_number,
+              status: request.status,
+              reason: request.reason,
+              notes: request.notes,
+              requester_name: request.requester?.full_name || "Unknown",
+              created_at: request.created_at,
+              qmhq_reference: request.qmhq?.request_id || null,
+              qmhq_line_name: request.qmhq?.line_name || null,
+            }}
+            lineItems={lineItems.map(li => ({
+              item_name: li.item_name || "Unknown Item",
+              item_sku: li.item_sku,
+              requested_quantity: li.requested_quantity,
+              status: li.status,
+              total_approved_quantity: li.total_approved_quantity,
+              total_rejected_quantity: li.total_rejected_quantity,
+            }))}
+            approvals={approvals.map(a => ({
+              approval_number: a.approval_number,
+              item_name: a.line_item?.item_name || "Unknown",
+              item_sku: a.line_item?.item_sku,
+              approved_quantity: a.approved_quantity,
+              decision: a.decision,
+              rejection_reason: a.rejection_reason,
+              decided_by_name: a.decided_by_user?.full_name || "Unknown",
+              decided_at: a.decided_at,
+            }))}
+          />
           {canCancel && (
             <Button
               onClick={handleCancelRequest}
