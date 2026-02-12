@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Circle,
   FileText,
@@ -7,8 +8,19 @@ import {
   PackageCheck,
   CheckCircle2,
   XCircle,
+  Lock,
 } from "lucide-react";
-import { PO_STATUS_CONFIG, APPROVAL_STATUS_CONFIG } from "@/lib/utils/po-status";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  PO_STATUS_CONFIG,
+  APPROVAL_STATUS_CONFIG,
+  generateStatusTooltip,
+} from "@/lib/utils/po-status";
 import type { POStatusEnum, ApprovalStatus } from "@/types/database";
 
 const iconMap = {
@@ -56,6 +68,65 @@ export function POStatusBadge({
     >
       {showIcon && <Icon className={iconSizes[size]} />}
       <span>{config.label}</span>
+    </div>
+  );
+}
+
+interface POStatusBadgeWithTooltipProps {
+  status: POStatusEnum;
+  totalQty: number;
+  invoicedQty: number;
+  receivedQty: number;
+  showIcon?: boolean;
+  size?: "sm" | "md";
+  animate?: boolean;
+  cancellationReason?: string;
+}
+
+export function POStatusBadgeWithTooltip({
+  status,
+  totalQty,
+  invoicedQty,
+  receivedQty,
+  showIcon = true,
+  size = "md",
+  animate = false,
+  cancellationReason,
+}: POStatusBadgeWithTooltipProps) {
+  const [isPulsing, setIsPulsing] = useState(animate);
+
+  useEffect(() => {
+    if (animate) {
+      setIsPulsing(true);
+      const timer = setTimeout(() => {
+        setIsPulsing(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [animate]);
+
+  const tooltipText =
+    status === "cancelled" && cancellationReason
+      ? `This PO has been cancelled\n\nReason: ${cancellationReason}`
+      : generateStatusTooltip(status, totalQty, invoicedQty, receivedQty);
+
+  return (
+    <div className="inline-flex items-center gap-2">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={isPulsing ? "animate-pulse" : ""}>
+              <POStatusBadge status={status} showIcon={showIcon} size={size} />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-xs font-mono whitespace-pre-wrap">{tooltipText}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {status === "closed" && (
+        <Lock className="h-3.5 w-3.5 text-emerald-400" />
+      )}
     </div>
   );
 }

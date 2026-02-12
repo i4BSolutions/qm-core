@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { ChevronRight, Building2, CalendarDays } from "lucide-react";
-import { POStatusBadge, ApprovalStatusBadge } from "./po-status-badge";
+import { POStatusBadgeWithTooltip, ApprovalStatusBadge } from "./po-status-badge";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { POProgressBar } from "./po-progress-bar";
 import { calculatePOProgress } from "@/lib/utils/po-status";
+import { cn } from "@/lib/utils";
 import type { PurchaseOrder, Supplier, QMHQ } from "@/types/database";
 
 interface POWithRelations extends PurchaseOrder {
@@ -42,7 +43,11 @@ export function POCard({ po, animationDelay = 0 }: POCardProps) {
   return (
     <Link href={`/po/${po.id}`} className="block">
       <div
-        className="tactical-card corner-accents p-4 animate-slide-up cursor-pointer"
+        className={cn(
+          "tactical-card corner-accents p-4 animate-slide-up cursor-pointer",
+          po.status === "cancelled" && "opacity-60",
+          po.status === "closed" && "opacity-75"
+        )}
         style={{ animationDelay: `${animationDelay}ms` }}
       >
         {/* Scan line effect */}
@@ -51,9 +56,17 @@ export function POCard({ po, animationDelay = 0 }: POCardProps) {
         {/* Header Row */}
         <div className="relative flex items-center justify-between mb-3">
           <div className="request-id-badge">
-            <code>{po.po_number || "—"}</code>
+            <code className={cn(po.status === "cancelled" && "line-through text-red-400")}>
+              {po.po_number || "—"}
+            </code>
           </div>
-          <POStatusBadge status={po.status || "not_started"} size="sm" />
+          <POStatusBadgeWithTooltip
+            status={po.status || "not_started"}
+            totalQty={totalQty}
+            invoicedQty={invoicedQty}
+            receivedQty={receivedQty}
+            size="sm"
+          />
         </div>
 
         {/* Supplier */}
