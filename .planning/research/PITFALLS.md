@@ -1,513 +1,752 @@
-# Pitfalls Research
+# Domain Pitfalls
 
-**Domain:** UI Standardization, Request Flow Tracking, and RBAC Role Overhaul for Existing Internal Management System
-**Researched:** 2026-02-11
-**Confidence:** HIGH
+**Domain:** Purchase Order Lifecycle Management (Adding to Existing System)
+**Researched:** 2026-02-12
+
+---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Enum Migration Without Data Remapping Strategy
+Mistakes that cause rewrites or major issues.
 
-**What goes wrong:**
-Changing PostgreSQL enum values (7 roles → 3 roles) without a clear data migration strategy causes users to lose access or get locked out. The database has 66 migrations, 132+ references to `get_user_role()`, and active users with roles like `quartermaster`, `finance`, `inventory`, `proposal`, `frontline` that need mapping to new `qmrl`/`qmhq` roles. PostgreSQL enums cannot have values removed or reordered without dropping and recreating the type, which breaks foreign key references and RLS policies.
+### Pitfall 1: PO Status Calculation Race Conditions Under Concurrent Load
+**What goes wrong:** Multiple concurrent invoice creations or stock-in transactions for the same PO result in incorrect status calculations, causing POs to show wrong state (e.g., "awaiting_delivery" when actually "partially_received"). Real-world case: PrestaShop documented doubled invoices and quadrupled payments from concurrent order status updates without locking.
 
-**Why it happens:**
-Developers assume enum changes work like adding a column. They create a new migration that attempts `ALTER TYPE user_role DROP VALUE 'quartermaster'`, which PostgreSQL rejects. They then try to drop and recreate the enum, but fail because 132+ RLS policies, functions, and table columns reference the enum type. The migration script doesn't address the existing user data, leaving users stranded with invalid role values.
+**Why it happens:** PostgreSQL default READ COMMITTED isolation allows phantom reads during status calculation. Two transactions simultaneously:
+1. Read current `total_invoiced` = 100
+2. Both calculate `total_ordered` = 200, conclude status = "partially_invoiced"
+3. Both write status = "partially_invoiced" even though after both commits, actual invoiced = 200 (should be "awaiting_delivery")
 
-**How to avoid:**
-Use the **expand-and-contract pattern** for enum migrations:
+**Consequences:**
+- PO shows incorrect lifecycle state in UI
+- Business decisions made on wrong data (e.g., don't order more when PO shows "partially_invoiced" but is actually fully invoiced)
+- Audit trail becomes unreliable
+- Customer trust eroded when PO state doesn't match reality
 
-1. **Expand Phase** (Migration 1):
-   - Create temporary enum `user_role_new` with only 3 values: `admin`, `qmrl`, `qmhq`
-   - Add new column `role_new user_role_new` to users table
-   - Create mapping function that converts old role → new role:
-     ```sql
-     admin → admin
-     quartermaster → admin
-     finance → qmhq
-     inventory → qmhq
-     proposal → qmrl
-     frontline → qmrl
-     requester → qmrl
-     ```
-   - Update all existing users: `UPDATE users SET role_new = map_old_role_to_new(role)`
-   - Verify 100% of users have `role_new` populated
+**Prevention:**
+```sql
+-- OPTION A: Advisory locks (already used in system for stock validation)
+CREATE OR REPLACE FUNCTION calculate_po_status(po_id UUID)
+RETURNS po_status AS $$
+DECLARE
+  lock_key BIGINT;
+  calculated_status po_status;
+BEGIN
+  -- Serialize status calculation per PO
+  lock_key := hashtext(po_id::text);
+  PERFORM pg_advisory_xact_lock(lock_key);
 
-2. **Contract Phase** (Migration 2, deployed AFTER verify):
-   - Drop all RLS policies referencing `role` column
-   - Drop functions `get_user_role()`, `has_role()` that return old enum
-   - Rename column: `ALTER TABLE users RENAME COLUMN role TO role_old`
-   - Rename column: `ALTER TABLE users RENAME COLUMN role_new TO role`
-   - Drop old enum: `DROP TYPE user_role` (now safe, no references)
-   - Rename new enum: `ALTER TYPE user_role_new RENAME TO user_role`
-   - Recreate RLS policies using new enum
-   - Recreate functions using new enum
+  -- Now safe to read and calculate
+  -- [status calculation logic]
+  RETURN calculated_status;
+END;
+$$ LANGUAGE plpgsql;
 
-3. **Cleanup Phase** (Migration 3):
-   - Drop `role_old` column after 1+ week of monitoring
-
-**Warning signs:**
-- Migration attempts `ALTER TYPE ... DROP VALUE` (PostgreSQL will reject)
-- Migration attempts `DROP TYPE user_role` but fails with "type is still referenced"
-- No mapping table or function to convert old roles to new roles
-- No verification query to check 100% user coverage before column swap
-- RLS policy recreation not in same transaction as enum change
-
-**Phase to address:**
-Phase 1: Database Foundation - Must include complete enum migration strategy with verification steps before proceeding to middleware/UI changes.
-
----
-
-### Pitfall 2: RLS Policy Cascade Failures After Role Change
-
-**What goes wrong:**
-After changing role enum, recreating RLS policies without accounting for dependency order causes cascade failures. The system has 132+ references to `get_user_role()` across 9 migration files. Policies on tables like `qmrl`, `qmhq`, `purchase_orders`, `invoices`, `financial_transactions`, `file_attachments`, `comments` all check role. Dropping and recreating policies out of order breaks foreign key cascades or leaves tables unprotected (RLS disabled but no policies = all data public).
-
-**Why it happens:**
-Developer drops all policies at once, recreates `get_user_role()` function with new enum, then recreates policies. But during the window between drop and recreate, tables are UNPROTECTED. If deployment fails mid-migration or transaction rollback occurs, production database is left with RLS enabled but no policies (queries return empty results) or RLS disabled entirely (data breach).
-
-Additionally, foreign key constraints with `ON DELETE CASCADE` can conflict with RLS policies. If a parent record deletion cascades to children, but the user doesn't have RLS permissions on the child table, the cascade fails with a permission error.
-
-**How to avoid:**
-
-1. **Atomic Policy Recreation:**
-   ```sql
-   BEGIN;
-     -- Drop policies in dependency order (children first, parents last)
-     DROP POLICY IF EXISTS comments_select_policy ON comments;
-     DROP POLICY IF EXISTS file_attachments_select_policy ON file_attachments;
-     DROP POLICY IF EXISTS qmhq_select_policy ON qmhq;
-     DROP POLICY IF EXISTS qmrl_select_policy ON qmrl;
-
-     -- Recreate functions
-     CREATE OR REPLACE FUNCTION get_user_role() ...;
-
-     -- Recreate policies in reverse order (parents first, children last)
-     CREATE POLICY qmrl_select_policy ON qmrl ...;
-     CREATE POLICY qmhq_select_policy ON qmhq ...;
-     CREATE POLICY file_attachments_select_policy ON file_attachments ...;
-     CREATE POLICY comments_select_policy ON comments ...;
-   COMMIT;
-   ```
-
-2. **Policy Verification Query:**
-   After migration, verify every table with RLS enabled has at least one policy:
-   ```sql
-   SELECT tablename
-   FROM pg_tables
-   WHERE schemaname = 'public'
-     AND tablename IN (
-       SELECT tablename FROM pg_policies WHERE schemaname = 'public'
-     )
-     AND rowsecurity = true
-   EXCEPT
-   SELECT tablename FROM pg_policies WHERE schemaname = 'public';
-   ```
-   Result should be empty. If not, tables have RLS enabled but no policies.
-
-3. **Cascade Delete Compatibility:**
-   Review all `ON DELETE CASCADE` constraints to ensure they don't conflict with RLS:
-   - `users` → `qmrl.created_by` (SET NULL safer than CASCADE)
-   - `users` → `qmhq.assigned_to` (SET NULL safer)
-   - Auth user deletion should cascade properly (already ON DELETE CASCADE)
-
-**Warning signs:**
-- Migration script drops policies but doesn't recreate them in same transaction
-- No verification query after policy recreation
-- Mixed cascade constraint types (`CASCADE` on parent, `RESTRICT` on child)
-- RLS policy uses foreign key relationship but cascade delete is configured
-- Empty query results after migration (RLS enabled, no matching policies)
-
-**Phase to address:**
-Phase 1: Database Foundation - Include policy dependency graph, atomic recreation script, and verification queries as pre-merge checklist.
-
----
-
-### Pitfall 3: Middleware Authorization Breaking on Deployment
-
-**What goes wrong:**
-Next.js middleware updates to check new 3-role system deploy successfully but break authentication flow due to CVE-2025-29927 (authorization bypass via `x-middleware-subrequest` header), middleware execution order changes, or session refresh timing issues. The system uses `middleware.ts` + `lib/supabase/middleware.ts` with session timeout tracking in `localStorage`. Middleware changes that don't account for Vercel vs. self-hosted environments, Edge runtime constraints, or Auth.js version differences cause users to be logged out randomly or unable to access protected routes.
-
-**Why it happens:**
-Developer updates `middleware.ts` to check for `admin`, `qmrl`, or `qmhq` roles instead of old 7 roles. They test locally (works fine), deploy to Vercel (breaks). Root causes:
-- **CVE-2025-29927**: Self-hosted deployments with `output: standalone` are vulnerable to middleware bypass via header injection. Vercel deployments are NOT affected, but if later migrating to self-hosted, security holes open.
-- **Session refresh race condition**: Middleware refreshes auth tokens, but if session update fails, subsequent requests use stale session. User appears logged in but queries fail due to expired JWT.
-- **Edge runtime limitations**: Middleware runs in Edge runtime (no Node.js APIs). If new role checking logic uses Node-only features (filesystem, crypto modules), deployment succeeds but middleware fails at runtime.
-
-**How to avoid:**
-
-1. **Security Hardening:**
-   - Add header check to reject requests with `x-middleware-subrequest`:
-     ```typescript
-     // In middleware.ts
-     if (request.headers.get('x-middleware-subrequest')) {
-       return new Response('Forbidden', { status: 403 });
-     }
-     ```
-   - Note: Only critical if planning self-hosted deployment. Vercel already blocks this.
-
-2. **Session Refresh Guard:**
-   ```typescript
-   const { data: { session }, error } = await supabase.auth.getSession();
-
-   if (error) {
-     console.error('Session fetch error:', error);
-     return NextResponse.redirect(new URL('/login', request.url));
-   }
-
-   // Explicit refresh before role check
-   const { data: { session: refreshedSession } } =
-     await supabase.auth.refreshSession();
-
-   if (!refreshedSession) {
-     return NextResponse.redirect(new URL('/login', request.url));
-   }
-   ```
-
-3. **Edge Runtime Compatibility:**
-   - Test that role-checking function works in Edge runtime
-   - Avoid using `fs`, `crypto` (Node built-ins)
-   - Use `@supabase/ssr` package methods designed for Edge
-
-4. **Deployment Testing Checklist:**
-   - [ ] Test in Vercel preview deployment before production
-   - [ ] Verify session refresh works across page navigations
-   - [ ] Test with multiple tabs open (session sync)
-   - [ ] Test session timeout (6 hours) forces re-login
-   - [ ] Test role change: admin → qmrl (user should be logged out and re-login)
-
-**Warning signs:**
-- Middleware works locally, fails in Vercel preview
-- Users report random logouts after deployment
-- Auth errors in Vercel logs: "Session expired" or "Invalid JWT"
-- Middleware uses `require()` or Node.js built-ins
-- No header injection protection for self-hosted deployments
-
-**Phase to address:**
-Phase 2: Middleware & Auth Updates - Deploy with feature flag, test in staging, monitor error rates before full rollout.
-
----
-
-### Pitfall 4: Flow Tracking Query Becomes N+1 Performance Nightmare
-
-**What goes wrong:**
-Admin flow tracking page that joins across `qmrl → qmhq → purchase_orders → invoices → inventory_transactions → stock_out_requests → stock_out_approvals` becomes unusably slow. Developer builds the page with multiple sequential queries in React components, creating N+1 patterns. With 100+ QMRLs, each having 5+ QMHQ lines, each with 3+ POs, the page makes 2000+ database queries and takes 30+ seconds to load.
-
-**Why it happens:**
-Developer creates flow tracking page with component structure like:
-```tsx
-<QMRLList>               // Query 1: Fetch all QMRLs
-  {qmrls.map(qmrl =>
-    <QMRLRow qmrl={qmrl}>
-      <QMHQList qmrlId={qmrl.id}>  // Query 2-101: Fetch QMHQ per QMRL
-        {qmhqs.map(qmhq =>
-          <POList qmhqId={qmhq.id}>   // Query 102-601: Fetch POs per QMHQ
-            ...
+-- OPTION B: SERIALIZABLE isolation for status calculation transaction
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+-- status calculation and update
+COMMIT; -- May throw serialization_failure, app must retry
 ```
 
-Each component fetches its own data on mount. The system already has performance issues (see CONCERNS.md):
-- "All Dashboard Pages Use force-dynamic" - no caching
-- "Large List Fetches Without Pagination" - 100+ items in memory
-- "N+1 Query Patterns" - 5+ queries per page load already
+Prefer OPTION A (advisory locks) for consistency with existing pattern in migration 058.
 
-Adding flow tracking multiplies this by 20x.
+**Detection:**
+- Monitor for PO status audit logs showing rapid back-and-forth status changes (thrashing)
+- Test: Run concurrent invoice creation script (5+ workers, same PO) and verify status stays consistent
+- pg_stat_activity shows multiple sessions with `state = 'active'` and matching `query` on same PO
 
-**How to avoid:**
-
-1. **Single Denormalized Query Strategy:**
-   ```sql
-   SELECT
-     qmrl.id AS qmrl_id,
-     qmrl.request_id,
-     qmrl.title,
-     qmrl.status_id,
-     qmhq.id AS qmhq_id,
-     qmhq.line_name,
-     qmhq.route_type,
-     po.id AS po_id,
-     po.po_number,
-     po.status AS po_status,
-     inv.id AS invoice_id,
-     inv.invoice_number,
-     inv.is_voided,
-     it.id AS inventory_transaction_id,
-     it.transaction_type
-   FROM qmrl
-   LEFT JOIN qmhq ON qmhq.qmrl_id = qmrl.id
-   LEFT JOIN purchase_orders po ON po.qmhq_id = qmhq.id
-   LEFT JOIN invoices inv ON inv.purchase_order_id = po.id
-   LEFT JOIN inventory_transactions it ON it.invoice_id = inv.id
-   WHERE qmrl.is_active = true
-   ORDER BY qmrl.created_at DESC
-   LIMIT 100;
-   ```
-
-   This returns flat rows. Client-side code groups by `qmrl_id` to reconstruct hierarchy.
-
-2. **Materialized View for Expensive Aggregations:**
-   If query still slow (10+ seconds), create materialized view:
-   ```sql
-   CREATE MATERIALIZED VIEW qmrl_flow_summary AS
-   SELECT
-     qmrl.id,
-     qmrl.request_id,
-     COUNT(DISTINCT qmhq.id) AS total_qmhq_lines,
-     COUNT(DISTINCT po.id) AS total_pos,
-     COUNT(DISTINCT inv.id) AS total_invoices,
-     COUNT(DISTINCT it.id) AS total_inventory_transactions,
-     SUM(CASE WHEN po.status = 'closed' THEN 1 ELSE 0 END) AS closed_pos,
-     MAX(it.created_at) AS last_activity_date
-   FROM qmrl
-   LEFT JOIN qmhq ON qmhq.qmrl_id = qmrl.id
-   LEFT JOIN purchase_orders po ON po.qmhq_id = qmhq.id
-   LEFT JOIN invoices inv ON inv.purchase_order_id = po.id
-   LEFT JOIN inventory_transactions it ON it.invoice_id = inv.id
-   GROUP BY qmrl.id;
-
-   CREATE INDEX idx_qmrl_flow_request_id ON qmrl_flow_summary(request_id);
-   CREATE INDEX idx_qmrl_flow_last_activity ON qmrl_flow_summary(last_activity_date);
-   ```
-
-   Refresh strategy:
-   - **Manual**: Admin page has "Refresh Flow Data" button
-   - **Scheduled**: PostgreSQL cron job refreshes every 30 minutes
-   - **Trigger-based**: Update on major state changes (PO closed, invoice created)
-
-3. **Pagination + Virtual Scrolling:**
-   Don't load all 100+ QMRLs at once. Use:
-   - Server-side pagination: 20 QMRLs per page
-   - Virtual scrolling library (react-window) if keeping client-side
-   - Infinite scroll with cursor-based pagination
-
-4. **Index Strategy:**
-   Ensure indexes exist on all join columns:
-   ```sql
-   CREATE INDEX IF NOT EXISTS idx_qmhq_qmrl_id ON qmhq(qmrl_id);
-   CREATE INDEX IF NOT EXISTS idx_po_qmhq_id ON purchase_orders(qmhq_id);
-   CREATE INDEX IF NOT EXISTS idx_invoice_po_id ON invoices(purchase_order_id);
-   CREATE INDEX IF NOT EXISTS idx_inventory_invoice_id ON inventory_transactions(invoice_id);
-   ```
-
-   Verify with `EXPLAIN ANALYZE` that indexes are used:
-   ```sql
-   EXPLAIN ANALYZE
-   SELECT ... FROM qmrl LEFT JOIN qmhq ... LIMIT 100;
-   ```
-   Look for "Index Scan" not "Seq Scan" on joined tables.
-
-**Warning signs:**
-- Page load time > 5 seconds in development (will be 20+ in production)
-- Browser DevTools Network tab shows 100+ requests to `/api/*` or Supabase
-- React DevTools shows component tree re-rendering 1000+ times
-- `EXPLAIN ANALYZE` shows "Nested Loop" joins with "Seq Scan" on large tables
-- Database CPU spikes when flow tracking page is accessed
-
-**Phase to address:**
-Phase 3: Flow Tracking Implementation - Include query optimization, indexing strategy, and materialized view as part of initial implementation. DO NOT build UI first then "optimize later."
+**Phase assignment:** Phase addressing PO status calculation overhaul must implement advisory locks BEFORE any status calculation logic.
 
 ---
 
-### Pitfall 5: UI Standardization Breaking Working Pages
+### Pitfall 2: Void Cascade Trigger Ordering Creates Inconsistent State
+**What goes wrong:** Invoice void triggers fire in wrong order, causing PO status to update before guard checks run, resulting in voided invoices with orphaned stock-in records or incorrect PO status.
 
-**What goes wrong:**
-Refactoring components for consistency (e.g., standardizing all forms to use shared `FormInput`, `FormSelect` components) inadvertently breaks working pages. The codebase has 44K lines of TypeScript with large component files (993 lines for stock-in, 923 for invoice creation). Standardization changes props, removes custom validation logic, or alters state management patterns that working components depend on. After deployment, forms fail to submit, dropdowns don't populate, or validation errors appear incorrectly.
+**Why it happens:** PostgreSQL fires triggers alphabetically within same timing (BEFORE/AFTER). System already uses trigger name prefixes for ordering:
+- `aa_block_invoice_void_stockin` (migration 040) - BEFORE UPDATE, blocks void if stock-in exists
+- `invoice_void_recalculate` - BEFORE UPDATE, updates PO line item quantities
+- `audit_invoices` - AFTER UPDATE, logs void action
+- `zz_audit_invoice_void_cascade` (migration 041) - AFTER UPDATE, logs cascade effects
+
+If new PO cancellation adds triggers without prefix discipline, cascade becomes unpredictable.
+
+**Consequences:**
+- Data corruption: PO shows "closed" but has voided invoice still counted
+- Guard bypassed: Invoice voided despite having stock-in (if guard trigger fires after quantity update)
+- Audit gaps: CASCADE EFFECTS logged before they happen, timestamps wrong
+
+**Prevention:**
+```sql
+-- Maintain trigger naming convention:
+-- BEFORE: aa_ (guards), bb_ (validation), [default], yy_ (last BEFORE)
+-- AFTER: [default], yy_ (late), zz_ (absolute last)
+
+-- Example for PO cancellation guard:
+CREATE TRIGGER aa_block_po_cancel_if_invoiced
+  BEFORE UPDATE ON purchase_orders
+  FOR EACH ROW
+  EXECUTE FUNCTION block_po_cancel_with_invoices();
+
+-- Example for PO cancellation cascade audit:
+CREATE TRIGGER zz_audit_po_cancel_cascade
+  AFTER UPDATE ON purchase_orders
+  FOR EACH ROW
+  EXECUTE FUNCTION audit_po_cancel_cascade();
+```
+
+Document trigger dependency graph in migration header:
+```sql
+-- ============================================
+-- Trigger ordering:
+-- - 'aa_' prefix ensures this trigger fires FIRST (alphabetically)
+-- - Must fire before calculate_po_status which may lock record
+-- - Sequence: aa_guard -> calculate_status -> audit -> zz_cascade_audit
+-- ============================================
+```
+
+**Detection:**
+- Review migration diffs manually (AI-generated migrations can miss trigger ordering)
+- Test void operation, check audit_logs timestamps: guard log MUST precede cascade logs
+- Query trigger order: `SELECT tgname FROM pg_trigger WHERE tgrelid = 'invoices'::regclass ORDER BY tgname;`
+
+**Phase assignment:** ANY phase adding PO lifecycle triggers must document ordering requirements and follow prefix convention.
+
+---
+
+### Pitfall 3: Soft Delete + Foreign Key Cascade = Silent Data Loss
+**What goes wrong:** PO cancellation implemented as soft delete (`is_active = false`) but foreign key constraints have `ON DELETE CASCADE`, causing soft-deleted PO to leave orphaned child records when constraint misfire occurs during hard delete operations.
+
+**Why it happens:** System uses `is_active` soft delete pattern but database foreign keys expect hard deletes. When combining:
+```sql
+-- Table with soft delete
+ALTER TABLE purchase_orders ADD COLUMN is_active BOOLEAN DEFAULT true;
+
+-- Child table with CASCADE (expects hard delete)
+ALTER TABLE po_line_items
+  ADD CONSTRAINT fk_po
+  FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE;
+```
+
+If PO accidentally hard deleted (migration cleanup, admin action), CASCADE fires and permanently deletes line items even though soft delete pattern intended to preserve them.
+
+**Consequences:**
+- Audit trail destroyed: line items vanished, no history
+- Financial reporting broken: totals don't reconcile, missing committed amounts
+- Legal risk: procurement records required for compliance, now gone
+- Cannot un-cancel: soft delete supposed to be reversible, but child data lost
+
+**Prevention:**
+```sql
+-- OPTION A: Use RESTRICT for soft-delete tables (recommended for QM System)
+ALTER TABLE po_line_items
+  ADD CONSTRAINT fk_po
+  FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE RESTRICT;
+-- Hard delete blocked, forces application-level cleanup
+
+-- OPTION B: Soft delete child records via trigger
+CREATE TRIGGER cascade_soft_delete_po_lines
+  BEFORE UPDATE ON purchase_orders
+  FOR EACH ROW
+  WHEN (OLD.is_active = true AND NEW.is_active = false)
+  EXECUTE FUNCTION soft_delete_po_line_items();
+-- Updates line items is_active = false when PO cancelled
+
+-- OPTION C: Application-enforced RLS filters
+CREATE POLICY rls_po_line_items ON po_line_items
+  USING (EXISTS (
+    SELECT 1 FROM purchase_orders
+    WHERE id = po_id AND is_active = true
+  ));
+-- UI/queries never see line items for inactive POs
+```
+
+System uses RESTRICT pattern (e.g., `qmhq_id UUID NOT NULL REFERENCES qmhq(id) ON DELETE RESTRICT` in purchase_orders). Continue this pattern for new tables.
+
+**Detection:**
+- Code review: Search migrations for `ON DELETE CASCADE` on tables with `is_active`
+- Test: Soft-delete PO, verify line items still in database with `is_active = true`
+- Test: Attempt hard delete of PO, verify `RESTRICT` blocks it
+
+**Phase assignment:** Phase adding PO cancellation MUST verify foreign key constraints use RESTRICT, NOT CASCADE.
+
+---
+
+### Pitfall 4: State Machine Transitions Not Validated at Database Level
+**What goes wrong:** PO transitions from `not_started` directly to `closed` bypassing intermediate states, or transitions backwards (closed → partially_invoiced), violating business logic. Application code enforces transitions but database doesn't, allowing:
+- Direct SQL updates bypass validation
+- Concurrent updates race and overwrite valid state with invalid state
+- Migration scripts accidentally set invalid transitions
+
+**Why it happens:** Status stored as enum but no CHECK constraint or trigger validates transition legality. Valid transitions:
+```
+not_started → partially_invoiced → awaiting_delivery → partially_received → closed
+                                  → cancelled (from any state except closed)
+```
+
+But database allows:
+```sql
+UPDATE purchase_orders SET status = 'closed' WHERE status = 'not_started'; -- Should be blocked
+```
+
+**Consequences:**
+- Business logic violated: PO marked closed without any invoices/receipts
+- Reporting broken: KPIs show impossible states, analytics teams lose trust
+- Audit compliance failed: cannot prove status changes followed approval workflow
+- Support nightmare: "How did this PO get to closed state?" → "No idea, database allowed it"
+
+**Prevention:**
+```sql
+-- OPTION A: Transition validation trigger (recommended for complex state machines)
+CREATE OR REPLACE FUNCTION validate_po_status_transition()
+RETURNS TRIGGER AS $$
+DECLARE
+  valid_transitions TEXT[][];
+BEGIN
+  IF OLD.status IS DISTINCT FROM NEW.status THEN
+    -- Define valid transitions as array of [from, to] pairs
+    valid_transitions := ARRAY[
+      ARRAY['not_started', 'partially_invoiced'],
+      ARRAY['not_started', 'cancelled'],
+      ARRAY['partially_invoiced', 'awaiting_delivery'],
+      ARRAY['partially_invoiced', 'cancelled'],
+      ARRAY['awaiting_delivery', 'partially_received'],
+      ARRAY['awaiting_delivery', 'cancelled'],
+      ARRAY['partially_received', 'closed'],
+      ARRAY['partially_received', 'cancelled']
+      -- closed is terminal, no transitions out
+    ];
+
+    -- Check if transition is valid
+    IF NOT ARRAY[OLD.status::TEXT, NEW.status::TEXT] = ANY(valid_transitions) THEN
+      RAISE EXCEPTION 'Invalid PO status transition from % to %',
+        OLD.status, NEW.status;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER validate_po_transition
+  BEFORE UPDATE ON purchase_orders
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_po_status_transition();
+
+-- OPTION B: Use a transitions table (for user-configurable workflows)
+CREATE TABLE po_status_transitions (
+  from_status po_status,
+  to_status po_status,
+  is_allowed BOOLEAN DEFAULT true,
+  PRIMARY KEY (from_status, to_status)
+);
+-- Then trigger queries this table
+```
+
+OPTION A recommended for fixed PO lifecycle. Reserve OPTION B for future if workflows become customizable.
+
+**Detection:**
+- Test suite: Try all invalid transitions, expect exception
+- Audit log review: Check for status_change actions that skip states
+- pg_stat_statements: Monitor for UPDATE purchase_orders WHERE status = 'X' patterns
+
+**Phase assignment:** Phase implementing 6-state PO status engine MUST add transition validation trigger in same migration as status calculation logic.
+
+---
+
+## Moderate Pitfalls
+
+### Pitfall 5: PDF Generation Memory Leak in Serverless Environment
+**What goes wrong:** PDF export for PO/invoice works in dev (Node 500MB heap) but fails in production Vercel serverless (1GB limit reached, function times out after 10-60s). Browser tabs in Puppeteer consume increasing memory and don't release, causing progressive slowdown.
 
 **Why it happens:**
-Developer creates standardized components:
-- `FormInput` replaces inline `<input>` tags across 50+ files
-- `FormSelect` replaces custom select implementations
-- New components have different prop names (`value` → `defaultValue`)
-- New components use different validation timing (onBlur → onChange)
-- New components missing features old components had (e.g., inline creation for categories)
+- Puppeteer launches full Chromium browser (~100-200MB base memory)
+- Each PDF render creates new page (~50-100MB depending on content)
+- Browser instance reused across requests (singleton pattern) accumulates memory
+- Vercel serverless cold start adds 15s overhead just loading Chromium
 
-Developer uses find-replace to update all files, tests a few pages, deploys. But edge cases break:
-- Invoice form has custom currency formatting in input - new `FormInput` strips formatting
-- Stock-out form has warehouse selection that filters items - new `FormSelect` doesn't trigger filter callback
-- PO line items table has inline editing - new components don't support table context
+Real-world data: Vercel functions 4-8x slower than local dev, basic CPU takes ~50s vs 10s on Performance CPU tier.
 
-**How to avoid:**
+**Consequences:**
+- User-facing timeout errors during PDF download
+- Increased Vercel costs (longer function execution time)
+- Degraded UX: users retry, creating more load
+- Memory exhaustion crashes entire function container, affecting other requests
 
-1. **Parallel Implementation Strategy:**
-   - Create new standardized components with `v2` suffix: `FormInputV2`, `FormSelectV2`
-   - Migrate pages ONE AT A TIME, testing each fully before next
-   - Keep old and new components side-by-side during transition
-   - Delete old components only after 100% migration confirmed
+**Prevention:**
+```typescript
+// BAD: Singleton browser reused indefinitely
+let browser: Browser | null = null;
+export async function generatePDF() {
+  if (!browser) browser = await puppeteer.launch();
+  const page = await browser.newPage(); // Memory leak: pages accumulate
+  // ... render PDF
+}
 
-2. **Component API Compatibility Layer:**
-   If old components used certain props, new components should support them:
-   ```typescript
-   interface FormInputProps {
-     value?: string;           // Old prop
-     defaultValue?: string;    // New prop
-     onChange?: (value: string) => void;  // Old signature
-     onValueChange?: (value: string) => void;  // New signature
-   }
+// GOOD: Close page after each render
+export async function generatePDF() {
+  const browser = await puppeteer.launch({
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    headless: true
+  });
+  try {
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: 'load' }); // Use 'load' not 'networkidle2'
+    const pdf = await page.pdf({ format: 'A4' });
+    return pdf;
+  } finally {
+    await browser.close(); // CRITICAL: Always close
+  }
+}
 
-   export function FormInput({ value, defaultValue, onChange, onValueChange, ...rest }: FormInputProps) {
-     const actualValue = value ?? defaultValue;
-     const actualOnChange = onChange ?? onValueChange;
-     // ...
-   }
-   ```
+// BETTER: Use @react-pdf/renderer server-side (no browser needed)
+import { renderToStream } from '@react-pdf/renderer';
+export async function generatePDF(data) {
+  const stream = await renderToStream(<PODocument {...data} />);
+  return stream; // ~10MB memory vs 200MB for Puppeteer
+}
 
-3. **Pre-Refactor Testing:**
-   Before changing any component:
-   - [ ] Identify all usages with `grep -r "ComponentName" app/`
-   - [ ] Document edge cases (custom formatting, validation, callbacks)
-   - [ ] Write integration test for each usage context
-   - [ ] Verify test coverage for all form submission paths
+// BEST: Offload to Supabase Edge Function for heavy PDFs
+// - Edge Function calls pdf-lib or @react-pdf/renderer
+// - Stores result in Supabase Storage
+// - Returns signed URL to client
+// - Avoids Next.js serverless limits entirely
+```
 
-4. **Incremental Rollout with Feature Flag:**
-   ```typescript
-   // lib/feature-flags.ts
-   export const USE_STANDARDIZED_FORMS = process.env.NEXT_PUBLIC_USE_V2_FORMS === 'true';
+For QM System: Recommend @react-pdf/renderer for structured documents (PO, invoice). Reserve Puppeteer for complex HTML rendering if needed, but use dedicated Edge Function.
 
-   // In component
-   import { USE_STANDARDIZED_FORMS } from '@/lib/feature-flags';
+**Detection:**
+- Monitor Vercel function metrics: execution time, memory usage
+- Load test: Generate 10 PDFs sequentially, measure memory trend
+- Heap snapshot: Compare heap before/after PDF generation, check for retained browser objects
 
-   {USE_STANDARDIZED_FORMS ? <FormInputV2 /> : <FormInput />}
-   ```
-
-   Deploy with flag OFF, test in production, enable flag for admin users only, then roll out to all.
-
-5. **Refactoring Scope Boundaries:**
-   Don't refactor "all forms" at once. Scope boundaries:
-   - **Phase 1**: Simple forms (login, user profile) - low risk
-   - **Phase 2**: List pages with filters - medium risk
-   - **Phase 3**: Multi-step forms (invoice, PO) - high risk
-   - **Phase 4**: Complex forms with business logic (stock-in/out) - highest risk
-
-**Warning signs:**
-- Refactor PR touches 30+ files
-- PR description says "standardize all forms to use new components"
-- No A/B testing or feature flag strategy mentioned
-- No migration checklist for each affected page
-- Test coverage doesn't increase (indicates components changed but tests didn't)
-- Find-replace used for prop name changes across many files
-
-**Phase to address:**
-Phase 4: UI Standardization - Break into sub-phases by component complexity. Each sub-phase targets specific page types with full testing before moving to next.
+**Phase assignment:** Phase adding PDF export must implement memory-safe pattern and load test BEFORE merging.
 
 ---
 
-## Technical Debt Patterns
+### Pitfall 6: Cancellation Guard Doesn't Account for Partially Voided Invoices
+**What goes wrong:** Business rule "Cannot cancel PO if invoices exist" blocks cancellation even when all invoices are voided. User voids all invoices expecting to unlock PO cancellation, but guard still prevents it. Escalates to support, requires manual database intervention.
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Skip enum migration testing in staging | Faster deployment (save 1 day) | Production data corruption, user lockout, requires emergency rollback | Never - enum changes are irreversible without backup restore |
-| Use find-replace for component refactoring | Refactor 50 files in 1 hour vs. 1 week manual | Broken forms, missing validation, production bugs, user trust loss | Never - scope boundaries reduce time to 2-3 days safely |
-| Build flow tracking UI before query optimization | See UI mockup sooner, get stakeholder approval | Page unusable in production, database CPU spikes, requires full rewrite | Only for design review, never deploy to users |
-| Recreate RLS policies without verification | Fewer lines of migration code | Tables unprotected (data breach) or over-protected (empty results) | Never - verification query is 5 lines |
-| Deploy middleware changes without preview testing | Skip staging environment setup | Users locked out, auth bypass vulnerabilities, emergency rollback | Never - Vercel preview deployments are free |
+**Why it happens:** Guard checks for invoice existence, not invoice validity:
+```sql
+-- WRONG: Blocks cancellation even if all invoices voided
+CREATE FUNCTION block_po_cancel_with_invoices() AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM invoices WHERE po_id = NEW.id) THEN
+    RAISE EXCEPTION 'Cannot cancel PO: invoices exist';
+  END IF;
+END;
+$$;
 
-## Integration Gotchas
+-- CORRECT: Only blocks if ACTIVE, NON-VOIDED invoices exist
+CREATE FUNCTION block_po_cancel_with_invoices() AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM invoices
+    WHERE po_id = NEW.id
+      AND is_active = true
+      AND (is_voided = false OR is_voided IS NULL)
+  ) THEN
+    RAISE EXCEPTION 'Cannot cancel PO: active non-voided invoices exist';
+  END IF;
+END;
+$$;
+```
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| PostgreSQL enum migration | Using `ALTER TYPE ... DROP VALUE` or `DROP TYPE` directly | Expand-and-contract pattern: add new enum, migrate data, drop old enum in separate transactions |
-| Supabase RLS policy recreation | Dropping all policies, then recreating outside transaction | Atomic transaction: drop children first, recreate parents first, verify with query |
-| Next.js middleware auth | Assuming local behavior matches Vercel Edge runtime | Test in Vercel preview, add header injection protection, verify session refresh timing |
-| Materialized view refresh | Manual `REFRESH MATERIALIZED VIEW` after every data change | Scheduled refresh (30-min cron) or manual trigger via admin UI only |
-| Multi-table JOIN optimization | Building UI with N+1 queries, planning to optimize later | Write denormalized query FIRST, verify with EXPLAIN ANALYZE, then build UI |
+**Consequences:**
+- User frustration: "I voided the invoices, why can't I cancel?"
+- Support burden: Requires manual SQL to bypass guard
+- Workaround culture: Users learn to soft-delete instead of following workflow
+- Data integrity risk: Manual interventions bypass other guards
 
-## Performance Traps
+**Prevention:**
+- Always filter guards by `is_active = true` AND `is_voided = false`
+- Test matrix: PO with [no invoices, voided invoices, active invoices, mix] × cancellation attempt
+- Document in guard function: "Only blocks for ACTIVE, NON-VOIDED invoices"
 
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| N+1 query cascade in flow tracking | Page load 30+ seconds, 1000+ database queries in DevTools | Single denormalized JOIN query, group results client-side | 100+ QMRLs with 5+ QMHQ each (500+ parent records) |
-| RLS policy function calls on every query | Slow list page loads (5+ seconds), high database CPU | Cache user role in JWT custom claims instead of querying users table | 50+ concurrent users making simultaneous queries |
-| Enum migration without indexes | Query timeout errors after role change | Recreate indexes on new role column before swapping, verify with EXPLAIN | 10K+ users, JOIN queries on role column |
-| Materialized view never refreshed | Flow tracking shows stale data, user confusion | PostgreSQL cron extension or manual refresh UI with last-updated timestamp | First user access after view creation (data is 0 minutes old but appears stale) |
-| force-dynamic on all dashboard pages | Every page load hits database, no caching, slow cold starts | Use ISR where possible, move auth checks to API routes, cache static data | 100+ users accessing dashboard simultaneously (cold start stampede) |
+Example comprehensive guard:
+```sql
+CREATE OR REPLACE FUNCTION block_po_cancel_with_active_invoices()
+RETURNS TRIGGER AS $$
+DECLARE
+  active_invoice_count INTEGER;
+  active_stockin_count INTEGER;
+BEGIN
+  -- Only check when status changes to 'cancelled'
+  IF NEW.status = 'cancelled' AND OLD.status != 'cancelled' THEN
 
-## Security Mistakes
+    -- Count active, non-voided invoices
+    SELECT COUNT(*) INTO active_invoice_count
+    FROM invoices
+    WHERE po_id = NEW.id
+      AND is_active = true
+      AND (is_voided = false OR is_voided IS NULL);
 
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| Deploying middleware changes without CVE-2025-29927 mitigation | Authorization bypass via header injection on self-hosted deployments | Add `x-middleware-subrequest` header check, even if currently on Vercel |
-| Recreating RLS policies outside atomic transaction | Window of time where tables have RLS enabled but no policies (empty results) or RLS disabled (public data) | Wrap all policy changes in single BEGIN/COMMIT transaction, verify before deploy |
-| Using `ON DELETE CASCADE` with RLS policies | Cascade delete fails if user doesn't have RLS permission on child table | Use `ON DELETE SET NULL` for audit fields, verify cascade constraints don't conflict with RLS |
-| Exposing role migration mapping in client code | User role hierarchy visible in browser bundle, attackers know which roles to target | Keep role mapping in database migration only, not in TypeScript constants |
-| No verification query after enum migration | Users with unmapped roles can't be detected until they try to log in | Add `SELECT role, COUNT(*) FROM users GROUP BY role` verification before column swap |
+    IF active_invoice_count > 0 THEN
+      RAISE EXCEPTION 'Cannot cancel PO: % active invoice(s) exist. Void invoices first.',
+        active_invoice_count;
+    END IF;
 
-## UX Pitfalls
+    -- Count active stock-in transactions (even if invoice voided, stock received)
+    SELECT COUNT(*) INTO active_stockin_count
+    FROM inventory_transactions
+    WHERE po_id = NEW.id
+      AND movement_type = 'inventory_in'
+      AND is_active = true;
 
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Flow tracking page loads for 30 seconds with no feedback | User thinks page is broken, closes tab, complains to admin | Add skeleton loader, progressive loading (QMRLs first, then details), show "Loading 45/100 requests..." counter |
-| User role changes but not logged out | User sees "Permission denied" errors on actions they previously could do, confused why | Force logout on role change with toast: "Your role has been updated. Please log in again." |
-| Standardized form removes custom validation | User submits invalid data (negative exchange rate), database rejects, generic error shown | Migration checklist includes "transfer all custom validation to new component" verification step |
-| RLS policy recreation causes empty results | User sees "No data available" on pages that previously had data, thinks data was deleted | Add error message: "If you expected to see data, contact admin" + error code for debugging |
-| Materialized view stale data | User sees PO status as "in progress" but they just marked it closed 5 minutes ago | Show last-refresh timestamp: "Data as of 2:30 PM" + manual refresh button |
+    IF active_stockin_count > 0 THEN
+      RAISE EXCEPTION 'Cannot cancel PO: % stock-in transaction(s) recorded. Physical inventory received.',
+        active_stockin_count;
+    END IF;
+  END IF;
 
-## "Looks Done But Isn't" Checklist
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
 
-- [ ] **Enum migration:** Migration script succeeds but verification query shows unmapped users still exist
-- [ ] **RLS policies:** All policies recreated but verification query shows tables with RLS enabled but 0 policies
-- [ ] **Middleware auth:** Middleware deploys successfully but session refresh errors appear in logs 6 hours later
-- [ ] **Flow tracking query:** Query returns results in development (10 records) but times out in production (1000 records)
-- [ ] **Component standardization:** All files updated to use new components but custom validation logic was not migrated
-- [ ] **Index creation:** Indexes created on new role column but not on foreign key columns for flow tracking JOINs
-- [ ] **Materialized view:** View created but no refresh strategy (manual button, cron job, trigger)
-- [ ] **Feature flag:** Standardized components deployed but feature flag hard-coded to `true` (can't disable if broken)
+**Detection:**
+- Test: Create PO, invoice it, void invoice, attempt cancel → should succeed
+- Test: Create PO, invoice it, receive stock, void invoice, attempt cancel → should fail (stock received)
+- Code review: Search for guard functions, verify all check `is_voided`
 
-## Recovery Strategies
+**Phase assignment:** Phase adding PO cancellation must test void scenarios in guard logic.
 
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Enum migration breaks user access | HIGH (30-60 min downtime) | 1. Rollback migration to restore old enum. 2. Fix mapping logic. 3. Re-run with verification. 4. Manual verification of all users can log in. |
-| RLS policies dropped but not recreated | CRITICAL (5-10 min window of public data or no access) | 1. Immediately rollback transaction if detected. 2. If committed, run emergency policy recreation script. 3. Audit logs for unauthorized access during window. |
-| Middleware auth breaks on deploy | HIGH (all users locked out until fix) | 1. Revert deployment via Vercel rollback. 2. Test middleware in preview environment. 3. Fix session refresh logic. 4. Gradual rollout with monitoring. |
-| Flow tracking query causes database CPU spike | MEDIUM (page disabled until optimized) | 1. Add feature flag to disable flow tracking page. 2. Create materialized view with indexes. 3. Re-enable with pagination. 4. Monitor database CPU. |
-| Component refactor breaks forms | MEDIUM-HIGH (forms unusable until hotfix) | 1. Identify broken pages via error monitoring. 2. Revert specific component changes via git. 3. Use feature flag to disable new components. 4. Fix validation logic, redeploy. |
-| Materialized view never refreshed | LOW (stale data shown, but functional) | 1. Add manual refresh button to admin UI. 2. Show last-refresh timestamp. 3. Set up cron job for auto-refresh. 4. Add refresh trigger on major state changes. |
+---
 
-## Pitfall-to-Phase Mapping
+### Pitfall 7: Concurrent Status Calculation + Audit Logging = Duplicate Audit Entries
+**What goes wrong:** PO status recalculated from `partially_invoiced` to `awaiting_delivery` twice concurrently. Audit trigger fires twice, creating two audit_logs entries with identical timestamps and changes_summary, confusing history timeline.
 
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Enum migration without data remapping | Phase 1: Database Foundation | Run verification query: 100% users have new role mapped, 0 users have old role values |
-| RLS policy cascade failures | Phase 1: Database Foundation | Run verification query: all RLS-enabled tables have policies, no tables unprotected |
-| Middleware authorization breaking | Phase 2: Middleware & Auth Updates | Deploy to Vercel preview, test session refresh, verify header injection protection |
-| Flow tracking query N+1 performance | Phase 3: Flow Tracking Implementation | Run EXPLAIN ANALYZE, verify index usage, load test with 1000+ QMRLs |
-| UI standardization breaking pages | Phase 4: UI Standardization | Incremental rollout with feature flag, test each page type before next, monitor error rates |
-| Index missing on new role column | Phase 1: Database Foundation | Run query plan analysis, verify indexes exist on role, foreign keys, join columns |
-| Materialized view no refresh strategy | Phase 3: Flow Tracking Implementation | Manual refresh button works, last-refresh timestamp shown, cron job scheduled |
+**Why it happens:**
+1. Invoice A and Invoice B created concurrently for same PO
+2. Both trigger `update_po_status()` function
+3. Both read current status = `partially_invoiced`
+4. Both calculate new status = `awaiting_delivery` (after their invoice quantities)
+5. Both execute UPDATE purchase_orders SET status = 'awaiting_delivery'
+6. Audit trigger fires twice (once per UPDATE)
+
+Even with advisory locks preventing wrong status, duplicate UPDATEs still occur because both transactions conclude same status is correct.
+
+**Consequences:**
+- Cluttered audit history: users see duplicate "Status changed to awaiting_delivery" entries
+- Confusion in timeline: "Why did status change twice at same time?"
+- Report inaccuracy: status_change count doubled
+- Not critical but degrades audit quality
+
+**Prevention:**
+```sql
+-- OPTION A: Check if status actually changing in audit trigger
+CREATE OR REPLACE FUNCTION create_audit_log() AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' AND TG_TABLE_NAME = 'purchase_orders' THEN
+    -- Only log if status ACTUALLY changed
+    IF OLD.status IS DISTINCT FROM NEW.status THEN
+      INSERT INTO audit_logs (...);
+    END IF;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+-- Already implemented in migration 026 (line 142: "IF OLD.status IS DISTINCT FROM NEW.status")
+
+-- OPTION B: Idempotent status update (skip UPDATE if no change)
+CREATE OR REPLACE FUNCTION update_po_status() AS $$
+DECLARE
+  calculated_status po_status;
+BEGIN
+  -- Calculate status
+  calculated_status := calculate_po_status(NEW.id);
+
+  -- Only update if changed (prevents no-op UPDATE)
+  IF calculated_status != OLD.status THEN
+    NEW.status := calculated_status;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+System already has OPTION A (audit trigger checks IS DISTINCT FROM). Add OPTION B for efficiency: avoid triggering audit at all if status unchanged.
+
+**Detection:**
+- Query audit_logs for duplicate status_change entries:
+  ```sql
+  SELECT entity_id, changes_summary, COUNT(*)
+  FROM audit_logs
+  WHERE action = 'status_change'
+  GROUP BY entity_id, changes_summary, DATE_TRUNC('second', changed_at)
+  HAVING COUNT(*) > 1;
+  ```
+- Load test: Concurrent invoice creation, check audit log count matches actual status changes
+
+**Phase assignment:** Phase implementing status calculation should add idempotency check to avoid no-op UPDATEs.
+
+---
+
+## Minor Pitfalls
+
+### Pitfall 8: PDF Export Generates Stale Data Without Transaction Isolation
+**What goes wrong:** User clicks "Export PO PDF", invoice gets created during PDF generation, exported PDF shows old status/quantities that were already outdated when download completed.
+
+**Why it happens:** PDF generation queries database multiple times (PO details, line items, invoices, stock-in) without transaction wrapper. Between queries, concurrent updates occur:
+1. Query PO: status = "partially_invoiced"
+2. → New invoice created, status updated to "awaiting_delivery"
+3. Query line items: shows NEW invoiced_quantity (after update)
+4. Generated PDF: Status says "partially_invoiced" but quantities show fully invoiced (inconsistent snapshot)
+
+**Consequences:**
+- User confusion: PDF doesn't match screen
+- Compliance risk: exported documents have inconsistent data
+- Cannot reproduce: re-export shows different data, no audit trail
+
+**Prevention:**
+```typescript
+// BAD: Multiple unrelated queries
+async function generatePOPDF(poId: string) {
+  const po = await supabase.from('purchase_orders').select().eq('id', poId).single();
+  // ← Invoice created here by another user
+  const lineItems = await supabase.from('po_line_items').select().eq('po_id', poId);
+  // Inconsistent: PO status old, line items new
+}
+
+// GOOD: Single query with joins (atomic snapshot)
+async function generatePOPDF(poId: string) {
+  const { data } = await supabase
+    .from('purchase_orders')
+    .select(`
+      *,
+      po_line_items(*),
+      invoices(*),
+      qmhq(*)
+    `)
+    .eq('id', poId)
+    .single();
+  // All data from same snapshot
+}
+
+// BETTER: Use RPC with REPEATABLE READ isolation
+// supabase/functions/get_po_for_pdf.sql
+CREATE OR REPLACE FUNCTION get_po_for_pdf(p_po_id UUID)
+RETURNS JSON AS $$
+DECLARE
+  result JSON;
+BEGIN
+  -- Explicit isolation ensures consistent snapshot
+  SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+
+  SELECT json_build_object(
+    'po', row_to_json(po.*),
+    'line_items', (SELECT json_agg(row_to_json(pl.*)) FROM po_line_items pl WHERE pl.po_id = p_po_id),
+    'invoices', (SELECT json_agg(row_to_json(i.*)) FROM invoices i WHERE i.po_id = p_po_id)
+  ) INTO result
+  FROM purchase_orders po
+  WHERE po.id = p_po_id;
+
+  RETURN result;
+END;
+$$ LANGUAGE plpgsql;
+
+// TypeScript
+const { data } = await supabase.rpc('get_po_for_pdf', { p_po_id: poId });
+```
+
+Recommend single-query approach for QM System (simpler, adequate for PDF snapshot needs).
+
+**Detection:**
+- Test: Open PO in two tabs, export PDF in Tab A while updating status in Tab B, verify PDF matches pre-update state
+- Code review: PDF generation functions must use single snapshot query
+
+**Phase assignment:** Phase adding PDF export must use atomic snapshot query pattern.
+
+---
+
+### Pitfall 9: Cancellation Doesn't Release Balance in Hand Commitment
+**What goes wrong:** User cancels PO expecting to free up budget for new PO, but Balance in Hand remains depleted. QMHQ still shows `total_po_committed` includes cancelled PO amount. User believes budget exhausted, doesn't create needed PO.
+
+**Why it happens:** Existing trigger `update_qmhq_po_committed()` (migration 015) correctly excludes cancelled POs:
+```sql
+SELECT COALESCE(SUM(total_amount_eusd), 0)
+FROM purchase_orders
+WHERE qmhq_id = target_qmhq_id
+  AND is_active = true
+  AND status != 'cancelled'; -- ✓ Cancelled POs excluded
+```
+
+But if cancellation implemented as soft delete (`is_active = false`) instead of status change, logic breaks:
+```sql
+-- If cancellation does:
+UPDATE purchase_orders SET is_active = false WHERE id = ?;
+-- Then SUM excludes it (is_active = true filter)
+
+-- But if cancellation does:
+UPDATE purchase_orders SET status = 'cancelled' WHERE id = ?;
+-- Then SUM correctly excludes it (status != 'cancelled' filter)
+```
+
+Pitfall occurs if implementation inconsistent: cancellation sets `is_active = false` OR `status = 'cancelled'` but not both/correctly.
+
+**Consequences:**
+- Budget appears unavailable when actually free
+- Users abandon valid PO creation
+- Finance team gets "we're out of budget" questions when data shows availability
+
+**Prevention:**
+- Decide: Is cancellation a status (`status = 'cancelled'`) or deletion (`is_active = false`)?
+- Recommendation: Use status (preserves record, clearer semantics, follows existing PO status enum)
+- Ensure trigger filters match cancellation method
+- Test: Cancel PO, verify `balance_in_hand` increases immediately
+
+```sql
+-- If using status approach (recommended):
+UPDATE purchase_orders SET status = 'cancelled', updated_by = ? WHERE id = ?;
+-- Trigger already handles this correctly
+
+-- If using soft delete (NOT recommended):
+UPDATE purchase_orders SET is_active = false WHERE id = ?;
+-- Must update trigger to also filter is_active:
+AND (status != 'cancelled' OR is_active = true) -- Overkill, just use status
+```
+
+**Detection:**
+- Test: Create PO for $1000, verify balance_in_hand decreases by $1000, cancel PO, verify increases by $1000
+- Check trigger logic matches cancellation implementation
+
+**Phase assignment:** Phase adding PO cancellation must verify balance_in_hand calculation updates correctly.
+
+---
+
+### Pitfall 10: RLS Policy Recursion When Checking PO Permissions Based on Related Entity
+**What goes wrong:** RLS policy on `purchase_orders` checks if user has access to parent QMHQ, but QMHQ RLS policy checks if user has access to parent QMRL, which checks department, which checks users table, creating infinite recursion. Query times out with "stack depth exceeded" or "query takes too long".
+
+**Why it happens:**
+```sql
+-- PO RLS: Can view if user can view QMHQ
+CREATE POLICY po_select ON purchase_orders USING (
+  EXISTS (SELECT 1 FROM qmhq WHERE qmhq.id = purchase_orders.qmhq_id)
+);
+
+-- QMHQ RLS: Can view if user can view QMRL
+CREATE POLICY qmhq_select ON qmhq USING (
+  EXISTS (SELECT 1 FROM qmrl WHERE qmrl.id = qmhq.qmrl_id)
+);
+
+-- QMRL RLS: Can view if user in same department
+CREATE POLICY qmrl_select ON qmrl USING (
+  department_id IN (SELECT department_id FROM users WHERE id = auth.uid())
+);
+
+-- Users RLS: Can view self
+CREATE POLICY users_select ON users USING (id = auth.uid());
+```
+
+Circular dependency: PO → QMHQ → QMRL → Users → (RLS checks on users) → infinite loop.
+
+Real-world case: GitHub issue #1138 documents infinite recursion in Supabase RLS when users table used to specify role for other table policies.
+
+**Consequences:**
+- Query timeout: 30s+ for simple PO select
+- Application hangs waiting for database
+- Cannot load PO list in UI
+- pg_stat_activity shows queries stuck in "active" state
+
+**Prevention:**
+```sql
+-- OPTION A: Security definer function (breaks recursion)
+CREATE OR REPLACE FUNCTION user_can_view_po(p_po_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM purchase_orders po
+    JOIN qmhq ON qmhq.id = po.qmhq_id
+    JOIN qmrl ON qmrl.id = qmhq.qmrl_id
+    WHERE po.id = p_po_id
+      AND (
+        qmrl.requester_id = p_user_id
+        OR qmrl.assigned_to = p_user_id
+        OR p_user_id IN (SELECT id FROM users WHERE role IN ('admin', 'quartermaster', 'finance'))
+      )
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE POLICY po_select ON purchase_orders USING (
+  user_can_view_po(id, auth.uid())
+);
+
+-- OPTION B: Denormalize (cache department_id on QMHQ/PO)
+ALTER TABLE purchase_orders ADD COLUMN department_id UUID;
+-- Update via trigger when QMHQ changes
+-- RLS becomes simple:
+CREATE POLICY po_select ON purchase_orders USING (
+  department_id IN (SELECT department_id FROM users WHERE id = auth.uid())
+);
+-- No joins, no recursion
+```
+
+OPTION A recommended for QM System (leverages existing RBAC logic, no schema changes). Migration 039 already uses SECURITY DEFINER pattern for complex checks.
+
+**Detection:**
+- Query slow log: SELECT queries on purchase_orders taking >1s
+- Test: Log in as requester role, load /po page, verify loads <500ms
+- EXPLAIN ANALYZE: Should see "Index Scan" not "Seq Scan on users" (indicates recursion)
+
+**Phase assignment:** Phase adding PO RLS policies must test for recursion and use security definer functions for complex permission checks.
+
+---
+
+## Phase-Specific Warnings
+
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| PO Status Calculation Overhaul | Pitfall #1 (Race Conditions) | Implement advisory locks using hashtext(po_id) pattern from migration 058 |
+| PO Cancellation Feature | Pitfall #2 (Trigger Ordering), #3 (Soft Delete Cascade), #6 (Void Edge Cases) | Follow aa_/zz_ prefix convention, use ON DELETE RESTRICT, test voided invoice scenarios |
+| PDF Export Implementation | Pitfall #5 (Memory Leak), #8 (Stale Data) | Use @react-pdf/renderer or Supabase Edge Function, atomic snapshot queries |
+| PO Lifecycle Audit Logging | Pitfall #7 (Duplicate Audits) | Add idempotency check in status update function to skip no-op UPDATEs |
+| RLS Policy for POs | Pitfall #10 (Recursion) | Use SECURITY DEFINER functions, avoid EXISTS on RLS-protected tables |
+| State Transition Validation | Pitfall #4 (Invalid Transitions) | Add BEFORE UPDATE trigger validating allowed transitions array |
+
+---
 
 ## Sources
 
-**PostgreSQL Enum Migration:**
-- [Managing Enums in Postgres | Supabase Docs](https://supabase.com/docs/guides/database/postgres/enums)
-- [PostgreSQL: Documentation: 18: 8.7. Enumerated Types](https://www.postgresql.org/docs/current/datatype-enum.html)
-- [Why You Should (and Shouldn't) Use Enums in PostgreSQL | Medium](https://medium.com/@slashgkr/why-you-should-and-shouldnt-use-enums-in-postgresql-1e354203fd62)
-- [Handling PostgreSQL Enum Updates with View Dependencies in Alembic Migrations](https://bakkenbaeck.com/tech/enums-views-alembic-migrations)
+### PostgreSQL Isolation & Concurrency
+- [PostgreSQL: Documentation: 18: Transaction Isolation](https://www.postgresql.org/docs/current/transaction-iso.html) — Authoritative isolation level documentation
+- [Preventing Postgres SQL Race Conditions with SELECT FOR UPDATE](https://on-systems.tech/blog/128-preventing-read-committed-sql-concurrency-errors/) — Concurrency patterns
+- [PostgreSQL Advisory Locks (2026)](https://oneuptime.com/blog/post/2026-01-25-use-advisory-locks-postgresql/view) — Advisory lock best practices
+- [Race condition in Order::setInvoiceDetails · Issue #23356](https://github.com/PrestaShop/PrestaShop/issues/23356) — Real-world PO status race condition case
 
-**Supabase RLS Policies:**
-- [Row Level Security | Supabase Docs](https://supabase.com/docs/guides/database/postgres/row-level-security)
-- [Supabase Row Level Security (RLS): Complete Guide (2026)](https://designrevision.com/blog/supabase-row-level-security)
-- [Cascade Deletes | Supabase Docs](https://supabase.com/docs/guides/database/postgres/cascade-deletes)
+### PostgreSQL Triggers & State Machines
+- [PostgreSQL Triggers in 2026: Design, Performance, and Production Reality](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/) — Current trigger best practices
+- [Implementing State Machines in PostgreSQL](https://felixge.de/2017/07/27/implementing-state-machines-in-postgresql/) — State transition validation patterns
+- [PostgreSQL: Documentation: 18: Explicit Locking](https://www.postgresql.org/docs/current/explicit-locking.html) — Locking mechanisms and deadlock prevention
 
-**Next.js Middleware Security:**
-- [CVE-2025-29927: Next.js Middleware Authorization Bypass - Technical Analysis](https://projectdiscovery.io/blog/nextjs-middleware-authorization-bypass)
-- [Understanding CVE-2025-29927: The Next.js Middleware Authorization Bypass Vulnerability](https://securitylabs.datadoghq.com/articles/nextjs-middleware-auth-bypass/)
-- [Postmortem on Next.js Middleware bypass - Vercel](https://vercel.com/blog/postmortem-on-next-js-middleware-bypass)
+### PostgreSQL Foreign Keys & Soft Deletes
+- [Soft Deletion Probably Isn't Worth It](https://brandur.org/soft-deletion) — Pitfalls of soft delete with foreign keys
+- [Cascade Deletes | Supabase Docs](https://supabase.com/docs/guides/database/postgres/cascade-deletes) — CASCADE behavior documentation
+- [Cascade Delete - EF Core](https://learn.microsoft.com/en-us/ef/core/saving/cascade-delete) — Foreign key cascade patterns
 
-**PostgreSQL Query Performance:**
-- [Join strategies and performance in PostgreSQL](https://www.cybertec-postgresql.com/en/join-strategies-and-performance-in-postgresql/)
-- [Strategies for Improving Postgres JOIN Performance](https://www.tigerdata.com/learn/strategies-for-improving-postgres-join-performance)
-- [Optimizing Materialized Views in PostgreSQL](https://medium.com/@ShivIyer/optimizing-materialized-views-in-postgresql-best-practices-for-performance-and-efficiency-3e8169c00dc1)
-- [Indexing Materialized Views in Postgres](https://www.crunchydata.com/blog/indexing-materialized-views-in-postgres)
+### Supabase RLS & Performance
+- [Supabase RLS Performance and Best Practices](https://supabase.com/docs/guides/troubleshooting/rls-performance-and-best-practices-Z5Jjwv) — Avoiding recursion, performance optimization
+- [Infinite recursion when using users table for RLS · Discussion #1138](https://github.com/orgs/supabase/discussions/1138) — Real-world RLS recursion case
+- [Supabase Row Level Security (RLS): Complete Guide (2026)](https://designrevision.com/blog/supabase-row-level-security) — Current RLS patterns
 
-**React Component Refactoring:**
-- [Common Sense Refactoring of a Messy React Component](https://alexkondov.com/refactoring-a-messy-react-component/)
-- [Refactoring A Junior's React Code - Reduced Complexity](https://profy.dev/article/react-junior-code-review-and-refactoring-2)
-- [Modularizing React Applications with Established UI Patterns](https://martinfowler.com/articles/modularizing-react-apps.html)
+### PDF Generation in Serverless
+- [Optimizing Puppeteer PDF generation](https://www.codepasta.com/2024/04/19/optimizing-puppeteer-pdf-generation) — Memory and performance optimization
+- [Generate HTML as PDF using Next.js & Puppeteer on Serverless](https://medium.com/@martin_danielson/generate-html-as-pdf-using-next-js-puppeteer-running-on-serverless-vercel-aws-lambda-ed3464f7a9b7) — Vercel serverless PDF patterns
+- [7 Tips for Generating PDFs with Puppeteer](https://apitemplate.io/blog/tips-for-generating-pdfs-with-puppeteer/) — Production best practices
+- [Best practice for PDF generation from Supabase Edge Functions · Discussion #38327](https://github.com/orgs/supabase/discussions/38327) — Supabase Edge Function PDF approach
 
-**Project-Specific Context:**
-- QM System codebase concerns audit (2026-01-27)
-- Database migration analysis: 66 migrations, 132+ RLS policy references
-- Architecture review: 44K lines TypeScript, force-dynamic pages, N+1 query patterns
+### Database Idempotency & Deduplication
+- [PostgreSQL Triggers in 2026: Idempotency](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/) — Idempotent trigger design
+- [Implementing Stripe-like Idempotency Keys in Postgres](https://brandur.org/idempotency-keys) — Idempotency patterns for financial operations
+- [Idempotency: Building Reliable & Predictable Systems (2026)](https://medium.com/@tnusraddinov/idempotency-building-reliable-predictable-systems-especially-for-financial-transactions-98e5e775d896) — Financial transaction idempotency
 
----
-*Pitfalls research for: UI Standardization, Request Flow Tracking, and RBAC Role Overhaul*
-*Researched: 2026-02-11*
+### Void/Cancel Cascades in ERP Systems
+- [Void transactions in Payables Management - Dynamics GP](https://learn.microsoft.com/en-us/troubleshoot/dynamics/gp/void-transactions-payables-management) — Void cascade patterns
+- [Difference between void and delete in Purchase Order Entry](https://learn.microsoft.com/en-us/troubleshoot/dynamics/gp/difference-between-void-and-delete-in-purchase-order-entry-windows) — Void vs delete semantics
+- [Dynamics GP SOP Orphaned Transactions](https://www.encorebusiness.com/blog/dynamics-gp-sop-orphaned-transactions-and-allocated-items/) — Orphaned records from improper cascades
+
+### Next.js & React PDF Server-Side
+- [We had a leak! Identifying and fixing Memory Leaks in Next.js](https://medium.com/john-lewis-software-engineering/we-had-a-leak-identifying-and-fixing-memory-leaks-in-next-js-622977876697) — Production memory leak patterns
+- [Memory Leak Prevention in Next.js](https://medium.com/@nextjs101/memory-leak-prevention-in-next-js-47b414907a43) — Prevention strategies
+- [Using React for Server-Side PDF Report Generation](https://medium.com/@sepehr.sabour/using-react-for-server-side-pdf-report-generation-de594015f19a) — @react-pdf/renderer patterns

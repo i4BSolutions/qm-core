@@ -1,856 +1,667 @@
-# Architecture Research: v1.5 Features Integration
+# Architecture Research
 
-**Research Date:** 2026-02-07
-**Target Milestone:** v1.5 Polish Features
-**Confidence Level:** HIGH
+**Domain:** PO Smart Lifecycle, Cancellation Guards & PDF Export
+**Researched:** 2026-02-12
+**Confidence:** HIGH
 
-## Executive Summary
+## System Overview
 
-This research analyzes how four v1.5 features integrate with the existing QM System architecture:
-1. Comments system with polymorphic entity references
-2. Responsive typography using Tailwind
-3. Two-step selector components for improved UX
-4. Currency cascade from money-in transactions to money-out/PO
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        PRESENTATION LAYER                            │
+│  ┌────────────┐  ┌───────────┐  ┌────────────┐  ┌──────────────┐  │
+│  │ PO Detail  │  │ Invoice   │  │ Stock-In   │  │ PDF Export   │  │
+│  │   Page     │  │   Pages   │  │   Pages    │  │   Dialogs    │  │
+│  └─────┬──────┘  └─────┬─────┘  └─────┬──────┘  └──────┬───────┘  │
+│        │               │              │                 │           │
+├────────┴───────────────┴──────────────┴─────────────────┴───────────┤
+│                      COMPOSITE UI LAYER                              │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ PageHeader | DetailPageLayout | FilterBar | ActionButtons   │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+├─────────────────────────────────────────────────────────────────────┤
+│                      SERVER ACTIONS LAYER                            │
+│  ┌────────────┐  ┌──────────┐  ┌─────────┐  ┌─────────────────┐   │
+│  │ voidInvoice│  │ cancelPO │  │stockIn  │  │ generatePDF     │   │
+│  │ (cascade)  │  │ (guard)  │  │ (event) │  │ (server-side)   │   │
+│  └─────┬──────┘  └─────┬────┘  └────┬────┘  └─────────┬───────┘   │
+│        │               │             │                  │           │
+├────────┴───────────────┴─────────────┴──────────────────┴───────────┤
+│                      DATABASE TRIGGER LAYER                          │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │ Status Engine: calculate_po_status() + trigger_update_..() │     │
+│  │ • Triggered by: invoice_line_items, inventory_transactions │     │
+│  │ • Updates: po.status (6-state enum)                        │     │
+│  │ • Lock-free: runs within transaction                       │     │
+│  └────────────────────────────────────────────────────────────┘     │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │ Cancellation Guards: BEFORE UPDATE/DELETE triggers         │     │
+│  │ • block_po_cancel_with_invoices()                          │     │
+│  │ • block_invoice_void_with_stockin() (existing)             │     │
+│  └────────────────────────────────────────────────────────────┘     │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │ Audit Cascade: AFTER triggers with zz_ prefix              │     │
+│  │ • audit_po_cancel_cascade()                                │     │
+│  │ • audit_invoice_void_cascade() (existing)                  │     │
+│  └────────────────────────────────────────────────────────────┘     │
+├─────────────────────────────────────────────────────────────────────┤
+│                      DATABASE STORAGE LAYER                          │
+│  ┌────────────┐  ┌──────────────┐  ┌───────────────────────┐       │
+│  │ POs        │  │ Invoices     │  │ Inventory Trans.      │       │
+│  │ po_status  │  │ is_voided    │  │ movement_type:        │       │
+│  │ (enum)     │  │ voided_by    │  │ inventory_in          │       │
+│  └────────────┘  └──────────────┘  └───────────────────────┘       │
+│  ┌────────────┐  ┌──────────────┐  ┌───────────────────────┐       │
+│  │ PO Line    │  │ Invoice Line │  │ Audit Logs            │       │
+│  │ Items      │  │ Items        │  │ (cascade tracking)    │       │
+│  │ invoiced_  │  │ po_line_item_│  │                       │       │
+│  │ quantity   │  │ id           │  │                       │       │
+│  │ received_  │  │              │  │                       │       │
+│  │ quantity   │  │              │  │                       │       │
+│  └────────────┘  └──────────────┘  └───────────────────────┘       │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-All features integrate cleanly with existing patterns. The architecture already supports polymorphic references (file attachments), RLS-based permissions, audit logging, and component composition. No architectural changes required—only additions following established patterns.
+### Component Responsibilities
 
----
+| Component | Responsibility | Typical Implementation |
+|-----------|----------------|------------------------|
+| **PO Status Engine** | Calculate 6-state status from line item quantities | Database trigger + pure function (no side effects) |
+| **Cancellation Guards** | Block PO cancel if invoices exist; block invoice void if stock-in exists | BEFORE triggers with aa_ prefix (fire first) |
+| **Cascade Auditors** | Log all entities affected by void/cancel operations | AFTER triggers with zz_ prefix (fire last) |
+| **Server Actions** | Void invoice, cancel PO, execute stock-in with cascade feedback | Next.js Server Actions ('use server') |
+| **PDF Generator** | Server-side PDF export for invoices, QMHQ money-out, stock-out receipts | @react-pdf/renderer or jsPDF in Server Action |
+| **Composite UI** | Reusable layouts (PageHeader, DetailPageLayout, FilterBar, ActionButtons) | React components with consistent spacing |
 
-## 1. Comments Integration
+## Recommended Project Structure
 
-### Database Schema
+```
+supabase/migrations/
+├── 068_po_smart_status_engine.sql        # NEW: 6-state status calculation
+├── 069_po_cancellation_guards.sql         # NEW: block_po_cancel_with_invoices()
+├── 070_po_cancel_cascade_audit.sql        # NEW: audit_po_cancel_cascade()
+└── (040, 041, 057 already exist)          # EXISTING: invoice void guards + audit
 
-**Pattern:** Polymorphic entity references (established by file_attachments table)
+lib/
+├── actions/
+│   ├── po-actions.ts                      # NEW: cancelPurchaseOrder() server action
+│   ├── invoice-actions.ts                 # EXISTING: voidInvoice() (already cascades)
+│   └── pdf-actions.ts                     # NEW: generateInvoicePDF(), generateReceiptPDF()
+├── utils/
+│   ├── po-status.ts                       # EXISTING: status config, canCancelPO()
+│   ├── invoice-status.ts                  # EXISTING: canVoidInvoice()
+│   └── pdf-generator.ts                   # NEW: PDF template builders
+└── hooks/
+    └── use-cascade-feedback.ts            # NEW: Hook for cascade toast display
 
+app/(dashboard)/
+├── po/[id]/
+│   ├── page.tsx                           # MODIFY: Add "Matching" tab, lock UI when closed
+│   ├── _components/
+│   │   ├── po-matching-tab.tsx            # NEW: Side-by-side PO/Invoice/Stock-In comparison
+│   │   ├── po-line-progress.tsx           # NEW: Per-line-item progress bars
+│   │   └── po-cancel-dialog.tsx           # NEW: Cancel dialog with guard check
+│   └── (detail-tabs.tsx exists)           # EXISTING: Tabs component
+├── invoice/[id]/
+│   ├── page.tsx                           # MODIFY: Add PDF export button
+│   └── _components/
+│       ├── invoice-void-dialog.tsx        # EXISTING: Already shows cascade feedback
+│       └── invoice-pdf-export.tsx         # NEW: PDF export dialog
+└── inventory/stock-out/
+    └── _components/
+        └── stock-out-receipt-pdf.tsx      # NEW: Receipt PDF export
+
+components/composite/
+├── page-header.tsx                        # EXISTING: Reuse as-is
+├── detail-page-layout.tsx                 # EXISTING: Reuse as-is
+├── filter-bar.tsx                         # EXISTING: Reuse as-is
+├── action-buttons.tsx                     # EXISTING: Reuse as-is
+└── (4 more components)                    # EXISTING: FormField, FormSection, CardViewGrid
+```
+
+### Structure Rationale
+
+- **Database migrations first:** Status engine (068), guards (069), audit (070) build on existing trigger architecture (040, 041, 057)
+- **Server Actions layer:** Centralize cascade logic, guard checks, and PDF generation in `lib/actions/`
+- **Component colocation:** PO-specific components in `app/(dashboard)/po/[id]/_components/` (Next.js 14 convention)
+- **Reuse composite UI:** All 7 composite components (PageHeader, DetailPageLayout, etc.) already established in v1.8
+- **Utility functions:** Status config and guards in `lib/utils/`, PDF templates in `lib/utils/pdf-generator.ts`
+
+## Architectural Patterns
+
+### Pattern 1: Trigger-Driven Status Engine
+
+**What:** Database triggers automatically recalculate PO status when invoice or stock-in events occur. Pure function `calculate_po_status()` determines new status from line item quantities, then `trigger_update_po_status()` applies it.
+
+**When to use:** When status is a pure derivative of data (ordered, invoiced, received quantities) and must stay synchronized across concurrent transactions.
+
+**Trade-offs:**
+- **Pro:** Guaranteed consistency (status cannot drift from reality), lock-free (no pg_advisory_lock needed), transaction-safe (runs within same transaction)
+- **Con:** Harder to debug than application logic, requires database migration for changes, can impact write performance if trigger logic is complex
+
+**Example:**
 ```sql
--- New table: comments
-CREATE TABLE public.comments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- Pure function: no side effects, just calculation
+CREATE OR REPLACE FUNCTION calculate_po_status(p_po_id UUID)
+RETURNS po_status AS $$
+DECLARE
+  total_ordered DECIMAL(15,2);
+  total_invoiced DECIMAL(15,2);
+  total_received DECIMAL(15,2);
+BEGIN
+  -- Get totals from line items
+  SELECT
+    COALESCE(SUM(quantity), 0),
+    COALESCE(SUM(invoiced_quantity), 0),
+    COALESCE(SUM(received_quantity), 0)
+  INTO total_ordered, total_invoiced, total_received
+  FROM po_line_items
+  WHERE po_id = p_po_id AND is_active = true;
 
-  -- Polymorphic entity relationship
-  entity_type TEXT NOT NULL CHECK (entity_type IN ('qmrl', 'qmhq', 'po', 'invoice')),
-  entity_id UUID NOT NULL, -- No FK constraint (polymorphic)
+  -- 6-state decision tree
+  IF total_received >= total_ordered AND total_invoiced >= total_ordered THEN
+    RETURN 'closed'::po_status;
+  ELSIF total_received > 0 AND total_received < total_ordered THEN
+    RETURN 'partially_received'::po_status;
+  ELSIF total_invoiced >= total_ordered AND total_received = 0 THEN
+    RETURN 'awaiting_delivery'::po_status;
+  ELSIF total_invoiced > 0 AND total_invoiced < total_ordered THEN
+    RETURN 'partially_invoiced'::po_status;
+  ELSE
+    RETURN 'not_started'::po_status;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
 
-  -- Comment content
-  comment_text TEXT NOT NULL,
-
-  -- Ownership/audit
-  created_by UUID NOT NULL REFERENCES public.users(id),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-
-  -- Soft delete
-  deleted_at TIMESTAMPTZ,
-  deleted_by UUID REFERENCES public.users(id)
-);
-
--- Index for entity lookups (most common query)
-CREATE INDEX idx_comments_entity
-  ON public.comments(entity_type, entity_id)
-  WHERE deleted_at IS NULL;
-
--- Index for creator lookups
-CREATE INDEX idx_comments_created_by
-  ON public.comments(created_by);
-
--- Composite index for timeline queries
-CREATE INDEX idx_comments_entity_time
-  ON public.comments(entity_type, entity_id, created_at DESC);
-```
-
-**Design Rationale:**
-- Mirrors `file_attachments` table structure (lines 13-37 of migration 030)
-- Uses same polymorphic pattern: `entity_type` + `entity_id`
-- Supports same entities: qmrl, qmhq, plus po, invoice
-- Soft delete pattern with grace period (consistent with attachments)
-- Indexed for efficient timeline queries
-
-### RLS Approach
-
-**Pattern:** Mirror parent entity permissions (established by file_attachments RLS)
-
-Comments access follows parent entity permissions:
-- If user can view QMRL, user can view comments on that QMRL
-- If user can edit QMHQ, user can create comments on that QMHQ
-- Only comment creator or Admin can delete their own comments
-
-```sql
--- SELECT: Mirror parent entity read permissions
-CREATE POLICY comments_select ON public.comments
-  FOR SELECT USING (
-    deleted_at IS NULL
-    AND (
-      -- Privileged roles see all comments
-      public.get_user_role() IN ('admin', 'quartermaster', 'finance', 'inventory', 'proposal', 'frontline')
-      OR (
-        -- Requester sees comments on own QMRL
-        public.get_user_role() = 'requester'
-        AND entity_type = 'qmrl'
-        AND public.owns_qmrl(entity_id)
-      )
-      OR (
-        -- Requester sees comments on QMHQ linked to own QMRL
-        public.get_user_role() = 'requester'
-        AND entity_type = 'qmhq'
-        AND public.owns_qmhq(entity_id)
-      )
-      -- Note: PO/Invoice visible to Finance, Inventory, Proposal (handled above)
-    )
-  );
-
--- INSERT: Users who can view the entity can comment
-CREATE POLICY comments_insert ON public.comments
-  FOR INSERT WITH CHECK (
-    public.get_user_role() IN ('admin', 'quartermaster')
-    OR (
-      public.get_user_role() IN ('proposal', 'frontline')
-      AND entity_type IN ('qmrl', 'qmhq')
-    )
-    OR (
-      public.get_user_role() IN ('finance', 'inventory')
-      AND entity_type IN ('qmrl', 'qmhq', 'po', 'invoice')
-    )
-    OR (
-      public.get_user_role() = 'requester'
-      AND entity_type = 'qmrl'
-      AND public.owns_qmrl(entity_id)
-    )
-  );
-
--- UPDATE (soft delete): Creator or Admin only
-CREATE POLICY comments_update ON public.comments
-  FOR UPDATE USING (
-    created_by = auth.uid()
-    OR public.get_user_role() = 'admin'
-  );
-
--- DELETE (hard delete): Admin only - for cleanup
-CREATE POLICY comments_delete ON public.comments
-  FOR DELETE USING (
-    public.get_user_role() = 'admin'
-  );
-```
-
-**Design Rationale:**
-- Uses existing `owns_qmrl()` and `owns_qmhq()` helper functions (lines 28-48 of migration 027)
-- Follows same permission matrix as file attachments
-- Reuses `get_user_role()` security definer function
-- No new RLS helper functions needed
-
-### Component Structure
-
-**Pattern:** Reusable comment components following established UI patterns
-
-```
-/components/comments/
-  comment-section.tsx         # Main container (server component)
-  comment-list.tsx            # Displays comments timeline (server)
-  comment-item.tsx            # Individual comment card (server)
-  comment-form.tsx            # Create/edit form (client component)
-  comment-actions.tsx         # Delete/edit actions (client component)
-```
-
-**Component Details:**
-
-**CommentSection** (Server Component)
-- Props: `entityType`, `entityId`
-- Fetches comments with user relations via Supabase
-- Permission check: Can user view this entity?
-- Renders CommentList + CommentForm
-- Uses existing permission hook pattern
-
-**CommentList** (Server Component)
-- Props: `comments` array with user relations
-- Timeline display (newest first)
-- Empty state when no comments
-- Maps to CommentItem components
-
-**CommentItem** (Server/Client Hybrid)
-- Server: Renders comment content, user info, timestamp
-- Client: CommentActions for delete/edit (interactive)
-- Props: `comment`, `canEdit` (from permission check)
-- Avatar/name from user relation (loaded server-side)
-- Relative time display ("2 hours ago")
-
-**CommentForm** (Client Component)
-- Textarea for comment input
-- Character limit (500-1000 chars)
-- Submit button with loading state
-- Toast feedback on success/error
-- Uses existing `useToast()` hook
-- Revalidates parent page after submit
-
-**CommentActions** (Client Component)
-- Delete button (soft delete)
-- Confirmation dialog before delete
-- Uses existing Dialog component
-- Permission-based visibility
-
-**Integration Points:**
-
-1. **Detail Pages**: Add CommentSection to tabs
-   - QMRL detail: `/app/(dashboard)/qmrl/[id]/page.tsx`
-   - QMHQ detail: `/app/(dashboard)/qmhq/[id]/page.tsx`
-   - PO detail: `/app/(dashboard)/po/[id]/page.tsx`
-   - Invoice detail: `/app/(dashboard)/invoice/[id]/page.tsx`
-
-2. **Tab Structure**: Add "Comments" tab after existing tabs
-   ```tsx
-   <Tabs defaultValue="details">
-     <TabsList>
-       <TabsTrigger value="details">Details</TabsTrigger>
-       <TabsTrigger value="history">History</TabsTrigger>
-       <TabsTrigger value="comments">Comments</TabsTrigger> {/* NEW */}
-     </TabsList>
-     <TabsContent value="comments">
-       <CommentSection entityType="qmrl" entityId={id} />
-     </TabsContent>
-   </Tabs>
-   ```
-
-### Audit Integration
-
-**Pattern:** Audit triggers for all create/update/delete operations
-
-```sql
--- Trigger for comment audit logs
-CREATE TRIGGER comments_audit_trigger
-  AFTER INSERT OR UPDATE OR DELETE ON public.comments
+-- Trigger: applies the calculated status
+CREATE TRIGGER po_line_item_update_status
+  AFTER INSERT OR UPDATE OR DELETE ON po_line_items
   FOR EACH ROW
-  EXECUTE FUNCTION public.create_audit_log();
+  EXECUTE FUNCTION trigger_update_po_status();
 ```
 
-**Audit Log Entries:**
-- Action `create`: New comment posted
-- Action `update`: Comment edited (if edit feature added)
-- Action `delete`: Comment soft-deleted
-- Summary: "User [Name] commented on [Entity Type] [Entity ID]"
-- Links to comment and parent entity
+### Pattern 2: Guard-Then-Cascade Trigger Chain
 
-**Design Rationale:**
-- Uses existing `create_audit_log()` function (migration 026)
-- Follows same trigger pattern as other entities
-- Audit logs accessible via History tab
+**What:** Ordered trigger execution using alphabetical prefixes: `aa_` guards fire BEFORE to block invalid operations, core triggers execute, `zz_` auditors fire AFTER to log cascade effects.
 
----
+**When to use:** When operations have prerequisites (guards) and side effects (cascades) that must be tracked, and you need deterministic trigger ordering.
 
-## 2. Responsive Typography
+**Trade-offs:**
+- **Pro:** Declarative (defined in schema), guaranteed order (alphabetical), transaction-safe (rollback reverts all), audit trail automatic
+- **Con:** Prefix naming convention fragile (must document), harder to debug (multiple triggers interact), performance cost (multiple trigger invocations)
 
-### CSS Approach
+**Example:**
+```sql
+-- GUARD (aa_ prefix = fires FIRST among BEFORE triggers)
+CREATE FUNCTION aa_block_po_cancel_with_invoices()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'cancelled' AND OLD.status != 'cancelled' THEN
+    IF EXISTS (
+      SELECT 1 FROM invoices WHERE po_id = NEW.id AND is_active = true
+    ) THEN
+      RAISE EXCEPTION 'Cannot cancel: invoices exist for this PO';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-**Pattern:** Tailwind utility classes with responsive variants
+CREATE TRIGGER aa_block_po_cancel_with_invoices
+  BEFORE UPDATE ON purchase_orders
+  FOR EACH ROW
+  EXECUTE FUNCTION aa_block_po_cancel_with_invoices();
 
-The existing `tailwind.config.ts` already includes custom font size scale (lines 84-92):
-- `display-2xl` through `display-xs` with line-height and letter-spacing
-- Font family with Inter variable font
-- Mono font for numbers/currency
+-- AUDITOR (zz_ prefix = fires LAST among AFTER triggers)
+CREATE FUNCTION zz_audit_po_cancel_cascade()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'cancelled' AND OLD.status != 'cancelled' THEN
+    -- Log QMHQ balance_in_hand change
+    -- Log PO line item releases
+    -- (See full implementation in migration 070)
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-**Enhancement Strategy:**
-
-1. **Extend Existing Scale** with responsive modifiers:
-   ```js
-   // tailwind.config.ts - extend fontSize
-   fontSize: {
-     // Existing display scale (lines 84-92)
-     "display-2xl": ["4.5rem", { lineHeight: "1.1", letterSpacing: "-0.02em" }],
-     // ... existing scales
-
-     // NEW: Responsive heading scale
-     "heading-lg": ["clamp(1.75rem, 4vw, 2.25rem)", { lineHeight: "1.2" }],
-     "heading-md": ["clamp(1.5rem, 3vw, 1.875rem)", { lineHeight: "1.25" }],
-     "heading-sm": ["clamp(1.25rem, 2.5vw, 1.5rem)", { lineHeight: "1.3" }],
-
-     // NEW: Responsive body scale
-     "body-lg": ["clamp(1.125rem, 1.5vw, 1.25rem)", { lineHeight: "1.6" }],
-     "body-md": ["clamp(1rem, 1.25vw, 1.125rem)", { lineHeight: "1.6" }],
-     "body-sm": ["clamp(0.875rem, 1vw, 1rem)", { lineHeight: "1.5" }],
-   }
-   ```
-
-2. **Component-Level Responsive Classes**:
-   - Page titles: `text-heading-lg md:text-display-sm`
-   - Section headers: `text-heading-md`
-   - Card titles: `text-heading-sm`
-   - Body text: `text-body-md`
-   - Labels: `text-body-sm`
-
-3. **Breakpoint Strategy**:
-   - Mobile-first (base styles for small screens)
-   - Tablet: `md:` prefix (768px+)
-   - Desktop: `lg:` prefix (1024px+)
-   - Wide: `xl:` prefix (1280px+)
-
-### Component Changes
-
-**Components Requiring Updates:**
-
-1. **Page Headers** (all detail pages):
-   ```tsx
-   // Before
-   <h1 className="text-2xl font-semibold text-slate-200">
-
-   // After (responsive)
-   <h1 className="text-heading-lg font-semibold text-slate-200">
-   ```
-
-2. **Card Headers**:
-   ```tsx
-   // Before
-   <h3 className="text-lg font-medium">
-
-   // After
-   <h3 className="text-heading-sm font-medium">
-   ```
-
-3. **CurrencyDisplay Component** (already has size prop):
-   ```tsx
-   // components/ui/currency-display.tsx
-   // Existing size variants: sm, md, lg (lines 61-74)
-   // Add responsive variants:
-   const sizeStyles = {
-     sm: { primary: "text-sm md:text-base", secondary: "text-xs" },
-     md: { primary: "text-base md:text-lg", secondary: "text-sm" },
-     lg: { primary: "text-lg md:text-xl lg:text-2xl", secondary: "text-sm md:text-base" },
-   };
-   ```
-
-4. **Table Headers**:
-   ```tsx
-   // Before
-   <th className="text-sm font-medium">
-
-   // After
-   <th className="text-body-sm md:text-body-md font-medium">
-   ```
-
-**Files to Update:**
-- `tailwind.config.ts` - Add responsive font scale
-- `components/ui/currency-display.tsx` - Responsive size variants
-- All page headers in `app/(dashboard)/**/**/page.tsx`
-- Card components in `components/cards/*`
-- Table components in `components/tables/*`
-
-**Design Rationale:**
-- Uses CSS `clamp()` for fluid typography (no JavaScript)
-- Maintains existing component API (size prop still works)
-- Backward compatible (existing classes still valid)
-- Mobile-first approach (improves mobile UX significantly)
-
----
-
-## 3. Two-Step Selector Components
-
-### Component Design
-
-**Pattern:** Enhanced version of InlineCreateSelect with two-step flow
-
-Existing `InlineCreateSelect` (lines 42-425 of `components/forms/inline-create-select.tsx`) provides:
-- Searchable dropdown with [+] button
-- Inline creation form
-- Create & Select workflow
-
-**New Component: TwoStepSelect**
-
-**Use Cases:**
-1. **Item Selection**: Category → Item (PO line items, QMHQ item route)
-2. **Warehouse Selection**: Location → Warehouse (stock operations)
-3. **User Selection**: Department → User (assignment fields)
-
-**Component Structure:**
-
-```tsx
-// components/forms/two-step-select.tsx
-
-interface TwoStepSelectProps {
-  // Step 1: Primary filter
-  primaryValue: string;
-  onPrimaryChange: (value: string) => void;
-  primaryOptions: Array<{ id: string; name: string; }>;
-  primaryLabel: string;
-  primaryPlaceholder: string;
-
-  // Step 2: Secondary selector (dependent on step 1)
-  secondaryValue: string;
-  onSecondaryChange: (value: string) => void;
-  secondaryOptions: Array<{ id: string; name: string; }>;
-  secondaryLabel: string;
-  secondaryPlaceholder: string;
-  secondaryDisabled?: boolean;
-
-  // Display
-  required?: boolean;
-  disabled?: boolean;
-}
-
-export function TwoStepSelect({ ... }: TwoStepSelectProps) {
-  // Step 1: Primary selector (always enabled)
-  // Step 2: Secondary selector (enabled after step 1 selected)
-  // Uses InlineCreateSelect pattern for searchable dropdowns
-  // Visual connection between steps (arrow or line)
-  // Secondary options filtered by primary selection
-}
+CREATE TRIGGER zz_audit_po_cancel_cascade
+  AFTER UPDATE ON purchase_orders
+  FOR EACH ROW
+  EXECUTE FUNCTION zz_audit_po_cancel_cascade();
 ```
 
-**Specific Implementations:**
+**Trigger execution order for PO cancellation:**
+1. `aa_block_po_cancel_with_invoices` (BEFORE) — guard check
+2. `purchase_orders` row updated
+3. `update_qmhq_po_committed` (AFTER) — recalculate QMHQ balance
+4. `create_audit_log` (AFTER) — log PO status change
+5. `zz_audit_po_cancel_cascade` (AFTER) — log cascade effects
 
-**CategoryItemSelect** (for PO line items):
-```tsx
-interface CategoryItemSelectProps {
-  categoryId: string;
-  onCategoryChange: (id: string) => void;
-  itemId: string;
-  onItemChange: (id: string) => void;
-  // Optionally support inline item creation
-  allowCreateItem?: boolean;
-}
+### Pattern 3: Server Action Cascade Feedback
 
-// Usage in PO line item form:
-<CategoryItemSelect
-  categoryId={categoryId}
-  onCategoryChange={setCategoryId}
-  itemId={itemId}
-  onItemChange={setItemId}
-  allowCreateItem={true}
-/>
-```
+**What:** Server Actions execute database operations, then query cascade results and return structured feedback for toast display. Follows the pattern: execute → query cascade effects → return detailed result.
 
-**DepartmentUserSelect** (for assignments):
-```tsx
-// Step 1: Department → Step 2: Users in that department
-<DepartmentUserSelect
-  departmentId={departmentId}
-  onDepartmentChange={setDepartmentId}
-  userId={userId}
-  onUserChange={setUserId}
-/>
-```
+**When to use:** When user-initiated actions (void invoice, cancel PO) have complex cascade effects and users need immediate feedback on what changed.
 
-**LocationWarehouseSelect** (for inventory):
-```tsx
-// Step 1: Location/Region → Step 2: Warehouses in that location
-<LocationWarehouseSelect
-  locationId={locationId}
-  onLocationChange={setLocationId}
-  warehouseId={warehouseId}
-  onWarehouseChange={setWarehouseId}
-/>
-```
+**Trade-offs:**
+- **Pro:** Type-safe (TypeScript end-to-end), revalidates cache automatically (Next.js), user feedback rich (lists affected entities), testable (pure functions)
+- **Con:** More complex than simple mutation (must query cascade), requires multiple database round-trips (void + query results), larger payload (all cascade data)
 
-### State Management
+**Example:**
+```typescript
+// lib/actions/po-actions.ts
+'use server';
 
-**Pattern:** Component-local state with controlled inputs
+export type CancelPOResult =
+  | {
+      success: true;
+      data: {
+        poNumber: string;
+        releasedBudget: number; // Balance in Hand freed
+        affectedQMHQ: { qmhqNumber: string; newBalance: number };
+      };
+    }
+  | { success: false; error: string };
 
-```tsx
-// Parent component (e.g., PO line item form)
-const [categoryId, setCategoryId] = useState("");
-const [itemId, setItemId] = useState("");
-const [items, setItems] = useState<Item[]>([]);
+export async function cancelPurchaseOrder(
+  poId: string,
+  reason: string
+): Promise<CancelPOResult> {
+  const supabase = await createClient();
 
-// Fetch items when category changes
-useEffect(() => {
-  if (!categoryId) {
-    setItems([]);
-    setItemId("");
-    return;
+  // 1. Authenticate
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return { success: false, error: 'Not authenticated' };
   }
 
-  const fetchItems = async () => {
-    const { data } = await supabase
-      .from("items")
-      .select("*")
-      .eq("category_id", categoryId)
-      .eq("is_active", true)
-      .order("name");
-    setItems(data || []);
+  // 2. Fetch PO BEFORE cancel to get baseline budget
+  const { data: poBefore } = await supabase
+    .from('purchase_orders')
+    .select('po_number, total_amount_eusd, qmhq_id')
+    .eq('id', poId)
+    .single();
+
+  if (!poBefore) {
+    return { success: false, error: 'PO not found' };
+  }
+
+  // 3. Execute cancel (triggers will fire, guard may block)
+  const { error: cancelError } = await supabase
+    .from('purchase_orders')
+    .update({
+      status: 'cancelled',
+      cancelled_by: user.id,
+      cancelled_at: new Date().toISOString(),
+      cancellation_reason: reason,
+    })
+    .eq('id', poId);
+
+  if (cancelError) {
+    // Guard blocked (invoices exist) or other error
+    return { success: false, error: cancelError.message };
+  }
+
+  // 4. Query cascade results (AFTER triggers have run)
+  const { data: qmhqAfter } = await supabase
+    .from('qmhq')
+    .select('qmhq_number, balance_in_hand')
+    .eq('id', poBefore.qmhq_id)
+    .single();
+
+  // 5. Revalidate cache
+  revalidatePath(`/po/${poId}`);
+  revalidatePath('/po');
+
+  // 6. Return structured feedback
+  return {
+    success: true,
+    data: {
+      poNumber: poBefore.po_number,
+      releasedBudget: poBefore.total_amount_eusd,
+      affectedQMHQ: {
+        qmhqNumber: qmhqAfter?.qmhq_number || '',
+        newBalance: qmhqAfter?.balance_in_hand || 0,
+      },
+    },
   };
-
-  fetchItems();
-}, [categoryId]);
-
-// Pass to TwoStepSelect
-<CategoryItemSelect
-  categoryId={categoryId}
-  onCategoryChange={setCategoryId}
-  itemId={itemId}
-  onItemChange={setItemId}
-  items={items}
-/>
+}
 ```
 
-**Design Rationale:**
-- No global state needed (component-local with useState)
-- Parent controls fetching (allows custom filtering logic)
-- Resets secondary when primary changes
-- Uses existing Supabase client patterns
+**UI consumption:**
+```typescript
+// app/(dashboard)/po/[id]/_components/po-cancel-dialog.tsx
+const handleCancel = async () => {
+  const result = await cancelPurchaseOrder(poId, reason);
 
-### Visual Design
-
-**Layout Pattern:**
-
-```
-┌─────────────────────────────────────────────┐
-│ Step 1: Category *                    [+]  │
-│ [🔍 Select category...              ▼]     │
-└─────────────────────────────────────────────┘
-                     ↓
-┌─────────────────────────────────────────────┐
-│ Step 2: Item *                        [+]  │
-│ [🔍 Select item...                  ▼]     │
-│ Disabled until category selected            │
-└─────────────────────────────────────────────┘
+  if (result.success) {
+    toast.success(`PO ${result.data.poNumber} cancelled`, {
+      description: `${result.data.releasedBudget} EUSD released to ${result.data.affectedQMHQ.qmhqNumber}. New balance: ${result.data.affectedQMHQ.newBalance} EUSD`,
+    });
+    router.push('/po');
+  } else {
+    toast.error('Cannot cancel PO', { description: result.error });
+  }
+};
 ```
 
-**Visual Indicators:**
-- Step numbers (1, 2) for clarity
-- Arrow or connecting line between steps
-- Secondary selector disabled state when primary empty
-- Subtle animation when secondary becomes enabled
-- Badge showing count of available options ("12 items")
+### Pattern 4: PDF Generation in Server Actions
 
-**Reused Components:**
-- Popover (from `components/ui/popover.tsx`)
-- Search input (inline in popover)
-- Button (from `components/ui/button.tsx`)
-- Uses same styling as InlineCreateSelect
+**What:** Generate PDFs server-side in Next.js Server Actions using @react-pdf/renderer (React-first) or jsPDF (canvas-based). Return PDF as blob for download or save to Supabase Storage.
 
----
+**When to use:** When PDF structure is complex (multi-page invoices, formatted receipts) and requires server-side data access. Prefer server-side to keep bundle size small and use authentication context.
 
-## 4. Currency Unification/Cascade
+**Trade-offs:**
+- **Pro:** Secure (user auth on server), smaller bundle (no PDF lib in client), consistent output (no browser quirks), can access database directly
+- **Con:** Slower than client-side (network round-trip), requires Server Action (cannot use in pure client components), limited interactivity (no preview before generate)
 
-### Schema Changes
+**Example:**
+```typescript
+// lib/actions/pdf-actions.ts
+'use server';
 
-**Current State Analysis:**
+import { renderToBuffer } from '@react-pdf/renderer';
+import { InvoicePDFDocument } from '@/lib/utils/pdf-generator';
+import { createClient } from '@/lib/supabase/server';
 
-From `supabase/migrations/011_qmhq.sql` (lines 40-46):
+export async function generateInvoicePDF(invoiceId: string): Promise<
+  | { success: true; blob: Uint8Array; filename: string }
+  | { success: false; error: string }
+> {
+  const supabase = await createClient();
+
+  // 1. Fetch invoice with all relations
+  const { data: invoice, error } = await supabase
+    .from('invoices')
+    .select(`
+      *,
+      purchase_order:purchase_orders(*),
+      invoice_line_items(*, item:items(*))
+    `)
+    .eq('id', invoiceId)
+    .single();
+
+  if (error || !invoice) {
+    return { success: false, error: 'Invoice not found' };
+  }
+
+  // 2. Generate PDF using React component
+  const pdfBuffer = await renderToBuffer(
+    <InvoicePDFDocument invoice={invoice} />
+  );
+
+  // 3. Return blob for download
+  return {
+    success: true,
+    blob: new Uint8Array(pdfBuffer),
+    filename: `${invoice.invoice_number}.pdf`,
+  };
+}
+```
+
+**UI consumption:**
+```typescript
+// app/(dashboard)/invoice/[id]/_components/invoice-pdf-export.tsx
+const handleExport = async () => {
+  setLoading(true);
+  const result = await generateInvoicePDF(invoiceId);
+
+  if (result.success) {
+    // Trigger browser download
+    const blob = new Blob([result.blob], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = result.filename;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast.success('PDF exported');
+  } else {
+    toast.error('Export failed', { description: result.error });
+  }
+  setLoading(false);
+};
+```
+
+**Library choice (2026 best practices):**
+- **@react-pdf/renderer:** React-first API, JSX components for PDF structure, better for complex multi-page documents, server + browser compatible
+- **jsPDF:** Canvas-based, lighter weight, better for simple single-page receipts, requires html2canvas for CSS support
+- **Recommendation:** Use @react-pdf/renderer for invoices (multi-page, complex layout), jsPDF for receipts (single-page, simple)
+
+## Data Flow
+
+### Request Flow: Void Invoice with Cascade Feedback
+
+```
+[User clicks "Void Invoice" in UI]
+    ↓
+[voidInvoice Server Action] → [Authenticate user]
+    ↓
+[Fetch invoice BEFORE void] → [Get baseline invoiced_quantity per line]
+    ↓
+[UPDATE invoices SET is_voided = true] → [Triggers fire in order:]
+    ↓
+    ├─ aa_block_invoice_void_stockin (BEFORE) → [Guard: fail if stock-in exists]
+    ├─ invoice_void_recalculate (AFTER) → [Decrease po_line_items.invoiced_quantity]
+    ├─ trigger_update_po_status (AFTER) → [Recalculate PO status]
+    ├─ create_audit_log (AFTER) → [Log void action]
+    └─ zz_audit_invoice_void_cascade (AFTER) → [Log PO line + status changes]
+    ↓
+[Query cascade results] → [Fetch updated PO status, invoiced quantities]
+    ↓
+[Return VoidInvoiceResult] → [{ success: true, data: { poNumber, newPoStatus, invoicedQtyChanges } }]
+    ↓
+[UI displays toast] → ["Invoice INV-2026-00042 voided. PO-2026-00123 status: partially_invoiced"]
+    ↓
+[revalidatePath] → [Next.js cache invalidated for /invoice/[id] and /po/[id]]
+```
+
+### State Management: PO Status Engine
+
+```
+[Invoice created with line items]
+    ↓
+[INSERT INTO invoice_line_items] → [Triggers on po_line_items:]
+    ↓
+    └─ po_line_item_update_status (AFTER INSERT/UPDATE) → [trigger_update_po_status()]
+        ↓
+        └─ calculate_po_status(po_id) → [Pure function:]
+            ↓
+            ├─ Query: SUM(quantity), SUM(invoiced_quantity), SUM(received_quantity)
+            ├─ Decision tree:
+            │   ├─ received >= ordered AND invoiced >= ordered → 'closed'
+            │   ├─ received > 0 AND received < ordered → 'partially_received'
+            │   ├─ invoiced >= ordered AND received = 0 → 'awaiting_delivery'
+            │   ├─ invoiced > 0 AND invoiced < ordered → 'partially_invoiced'
+            │   └─ else → 'not_started'
+            └─ RETURN new_status
+        ↓
+        └─ UPDATE purchase_orders SET status = new_status WHERE status != 'cancelled'
+    ↓
+[PO status updated in same transaction]
+```
+
+### Key Data Flows
+
+1. **Invoice Void Cascade:** User voids invoice → Server Action → Guard checks stock-in → Recalculate PO line invoiced_quantity → Recalculate PO status → Audit cascade → Return feedback → Toast display
+2. **PO Cancellation:** User cancels PO → Server Action → Guard checks invoices → Update QMHQ balance_in_hand → Audit cascade → Return feedback → Toast display
+3. **Stock-In Event:** User creates stock-in → Increase inventory_transactions.received_quantity → Trigger recalculates po_line_items.received_quantity → Trigger recalculates PO status → Status updates (e.g., 'awaiting_delivery' → 'partially_received')
+4. **PDF Export:** User clicks export → Server Action → Fetch invoice with relations → Render @react-pdf/renderer component → Return blob → Browser downloads
+
+## Integration Points
+
+### New Components
+
+| Component | Type | Purpose | Integrates With |
+|-----------|------|---------|-----------------|
+| `po-matching-tab.tsx` | NEW | Side-by-side PO/Invoice/Stock-In comparison table | Existing PO detail tabs |
+| `po-line-progress.tsx` | NEW | Per-line-item progress bars (ordered → invoiced → received) | PO line items table |
+| `po-cancel-dialog.tsx` | NEW | Cancel dialog with guard feedback | Existing ActionButtons |
+| `invoice-pdf-export.tsx` | NEW | PDF export dialog and download handler | Existing invoice detail page |
+| `stock-out-receipt-pdf.tsx` | NEW | Receipt PDF export for SOR-based stock-outs | Existing stock-out execution flow |
+
+### Modified Components
+
+| Component | Change | Integration Point |
+|-----------|--------|-------------------|
+| `app/(dashboard)/po/[id]/page.tsx` | Add "Matching" tab, lock UI when status = 'closed' | Existing DetailPageLayout + Tabs |
+| `app/(dashboard)/invoice/[id]/page.tsx` | Add PDF export button to actions slot | Existing PageHeader actions prop |
+| `lib/utils/po-status.ts` | Add `canCancelPO()` guard check | Existing status config utilities |
+| `lib/actions/invoice-actions.ts` | ALREADY EXISTS with cascade feedback | No changes needed (reuse) |
+
+### Database Integration
+
+| Migration | Purpose | Triggers Added | Functions Added |
+|-----------|---------|----------------|-----------------|
+| `068_po_smart_status_engine.sql` | 6-state status calculation | `po_line_item_update_status` (modify existing) | `calculate_po_status()` (enhance) |
+| `069_po_cancellation_guards.sql` | Block cancel if invoices exist | `aa_block_po_cancel_with_invoices` | `block_po_cancel_with_invoices()` |
+| `070_po_cancel_cascade_audit.sql` | Audit PO cancellation cascade | `zz_audit_po_cancel_cascade` | `audit_po_cancel_cascade()` |
+
+**Existing triggers (DO NOT MODIFY):**
+- `040_invoice_void_block_stockin.sql` — `aa_block_invoice_void_stockin`
+- `041_invoice_void_cascade_audit.sql` — `zz_audit_invoice_void_cascade`
+- `057_deletion_protection.sql` — 6 `aa_block_*_deactivation` triggers
+
+### External Services
+
+| Service | Integration Pattern | Notes |
+|---------|---------------------|-------|
+| Supabase Storage | Direct upload via Server Action | For PDF archival (optional) |
+| Next.js Cache | `revalidatePath()` after mutations | Invalidate `/po/[id]`, `/invoice/[id]` |
+| @react-pdf/renderer | `renderToBuffer()` in Server Action | Server-side PDF generation |
+
+### Internal Boundaries
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| UI ↔ Server Actions | Next.js Server Actions (type-safe) | Use CancelPOResult, VoidInvoiceResult types |
+| Server Actions ↔ Database | Supabase client (TypeScript SDK) | Use existing `createClient()` pattern |
+| Triggers ↔ Audit Logs | Direct INSERT via SECURITY DEFINER | Follow existing audit trigger pattern |
+| Composite UI ↔ Pages | Props-based composition | Reuse PageHeader, DetailPageLayout slots |
+
+## Scaling Considerations
+
+| Scale | Architecture Adjustments |
+|-------|--------------------------|
+| 0-1k POs | Trigger-based status engine sufficient. No indexes beyond existing. |
+| 1k-10k POs | Add partial indexes on `po_line_items(po_id, is_active)` for status calc. Consider caching PO status in Redis for read-heavy detail pages. |
+| 10k-100k POs | Migrate to materialized view for PO aggregates (refresh on schedule or event). Add read replicas for PDF generation (heavy queries). |
+| 100k+ POs | Separate read/write databases. Move PDF generation to background jobs (queue-based). Consider event sourcing for audit trail. |
+
+### Scaling Priorities
+
+1. **First bottleneck:** Trigger execution time when voiding invoices with many line items. **Fix:** Batch line item updates using transition tables (AFTER UPDATE OF triggers with `OLD TABLE` / `NEW TABLE`), avoid row-by-row processing.
+2. **Second bottleneck:** PDF generation blocking Server Action response. **Fix:** Move to background job queue (Supabase Edge Functions + pg_cron or external queue like BullMQ), return job ID immediately, poll for completion.
+
+**Current architecture is optimized for 0-1k POs scale** (existing codebase size). No premature optimization needed.
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Client-Side Status Calculation
+
+**What people do:** Calculate PO status in React components based on line item data, display computed status in UI.
+**Why it's wrong:** Status can drift from reality (stale data, concurrent updates), no single source of truth, error-prone (duplicated logic), race conditions (status updated before line items fetched).
+**Do this instead:** Always use database-calculated status from `purchase_orders.status` enum. Let triggers maintain consistency. UI only *displays* status, never *calculates* it.
+
+### Anti-Pattern 2: Optimistic UI for Void/Cancel
+
+**What people do:** Immediately update UI to show "Voided" status before Server Action completes, assuming success.
+**Why it's wrong:** Guard triggers may block the operation (stock-in exists, invoices exist), user sees success then error toast (confusing), UI state out of sync with database, requires complex rollback logic.
+**Do this instead:** Show loading state during Server Action, wait for result, update UI only on `success: true`. Accept the 200-500ms latency for correctness.
+
+### Anti-Pattern 3: Trigger Chain Without Ordering
+
+**What people do:** Create multiple BEFORE/AFTER triggers on same table without prefix naming convention, assume undefined execution order is acceptable.
+**Why it's wrong:** PostgreSQL triggers fire in alphabetical order by name, but this is implicit. Without prefixes, adding new triggers may break cascade logic (audit fires before recalculate), debugging is nightmare (order unclear).
+**Do this instead:** Use explicit prefixes: `aa_` for guards (fire first), `zz_` for auditors (fire last). Document the chain in migration comments. Add COMMENT ON TRIGGER explaining position in chain.
+
+### Anti-Pattern 4: Synchronous PDF in Page Load
+
+**What people do:** Generate PDF during page render (e.g., `await generatePDF()` in Server Component), block page load waiting for PDF.
+**Why it's wrong:** PDFs are slow (500ms-2s for complex invoices), user stares at blank page, times out on large documents, wastes server resources (re-generate on every visit).
+**Do this instead:** Generate PDF on-demand via button click (user-initiated), show loading state, cache result in Supabase Storage (optional), stream to browser as blob download.
+
+### Anti-Pattern 5: Advisory Locks for Status Updates
+
+**What people do:** Use `pg_advisory_lock()` to serialize PO status updates, prevent concurrent modifications.
+**Why it's wrong:** Status engine is already transaction-safe (pure function + UPDATE in same transaction), advisory locks add latency (blocking), increase deadlock risk (lock ordering), unnecessary complexity (existing Row-Level Locking sufficient).
+**Do this instead:** Rely on PostgreSQL's default Read Committed isolation level and Row-Level Locking. Status triggers run within transaction that modifies line items, automatic serialization. Only use advisory locks for cross-table workflows (not applicable here).
+
+## Performance Optimization Patterns
+
+### Pattern 1: Partial Indexes for Guard Checks
+
+**What:** Create partial indexes with `WHERE is_active = true` for guard trigger lookups.
+**Why:** Guard triggers query for active references (e.g., `EXISTS (SELECT 1 FROM invoices WHERE po_id = X AND is_active = true)`). Full table scans are slow.
+**Example:**
 ```sql
--- QMHQ table already has:
-amount DECIMAL(15,2),
-currency TEXT DEFAULT 'MMK',
-exchange_rate DECIMAL(10,4) DEFAULT 1.0000,
-amount_eusd DECIMAL(15,2) GENERATED ALWAYS AS (
-  CASE WHEN exchange_rate > 0 THEN amount / exchange_rate ELSE 0 END
-) STORED,
+-- In migration 069
+CREATE INDEX IF NOT EXISTS idx_invoices_po_id_active
+  ON invoices(po_id)
+  WHERE is_active = true;
 ```
 
-**Problem:** Money-out transactions and PO creation currently require manual currency/exchange rate entry, even when the parent QMHQ already has currency set from money-in.
+### Pattern 2: SECURITY DEFINER with search_path
 
-**Required Schema Changes:**
-
-**None.** Schema already supports currency cascade. Changes are UI/UX only.
-
-**Data Flow:**
-
-```
-QMHQ (PO route)
-  ├─ Money-In Transaction #1 (USD, rate 1.0)
-  ├─ Money-In Transaction #2 (USD, rate 1.0)
-  └─ PO (should inherit USD + rate from QMHQ)
-      └─ Invoice (independent currency - as designed)
-
-QMHQ (Expense route)
-  ├─ Money-In Transaction (MMK, rate 1350)
-  └─ Money-Out Transaction (should default to MMK + rate 1350)
+**What:** Audit triggers use `SECURITY DEFINER` to write to `audit_logs` table (RLS bypassed) with `SET search_path = pg_catalog, public` to prevent injection.
+**Why:** RLS policies may block trigger's write to audit table, `SECURITY DEFINER` runs as function owner (superuser rights), `search_path` prevents malicious schemas.
+**Example:**
+```sql
+CREATE OR REPLACE FUNCTION zz_audit_po_cancel_cascade()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$ ... $$;
 ```
 
-**Validation Rules:**
+### Pattern 3: Lazy Load PDF Libraries
 
-From `supabase/migrations/020_block_po_money_out.sql`:
-- PO route blocks money-out transactions (trigger enforced)
-- Expense route allows both money-in and money-out
-- PO spending happens through Purchase Orders only
+**What:** Import @react-pdf/renderer dynamically in Server Action, not at module top-level.
+**Why:** PDF libraries are heavy (500KB+), lazy import reduces Server Action cold start time, only loads when PDF actually requested.
+**Example:**
+```typescript
+// lib/actions/pdf-actions.ts
+export async function generateInvoicePDF(invoiceId: string) {
+  // Lazy import (only loaded when this action is called)
+  const { renderToBuffer } = await import('@react-pdf/renderer');
+  const { InvoicePDFDocument } = await import('@/lib/utils/pdf-generator');
 
-### UI Changes
+  const pdfBuffer = await renderToBuffer(<InvoicePDFDocument invoice={invoice} />);
+  return { success: true, blob: new Uint8Array(pdfBuffer) };
+}
+```
 
-**Component Updates:**
+## Sources
 
-1. **MoneyInForm** (establishes currency):
-   ```tsx
-   // app/(dashboard)/qmhq/[id]/money-in/page.tsx
-   // Current: User selects currency + exchange rate
-   // Change: NONE (first money-in sets the currency)
-   ```
+### PostgreSQL Triggers & Performance
+- [PostgreSQL Materialized Views & Triggers](https://www.augustinfotech.com/blogs/mastering-postgresql-materialized-views-stored-procedures-and-triggers/)
+- [PostgreSQL Triggers in 2026: Design, Performance, and Production Reality](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/)
+- [PostgreSQL: Documentation: 18: 13.3. Explicit Locking](https://www.postgresql.org/docs/current/explicit-locking.html)
 
-2. **MoneyOutForm** (inherits currency):
-   ```tsx
-   // app/(dashboard)/qmhq/[id]/money-out/page.tsx
-   // NEW: Pre-populate currency from first money-in transaction
+### PostgreSQL Advisory Locks
+- [How to Use Advisory Locks in PostgreSQL](https://oneuptime.com/blog/post/2026-01-25-use-advisory-locks-postgresql/view)
+- [PostgreSQL Advisory Locks, explained](https://flaviodelgrosso.com/blog/postgresql-advisory-locks)
+- [Advisory Locks in PostgreSQL | Hashrocket](https://hashrocket.com/blog/posts/advisory-locks-in-postgres)
 
-   const [defaultCurrency, setDefaultCurrency] = useState("MMK");
-   const [defaultRate, setDefaultRate] = useState(1.0);
+### PostgreSQL Transaction Isolation
+- [PostgreSQL: Documentation: 18: 13.2. Transaction Isolation](https://www.postgresql.org/docs/current/transaction-iso.html)
+- [Transaction Isolation in Postgres, explained](https://www.thenile.dev/blog/transaction-isolation-postgres)
+- [Understanding Transaction Isolation in PostgreSQL | mkdev](https://mkdev.me/posts/transaction-isolation-levels-with-postgresql-as-an-example)
 
-   useEffect(() => {
-     // Fetch first money-in transaction
-     const fetchDefaults = async () => {
-       const { data } = await supabase
-         .from("financial_transactions")
-         .select("currency, exchange_rate")
-         .eq("qmhq_id", qmhqId)
-         .eq("transaction_type", "money_in")
-         .order("created_at")
-         .limit(1)
-         .single();
+### Next.js Server Actions & PDF Generation
+- [Next.js API Routes vs. Server Actions: Which One to Use and Why?](https://medium.com/@shavaizali159/next-js-api-routes-vs-server-actions-which-one-to-use-and-why-809f09d5069b)
+- [Should I Use Server Actions Or APIs?](https://www.pronextjs.dev/should-i-use-server-actions-or-apis)
+- [Top 6 Open-Source PDF Libraries for React Developers](https://blog.react-pdf.dev/6-open-source-pdf-generation-and-modification-libraries-every-react-dev-should-know-in-2025)
+- [Best JavaScript PDF libraries 2025](https://www.nutrient.io/blog/javascript-pdf-libraries/)
 
-       if (data) {
-         setDefaultCurrency(data.currency);
-         setDefaultRate(data.exchange_rate);
-       }
-     };
-     fetchDefaults();
-   }, [qmhqId]);
-
-   // Pre-populate form
-   const [currency, setCurrency] = useState(defaultCurrency);
-   const [exchangeRate, setExchangeRate] = useState(defaultRate);
-   ```
-
-3. **POCreateForm** (inherits from QMHQ):
-   ```tsx
-   // app/(dashboard)/po/new/page.tsx
-   // NEW: Pre-populate currency from parent QMHQ
-
-   const [qmhq, setQmhq] = useState<QMHQ | null>(null);
-
-   useEffect(() => {
-     // When QMHQ selected, inherit currency
-     if (selectedQmhqId) {
-       const fetchQmhq = async () => {
-         const { data } = await supabase
-           .from("qmhq")
-           .select("currency, exchange_rate")
-           .eq("id", selectedQmhqId)
-           .single();
-
-         if (data) {
-           setCurrency(data.currency);
-           setExchangeRate(data.exchange_rate);
-         }
-       };
-       fetchQmhq();
-     }
-   }, [selectedQmhqId]);
-   ```
-
-**Visual Indicators:**
-
-1. **Inherited Currency Badge**:
-   ```tsx
-   {currencyInherited && (
-     <div className="flex items-center gap-2 text-sm text-amber-500">
-       <InfoIcon className="h-4 w-4" />
-       <span>Currency inherited from parent QMHQ</span>
-     </div>
-   )}
-   ```
-
-2. **Allow Override** (with warning):
-   ```tsx
-   <Checkbox
-     checked={allowCurrencyOverride}
-     onCheckedChange={setAllowCurrencyOverride}
-   />
-   <Label>Use different currency</Label>
-
-   {allowCurrencyOverride && (
-     <div className="text-sm text-yellow-500">
-       ⚠️ Changing currency may complicate reconciliation
-     </div>
-   )}
-   ```
-
-**Existing Components to Reuse:**
-- `AmountInput` (lines 1-78 of components/ui/amount-input.tsx)
-- `ExchangeRateInput` (existing in components/ui/)
-- `CurrencyDisplay` (lines 1-142 of components/ui/currency-display.tsx)
-- No new currency components needed
-
-**Design Rationale:**
-- Reduces data entry errors (user doesn't manually enter rate)
-- Maintains consistency (all transactions in same currency)
-- Allows override for edge cases (checkbox + warning)
-- No schema changes (backward compatible)
-- Uses existing form components
+### Next.js App Router Configuration
+- [File-system conventions: Route Segment Config | Next.js](https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config)
+- [Next.js Dynamic Route Segments in the App Router (2026 Guide)](https://thelinuxcode.com/nextjs-dynamic-route-segments-in-the-app-router-2026-guide/)
+- [Route Segment Config in Next.js](https://tigerabrodi.blog/route-segment-config-in-nextjs)
 
 ---
-
-## Suggested Build Order
-
-Recommended phase structure based on dependencies and complexity:
-
-### Phase 1: Comments Foundation (3 steps)
-**Why first:** No dependencies, adds value immediately, establishes pattern for other features
-
-1. **Database & RLS**
-   - Migration: comments table with polymorphic reference
-   - RLS policies mirroring parent entity permissions
-   - Audit trigger for comment logs
-   - Test RLS with different user roles
-
-2. **Comment Components**
-   - CommentSection (server component with fetch)
-   - CommentList (timeline display)
-   - CommentItem (individual comment card)
-   - CommentForm (client component for create)
-   - CommentActions (delete with confirmation)
-
-3. **Integration & Polish**
-   - Add "Comments" tab to QMRL, QMHQ, PO, Invoice detail pages
-   - Empty state when no comments
-   - Loading states and error handling
-   - Toast notifications for actions
-
-**Success Criteria:** User can comment on any entity and see comments timeline
-
----
-
-### Phase 2: Responsive Typography (2 steps)
-**Why second:** Low risk, improves mobile UX, no dependencies on Phase 1
-
-1. **Tailwind Configuration**
-   - Extend fontSize with responsive scale (heading-lg, heading-md, body-md, etc.)
-   - Test clamp() values at different viewport sizes
-   - Document new utility classes
-
-2. **Component Updates**
-   - Update CurrencyDisplay with responsive size variants
-   - Apply responsive classes to page headers, card titles, table headers
-   - Test on mobile (375px), tablet (768px), desktop (1440px)
-   - Verify no layout breaks
-
-**Success Criteria:** All text scales smoothly from mobile to desktop
-
----
-
-### Phase 3: Two-Step Selectors (3 steps)
-**Why third:** Depends on Category data, more complex state management
-
-1. **Base TwoStepSelect Component**
-   - Generic two-step selector with searchable popover
-   - Visual design (steps, arrow, disabled states)
-   - Animation when secondary becomes enabled
-   - Reuse InlineCreateSelect patterns
-
-2. **Specific Implementations**
-   - CategoryItemSelect (PO line items, QMHQ item route)
-   - DepartmentUserSelect (assignment fields)
-   - Parent component state management pattern
-
-3. **Integration**
-   - Replace single-step selectors in PO create form
-   - Replace item selector in QMHQ item route form
-   - Test filtering (secondary options update on primary change)
-   - Error states and validation
-
-**Success Criteria:** User selects category then item in two clear steps
-
----
-
-### Phase 4: Currency Cascade (2 steps)
-**Why last:** Depends on financial transaction flow understanding, requires careful UX
-
-1. **Money-Out Inheritance**
-   - Fetch first money-in currency/rate
-   - Pre-populate money-out form
-   - Add "inherited currency" indicator
-   - Allow override with checkbox + warning
-
-2. **PO Currency Inheritance**
-   - Inherit currency from parent QMHQ
-   - Pre-populate PO create form
-   - Add inherited badge
-   - Test edge cases (no money-in yet, multiple currencies)
-
-**Success Criteria:** Currency cascades from money-in to money-out and PO with clear UX
-
----
-
-## Integration Points Summary
-
-| Feature | Database | RLS | Components | Integration Points |
-|---------|----------|-----|------------|-------------------|
-| Comments | New table | New policies | 5 new components | QMRL, QMHQ, PO, Invoice detail tabs |
-| Responsive Typography | None | None | Update existing | All pages, CurrencyDisplay, headers |
-| Two-Step Selectors | None | None | 2 new components | PO create, QMHQ item route, assignments |
-| Currency Cascade | None | None | Update 2 forms | Money-out form, PO create form |
-
----
-
-## Risk Assessment
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Comments RLS policy too permissive | Low | High | Copy file_attachments policies exactly, test with all roles |
-| Responsive typography breaks layout | Medium | Medium | Test at breakpoints 375px, 768px, 1024px, 1440px |
-| Two-step selector confusing UX | Low | Medium | Clear step indicators, disable state, helper text |
-| Currency cascade edge cases | Medium | Low | Allow override, show warning, test no-money-in case |
-| Comments performance with many records | Low | Low | Index on entity + created_at, paginate if >50 comments |
-
----
-
-## New Components Required
-
-| Component | Type | Dependencies | Complexity |
-|-----------|------|--------------|------------|
-| `comment-section.tsx` | Server | Supabase, permissions | Medium |
-| `comment-list.tsx` | Server | None | Low |
-| `comment-item.tsx` | Server/Client | Relative time util | Low |
-| `comment-form.tsx` | Client | Toast, Supabase | Medium |
-| `comment-actions.tsx` | Client | Dialog, Toast | Low |
-| `two-step-select.tsx` | Client | Popover, Search | Medium |
-| `category-item-select.tsx` | Client | TwoStepSelect | Low |
-| `department-user-select.tsx` | Client | TwoStepSelect | Low |
-
-**Total:** 8 new components, all following existing patterns
-
----
-
-## Modified Components Required
-
-| Component | Change | Risk |
-|-----------|--------|------|
-| `currency-display.tsx` | Add responsive size variants | Low |
-| `tailwind.config.ts` | Extend fontSize scale | Low |
-| Detail pages (4 files) | Add Comments tab | Low |
-| `money-out form` | Pre-populate currency | Low |
-| `po create form` | Pre-populate currency | Low |
-| Page headers (10+ files) | Apply responsive classes | Low |
-
-**Total:** ~20 file modifications, all low-risk additive changes
-
----
-
-## Confidence Assessment
-
-| Area | Confidence | Reason |
-|------|------------|--------|
-| Comments Schema | HIGH | Mirrors proven file_attachments pattern |
-| Comments RLS | HIGH | Reuses existing helper functions, same policy structure |
-| Responsive Typography | HIGH | Standard Tailwind approach, clamp() well-supported |
-| Two-Step Selectors | MEDIUM | New pattern, needs UX validation |
-| Currency Cascade | MEDIUM | Edge cases exist (no money-in yet), needs thorough testing |
-
-**Overall Confidence:** HIGH (4 of 5 areas high confidence)
-
----
-
-## Open Questions
-
-1. **Comments Pagination:** If entity has >50 comments, should we paginate or infinite scroll?
-   - **Recommendation:** Start with "Load More" button, add infinite scroll if needed
-
-2. **Comment Editing:** Should users be able to edit comments after posting?
-   - **Recommendation:** No edit for v1.5 (audit trail clarity), consider for v1.6
-
-3. **Comment Notifications:** Should users be notified of new comments?
-   - **Recommendation:** Out of scope for v1.5, requires notification system
-
-4. **Two-Step Selector Reset:** When user changes step 1, should step 2 clear or preserve if still valid?
-   - **Recommendation:** Always clear step 2 (simpler, more predictable)
-
-5. **Currency Override Frequency:** How often do users need different currency per transaction?
-   - **Recommendation:** Gather usage data, may simplify to force same currency in v1.6
-
----
-
-*Research Complete: 2026-02-07*
-*Researcher: GSD Project Research Agent*
-*Confidence: HIGH*
+*Architecture research for: PO Smart Lifecycle, Cancellation Guards & PDF Export*
+*Researched: 2026-02-12*
