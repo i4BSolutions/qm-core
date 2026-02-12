@@ -12,8 +12,6 @@ import {
 } from "@/components/ui/tooltip";
 import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
 import { AmountInput } from "@/components/ui/amount-input";
-import { MiniProgressBar } from "./po-progress-bar";
-import { calculateLineItemProgress } from "@/lib/utils/po-status";
 import { ItemDialog } from "@/app/(dashboard)/item/item-dialog";
 import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import type { POLineItem, Item } from "@/types/database";
@@ -313,6 +311,62 @@ export function EditableLineItemsTable({
   );
 }
 
+// POLineItemProgress - stepped segment bar following ItemsSummaryProgress pattern
+function POLineItemProgress({ ordered, invoiced, received }: {
+  ordered: number;
+  invoiced: number;
+  received: number;
+}) {
+  const invoicedPercent = ordered > 0 ? Math.min(100, (invoiced / ordered) * 100) : 0;
+  const receivedPercent = ordered > 0 ? Math.min(100, (received / ordered) * 100) : 0;
+
+  return (
+    <div className="space-y-1.5">
+      {/* Header: fraction text */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-400">
+          {received}/{ordered}
+        </span>
+      </div>
+
+      {/* Stepped progress bar */}
+      <div className="h-5 w-full bg-slate-800/50 rounded-md overflow-hidden relative">
+        {/* Ordered baseline (full width, gray) */}
+        <div
+          className="absolute inset-y-0 left-0 bg-slate-600/30 transition-all duration-500"
+          style={{ width: "100%" }}
+        />
+        {/* Invoiced segment (blue) */}
+        <div
+          className="absolute inset-y-0 left-0 bg-blue-500/40 transition-all duration-500"
+          style={{ width: `${invoicedPercent}%` }}
+        />
+        {/* Received segment (green, overlays invoiced) */}
+        <div
+          className="absolute inset-y-0 left-0 bg-emerald-500 transition-all duration-500"
+          style={{ width: `${receivedPercent}%` }}
+        />
+      </div>
+
+      {/* Legend row with colored dots */}
+      <div className="flex items-center gap-3 text-[10px]">
+        <div className="flex items-center text-slate-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-600 inline-block mr-1" />
+          {ordered}
+        </div>
+        <div className="flex items-center text-blue-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block mr-1" />
+          {invoiced}
+        </div>
+        <div className="flex items-center text-emerald-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block mr-1" />
+          {received}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // For display - shows existing line items with progress
 interface ReadonlyLineItemsTableProps {
   items: (POLineItem & { item?: Pick<Item, "id" | "name" | "sku"> | null })[];
@@ -348,7 +402,7 @@ export function ReadonlyLineItemsTable({
               Line Total
             </th>
             {showProgress && (
-              <th className="text-center py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-40">
+              <th className="text-center py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-44">
                 Progress
               </th>
             )}
@@ -356,12 +410,6 @@ export function ReadonlyLineItemsTable({
         </thead>
         <tbody>
           {items.map((item) => {
-            const progress = calculateLineItemProgress(
-              item.quantity,
-              item.invoiced_quantity ?? 0,
-              item.received_quantity ?? 0
-            );
-
             return (
               <tr
                 key={item.id}
@@ -405,28 +453,11 @@ export function ReadonlyLineItemsTable({
                 </td>
                 {showProgress && (
                   <td className="py-3 px-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500 w-8">Inv</span>
-                        <MiniProgressBar
-                          percent={progress.invoicedPercent}
-                          color="amber"
-                        />
-                        <span className="text-xs font-mono text-amber-400 w-10 text-right">
-                          {progress.invoicedPercent}%
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500 w-8">Rcv</span>
-                        <MiniProgressBar
-                          percent={progress.receivedPercent}
-                          color="emerald"
-                        />
-                        <span className="text-xs font-mono text-emerald-400 w-10 text-right">
-                          {progress.receivedPercent}%
-                        </span>
-                      </div>
-                    </div>
+                    <POLineItemProgress
+                      ordered={item.quantity}
+                      invoiced={item.invoiced_quantity ?? 0}
+                      received={item.received_quantity ?? 0}
+                    />
                   </td>
                 )}
               </tr>
