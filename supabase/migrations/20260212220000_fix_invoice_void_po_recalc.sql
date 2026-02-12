@@ -48,6 +48,5 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION recalculate_po_on_invoice_void IS
-  'Recalculates po_line_items.invoiced_quantity when an invoice is voided. ' ||
-  'Explicitly excludes the invoice being voided from the SUM to work correctly in BEFORE trigger context.';
+COMMENT ON FUNCTION recalculate_po_on_invoice_void() IS
+  'Recalculates po_line_items.invoiced_quantity when an invoice is voided. Explicitly excludes the invoice being voided from the SUM to work correctly in BEFORE trigger context.';
