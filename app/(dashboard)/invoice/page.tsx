@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { InvoiceCard, InvoiceStatusBadge } from "@/components/invoice";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { MiniProgressBar } from "@/components/po/po-progress-bar";
 import { INVOICE_STATUS_CONFIG } from "@/lib/utils/invoice-status";
 import { PageHeader, FilterBar, CardViewGrid } from "@/components/composite";
 import type {
@@ -38,6 +39,10 @@ interface InvoiceWithRelations extends Invoice {
   purchase_order?: Pick<PurchaseOrder, "id" | "po_number" | "supplier_id"> & {
     supplier?: Pick<Supplier, "id" | "name" | "company_name"> | null;
   } | null;
+  line_items_aggregate?: {
+    total_quantity: number;
+    total_received: number;
+  };
 }
 
 // Status group configuration for card view
@@ -91,7 +96,8 @@ export default function InvoiceListPage() {
             po_number,
             supplier_id,
             supplier:suppliers(id, name, company_name)
-          )
+          ),
+          invoice_line_items(quantity, received_quantity, is_active)
         `)
         .eq("is_active", true)
         .order("created_at", { ascending: false })
@@ -103,9 +109,28 @@ export default function InvoiceListPage() {
         throw new Error(queryError.message);
       }
 
-      // Set data
+      // Process invoices with client-side aggregation
       if (data) {
-        setInvoices(data as InvoiceWithRelations[]);
+        const invoicesWithAggregates = (data as any[]).map((inv) => {
+          const lineItems = (inv.invoice_line_items || []).filter((li: any) => li.is_active !== false);
+
+          const aggregate = lineItems.reduce(
+            (acc: any, li: any) => ({
+              total_quantity: acc.total_quantity + (li.quantity || 0),
+              total_received: acc.total_received + (li.received_quantity || 0),
+            }),
+            { total_quantity: 0, total_received: 0 }
+          );
+
+          const { invoice_line_items, ...invData } = inv;
+
+          return {
+            ...invData,
+            line_items_aggregate: aggregate,
+          } as InvoiceWithRelations;
+        });
+
+        setInvoices(invoicesWithAggregates);
       }
 
     } catch (err) {
@@ -460,11 +485,21 @@ export default function InvoiceListPage() {
                       />
                     </td>
                     <td className="py-3 px-4">
-                      <InvoiceStatusBadge
-                        status={(inv.status || "draft") as InvoiceStatus}
-                        isVoided={inv.is_voided ?? false}
-                        size="sm"
-                      />
+                      <div className="space-y-1.5">
+                        <InvoiceStatusBadge
+                          status={(inv.status || "draft") as InvoiceStatus}
+                          isVoided={inv.is_voided ?? false}
+                          size="sm"
+                        />
+                        {(inv.line_items_aggregate?.total_quantity ?? 0) > 0 && (
+                          <div className="w-24">
+                            <MiniProgressBar
+                              percent={Math.min(100, Math.round(((inv.line_items_aggregate?.total_received ?? 0) / inv.line_items_aggregate!.total_quantity) * 100))}
+                              color="emerald"
+                            />
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4">
                       <span className="text-slate-400 text-sm">

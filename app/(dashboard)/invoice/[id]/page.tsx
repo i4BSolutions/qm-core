@@ -34,6 +34,7 @@ import {
   ReadonlyInvoiceLineItemsTable,
   VoidInvoiceDialog,
 } from "@/components/invoice";
+import { MiniProgressBar } from "@/components/po/po-progress-bar";
 import { formatCurrency } from "@/lib/utils";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import {
@@ -414,16 +415,23 @@ export default function InvoiceDetailPage() {
             </p>
           </div>
 
-          {/* Line Items */}
-          <div className="text-center p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <p className="text-xs text-amber-400 uppercase tracking-wider mb-2">
-              Line Items
-            </p>
-            <p className="text-xl font-mono font-bold text-amber-400">
-              {lineItems.length}
-            </p>
-            <p className="text-xs text-slate-400 mt-1">items</p>
-          </div>
+          {/* Received Progress */}
+          {(() => {
+            const totalQty = lineItems.reduce((sum, li) => sum + (li.quantity || 0), 0);
+            const totalReceived = lineItems.reduce((sum, li) => sum + (li.received_quantity || 0), 0);
+            const receivedPercent = totalQty > 0 ? Math.min(100, Math.round((totalReceived / totalQty) * 100)) : 0;
+            return (
+              <div className="text-center p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                <p className="text-xs text-emerald-400 uppercase tracking-wider mb-2">
+                  Received
+                </p>
+                <p className="text-xl font-mono font-bold text-emerald-400">
+                  {receivedPercent}%
+                </p>
+                <p className="text-xs text-slate-400 mt-1">{totalReceived} / {totalQty} units</p>
+              </div>
+            );
+          })()}
 
           {/* Invoice Date */}
           <div className="text-center p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
@@ -435,6 +443,22 @@ export default function InvoiceDetailPage() {
             </p>
           </div>
         </div>
+
+        {/* Received Progress Bar */}
+        {(() => {
+          const totalQty = lineItems.reduce((sum, li) => sum + (li.quantity || 0), 0);
+          const totalReceived = lineItems.reduce((sum, li) => sum + (li.received_quantity || 0), 0);
+          const receivedPercent = totalQty > 0 ? Math.min(100, Math.round((totalReceived / totalQty) * 100)) : 0;
+          return totalQty > 0 ? (
+            <div className="mt-4">
+              <div className="flex justify-between text-xs mb-0.5">
+                <span className="text-slate-400">Received</span>
+                <span className="text-emerald-400 font-mono">{receivedPercent}%</span>
+              </div>
+              <MiniProgressBar percent={receivedPercent} color="emerald" />
+            </div>
+          ) : null;
+        })()}
         </div>
       }
     >

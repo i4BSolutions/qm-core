@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronRight, FileText, CalendarDays, Building2 } from "lucide-react";
 import { InvoiceStatusBadge } from "./invoice-status-badge";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { MiniProgressBar } from "@/components/po/po-progress-bar";
 import type { Invoice, PurchaseOrder, Supplier } from "@/types/database";
 
 interface InvoiceWithRelations extends Invoice {
@@ -13,6 +14,10 @@ interface InvoiceWithRelations extends Invoice {
   > & {
     supplier?: Pick<Supplier, "id" | "name" | "company_name"> | null;
   } | null;
+  line_items_aggregate?: {
+    total_quantity: number;
+    total_received: number;
+  };
 }
 
 interface InvoiceCardProps {
@@ -98,6 +103,22 @@ export function InvoiceCard({ invoice, animationDelay = 0 }: InvoiceCardProps) {
             />
           </div>
         </div>
+
+        {/* Received Progress */}
+        {(invoice.line_items_aggregate?.total_quantity ?? 0) > 0 && (() => {
+          const totalQty = invoice.line_items_aggregate!.total_quantity;
+          const totalReceived = invoice.line_items_aggregate!.total_received;
+          const receivedPercent = Math.min(100, Math.round((totalReceived / totalQty) * 100));
+          return (
+            <div className="mb-3">
+              <MiniProgressBar percent={receivedPercent} color="emerald" />
+              <div className="flex justify-between mt-1 text-xs text-slate-500">
+                <span>Rcv: {receivedPercent}%</span>
+                <span>{totalReceived} / {totalQty}</span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Divider */}
         <div className="divider-accent" />
