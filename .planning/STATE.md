@@ -6,26 +6,26 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current focus:** Phase 40 - UI Consistency Rollout
+**Current focus:** v1.8 Milestone complete — all 40 phases shipped
 
 ## Current Position
 
-Phase: 40 of 40 (UI Consistency Rollout) — IN PROGRESS
-Plan: 3 of 6 (complete: 01, 02, 03)
-Status: Plans 01, 02, and 03 complete
-Last activity: 2026-02-12 — Plan 01: Migrated 8 admin/list pages to PageHeader; Plan 02: Migrated 4 card-based pages to composites; Plan 03: Migrated 6 detail pages to DetailPageLayout
+Phase: 40 of 40 (UI Consistency Rollout) — VERIFIED
+Plan: 6 of 6 (complete)
+Status: Verified (5/5 must-haves passed)
+Last activity: 2026-02-12 — Phase 40 verified and complete. v1.8 milestone shipped.
 
-Progress: [█████████████████████░░░░░░░░░░] 39/40 phases complete (97.5%)
+Progress: [████████████████████████████████] 40/40 phases complete (100%)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 93 (across v1.0-v1.8)
+- Total plans completed: 99 (across v1.0-v1.8)
 - Average duration: ~1-2 days per milestone
-- Total execution time: 7 milestones shipped 2026-01-27 to 2026-02-11 (15 days)
+- Total execution time: 8 milestones shipped 2026-01-27 to 2026-02-12 (16 days)
 
 **Recent Milestones:**
-- v1.8 (in progress): Phase 36 complete - Plan 01 (89s), Plan 02 (210s / 3.5min), Plan 03 (94s); Phase 37 complete - Plan 01 (59s), Plan 02 (163s / 2.7min); Phase 38 complete - Plan 01 (162s / 2.7min), Plan 02 (305s / 5.1min); Phase 39 complete - Plan 01 (187s / 3.1min), Plan 02 (278s / 4.6min); Phase 40 in progress - Plan 01 (900s / 15min), Plan 02 (577s / 9.6min), Plan 03 (1028s / 17.1min)
+- v1.8 (shipped 2026-02-12): Phase 36 (3 plans), Phase 37 (2 plans), Phase 38 (2 plans), Phase 39 (2 plans), Phase 40 (6 plans) — 15 plans total
 - v1.7: 4 phases, 7 plans, 1 day
 - v1.6: 5 phases, 12 plans, 2 days
 - v1.5: 4 phases, 9 plans, 2 days
@@ -100,9 +100,10 @@ None yet.
 - ⚠ Query performance unknown at production scale (assumes <10K QMRLs)
 - ⚠ May require materialized view or virtualization if performance insufficient
 
-**Phase 40 (UI Rollout):**
-- Risk of breaking custom validation in complex forms (stock-out, invoice)
-- Requires incremental approach with per-page testing
+**Phase 40 (UI Rollout) — COMPLETE:**
+- ✓ All 6 plans executed, 32 pages now use composite components
+- ✓ Composite prop types widened to ReactNode for flexible JSX content
+- ✓ Zero regressions in complex forms (stock-out, invoice wizards)
 
 **Known Tech Debt (Pre-existing):**
 - PO Edit page does not exist at /po/[id]/edit (Edit button links to 404) — pre-existing from v1.3
@@ -110,10 +111,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-12 (phase 40 plan 03 execution)
-Stopped at: Phase 40 Plan 03 complete — 6 detail pages migrated to DetailPageLayout composite
-Resume file: None (ready to continue Phase 40 Plan 04+)
+Last session: 2026-02-12 (phase 40 execution + verification, v1.8 milestone complete)
+Stopped at: v1.8 milestone complete — all 40 phases shipped
+Resume file: None
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-12 after Phase 40 Plan 03 execution*
+*Last updated: 2026-02-12 after Phase 40 verification passed — v1.8 milestone complete*

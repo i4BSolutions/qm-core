@@ -10,7 +10,7 @@
 - ✅ **v1.5 UX Polish & Collaboration** - Phases 23-26 (shipped 2026-02-09)
 - ✅ **v1.6 Stock-Out Approval & Data Integrity** - Phases 27-31 (shipped 2026-02-10)
 - ✅ **v1.7 Stock-Out Request Logic Repair** - Phases 32-35 (shipped 2026-02-11)
-- 🚧 **v1.8 UI Consistency, Flow Tracking & RBAC** - Phases 36-40 (in progress)
+- ✅ **v1.8 UI Consistency, Flow Tracking & RBAC** - Phases 36-40 (shipped 2026-02-12)
 
 ## Phases
 
@@ -70,7 +70,7 @@ Phases 32-35 delivered per-line-item stock-out execution, QMHQ transaction linki
 
 </details>
 
-### 🚧 v1.8 UI Consistency, Flow Tracking & RBAC (In Progress)
+### ✅ v1.8 UI Consistency, Flow Tracking & RBAC (Shipped 2026-02-12)
 
 **Milestone Goal:** Standardize UI/UX across all pages, add admin-only end-to-end request tracking, and overhaul RBAC to three roles (Admin, QMRL, QMHQ) with extensibility for future roles.
 
@@ -186,12 +186,12 @@ Plans:
 **Plans:** 6 plans
 
 Plans:
-- [ ] 40-01-PLAN.md — Migrate 8 simple list/table pages to PageHeader composite
-- [ ] 40-02-PLAN.md — Migrate 4 card-view list pages to PageHeader + FilterBar + CardViewGrid
-- [ ] 40-03-PLAN.md — Migrate 6 detail pages to DetailPageLayout composite
-- [ ] 40-04-PLAN.md — Migrate 3 simple form pages to FormSection + FormField composites
-- [ ] 40-05-PLAN.md — Migrate 3 medium form pages (QMHQ wizard, PO new) to FormSection composites
-- [ ] 40-06-PLAN.md — Migrate 4 complex form pages (Invoice wizard, Stock In/Out) to FormSection composites
+- [x] 40-01-PLAN.md — Migrate 8 simple list/table pages to PageHeader composite
+- [x] 40-02-PLAN.md — Migrate 4 card-view list pages to PageHeader + FilterBar + CardViewGrid
+- [x] 40-03-PLAN.md — Migrate 6 detail pages to DetailPageLayout composite
+- [x] 40-04-PLAN.md — Migrate 3 simple form pages to FormSection + FormField composites
+- [x] 40-05-PLAN.md — Migrate 3 medium form pages (QMHQ wizard, PO new) to FormSection composites
+- [x] 40-06-PLAN.md — Migrate 4 complex form pages (Invoice wizard, Stock In/Out) to FormSection composites
 
 ---
 
@@ -213,7 +213,7 @@ Plans:
 | 37. RBAC Database Migration | v1.8 | 2/2 | ✓ Complete | 2026-02-11 |
 | 38. RBAC Permission Enforcement | v1.8 | 2/2 | ✓ Complete | 2026-02-11 |
 | 39. End-to-End Flow Tracking | v1.8 | 2/2 | ✓ Complete | 2026-02-11 |
-| 40. UI Consistency Rollout | v1.8 | 0/6 | Planning complete | - |
+| 40. UI Consistency Rollout | v1.8 | 6/6 | ✓ Complete | 2026-02-12 |
 
 ---
-*Last updated: 2026-02-11 after Phase 39 execution complete*
+*Last updated: 2026-02-12 after Phase 40 execution complete*
