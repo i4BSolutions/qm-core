@@ -24,6 +24,12 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   InvoiceStatusBadge,
   ReadonlyInvoiceLineItemsTable,
   VoidInvoiceDialog,
@@ -35,6 +41,7 @@ import {
   formatExchangeRate,
 } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 import { HistoryTab } from "@/components/history";
 import { voidInvoice } from "@/lib/actions/invoice-actions";
 import { useToast } from "@/components/ui/use-toast";
@@ -191,25 +198,11 @@ export default function InvoiceDetailPage() {
         return;
       }
 
-      // Build detailed success toast
+      // Simple success toast (per user decision)
       const { data } = result;
       toast({
         title: "Invoice Voided",
-        description: (
-          <div className="space-y-1">
-            <p>Invoice {data.invoiceNumber} has been voided.</p>
-            {data.poNumber && data.newPoStatus && (
-              <p className="text-sm">
-                PO {data.poNumber} status: {data.newPoStatus.replace(/_/g, ' ')}
-              </p>
-            )}
-            {data.invoicedQtyChanges.length > 0 && (
-              <p className="text-sm">
-                {data.invoicedQtyChanges.length} item(s) invoiced qty updated
-              </p>
-            )}
-          </div>
-        ),
+        description: `${data.invoiceNumber} has been voided successfully`,
       });
 
       setIsVoiding(false);
@@ -278,10 +271,18 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  const showVoidButton = canVoidInvoice(
-    invoice.status as InvoiceStatus,
-    invoice.is_voided ?? false
-  );
+  // Guard pre-check logic
+  const isVoided = invoice.is_voided ?? false;
+  const hasStockIn = stockReceipts.length > 0;
+
+  // Void button: visible when invoice is not voided (shows disabled state with tooltip)
+  const showVoidButton = !isVoided;
+  const canVoidNow = !hasStockIn && !isVoided && canVoidInvoice(invoice.status as InvoiceStatus, isVoided);
+
+  // Tooltip reason for disabled void
+  const voidDisabledReason = hasStockIn
+    ? "Cannot void -- goods received"
+    : "";
 
   return (
     <DetailPageLayout
@@ -366,14 +367,28 @@ export default function InvoiceDetailPage() {
       actions={
         <>
           {showVoidButton && (
-            <Button
-              variant="outline"
-              onClick={() => setShowVoidDialog(true)}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10"
-            >
-              <Ban className="mr-2 h-4 w-4" />
-              Void Invoice
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowVoidDialog(true)}
+                      disabled={!canVoidNow}
+                      className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                    >
+                      <Ban className="mr-2 h-4 w-4" />
+                      Void Invoice
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                {!canVoidNow && voidDisabledReason && (
+                  <TooltipContent>
+                    <p className="text-xs">{voidDisabledReason}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           )}
         </>
       }
