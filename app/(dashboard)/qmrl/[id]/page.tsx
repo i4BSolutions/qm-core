@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { FileAttachmentWithUploader } from "@/lib/actions/files";
 import {
-  ArrowLeft,
   Pencil,
   Plus,
   Calendar,
@@ -38,6 +37,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { usePermissions } from "@/lib/hooks/use-permissions";
 import { useToast } from "@/components/ui/use-toast";
 import { CommentsSection } from "@/components/comments";
+import { DetailPageLayout } from "@/components/composite";
 
 interface QMRLWithRelations extends QMRL {
   status?: StatusConfig | null;
@@ -239,77 +239,67 @@ export default function QMRLDetailPage() {
   }
 
   return (
-    <div className="space-y-6 relative">
-      {/* Grid overlay */}
-      <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
-
-      {/* Header */}
-      <div className="relative flex items-start justify-between animate-fade-in">
-        <div className="flex items-start gap-4">
-          <Link href="/qmrl">
-            <Button variant="ghost" size="icon" className="mt-1 hover:bg-amber-500/10 hover:text-amber-500">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            {/* Request ID Badge */}
-            <div className="flex items-center gap-3 mb-3">
-              <div className="request-id-badge">
-                <Target className="h-4 w-4 text-amber-500" />
-                <code>{qmrl.request_id}</code>
-              </div>
-              {qmrl.priority && (
-                <span className={priorityConfig[qmrl.priority]?.class}>
-                  <AlertCircle className="h-3 w-3" />
-                  {priorityConfig[qmrl.priority]?.label}
-                </span>
-              )}
-              {qmrl.status && (
-                <ClickableStatusBadge
-                  status={qmrl.status}
-                  entityType="qmrl"
-                  entityId={qmrl.id}
-                  onStatusChange={() => fetchQMRL(params.id as string)}
-                />
-              )}
+    <DetailPageLayout
+      backHref="/qmrl"
+      header={
+        <div>
+          {/* Request ID Badge */}
+          <div className="flex items-center gap-3 mb-3">
+            <div className="request-id-badge">
+              <Target className="h-4 w-4 text-amber-500" />
+              <code>{qmrl.request_id}</code>
             </div>
-
-            {/* Title */}
-            <h1 className="text-2xl font-bold tracking-tight text-slate-200 mb-2">
-              {qmrl.title}
-            </h1>
-
-            {/* Category & Meta */}
-            <div className="flex items-center gap-4 text-sm text-slate-400">
-              {qmrl.category && (
-                <Badge
-                  variant="outline"
-                  className="text-xs"
-                  style={{
-                    borderColor: qmrl.category.color || "rgb(100, 116, 139)",
-                    color: qmrl.category.color || "rgb(148, 163, 184)",
-                  }}
-                >
-                  <Tag className="mr-1 h-3 w-3" />
-                  {qmrl.category.name}
-                </Badge>
-              )}
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {formatDate(qmrl.request_date)}
+            {qmrl.priority && (
+              <span className={priorityConfig[qmrl.priority]?.class}>
+                <AlertCircle className="h-3 w-3" />
+                {priorityConfig[qmrl.priority]?.label}
               </span>
-              {qmrl.department && (
-                <span className="flex items-center gap-1">
-                  <Building2 className="h-3 w-3" />
-                  {qmrl.department.name}
-                </span>
-              )}
-            </div>
+            )}
+            {qmrl.status && (
+              <ClickableStatusBadge
+                status={qmrl.status}
+                entityType="qmrl"
+                entityId={qmrl.id}
+                onStatusChange={() => fetchQMRL(params.id as string)}
+              />
+            )}
+          </div>
+
+          {/* Title */}
+          <h1 className="text-2xl font-bold tracking-tight text-slate-200 mb-2">
+            {qmrl.title}
+          </h1>
+
+          {/* Category & Meta */}
+          <div className="flex items-center gap-4 text-sm text-slate-400">
+            {qmrl.category && (
+              <Badge
+                variant="outline"
+                className="text-xs"
+                style={{
+                  borderColor: qmrl.category.color || "rgb(100, 116, 139)",
+                  color: qmrl.category.color || "rgb(148, 163, 184)",
+                }}
+              >
+                <Tag className="mr-1 h-3 w-3" />
+                {qmrl.category.name}
+              </Badge>
+            )}
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {formatDate(qmrl.request_date)}
+            </span>
+            {qmrl.department && (
+              <span className="flex items-center gap-1">
+                <Building2 className="h-3 w-3" />
+                {qmrl.department.name}
+              </span>
+            )}
           </div>
         </div>
-
-        {/* Actions */}
-        <div className="flex gap-3">
+      }
+      actions={
+        <>
           {can("update", "qmrl") && (
             <Link href={`/qmrl/${qmrl.id}/edit`}>
               <Button variant="outline" className="border-slate-700 hover:bg-slate-800 hover:border-amber-500/30">
@@ -324,9 +314,9 @@ export default function QMRLDetailPage() {
               Add QMHQ Line
             </Button>
           </Link>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {/* Tabs */}
       <Tabs defaultValue="details" className="space-y-6">
         <TabsList className="bg-slate-800/50 border border-slate-700 p-1">
@@ -659,6 +649,6 @@ export default function QMRLDetailPage() {
 
       {/* Comments Section - always visible at bottom per user decision */}
       <CommentsSection entityType="qmrl" entityId={qmrl.id} />
-    </div>
+    </DetailPageLayout>
   );
 }

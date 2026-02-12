@@ -33,6 +33,7 @@ import { calculatePOProgress, canEditPO, canCancelPO } from "@/lib/utils/po-stat
 import { HistoryTab } from "@/components/history";
 import { usePermissions } from "@/lib/hooks/use-permissions";
 import { CommentsSection } from "@/components/comments";
+import { DetailPageLayout } from "@/components/composite";
 import type {
   PurchaseOrder,
   POLineItem,
@@ -219,50 +220,41 @@ export default function PODetailPage() {
   const showCancelButton = canCancelPO(po.status as POStatusEnum);
 
   return (
-    <div className="space-y-6 relative">
-      {/* Grid overlay */}
-      <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
-
-      {/* Header */}
-      <div className="relative flex items-start justify-between animate-fade-in">
-        <div className="flex items-start gap-4">
-          <Link href="/po">
-            <Button variant="ghost" size="icon" className="mt-1 hover:bg-amber-500/10 hover:text-amber-500">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            {/* Status Badges */}
-            <div className="flex items-center gap-3 mb-2">
-              <POStatusBadge status={(po.status || "not_started") as POStatusEnum} />
-              <ApprovalStatusBadge status={po.approval_status || "draft"} />
-            </div>
-
-            {/* PO Number */}
-            <div className="request-id-badge mb-2">
-              <code className="text-lg">{po.po_number}</code>
-            </div>
-
-            {/* Supplier */}
-            {po.supplier && (
-              <h1 className="text-2xl font-bold tracking-tight text-slate-200">
-                {po.supplier.company_name || po.supplier.name}
-              </h1>
-            )}
-
-            {/* Parent QMHQ Link */}
-            {po.qmhq && (
-              <Link href={`/qmhq/${po.qmhq.id}`} className="inline-flex items-center gap-2 mt-2 text-sm text-slate-400 hover:text-amber-400 transition-colors">
-                <span>From:</span>
-                <code className="text-amber-400">{po.qmhq.request_id}</code>
-                <span className="truncate max-w-[200px]">{po.qmhq.line_name}</span>
-                <ExternalLink className="h-3 w-3" />
-              </Link>
-            )}
+    <DetailPageLayout
+      backHref="/po"
+      header={
+        <div>
+          {/* Status Badges */}
+          <div className="flex items-center gap-3 mb-2">
+            <POStatusBadge status={(po.status || "not_started") as POStatusEnum} />
+            <ApprovalStatusBadge status={po.approval_status || "draft"} />
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
+          {/* PO Number */}
+          <div className="request-id-badge mb-2">
+            <code className="text-lg">{po.po_number}</code>
+          </div>
+
+          {/* Supplier */}
+          {po.supplier && (
+            <h1 className="text-2xl font-bold tracking-tight text-slate-200">
+              {po.supplier.company_name || po.supplier.name}
+            </h1>
+          )}
+
+          {/* Parent QMHQ Link */}
+          {po.qmhq && (
+            <Link href={`/qmhq/${po.qmhq.id}`} className="inline-flex items-center gap-2 mt-2 text-sm text-slate-400 hover:text-amber-400 transition-colors">
+              <span>From:</span>
+              <code className="text-amber-400">{po.qmhq.request_id}</code>
+              <span className="truncate max-w-[200px]">{po.qmhq.line_name}</span>
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+          )}
+        </div>
+      }
+      actions={
+        <>
           {showCancelButton && (
             <Button
               variant="outline"
@@ -286,11 +278,10 @@ export default function PODetailPage() {
               </Button>
             </Link>
           )}
-        </div>
-      </div>
-
-      {/* Financial Summary Panel */}
-      <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
+        </>
+      }
+      kpiPanel={
+        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
         <div className="grid grid-cols-3 gap-4">
           {/* Total Amount with EUSD */}
           <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700">
@@ -331,8 +322,9 @@ export default function PODetailPage() {
             showLabels={true}
           />
         </div>
-      </div>
-
+        </div>
+      }
+    >
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="animate-slide-up" style={{ animationDelay: "200ms" }}>
         <TabsList className="bg-slate-800/50 border border-slate-700">
@@ -646,6 +638,6 @@ export default function PODetailPage() {
 
       {/* Comments Section */}
       <CommentsSection entityType="po" entityId={poId} />
-    </div>
+    </DetailPageLayout>
   );
 }

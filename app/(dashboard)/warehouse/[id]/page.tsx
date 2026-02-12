@@ -34,6 +34,7 @@ import {
 } from "@/lib/utils/inventory";
 import type { ColumnDef } from "@tanstack/react-table";
 import { HistoryTab } from "@/components/history";
+import { DetailPageLayout } from "@/components/composite";
 import type {
   Warehouse as WarehouseType,
   InventoryTransaction,
@@ -469,61 +470,48 @@ export default function WarehouseDetailPage() {
   }
 
   return (
-    <div className="space-y-6 relative">
-      {/* Grid overlay */}
-      <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
-
-      {/* Error Banner */}
-      {error && (
-        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-red-400" />
-            <p className="text-red-400">{error}</p>
-          </div>
-          <button
-            onClick={fetchData}
-            className="mt-2 text-sm text-red-400 underline hover:text-red-300"
-          >
-            Click to retry
-          </button>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="relative flex items-start justify-between animate-fade-in">
-        <div className="flex items-start gap-4">
-          <Link href="/warehouse">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="mt-1 hover:bg-amber-500/10 hover:text-amber-500"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-cyan-500/10 border border-cyan-500/20 mb-2 w-fit">
-              <Warehouse className="h-4 w-4 text-cyan-500" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-cyan-500">
-                Warehouse
-              </span>
+    <DetailPageLayout
+      backHref="/warehouse"
+      header={
+        <div>
+          {/* Error Banner */}
+          {error && (
+            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-red-400" />
+                <p className="text-red-400">{error}</p>
+              </div>
+              <button
+                onClick={fetchData}
+                className="mt-2 text-sm text-red-400 underline hover:text-red-300"
+              >
+                Click to retry
+              </button>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-200">
-              {warehouse.name}
-            </h1>
-            <div className="flex items-center gap-2 mt-1 text-slate-400">
-              <MapPin className="h-4 w-4" />
-              <span>{warehouse.location}</span>
-            </div>
-            {warehouse.description && (
-              <p className="text-sm text-slate-500 mt-2">
-                {warehouse.description}
-              </p>
-            )}
-          </div>
-        </div>
+          )}
 
-        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-1 rounded bg-cyan-500/10 border border-cyan-500/20 mb-2 w-fit">
+            <Warehouse className="h-4 w-4 text-cyan-500" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-cyan-500">
+              Warehouse
+            </span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-200">
+            {warehouse.name}
+          </h1>
+          <div className="flex items-center gap-2 mt-1 text-slate-400">
+            <MapPin className="h-4 w-4" />
+            <span>{warehouse.location}</span>
+          </div>
+          {warehouse.description && (
+            <p className="text-sm text-slate-500 mt-2">
+              {warehouse.description}
+            </p>
+          )}
+        </div>
+      }
+      actions={
+        <>
           <Link href={`/inventory/stock-in`}>
             <Button
               variant="outline"
@@ -542,14 +530,13 @@ export default function WarehouseDetailPage() {
               Stock Out
             </Button>
           </Link>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div
-        className="grid grid-cols-3 gap-4 animate-slide-up"
-        style={{ animationDelay: "50ms" }}
-      >
+        </>
+      }
+      kpiPanel={
+        <div
+          className="grid grid-cols-3 gap-4 animate-slide-up"
+          style={{ animationDelay: "50ms" }}
+        >
         <div className="command-panel text-center bg-emerald-500/5 border-emerald-500/20">
           <div className="flex items-center justify-center gap-2 mb-2">
             <DollarSign className="h-5 w-5 text-emerald-400" />
@@ -588,8 +575,9 @@ export default function WarehouseDetailPage() {
           </p>
           <p className="text-xs text-slate-500 mt-1">units in stock</p>
         </div>
-      </div>
-
+        </div>
+      }
+    >
       {/* Tabs */}
       <Tabs
         value={activeTab}
@@ -694,6 +682,6 @@ export default function WarehouseDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+    </DetailPageLayout>
   );
 }
