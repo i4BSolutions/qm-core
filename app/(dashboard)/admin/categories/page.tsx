@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { CategoryDialog } from "./category-dialog";
+import { PageHeader } from "@/components/composite";
 import { cn } from "@/lib/utils";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Category } from "@/types/database";
@@ -192,31 +193,26 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-violet-500/10 border border-violet-500/20">
-              <Radio className="h-4 w-4 text-violet-500" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-violet-500">
-                Admin
-              </span>
-            </div>
+      <PageHeader
+        title="Category Management"
+        description="Configure category options for QMRL and QMHQ"
+        badge={
+          <div className="flex items-center gap-2 px-3 py-1 rounded bg-violet-500/10 border border-violet-500/20">
+            <Radio className="h-4 w-4 text-violet-500" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-violet-500">
+              Admin
+            </span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-200">
-            Category Management
-          </h1>
-          <p className="mt-1 text-slate-400">
-            Configure category options for QMRL and QMHQ
-          </p>
-        </div>
-        {canCreate && (
-          <Button onClick={handleCreate} className="group">
-            <Plus className="h-4 w-4 mr-2 transition-transform group-hover:rotate-90" />
-            New Category
-          </Button>
-        )}
-      </div>
+        }
+        actions={
+          canCreate && (
+            <Button onClick={handleCreate} className="group">
+              <Plus className="h-4 w-4 mr-2 transition-transform group-hover:rotate-90" />
+              New Category
+            </Button>
+          )
+        }
+      />
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2">

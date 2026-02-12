@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { SupplierDialog } from "./supplier-dialog";
+import { PageHeader } from "@/components/composite";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Supplier } from "@/types/database";
 
@@ -181,33 +182,28 @@ export default function SuppliersPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-start justify-between animate-slide-up">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
-              <Truck className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">
-                Admin
-              </span>
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">
-            Suppliers
-          </h1>
-          <p className="mt-1 text-slate-400">
-            {suppliers.length} vendor{suppliers.length !== 1 ? "s" : ""} in system
-          </p>
-        </div>
-        {canCreate && (
-          <Button onClick={handleCreate} className="group relative overflow-hidden">
-            <span className="relative z-10 flex items-center gap-2">
-              <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-              Add Supplier
+      <PageHeader
+        title="Suppliers"
+        description={`${suppliers.length} vendor${suppliers.length !== 1 ? "s" : ""} in system`}
+        badge={
+          <div className="flex items-center gap-2 px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
+            <Truck className="h-4 w-4 text-emerald-400" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">
+              Admin
             </span>
-          </Button>
-        )}
-      </div>
+          </div>
+        }
+        actions={
+          canCreate && (
+            <Button onClick={handleCreate} className="group relative overflow-hidden">
+              <span className="relative z-10 flex items-center gap-2">
+                <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+                Add Supplier
+              </span>
+            </Button>
+          )
+        }
+      />
 
       {/* Data Table */}
       <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
