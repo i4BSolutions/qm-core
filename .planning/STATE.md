@@ -11,16 +11,16 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 ## Current Position
 
 Phase: 41 of 43 (PO Status Engine Enhancement)
-Plan: None yet — ready to plan
-Status: Ready to plan
-Last activity: 2026-02-12 — v1.9 roadmap created with 3 phases (41-43) covering 21 requirements
+Plan: 1 of ? complete
+Status: Executing
+Last activity: 2026-02-12 — Completed 41-01: PO Status Engine Enhancement (database layer + Server Action)
 
-Progress: [████████████████████████████████████░░░░] 93% (102/105 total plans estimated)
+Progress: [████████████████████████████████████░░░░] 94% (103/105 total plans estimated)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 102 (across v1.0-v1.8)
+- Total plans completed: 103 (across v1.0-v1.9)
 - Total milestones: 8 shipped in 16 days (2026-01-27 → 2026-02-12)
 
 **All Milestones:**
@@ -33,7 +33,7 @@ Progress: [███████████████████████
 - v1.6 Stock-Out Approval: Phases 27-31, 12 plans (shipped 2026-02-10)
 - v1.7 Logic Repair: Phases 32-35, 7 plans (shipped 2026-02-11)
 - v1.8 UI/RBAC/Flow: Phases 36-40, 15 plans (shipped 2026-02-12)
-- v1.9 PO Lifecycle: Phases 41-43, 0/? plans (in progress)
+- v1.9 PO Lifecycle: Phases 41-43, 1/? plans (in progress)
 
 ## Accumulated Context
 
@@ -42,6 +42,9 @@ Progress: [███████████████████████
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting v1.9:
 
+- **41-01 Implementation**: Invoice-first priority in status calculation - show partially_invoiced until ALL items invoiced, even if some received
+- **41-01 Implementation**: Use pg_advisory_xact_lock on PO UUID for status calculation to prevent concurrent calculation race conditions
+- **41-01 Implementation**: Admin-only cancellation with mandatory reason for financial control
 - **v1.9 Design**: Voided invoices do NOT block PO cancellation (only active non-voided invoices count)
 - **v1.9 Design**: GRN PDF deferred to v2 (focus on Invoice, Stock-Out, Money-Out receipts)
 - **v1.9 Stack**: Use @react-pdf/renderer (not Puppeteer) for PDF generation — lighter weight
@@ -71,9 +74,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-12
-Stopped at: v1.9 roadmap created with 3 phases (41-43) covering 21 requirements across 5 categories (POSE, POPR, LOCK, GARD, PDF)
-Resume file: None (ready to start phase planning with /gsd:plan-phase 41)
+Stopped at: Completed 41-01-PLAN.md (PO Status Engine Enhancement - database layer + Server Action)
+Resume file: None (ready to continue with next plan)
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-12 after v1.9 roadmap creation*
+*Last updated: 2026-02-12 after completing plan 41-01*
