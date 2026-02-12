@@ -78,7 +78,7 @@ Phases 36-40 delivered 7 composite UI components with 32-page migration, RBAC ov
 
 </details>
 
-### 🚧 v1.9 PO Lifecycle, Cancellation Guards & PDF Export (In Progress)
+### v1.9 PO Lifecycle, Cancellation Guards & PDF Export (In Progress)
 
 **Milestone Goal:** Complete the PO lifecycle with smart status engine, enforce cancellation/void guards, and enable PDF receipt export for key documents.
 
@@ -97,10 +97,11 @@ Phases 36-40 delivered 7 composite UI components with 32-page migration, RBAC ov
   4. User can hover over status badge to see tooltip explaining current state (e.g., "3 of 5 items invoiced, 1 of 5 received")
   5. User can manually set status to "cancelled" which bypasses auto-calculation for that PO
 
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 41-01: TBD (planned during phase planning)
+- [ ] 41-01-PLAN.md -- Database engine: fix status priority (invoice-first), add advisory locks, cancellation columns/audit, cancelPO Server Action
+- [ ] 41-02-PLAN.md -- UI enhancement: status badge with tooltip, list/detail visual indicators, cancel dialog with cascade toast
 
 #### Phase 42: Cancellation Guards & Lock Mechanism
 
@@ -159,9 +160,9 @@ Plans:
 | 27-31. Stock-Out → Sliders | v1.6 | 12/12 | ✓ Complete | 2026-02-10 |
 | 32-35. Linking → Execution UI | v1.7 | 7/7 | ✓ Complete | 2026-02-11 |
 | 36-40. UI Composites → RBAC → Flow Tracking | v1.8 | 15/15 | ✓ Complete | 2026-02-12 |
-| 41. PO Status Engine Enhancement | v1.9 | 0/? | Not started | - |
+| 41. PO Status Engine Enhancement | v1.9 | 0/2 | In progress | - |
 | 42. Cancellation Guards & Lock Mechanism | v1.9 | 0/? | Not started | - |
 | 43. PDF Export Infrastructure | v1.9 | 0/? | Not started | - |
 
 ---
-*Last updated: 2026-02-12 after v1.9 roadmap created*
+*Last updated: 2026-02-12 after Phase 41 planning complete*
