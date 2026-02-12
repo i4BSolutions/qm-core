@@ -50,6 +50,7 @@ import type { ItemProgressData } from "@/components/qmhq/items-summary-progress"
 import { QmhqLinkedTransactions } from "@/components/qmhq/qmhq-linked-transactions";
 import { FulfillmentMetrics } from "@/components/qmhq/fulfillment-metrics";
 import { DetailPageLayout } from "@/components/composite";
+import { MoneyOutPDFButton } from "@/components/qmhq/money-out-pdf-button";
 import type {
   QMHQ,
   StatusConfig,
@@ -591,6 +592,38 @@ export default function QMHQDetailPage() {
                 <span className="hidden md:inline">Edit</span>
               </Button>
             </Link>
+          )}
+          {(qmhq.route_type === "expense" || qmhq.route_type === "po") && transactions.length > 0 && (
+            <MoneyOutPDFButton
+              qmhq={{
+                request_id: qmhq.request_id || "",
+                line_name: qmhq.line_name || "",
+                route_type: qmhq.route_type || "",
+                status_name: qmhq.status?.name ?? undefined,
+                status_color: qmhq.status?.color ?? undefined,
+                category_name: qmhq.category?.name ?? undefined,
+                amount: qmhq.amount ?? undefined,
+                currency: qmhq.currency || "MMK",
+                exchange_rate: qmhq.exchange_rate ?? 1,
+                amount_eusd: qmhq.amount_eusd ?? undefined,
+                notes: qmhq.notes ?? undefined,
+              }}
+              transactions={transactions.map(tx => ({
+                transaction_id: tx.transaction_id || undefined,
+                transaction_type: tx.transaction_type || "money_out",
+                amount: tx.amount ?? 0,
+                currency: tx.currency || "MMK",
+                exchange_rate: tx.exchange_rate ?? 1,
+                amount_eusd: tx.amount_eusd ?? 0,
+                notes: tx.notes || undefined,
+                transaction_date: tx.transaction_date,
+                created_by_name: tx.created_by_user?.full_name || undefined,
+              }))}
+              parentQmrl={qmhq.qmrl ? {
+                request_id: qmhq.qmrl.request_id || "",
+                title: qmhq.qmrl.title || "",
+              } : null}
+            />
           )}
         </>
       }
