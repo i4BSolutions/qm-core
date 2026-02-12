@@ -100,8 +100,8 @@ Phases 36-40 delivered 7 composite UI components with 32-page migration, RBAC ov
 **Plans:** 2 plans
 
 Plans:
-- [ ] 41-01-PLAN.md -- Database engine: fix status priority (invoice-first), add advisory locks, cancellation columns/audit, cancelPO Server Action
-- [ ] 41-02-PLAN.md -- UI enhancement: status badge with tooltip, list/detail visual indicators, cancel dialog with cascade toast
+- [x] 41-01-PLAN.md -- Database engine: fix status priority (invoice-first), add advisory locks, cancellation columns/audit, cancelPO Server Action
+- [x] 41-02-PLAN.md -- UI enhancement: status badge with tooltip, list/detail visual indicators, cancel dialog with cascade toast
 
 #### Phase 42: Cancellation Guards & Lock Mechanism
 
@@ -160,9 +160,9 @@ Plans:
 | 27-31. Stock-Out → Sliders | v1.6 | 12/12 | ✓ Complete | 2026-02-10 |
 | 32-35. Linking → Execution UI | v1.7 | 7/7 | ✓ Complete | 2026-02-11 |
 | 36-40. UI Composites → RBAC → Flow Tracking | v1.8 | 15/15 | ✓ Complete | 2026-02-12 |
-| 41. PO Status Engine Enhancement | v1.9 | 0/2 | In progress | - |
+| 41. PO Status Engine Enhancement | v1.9 | 2/2 | ✓ Complete | 2026-02-12 |
 | 42. Cancellation Guards & Lock Mechanism | v1.9 | 0/? | Not started | - |
 | 43. PDF Export Infrastructure | v1.9 | 0/? | Not started | - |
 
 ---
-*Last updated: 2026-02-12 after Phase 41 planning complete*
+*Last updated: 2026-02-12 after Phase 41 execution complete*

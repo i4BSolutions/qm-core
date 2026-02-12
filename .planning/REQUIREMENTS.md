@@ -9,11 +9,11 @@ Requirements for v1.9 milestone. Each maps to roadmap phases.
 
 ### PO Status Engine
 
-- [ ] **POSE-01**: PO status auto-calculates to one of 6 states (not_started, partially_invoiced, awaiting_delivery, partially_received, closed, cancelled) based on line-item matching
-- [ ] **POSE-02**: Status recalculates automatically when invoice is created, voided, or stock-in is confirmed
-- [ ] **POSE-03**: When partially invoiced AND partially received conflict, partially_invoiced takes priority
-- [ ] **POSE-04**: PO status displays as color-coded badge on PO list and detail pages
-- [ ] **POSE-05**: PO status is calculated (not user-editable) with tooltip explaining current state
+- [x] **POSE-01**: PO status auto-calculates to one of 6 states (not_started, partially_invoiced, awaiting_delivery, partially_received, closed, cancelled) based on line-item matching
+- [x] **POSE-02**: Status recalculates automatically when invoice is created, voided, or stock-in is confirmed
+- [x] **POSE-03**: When partially invoiced AND partially received conflict, partially_invoiced takes priority
+- [x] **POSE-04**: PO status displays as color-coded badge on PO list and detail pages
+- [x] **POSE-05**: PO status is calculated (not user-editable) with tooltip explaining current state
 
 ### PO Progress Tracking
 
@@ -91,11 +91,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| POSE-01 | Phase 41 | Pending |
-| POSE-02 | Phase 41 | Pending |
-| POSE-03 | Phase 41 | Pending |
-| POSE-04 | Phase 41 | Pending |
-| POSE-05 | Phase 41 | Pending |
+| POSE-01 | Phase 41 | ✓ Done |
+| POSE-02 | Phase 41 | ✓ Done |
+| POSE-03 | Phase 41 | ✓ Done |
+| POSE-04 | Phase 41 | ✓ Done |
+| POSE-05 | Phase 41 | ✓ Done |
 | POPR-01 | Phase 42 | Pending |
 | POPR-02 | Phase 42 | Pending |
 | POPR-03 | Phase 42 | Pending |
