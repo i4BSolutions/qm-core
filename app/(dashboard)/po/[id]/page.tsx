@@ -32,6 +32,7 @@ import {
 import { POStatusBadgeWithTooltip, ApprovalStatusBadge } from "@/components/po/po-status-badge";
 import { POProgressBar } from "@/components/po/po-progress-bar";
 import { ReadonlyLineItemsTable } from "@/components/po/po-line-items-table";
+import { POMatchingTab } from "@/components/po/po-matching-tab";
 import { InvoiceStatusBadge } from "@/components/invoice";
 import { formatCurrency, cn } from "@/lib/utils";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
@@ -473,6 +474,9 @@ export default function PODetailPage() {
           <TabsTrigger value="invoices" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
             Invoices ({invoices.length})
           </TabsTrigger>
+          <TabsTrigger value="matching" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+            Matching
+          </TabsTrigger>
           <TabsTrigger value="history" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
             History
           </TabsTrigger>
@@ -790,6 +794,16 @@ export default function PODetailPage() {
                 </table>
               </div>
             )}
+          </div>
+        </TabsContent>
+
+        {/* Matching Tab */}
+        <TabsContent value="matching" className="mt-6">
+          <div className="command-panel corner-accents">
+            <POMatchingTab
+              lineItems={lineItems}
+              invoices={invoices}
+            />
           </div>
         </TabsContent>
 
