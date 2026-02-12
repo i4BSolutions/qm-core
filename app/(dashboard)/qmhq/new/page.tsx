@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { FormSection, FormField, PageHeader } from "@/components/composite";
 import {
   Select,
   SelectContent,
@@ -499,181 +500,168 @@ function NewQMHQContent() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <div>
-              <div className="flex items-center gap-3 mb-2">
+            <PageHeader
+              title="Create QMHQ Line"
+              description="Basic information and route selection"
+              badge={
                 <div className="flex items-center gap-2 px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
                   <span className="text-xs font-semibold uppercase tracking-widest text-emerald-500">
                     Step 1 of 2
                   </span>
                 </div>
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-200">
-                Create QMHQ Line
-              </h1>
-              <p className="mt-1 text-slate-400">
-                Basic information and route selection
-              </p>
-            </div>
+              }
+              className="mb-0"
+            />
           </div>
 
           {/* Form */}
           <div className="space-y-6">
             {/* Section 1: Basic Information */}
-            <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
-              <div className="section-header">
-                <FileText className="h-4 w-4 text-amber-500" />
-                <h2>Basic Information</h2>
-              </div>
+            <FormSection
+              title="Basic Information"
+              icon={<FileText className="h-4 w-4 text-amber-500" />}
+              animationDelay="100ms"
+            >
+              <FormField label="Line Name" htmlFor="line_name" required>
+                <Input
+                  id="line_name"
+                  value={formData.line_name}
+                  onChange={(e) => setFormData({ ...formData, line_name: e.target.value })}
+                  placeholder="Enter a descriptive name for this QMHQ line"
+                  className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 text-slate-200"
+                />
+              </FormField>
 
-              <div className="space-y-5">
-                <div className="grid gap-2">
-                  <Label htmlFor="line_name" className="data-label">
-                    Line Name <span className="text-red-400">*</span>
-                  </Label>
-                  <Input
-                    id="line_name"
-                    value={formData.line_name}
-                    onChange={(e) => setFormData({ ...formData, line_name: e.target.value })}
-                    placeholder="Enter a descriptive name for this QMHQ line"
-                    className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 text-slate-200"
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="qmrl_id" className="data-label flex items-center gap-2">
-                    Parent QMRL <span className="text-red-400">*</span>
+              <FormField
+                label={
+                  <span className="flex items-center gap-2">
+                    Parent QMRL
                     {isQmrlLocked && (
                       <span className="flex items-center gap-1 text-xs text-amber-500 font-normal">
                         <Lock className="h-3 w-3" />
                         Locked
                       </span>
                     )}
-                  </Label>
-                  <Select
-                    value={formData.qmrl_id}
-                    onValueChange={(value) => setFormData({ ...formData, qmrl_id: value })}
-                    disabled={isQmrlLocked}
-                  >
-                    <SelectTrigger className={`bg-slate-800/50 border-slate-700 ${isQmrlLocked ? "opacity-70 cursor-not-allowed" : ""}`}>
-                      <SelectValue placeholder="Select parent request letter" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {qmrls.map((qmrl) => (
-                        <SelectItem key={qmrl.id} value={qmrl.id}>
-                          <div className="flex items-center gap-2">
-                            <code className="text-amber-400 text-xs">{qmrl.request_id}</code>
-                            <span className="text-slate-300 truncate max-w-[300px]">
-                              {qmrl.title}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-slate-400">
-                    {isQmrlLocked
-                      ? "This QMHQ is being created from the parent QMRL"
-                      : "This QMHQ will be linked to the selected QMRL"}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="grid gap-2">
-                    <Label htmlFor="category" className="data-label">Category</Label>
-                    <InlineCreateSelect
-                      value={formData.category_id}
-                      onValueChange={(value) => setFormData({ ...formData, category_id: value })}
-                      options={categories}
-                      onOptionsChange={setCategories}
-                      placeholder="Select category"
-                      entityType="qmhq"
-                      createType="category"
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="status" className="data-label">Initial Status</Label>
-                    <InlineCreateSelect
-                      value={formData.status_id}
-                      onValueChange={(value) => setFormData({ ...formData, status_id: value })}
-                      options={statuses}
-                      onOptionsChange={setStatuses}
-                      placeholder="Select status"
-                      entityType="qmhq"
-                      createType="status"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 2: Assignment */}
-            <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "200ms" }}>
-              <div className="section-header">
-                <Users className="h-4 w-4 text-amber-500" />
-                <h2>Assignment</h2>
-              </div>
+                  </span>
+                }
+                htmlFor="qmrl_id"
+                required
+                hint={
+                  isQmrlLocked
+                    ? "This QMHQ is being created from the parent QMRL"
+                    : "This QMHQ will be linked to the selected QMRL"
+                }
+              >
+                <Select
+                  value={formData.qmrl_id}
+                  onValueChange={(value) => setFormData({ ...formData, qmrl_id: value })}
+                  disabled={isQmrlLocked}
+                >
+                  <SelectTrigger className={`bg-slate-800/50 border-slate-700 ${isQmrlLocked ? "opacity-70 cursor-not-allowed" : ""}`}>
+                    <SelectValue placeholder="Select parent request letter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {qmrls.map((qmrl) => (
+                      <SelectItem key={qmrl.id} value={qmrl.id}>
+                        <div className="flex items-center gap-2">
+                          <code className="text-amber-400 text-xs">{qmrl.request_id}</code>
+                          <span className="text-slate-300 truncate max-w-[300px]">
+                            {qmrl.title}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
 
               <div className="grid grid-cols-2 gap-6">
-                <div ref={contactPersonRef} className="grid gap-2">
-                  <Label htmlFor="contact_person_id" className="data-label">
-                    Contact Person
-                    {(formData.route_type === 'expense' || formData.route_type === 'po') && (
-                      <span className="text-red-400"> *</span>
-                    )}
-                  </Label>
-                  <Select
-                    value={formData.contact_person_id || "none"}
-                    onValueChange={(value) => {
-                      setFormData({ ...formData, contact_person_id: value === "none" ? "" : value });
-                      if (contactPersonTouched) {
-                        // Clear error when user selects a value
-                        if (value && value !== "none") {
-                          setContactPersonError(null);
-                        } else if (formData.route_type === 'expense' || formData.route_type === 'po') {
-                          setContactPersonError("Contact person is required for financial routes");
-                        }
-                      }
-                    }}
-                    onOpenChange={(open) => {
-                      if (!open && !formData.contact_person_id) {
-                        setContactPersonTouched(true);
-                        if (formData.route_type === 'expense' || formData.route_type === 'po') {
-                          validateContactPerson();
-                        }
-                      }
-                    }}
+                <FormField label="Category" htmlFor="category">
+                  <InlineCreateSelect
+                    value={formData.category_id}
+                    onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                    options={categories}
+                    onOptionsChange={setCategories}
+                    placeholder="Select category"
+                    entityType="qmhq"
+                    createType="category"
+                  />
+                </FormField>
+
+                <FormField label="Initial Status" htmlFor="status">
+                  <InlineCreateSelect
+                    value={formData.status_id}
+                    onValueChange={(value) => setFormData({ ...formData, status_id: value })}
+                    options={statuses}
+                    onOptionsChange={setStatuses}
+                    placeholder="Select status"
+                    entityType="qmhq"
+                    createType="status"
+                  />
+                </FormField>
+              </div>
+            </FormSection>
+
+            {/* Section 2: Assignment */}
+            <FormSection
+              title="Assignment"
+              icon={<Users className="h-4 w-4 text-amber-500" />}
+              animationDelay="200ms"
+            >
+              <div className="grid grid-cols-2 gap-6">
+                <div ref={contactPersonRef}>
+                  <FormField
+                    label="Contact Person"
+                    htmlFor="contact_person_id"
+                    required={formData.route_type === 'expense' || formData.route_type === 'po'}
+                    error={contactPersonTouched && contactPersonError ? contactPersonError : undefined}
                   >
-                    <SelectTrigger className={cn(
-                      "bg-slate-800/50 border-slate-700",
-                      contactPersonTouched && contactPersonError && "border-red-400"
-                    )}>
-                      <SelectValue placeholder="Select contact person" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">
-                        <span className="text-slate-400">None selected</span>
-                      </SelectItem>
-                      {contactPersons.map((cp) => (
-                        <SelectItem key={cp.id} value={cp.id}>
-                          <div className="flex items-center gap-2">
-                            <span className="text-slate-200">{cp.name}</span>
-                            {cp.position && <span className="text-slate-400">- {cp.position}</span>}
-                          </div>
+                    <Select
+                      value={formData.contact_person_id || "none"}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, contact_person_id: value === "none" ? "" : value });
+                        if (contactPersonTouched) {
+                          // Clear error when user selects a value
+                          if (value && value !== "none") {
+                            setContactPersonError(null);
+                          } else if (formData.route_type === 'expense' || formData.route_type === 'po') {
+                            setContactPersonError("Contact person is required for financial routes");
+                          }
+                        }
+                      }}
+                      onOpenChange={(open) => {
+                        if (!open && !formData.contact_person_id) {
+                          setContactPersonTouched(true);
+                          if (formData.route_type === 'expense' || formData.route_type === 'po') {
+                            validateContactPerson();
+                          }
+                        }
+                      }}
+                    >
+                      <SelectTrigger className={cn(
+                        "bg-slate-800/50 border-slate-700",
+                        contactPersonTouched && contactPersonError && "border-red-400"
+                      )}>
+                        <SelectValue placeholder="Select contact person" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          <span className="text-slate-400">None selected</span>
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {contactPersonTouched && contactPersonError && (
-                    <p className="text-sm text-red-400 flex items-center gap-1 mt-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {contactPersonError}
-                    </p>
-                  )}
+                        {contactPersons.map((cp) => (
+                          <SelectItem key={cp.id} value={cp.id}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-200">{cp.name}</span>
+                              {cp.position && <span className="text-slate-400">- {cp.position}</span>}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormField>
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="assigned_to" className="data-label">Assigned To</Label>
+                <FormField label="Assigned To" htmlFor="assigned_to">
                   <Select
                     value={formData.assigned_to || "none"}
                     onValueChange={(value) => setFormData({ ...formData, assigned_to: value === "none" ? "" : value })}
@@ -693,52 +681,46 @@ function NewQMHQContent() {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </FormField>
               </div>
-            </div>
+            </FormSection>
 
             {/* Section 3: Description */}
-            <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "300ms" }}>
-              <div className="section-header">
-                <ClipboardList className="h-4 w-4 text-amber-500" />
-                <h2>Description & Notes</h2>
-              </div>
+            <FormSection
+              title="Description & Notes"
+              icon={<ClipboardList className="h-4 w-4 text-amber-500" />}
+              animationDelay="300ms"
+            >
+              <FormField label="Description" htmlFor="description">
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Detailed description of this line item..."
+                  className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 min-h-[100px] text-slate-200"
+                  rows={4}
+                />
+              </FormField>
 
-              <div className="space-y-5">
-                <div className="grid gap-2">
-                  <Label htmlFor="description" className="data-label">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Detailed description of this line item..."
-                    className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 min-h-[100px] text-slate-200"
-                    rows={4}
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="notes" className="data-label">Internal Notes</Label>
-                  <Textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    placeholder="Additional notes for internal reference..."
-                    className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 text-slate-200"
-                    rows={2}
-                  />
-                </div>
-              </div>
-            </div>
+              <FormField label="Internal Notes" htmlFor="notes">
+                <Textarea
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Additional notes for internal reference..."
+                  className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 text-slate-200"
+                  rows={2}
+                />
+              </FormField>
+            </FormSection>
 
             {/* Section 4: Route Selection */}
-            <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "400ms" }}>
-              <div className="section-header">
-                <AlertCircle className="h-4 w-4 text-amber-500" />
-                <h2>Select Route Type <span className="text-red-400">*</span></h2>
-              </div>
-
-              <p className="text-sm text-slate-400 mb-6">
+            <FormSection
+              title={<>Select Route Type <span className="text-red-400">*</span></>}
+              icon={<AlertCircle className="h-4 w-4 text-amber-500" />}
+              animationDelay="400ms"
+            >
+              <p className="text-sm text-slate-400 -mt-2 mb-4">
                 Choose how this QMHQ line will be processed. This determines the workflow and fields available.
               </p>
 
@@ -821,7 +803,7 @@ function NewQMHQContent() {
                   );
                 })}
               </div>
-            </div>
+            </FormSection>
 
             {/* Actions */}
             <div className="flex justify-between items-center pt-4 animate-slide-up" style={{ animationDelay: "500ms" }}>

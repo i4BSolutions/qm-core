@@ -20,7 +20,7 @@ export const formSectionVariants = cva(
 
 export interface FormSectionProps
   extends VariantProps<typeof formSectionVariants> {
-  title: string;
+  title: React.ReactNode;
   icon?: React.ReactNode;
   children: React.ReactNode;
   animationDelay?: string;

@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormSection, FormField, PageHeader } from "@/components/composite";
 import {
   Select,
   SelectContent,
@@ -433,26 +434,25 @@ export default function QMHQRouteDetailsPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <div className="flex items-center gap-3 mb-2">
+            <PageHeader
+              title={`${config.label} Details`}
+              description={
+                draftData?.line_name ? (
+                  <>
+                    Line: <span className="text-slate-200">{draftData.line_name}</span>
+                  </>
+                ) : undefined
+              }
+              badge={
                 <div className={`flex items-center gap-2 px-3 py-1 rounded border ${colors.badge}`}>
                   <Icon className={`h-4 w-4 ${colors.icon}`} />
                   <span className="text-xs font-semibold uppercase tracking-widest">
                     Step 2 of 2
                   </span>
                 </div>
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-200">
-                {config.label} Details
-              </h1>
-              <p className="mt-1 text-slate-400">
-                {draftData?.line_name && (
-                  <>
-                    Line: <span className="text-slate-200">{draftData.line_name}</span>
-                  </>
-                )}
-              </p>
-            </div>
+              }
+              className="mb-0"
+            />
           </div>
 
           {/* Route-specific Form */}
@@ -460,12 +460,11 @@ export default function QMHQRouteDetailsPage() {
             {/* Item Route Form */}
             {route === "item" && (
               <>
-                <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
-                  <div className="section-header">
-                    <Package className={`h-4 w-4 ${colors.icon}`} />
-                    <h2>Item Selection</h2>
-                  </div>
-
+                <FormSection
+                  title="Item Selection"
+                  icon={<Package className={`h-4 w-4 ${colors.icon}`} />}
+                  animationDelay="100ms"
+                >
                   <div className="space-y-4">
                     {selectedItems.map((selectedItem, index) => (
                       <div key={selectedItem.id} className="grid grid-cols-12 gap-3 p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
@@ -539,7 +538,7 @@ export default function QMHQRouteDetailsPage() {
                       Add Another Item
                     </Button>
                   </div>
-                </div>
+                </FormSection>
 
                 {/* Info Panel */}
                 <div className="command-panel animate-slide-up bg-blue-500/5 border-blue-500/20" style={{ animationDelay: "200ms" }}>
@@ -560,55 +559,50 @@ export default function QMHQRouteDetailsPage() {
             {/* Expense Route Form */}
             {route === "expense" && (
               <>
-                <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
-                  <div className="section-header">
-                    <Wallet className={`h-4 w-4 ${colors.icon}`} />
-                    <h2>Expense Details</h2>
+                <FormSection
+                  title="Expense Details"
+                  icon={<Wallet className={`h-4 w-4 ${colors.icon}`} />}
+                  animationDelay="100ms"
+                >
+                  <div className="grid grid-cols-3 gap-6">
+                    <FormField label="Amount" htmlFor="amount" required>
+                      <AmountInput
+                        id="amount"
+                        value={amount}
+                        onValueChange={setAmount}
+                        className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200"
+                      />
+                    </FormField>
+
+                    <FormField label="Currency" htmlFor="currency">
+                      <Select value={currency} onValueChange={setCurrency}>
+                        <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currencies.map((c) => (
+                            <SelectItem key={c.value} value={c.value}>
+                              {c.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormField>
+
+                    <FormField
+                      label="Exchange Rate"
+                      htmlFor="exchange_rate"
+                      required
+                      hint={`Rate to convert to EUSD (1 EUSD = X ${currency})`}
+                    >
+                      <ExchangeRateInput
+                        id="exchange_rate"
+                        value={exchangeRate}
+                        onValueChange={setExchangeRate}
+                        className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200"
+                      />
+                    </FormField>
                   </div>
-
-                  <div className="space-y-5">
-                    <div className="grid grid-cols-3 gap-6">
-                      <div className="grid gap-2">
-                        <Label htmlFor="amount" className="data-label">
-                          Amount <span className="text-red-400">*</span>
-                        </Label>
-                        <AmountInput
-                          id="amount"
-                          value={amount}
-                          onValueChange={setAmount}
-                          className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200"
-                        />
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label htmlFor="currency" className="data-label">Currency</Label>
-                        <Select value={currency} onValueChange={setCurrency}>
-                          <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {currencies.map((c) => (
-                              <SelectItem key={c.value} value={c.value}>
-                                {c.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label htmlFor="exchange_rate" className="data-label">
-                          Exchange Rate <span className="text-red-400">*</span>
-                        </Label>
-                        <ExchangeRateInput
-                          id="exchange_rate"
-                          value={exchangeRate}
-                          onValueChange={setExchangeRate}
-                          className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200"
-                        />
-                        <p className="text-xs text-slate-400">Rate to convert to EUSD (1 EUSD = X {currency})</p>
-                      </div>
-                    </div>
 
                     {/* EUSD Calculation */}
                     <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
@@ -628,8 +622,7 @@ export default function QMHQRouteDetailsPage() {
                         Formula: {formatCurrency(parseFloat(amount) || 0)} {currency} / {exchangeRate || "1"} = {formatCurrency(calculatedEusd)} EUSD
                       </p>
                     </div>
-                  </div>
-                </div>
+                </FormSection>
 
                 {/* Info Panel */}
                 <div className="command-panel animate-slide-up bg-emerald-500/5 border-emerald-500/20" style={{ animationDelay: "200ms" }}>
@@ -650,55 +643,50 @@ export default function QMHQRouteDetailsPage() {
             {/* PO Route Form */}
             {route === "po" && (
               <>
-                <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
-                  <div className="section-header">
-                    <ShoppingCart className={`h-4 w-4 ${colors.icon}`} />
-                    <h2>Budget Allocation</h2>
+                <FormSection
+                  title="Budget Allocation"
+                  icon={<ShoppingCart className={`h-4 w-4 ${colors.icon}`} />}
+                  animationDelay="100ms"
+                >
+                  <div className="grid grid-cols-3 gap-6">
+                    <FormField label="Budget Amount" htmlFor="amount" required>
+                      <AmountInput
+                        id="amount"
+                        value={amount}
+                        onValueChange={setAmount}
+                        className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200"
+                      />
+                    </FormField>
+
+                    <FormField label="Currency" htmlFor="currency">
+                      <Select value={currency} onValueChange={setCurrency}>
+                        <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currencies.map((c) => (
+                            <SelectItem key={c.value} value={c.value}>
+                              {c.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormField>
+
+                    <FormField
+                      label="Exchange Rate"
+                      htmlFor="exchange_rate"
+                      required
+                      hint="Rate to convert to EUSD"
+                    >
+                      <ExchangeRateInput
+                        id="exchange_rate"
+                        value={exchangeRate}
+                        onValueChange={setExchangeRate}
+                        className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200"
+                      />
+                    </FormField>
                   </div>
-
-                  <div className="space-y-5">
-                    <div className="grid grid-cols-3 gap-6">
-                      <div className="grid gap-2">
-                        <Label htmlFor="amount" className="data-label">
-                          Budget Amount <span className="text-red-400">*</span>
-                        </Label>
-                        <AmountInput
-                          id="amount"
-                          value={amount}
-                          onValueChange={setAmount}
-                          className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200"
-                        />
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label htmlFor="currency" className="data-label">Currency</Label>
-                        <Select value={currency} onValueChange={setCurrency}>
-                          <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {currencies.map((c) => (
-                              <SelectItem key={c.value} value={c.value}>
-                                {c.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label htmlFor="exchange_rate" className="data-label">
-                          Exchange Rate <span className="text-red-400">*</span>
-                        </Label>
-                        <ExchangeRateInput
-                          id="exchange_rate"
-                          value={exchangeRate}
-                          onValueChange={setExchangeRate}
-                          className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200"
-                        />
-                        <p className="text-xs text-slate-400">Rate to convert to EUSD</p>
-                      </div>
-                    </div>
 
                     {/* EUSD Calculation */}
                     <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
@@ -731,8 +719,7 @@ export default function QMHQRouteDetailsPage() {
                         <p className="text-lg font-mono text-purple-400">0.00 EUSD</p>
                       </div>
                     </div>
-                  </div>
-                </div>
+                </FormSection>
 
                 {/* Info Panel */}
                 <div className="command-panel animate-slide-up bg-purple-500/5 border-purple-500/20" style={{ animationDelay: "200ms" }}>
