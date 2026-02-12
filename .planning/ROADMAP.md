@@ -125,9 +125,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 42-01-PLAN.md -- Database guard trigger for PO cancellation + unlockClosedPO Server Action + canUnlockPO utility
-- [ ] 42-02-PLAN.md -- UI guards (disabled tooltips), read-only terminal states, admin unlock button, stepped progress bars, simplified toasts
-- [ ] 42-03-PLAN.md -- PO Matching tab component with mismatch highlighting and voided invoice toggle
+- [x] 42-01-PLAN.md -- Database guard trigger for PO cancellation + unlockClosedPO Server Action + canUnlockPO utility
+- [x] 42-02-PLAN.md -- UI guards (disabled tooltips), read-only terminal states, admin unlock button, stepped progress bars, simplified toasts
+- [x] 42-03-PLAN.md -- PO Matching tab component with mismatch highlighting and voided invoice toggle
 
 #### Phase 43: PDF Export Infrastructure
 
@@ -163,8 +163,8 @@ Plans:
 | 32-35. Linking → Execution UI | v1.7 | 7/7 | ✓ Complete | 2026-02-11 |
 | 36-40. UI Composites → RBAC → Flow Tracking | v1.8 | 15/15 | ✓ Complete | 2026-02-12 |
 | 41. PO Status Engine Enhancement | v1.9 | 2/2 | ✓ Complete | 2026-02-12 |
-| 42. Cancellation Guards & Lock Mechanism | v1.9 | 0/3 | Not started | - |
+| 42. Cancellation Guards & Lock Mechanism | v1.9 | 3/3 | ✓ Complete | 2026-02-12 |
 | 43. PDF Export Infrastructure | v1.9 | 0/? | Not started | - |
 
 ---
-*Last updated: 2026-02-12 after Phase 42 planning complete*
+*Last updated: 2026-02-12 after Phase 42 execution complete*
