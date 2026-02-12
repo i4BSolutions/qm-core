@@ -48,6 +48,7 @@ import { voidInvoice } from "@/lib/actions/invoice-actions";
 import { useToast } from "@/components/ui/use-toast";
 import { CommentsSection } from "@/components/comments";
 import { DetailPageLayout } from "@/components/composite";
+import { InvoicePDFButton } from "@/components/invoice/invoice-pdf-button";
 import type {
   Invoice,
   InvoiceLineItem,
@@ -367,6 +368,46 @@ export default function InvoiceDetailPage() {
       }
       actions={
         <>
+          <InvoicePDFButton
+            invoice={{
+              invoice_number: invoice.invoice_number || "",
+              invoice_date: invoice.invoice_date,
+              currency: invoice.currency || "MMK",
+              exchange_rate: invoice.exchange_rate ?? 1,
+              total_amount: invoice.total_amount ?? 0,
+              total_amount_eusd: invoice.total_amount_eusd ?? 0,
+              status: (invoice.status || "draft"),
+              is_voided: invoice.is_voided ?? false,
+              void_reason: invoice.void_reason,
+              notes: invoice.notes,
+            }}
+            lineItems={lineItems.map(li => {
+              const lineTotal = (li.quantity || 0) * (li.unit_price || 0);
+              const lineTotalEusd = lineTotal / (invoice.exchange_rate ?? 1);
+              return {
+                item_name: li.item?.name || "Unknown Item",
+                item_sku: li.item?.sku || undefined,
+                quantity: li.quantity || 0,
+                unit_price: li.unit_price || 0,
+                line_total: lineTotal,
+                line_total_eusd: lineTotalEusd,
+                received_quantity: li.received_quantity ?? 0,
+                po_unit_price: li.po_unit_price ?? undefined,
+              };
+            })}
+            purchaseOrder={invoice.purchase_order ? {
+              po_number: invoice.purchase_order.po_number || "",
+              total_amount: invoice.purchase_order.total_amount ?? 0,
+              total_amount_eusd: invoice.purchase_order.total_amount_eusd ?? 0,
+              currency: invoice.purchase_order.currency || "MMK",
+            } : null}
+            supplier={invoice.purchase_order?.supplier ? {
+              company_name: invoice.purchase_order.supplier.company_name || undefined,
+              name: invoice.purchase_order.supplier.name || "",
+              email: invoice.purchase_order.supplier.email || undefined,
+              phone: invoice.purchase_order.supplier.phone || undefined,
+            } : null}
+          />
           {showVoidButton && (
             <TooltipProvider>
               <Tooltip>
