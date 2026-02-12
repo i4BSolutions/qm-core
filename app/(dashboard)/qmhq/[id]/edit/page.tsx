@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/components/providers/auth-provider";
 import { InlineCreateSelect } from "@/components/forms/inline-create-select";
+import { FormSection, FormField, PageHeader } from "@/components/composite";
 import type {
   QMHQ,
   StatusConfig,
@@ -231,117 +232,113 @@ export default function EditQMHQPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href={`/qmhq/${qmhqId}`}>
-            <Button variant="ghost" size="icon" className="hover:bg-amber-500/10 hover:text-amber-500">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-200">
-                Edit QMHQ
-              </h1>
-              <div className={`flex items-center gap-2 px-3 py-1 rounded border ${routeColors?.bgColor}`}>
-                <RouteIcon className={`h-4 w-4 ${routeColors?.color}`} />
-                <span className={`text-xs font-semibold uppercase tracking-widest ${routeColors?.color}`}>
-                  {routeColors?.label}
-                </span>
-              </div>
+      <div className="flex items-center gap-4">
+        <Link href={`/qmhq/${qmhqId}`}>
+          <Button variant="ghost" size="icon" className="hover:bg-amber-500/10 hover:text-amber-500">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <PageHeader
+          title="Edit QMHQ"
+          description={<code className="text-amber-400">{qmhq.request_id}</code>}
+          badge={
+            <div className={`flex items-center gap-2 px-3 py-1 rounded border ${routeColors?.bgColor}`}>
+              <RouteIcon className={`h-4 w-4 ${routeColors?.color}`} />
+              <span className={`text-xs font-semibold uppercase tracking-widest ${routeColors?.color}`}>
+                {routeColors?.label}
+              </span>
             </div>
-            <p className="text-sm text-slate-400">
-              <code className="text-amber-400">{qmhq.request_id}</code>
-            </p>
-          </div>
-        </div>
+          }
+        />
       </div>
 
       {/* Basic Information */}
-      <div className="command-panel corner-accents">
-        <div className="section-header">
-          <FileText className="h-4 w-4 text-amber-500" />
-          <h2>Basic Information</h2>
-        </div>
-
-        <div className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="line_name" className="text-slate-300">
-              Line Name <span className="text-red-400">*</span>
-            </Label>
-            <Input
-              id="line_name"
-              value={formData.line_name}
-              onChange={(e) => handleInputChange("line_name", e.target.value)}
-              placeholder="Enter line name"
-              className="bg-slate-800/50 border-slate-700 text-slate-200"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label className="text-slate-300">Category</Label>
-              <InlineCreateSelect
-                value={formData.category_id}
-                onValueChange={(v) => handleInputChange("category_id", v)}
-                options={categories}
-                onOptionsChange={setCategories}
-                placeholder="Select category"
-                entityType="qmhq"
-                createType="category"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label className="text-slate-300">Status</Label>
-              <InlineCreateSelect
-                value={formData.status_id}
-                onValueChange={(v) => handleInputChange("status_id", v)}
-                options={statuses}
-                onOptionsChange={setStatuses}
-                placeholder="Select status"
-                entityType="qmhq"
-                createType="status"
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="description" className="text-slate-300">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleInputChange("description", e.target.value)}
-              placeholder="Enter description"
-              className="bg-slate-800/50 border-slate-700 text-slate-200"
-              rows={3}
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="notes" className="text-slate-300">Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => handleInputChange("notes", e.target.value)}
-              placeholder="Additional notes"
-              className="bg-slate-800/50 border-slate-700 text-slate-200"
-              rows={2}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Assignment */}
-      <div className="command-panel corner-accents">
-        <div className="section-header">
-          <Users className="h-4 w-4 text-amber-500" />
-          <h2>Assignment</h2>
-        </div>
+      <FormSection
+        title="Basic Information"
+        icon={<FileText className="h-5 w-5 text-amber-400" />}
+      >
+        <FormField
+          label="Line Name"
+          htmlFor="line_name"
+          required
+        >
+          <Input
+            id="line_name"
+            value={formData.line_name}
+            onChange={(e) => handleInputChange("line_name", e.target.value)}
+            placeholder="Enter line name"
+            className="bg-slate-800/50 border-slate-700 text-slate-200"
+          />
+        </FormField>
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="grid gap-2">
-            <Label className="text-slate-300">Contact Person</Label>
+          <FormField
+            label="Category"
+          >
+            <InlineCreateSelect
+              value={formData.category_id}
+              onValueChange={(v) => handleInputChange("category_id", v)}
+              options={categories}
+              onOptionsChange={setCategories}
+              placeholder="Select category"
+              entityType="qmhq"
+              createType="category"
+            />
+          </FormField>
+
+          <FormField
+            label="Status"
+          >
+            <InlineCreateSelect
+              value={formData.status_id}
+              onValueChange={(v) => handleInputChange("status_id", v)}
+              options={statuses}
+              onOptionsChange={setStatuses}
+              placeholder="Select status"
+              entityType="qmhq"
+              createType="status"
+            />
+          </FormField>
+        </div>
+
+        <FormField
+          label="Description"
+          htmlFor="description"
+        >
+          <Textarea
+            id="description"
+            value={formData.description}
+            onChange={(e) => handleInputChange("description", e.target.value)}
+            placeholder="Enter description"
+            className="bg-slate-800/50 border-slate-700 text-slate-200"
+            rows={3}
+          />
+        </FormField>
+
+        <FormField
+          label="Notes"
+          htmlFor="notes"
+        >
+          <Textarea
+            id="notes"
+            value={formData.notes}
+            onChange={(e) => handleInputChange("notes", e.target.value)}
+            placeholder="Additional notes"
+            className="bg-slate-800/50 border-slate-700 text-slate-200"
+            rows={2}
+          />
+        </FormField>
+      </FormSection>
+
+      {/* Assignment */}
+      <FormSection
+        title="Assignment"
+        icon={<Users className="h-5 w-5 text-amber-400" />}
+      >
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            label="Contact Person"
+          >
             <Select
               value={formData.contact_person_id || "none"}
               onValueChange={(v) => handleInputChange("contact_person_id", v === "none" ? "" : v)}
@@ -358,10 +355,11 @@ export default function EditQMHQPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </FormField>
 
-          <div className="grid gap-2">
-            <Label className="text-slate-300">Assigned To</Label>
+          <FormField
+            label="Assigned To"
+          >
             <Select
               value={formData.assigned_to || "none"}
               onValueChange={(v) => handleInputChange("assigned_to", v === "none" ? "" : v)}
@@ -378,9 +376,9 @@ export default function EditQMHQPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </FormField>
         </div>
-      </div>
+      </FormSection>
 
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-4">
