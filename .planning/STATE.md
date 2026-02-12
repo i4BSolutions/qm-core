@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 ## Current Position
 
 Phase: 40 of 40 (UI Consistency Rollout) — IN PROGRESS
-Plan: 2 of 5 (complete)
-Status: Plan 02 complete
-Last activity: 2026-02-12 — Migrated 4 card-based list pages to composites
+Plan: 2 of 6 (complete: 01, 02)
+Status: Plans 01 and 02 complete
+Last activity: 2026-02-12 — Plan 01: Migrated 8 admin/list pages to PageHeader; Plan 02: Migrated 4 card-based pages to composites
 
 Progress: [█████████████████████░░░░░░░░░░] 39/40 phases complete (97.5%)
 
@@ -25,7 +25,7 @@ Progress: [█████████████████████░░
 - Total execution time: 7 milestones shipped 2026-01-27 to 2026-02-11 (15 days)
 
 **Recent Milestones:**
-- v1.8 (in progress): Phase 36 complete - Plan 01 (89s), Plan 02 (210s / 3.5min), Plan 03 (94s); Phase 37 complete - Plan 01 (59s), Plan 02 (163s / 2.7min); Phase 38 complete - Plan 01 (162s / 2.7min), Plan 02 (305s / 5.1min); Phase 39 complete - Plan 01 (187s / 3.1min), Plan 02 (278s / 4.6min); Phase 40 in progress - Plan 01 pending, Plan 02 (577s / 9.6min)
+- v1.8 (in progress): Phase 36 complete - Plan 01 (89s), Plan 02 (210s / 3.5min), Plan 03 (94s); Phase 37 complete - Plan 01 (59s), Plan 02 (163s / 2.7min); Phase 38 complete - Plan 01 (162s / 2.7min), Plan 02 (305s / 5.1min); Phase 39 complete - Plan 01 (187s / 3.1min), Plan 02 (278s / 4.6min); Phase 40 in progress - Plan 01 (900s / 15min), Plan 02 (577s / 9.6min)
 - v1.7: 4 phases, 7 plans, 1 day
 - v1.6: 5 phases, 12 plans, 2 days
 - v1.5: 4 phases, 9 plans, 2 days
@@ -73,6 +73,8 @@ Recent decisions affecting v1.8 work:
 - [Phase 39-02]: Entity-specific color palette with 9 distinct colors for visual hierarchy (amber/blue/emerald/purple/violet/cyan/teal/lime/orange)
 - [Phase 39-02]: 8-unit indent (ml-8) with 2px solid connector lines for nested timeline levels
 - [Phase 39-02]: Natural page scroll without virtualization (admin-only feature with rare usage, typical chains <200 nodes)
+- [Phase 40-01]: Surgical JSX replacement pattern: import + replace header div only, preserve all business logic
+- [Phase 40-01]: Conditional action rendering preserved: canCreate && <Button/> pattern maintained in actions slot (not wrapping PageHeader)
 - [Phase 40-02]: CardViewGrid groupBy function handles status group mapping (voided items to completed column)
 - [Phase 40-02]: View toggle buttons placed in PageHeader actions slot alongside primary CTA
 - [Phase 40-02]: FilterBar accepts inline Select components for custom filter UI flexibility
@@ -105,10 +107,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-12 (phase 40 plan 02 execution)
-Stopped at: Phase 40 Plan 02 complete — 4 card-based list pages migrated to composites
+Last session: 2026-02-12 (phase 40 plan 01 execution)
+Stopped at: Phase 40 Plan 01 complete — 8 admin/list pages migrated to PageHeader composite
 Resume file: None (ready to continue Phase 40 Plan 03+)
 
 ---
 *State initialized: 2026-01-27*
-*Last updated: 2026-02-12 after Phase 40 Plan 02 execution*
+*Last updated: 2026-02-12 after Phase 40 Plan 01 execution*
