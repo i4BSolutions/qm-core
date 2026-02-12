@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RequestCard } from "@/components/stock-out-requests/request-card";
 import { usePermissions } from "@/lib/hooks/use-permissions";
+import { PageHeader } from "@/components/composite";
 import type { StockOutReason } from "@/types/database";
 
 interface StockOutRequest {
@@ -209,25 +210,20 @@ export default function StockOutRequestsPage() {
   return (
     <div className="p-8 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Stock-Out Requests
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Request items to be issued from warehouse
-          </p>
-        </div>
-
-        {can("create", "stock_out_requests") && (
-          <Link href="/inventory/stock-out-requests/new">
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              New Request
-            </Button>
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title="Stock-Out Requests"
+        description="Request items to be issued from warehouse"
+        actions={
+          can("create", "stock_out_requests") && (
+            <Link href="/inventory/stock-out-requests/new">
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                New Request
+              </Button>
+            </Link>
+          )
+        }
+      />
 
       {/* Status Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto">

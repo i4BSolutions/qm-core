@@ -10,6 +10,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatAmount } from "@/lib/utils";
+import { PageHeader } from "@/components/composite";
 import {
   getInventoryKPIs,
   getInventoryTransactions,
@@ -255,30 +256,26 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-display-sm font-bold tracking-tight text-foreground">
-            Inventory Dashboard
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            Stock transaction history with KPIs
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/inventory/stock-in">
-            <Button variant="outline">
-              <ArrowDownToLine className="h-4 w-4" />
-              Stock In
-            </Button>
-          </Link>
-          <Link href="/inventory/stock-out">
-            <Button variant="outline">
-              <ArrowUpFromLine className="h-4 w-4" />
-              Stock Out
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Inventory Dashboard"
+        description="Stock transaction history with KPIs"
+        actions={
+          <>
+            <Link href="/inventory/stock-in">
+              <Button variant="outline">
+                <ArrowDownToLine className="h-4 w-4" />
+                Stock In
+              </Button>
+            </Link>
+            <Link href="/inventory/stock-out">
+              <Button variant="outline">
+                <ArrowUpFromLine className="h-4 w-4" />
+                Stock Out
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       {/* Filter Bar */}
       <div className="flex flex-col gap-3">
