@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
+import { FormSection, FormField, PageHeader } from "@/components/composite";
 import {
   Select,
   SelectContent,
@@ -285,28 +286,25 @@ function POCreateContent() {
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
 
       {/* Header */}
-      <div className="relative flex items-start justify-between animate-fade-in">
-        <div className="flex items-start gap-4">
-          <Link href="/po">
-            <Button variant="ghost" size="icon" className="mt-1 hover:bg-amber-500/10 hover:text-amber-500">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-purple-500/10 border border-purple-500/20 mb-2 w-fit">
+      <div className="relative flex items-start gap-4 animate-fade-in">
+        <Link href="/po">
+          <Button variant="ghost" size="icon" className="mt-1 hover:bg-amber-500/10 hover:text-amber-500">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <PageHeader
+          title="Create Purchase Order"
+          description="Create a new PO from a QMHQ with available balance"
+          badge={
+            <div className="flex items-center gap-2 px-3 py-1 rounded bg-purple-500/10 border border-purple-500/20">
               <ShoppingCart className="h-4 w-4 text-purple-500" />
               <span className="text-xs font-semibold uppercase tracking-widest text-purple-500">
                 New Purchase Order
               </span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-200">
-              Create Purchase Order
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Create a new PO from a QMHQ with available balance
-            </p>
-          </div>
-        </div>
+          }
+          className="mb-0"
+        />
       </div>
 
       {/* Error Display */}
@@ -324,49 +322,47 @@ function POCreateContent() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* QMHQ Selection */}
-        <div className="command-panel corner-accents animate-slide-up">
-          <div className="section-header">
-            <DollarSign className="h-4 w-4 text-amber-500" />
-            <h2>QMHQ Selection</h2>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Select QMHQ (PO Route with Balance) *
-              </label>
-              <Select
-                value={selectedQmhqId}
-                onValueChange={setSelectedQmhqId}
-                disabled={!!preselectedQmhqId}
-              >
-                <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                  <SelectValue placeholder="Select QMHQ..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {qmhqs.length === 0 ? (
-                    <div className="p-4 text-center text-slate-400 text-sm">
-                      No QMHQ with available balance found
-                    </div>
-                  ) : (
-                    qmhqs.map((qmhq) => (
-                      <SelectItem key={qmhq.id} value={qmhq.id}>
-                        <div className="flex items-center justify-between gap-4">
-                          <span>
-                            <code className="text-amber-400">{qmhq.request_id}</code>
-                            {" - "}
-                            {qmhq.line_name}
-                          </span>
-                          <span className="text-emerald-400 font-mono text-sm">
-                            {formatCurrency(qmhq.balance_in_hand ?? 0)} EUSD
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+        <FormSection
+          title="QMHQ Selection"
+          icon={<DollarSign className="h-4 w-4 text-amber-500" />}
+        >
+          <FormField
+            label="Select QMHQ (PO Route with Balance)"
+            htmlFor="qmhq_id"
+            required
+          >
+            <Select
+              value={selectedQmhqId}
+              onValueChange={setSelectedQmhqId}
+              disabled={!!preselectedQmhqId}
+            >
+              <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                <SelectValue placeholder="Select QMHQ..." />
+              </SelectTrigger>
+              <SelectContent>
+                {qmhqs.length === 0 ? (
+                  <div className="p-4 text-center text-slate-400 text-sm">
+                    No QMHQ with available balance found
+                  </div>
+                ) : (
+                  qmhqs.map((qmhq) => (
+                    <SelectItem key={qmhq.id} value={qmhq.id}>
+                      <div className="flex items-center justify-between gap-4">
+                        <span>
+                          <code className="text-amber-400">{qmhq.request_id}</code>
+                          {" - "}
+                          {qmhq.line_name}
+                        </span>
+                        <span className="text-emerald-400 font-mono text-sm">
+                          {formatCurrency(qmhq.balance_in_hand ?? 0)} EUSD
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </FormField>
 
             {selectedQmhq && (
               <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700">
@@ -390,22 +386,16 @@ function POCreateContent() {
                 </div>
               </div>
             )}
-          </div>
-        </div>
+        </FormSection>
 
         {/* PO Header */}
-        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
-          <div className="section-header">
-            <Building2 className="h-4 w-4 text-amber-500" />
-            <h2>PO Header</h2>
-          </div>
-
+        <FormSection
+          title="PO Header"
+          icon={<Building2 className="h-4 w-4 text-amber-500" />}
+          animationDelay="100ms"
+        >
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Supplier */}
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Supplier *
-              </label>
+            <FormField label="Supplier" htmlFor="supplier" required>
               <Select value={supplierId} onValueChange={setSupplierId}>
                 <SelectTrigger className="bg-slate-800/50 border-slate-700">
                   <SelectValue placeholder="Select supplier..." />
@@ -418,36 +408,24 @@ function POCreateContent() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
 
-            {/* PO Date */}
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                PO Date *
-              </label>
+            <FormField label="PO Date" htmlFor="po_date" required>
               <DatePicker
                 date={poDate}
                 onDateChange={(date) => date && setPoDate(date)}
               />
-            </div>
+            </FormField>
 
-            {/* Expected Delivery Date */}
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Expected Delivery Date
-              </label>
+            <FormField label="Expected Delivery Date" htmlFor="expected_delivery_date">
               <DatePicker
                 date={expectedDeliveryDate}
                 onDateChange={setExpectedDeliveryDate}
                 minDate={poDate}
               />
-            </div>
+            </FormField>
 
-            {/* Currency */}
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Currency <span className="text-red-400">*</span>
-              </label>
+            <FormField label="Currency" htmlFor="currency" required>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger className="bg-slate-800/50 border-slate-700">
                   <SelectValue placeholder="Select currency..." />
@@ -459,27 +437,19 @@ function POCreateContent() {
                   <SelectItem value="CNY">CNY</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
 
-            {/* Exchange Rate */}
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Exchange Rate (to EUSD)
-              </label>
+            <FormField label="Exchange Rate (to EUSD)" htmlFor="exchange_rate">
               <ExchangeRateInput
                 value={exchangeRate}
                 onValueChange={setExchangeRate}
                 className="bg-slate-800/50 border-slate-700"
               />
-            </div>
+            </FormField>
           </div>
 
-          {/* Signer Fields */}
-          <div className="grid gap-4 md:grid-cols-3 mt-4">
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Contact Person
-              </label>
+          <div className="grid gap-4 md:grid-cols-3">
+            <FormField label="Contact Person" htmlFor="contact_person">
               <Select
                 value={contactPersonName}
                 onValueChange={setContactPersonName}
@@ -496,11 +466,9 @@ function POCreateContent() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Sign Person
-              </label>
+            </FormField>
+
+            <FormField label="Sign Person" htmlFor="sign_person">
               <Select
                 value={signPersonName}
                 onValueChange={setSignPersonName}
@@ -517,11 +485,9 @@ function POCreateContent() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Authorized Signer
-              </label>
+            </FormField>
+
+            <FormField label="Authorized Signer" htmlFor="authorized_signer">
               <Select
                 value={authorizedSignerName}
                 onValueChange={setAuthorizedSignerName}
@@ -538,17 +504,16 @@ function POCreateContent() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
           </div>
-        </div>
+        </FormSection>
 
         {/* Line Items */}
-        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "200ms" }}>
-          <div className="section-header">
-            <ShoppingCart className="h-4 w-4 text-amber-500" />
-            <h2>Line Items</h2>
-          </div>
-
+        <FormSection
+          title="Line Items"
+          icon={<ShoppingCart className="h-4 w-4 text-amber-500" />}
+          animationDelay="200ms"
+        >
           <EditableLineItemsTable
             items={lineItems}
             availableItems={items}
@@ -558,7 +523,7 @@ function POCreateContent() {
             onItemCreated={handleItemCreated}
             currency={currency}
           />
-        </div>
+        </FormSection>
 
         {/* Balance Validation */}
         {selectedQmhq && (
@@ -572,19 +537,21 @@ function POCreateContent() {
         )}
 
         {/* Notes */}
-        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "400ms" }}>
-          <div className="section-header">
-            <CalendarDays className="h-4 w-4 text-amber-500" />
-            <h2>Notes</h2>
-          </div>
-
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Add any notes for this PO..."
-            className="bg-slate-800/50 border-slate-700 min-h-[100px]"
-          />
-        </div>
+        <FormSection
+          title="Notes"
+          icon={<CalendarDays className="h-4 w-4 text-amber-500" />}
+          animationDelay="400ms"
+        >
+          <FormField label="Notes" htmlFor="notes">
+            <Textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add any notes for this PO..."
+              className="bg-slate-800/50 border-slate-700 min-h-[100px]"
+            />
+          </FormField>
+        </FormSection>
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-4 animate-slide-up" style={{ animationDelay: "500ms" }}>
