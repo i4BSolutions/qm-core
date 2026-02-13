@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
 import { AmountInput } from "@/components/ui/amount-input";
 import { calculateAvailableQuantity } from "@/lib/utils/invoice-status";
+import { MiniProgressBar } from "@/components/po/po-progress-bar";
 import type { InvoiceLineItem, POLineItem, Item } from "@/types/database";
 
 // Type for PO line items with available quantity calculation
@@ -226,12 +227,14 @@ interface ReadonlyInvoiceLineItemsTableProps {
   })[];
   currency?: string;
   showPOPrice?: boolean;
+  showProgress?: boolean;
 }
 
 export function ReadonlyInvoiceLineItemsTable({
   items,
   currency = "MMK",
   showPOPrice = true,
+  showProgress = true,
 }: ReadonlyInvoiceLineItemsTableProps) {
   const subtotal = items.reduce(
     (sum, item) => sum + (item.total_price ?? 0),
@@ -249,6 +252,11 @@ export function ReadonlyInvoiceLineItemsTable({
             <th className="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-24">
               Qty
             </th>
+            {showProgress && (
+              <th className="text-center py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-40">
+                Received
+              </th>
+            )}
             {showPOPrice && (
               <th className="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-32">
                 PO Price
@@ -263,61 +271,80 @@ export function ReadonlyInvoiceLineItemsTable({
           </tr>
         </thead>
         <tbody>
-          {items.map((item) => (
-            <tr
-              key={item.id}
-              className="border-b border-slate-700/50 hover:bg-slate-800/30"
-            >
-              <td className="py-3 px-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded bg-slate-700/50 flex items-center justify-center">
-                    <Package className="h-4 w-4 text-slate-400" />
+          {items.map((item) => {
+            const qty = item.quantity || 0;
+            const received = item.received_quantity || 0;
+            const receivedPercent = qty > 0 ? Math.min(100, Math.round((received / qty) * 100)) : 0;
+
+            return (
+              <tr
+                key={item.id}
+                className="border-b border-slate-700/50 hover:bg-slate-800/30"
+              >
+                <td className="py-3 px-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded bg-slate-700/50 flex items-center justify-center">
+                      <Package className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <div>
+                      <p className="text-slate-200 font-medium">
+                        {item.item_name || item.item?.name || "Unknown Item"}
+                      </p>
+                      {(item.item_sku || item.item?.sku) && (
+                        <code className="text-xs text-amber-400">
+                          {item.item_sku || item.item?.sku}
+                        </code>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-slate-200 font-medium">
-                      {item.item_name || item.item?.name || "Unknown Item"}
-                    </p>
-                    {(item.item_sku || item.item?.sku) && (
-                      <code className="text-xs text-amber-400">
-                        {item.item_sku || item.item?.sku}
-                      </code>
-                    )}
-                  </div>
-                </div>
-              </td>
-              <td className="py-3 px-3 text-right">
-                <span className="font-mono text-slate-200">{item.quantity}</span>
-                {item.item_unit && (
-                  <span className="text-xs text-slate-400 ml-1">
-                    {item.item_unit}
-                  </span>
-                )}
-              </td>
-              {showPOPrice && (
+                </td>
                 <td className="py-3 px-3 text-right">
-                  <span className="font-mono text-slate-500">
-                    {item.po_unit_price != null
-                      ? formatCurrency(item.po_unit_price)
-                      : "—"}
+                  <span className="font-mono text-slate-200">{qty}</span>
+                  {item.item_unit && (
+                    <span className="text-xs text-slate-400 ml-1">
+                      {item.item_unit}
+                    </span>
+                  )}
+                </td>
+                {showProgress && (
+                  <td className="py-3 px-3">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">{received}/{qty}</span>
+                        <span className={`font-mono ${receivedPercent === 100 ? "text-emerald-400" : "text-slate-400"}`}>
+                          {receivedPercent}%
+                        </span>
+                      </div>
+                      <MiniProgressBar percent={receivedPercent} color="emerald" />
+                    </div>
+                  </td>
+                )}
+                {showPOPrice && (
+                  <td className="py-3 px-3 text-right">
+                    <span className="font-mono text-slate-500">
+                      {item.po_unit_price != null
+                        ? formatCurrency(item.po_unit_price)
+                        : "—"}
+                    </span>
+                  </td>
+                )}
+                <td className="py-3 px-3 text-right">
+                  <span className="font-mono text-slate-300">
+                    {formatCurrency(item.unit_price)}
                   </span>
                 </td>
-              )}
-              <td className="py-3 px-3 text-right">
-                <span className="font-mono text-slate-300">
-                  {formatCurrency(item.unit_price)}
-                </span>
-              </td>
-              <td className="py-3 px-3 text-right">
-                <span className="font-mono text-emerald-400">
-                  {formatCurrency(item.total_price ?? 0)}
-                </span>
-              </td>
-            </tr>
-          ))}
+                <td className="py-3 px-3 text-right">
+                  <span className="font-mono text-emerald-400">
+                    {formatCurrency(item.total_price ?? 0)}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
         <tfoot>
           <tr className="border-t border-slate-600">
-            <td colSpan={showPOPrice ? 4 : 3} className="py-3 px-3 text-right">
+            <td colSpan={showPOPrice ? (showProgress ? 5 : 4) : (showProgress ? 4 : 3)} className="py-3 px-3 text-right">
               <span className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
                 Total ({currency})
               </span>

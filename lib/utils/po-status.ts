@@ -193,13 +193,32 @@ export function canUnlockPO(status: POStatusEnum): boolean {
 
 /**
  * Check if invoices can be created for this PO
+ * @param status - Current PO status
+ * @param totalQty - Total ordered quantity (optional, for 100% check)
+ * @param invoicedQty - Total invoiced quantity (optional, for 100% check)
  */
-export function canCreateInvoice(status: POStatusEnum): boolean {
-  return (
-    status !== "closed" &&
-    status !== "cancelled" &&
-    status !== "awaiting_delivery"
-  );
+export function canCreateInvoice(
+  status: POStatusEnum,
+  totalQty?: number,
+  invoicedQty?: number
+): boolean {
+  // Status-based checks
+  if (
+    status === "closed" ||
+    status === "cancelled" ||
+    status === "awaiting_delivery"
+  ) {
+    return false;
+  }
+
+  // If quantities provided, check if 100% invoiced
+  if (totalQty !== undefined && invoicedQty !== undefined && totalQty > 0) {
+    if (invoicedQty >= totalQty) {
+      return false; // 100% invoiced, cannot create more invoices
+    }
+  }
+
+  return true;
 }
 
 /**

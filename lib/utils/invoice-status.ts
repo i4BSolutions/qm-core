@@ -149,3 +149,20 @@ export function formatExchangeRate(rate: number): string {
     maximumFractionDigits: 4,
   });
 }
+
+/**
+ * Check if all invoice line items are fully received
+ * @param lineItems - Array of invoice line items with received_quantity
+ * @returns true if all items are 100% received, false otherwise
+ */
+export function areAllItemsReceived(
+  lineItems: Array<{ quantity: number | null; received_quantity: number | null }>
+): boolean {
+  if (lineItems.length === 0) return false;
+
+  return lineItems.every((item) => {
+    const qty = item.quantity || 0;
+    const received = item.received_quantity || 0;
+    return qty > 0 && received >= qty;
+  });
+}

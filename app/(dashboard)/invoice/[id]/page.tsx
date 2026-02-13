@@ -40,6 +40,7 @@ import { CurrencyDisplay } from "@/components/ui/currency-display";
 import {
   canVoidInvoice,
   formatExchangeRate,
+  areAllItemsReceived,
 } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePermissions } from "@/lib/hooks/use-permissions";
@@ -276,14 +277,23 @@ export default function InvoiceDetailPage() {
   // Guard pre-check logic
   const isVoided = invoice.is_voided ?? false;
   const hasStockIn = stockReceipts.length > 0;
+  const allItemsReceived = areAllItemsReceived(lineItems);
 
   // Void button: visible when invoice is not voided (shows disabled state with tooltip)
   const showVoidButton = !isVoided;
   const canVoidNow = !hasStockIn && !isVoided && canVoidInvoice(invoice.status as InvoiceStatus, isVoided);
 
+  // Receive Stock button: disabled when all items are 100% received
+  const canReceiveStock = !isVoided && !allItemsReceived;
+
   // Tooltip reason for disabled void
   const voidDisabledReason = hasStockIn
     ? "Cannot void -- goods received"
+    : "";
+
+  // Tooltip reason for disabled receive stock
+  const receiveStockDisabledReason = allItemsReceived
+    ? "All items have been received"
     : "";
 
   return (
@@ -782,17 +792,39 @@ export default function InvoiceDetailPage() {
                 <Package className="h-4 w-4 text-amber-500" />
                 <h2>Stock Receipts ({stockReceipts.length})</h2>
               </div>
-              {!invoice.is_voided && (
-                <Link href={`/inventory/stock-in?invoice=${invoiceId}`}>
-                  <Button
-                    variant="outline"
-                    className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
-                  >
-                    <ArrowDownToLine className="mr-2 h-4 w-4" />
-                    Receive Stock
-                  </Button>
-                </Link>
-              )}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      {canReceiveStock ? (
+                        <Link href={`/inventory/stock-in?invoice=${invoiceId}`}>
+                          <Button
+                            variant="outline"
+                            className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                          >
+                            <ArrowDownToLine className="mr-2 h-4 w-4" />
+                            Receive Stock
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          disabled
+                          className="border-emerald-500/30 text-emerald-400/50"
+                        >
+                          <ArrowDownToLine className="mr-2 h-4 w-4" />
+                          Receive Stock
+                        </Button>
+                      )}
+                    </div>
+                  </TooltipTrigger>
+                  {!canReceiveStock && receiveStockDisabledReason && (
+                    <TooltipContent>
+                      <p className="text-xs">{receiveStockDisabledReason}</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             {stockReceipts.length === 0 ? (

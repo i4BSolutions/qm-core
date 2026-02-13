@@ -702,7 +702,7 @@ export default function PODetailPage() {
             <div className="section-header">
               <FileText className="h-4 w-4 text-amber-500" />
               <h2>Invoices</h2>
-              {canCreateInvoice((po?.status || "not_started") as POStatusEnum) && (
+              {canCreateInvoice((po?.status || "not_started") as POStatusEnum, totalQty, invoicedQty) && (
                 <Link href={`/invoice/new?po=${poId}`} className="ml-auto">
                   <Button size="sm" variant="outline" className="border-slate-700 text-slate-300">
                     <FileText className="mr-2 h-4 w-4" />
@@ -721,7 +721,7 @@ export default function PODetailPage() {
                 <p className="text-sm text-slate-400 max-w-md mb-4">
                   No invoices have been created for this PO.
                 </p>
-                {canCreateInvoice((po?.status || "not_started") as POStatusEnum) && (
+                {canCreateInvoice((po?.status || "not_started") as POStatusEnum, totalQty, invoicedQty) && (
                   <Link href={`/invoice/new?po=${poId}`}>
                     <Button variant="outline" className="border-slate-700">
                       <FileText className="mr-2 h-4 w-4" />
