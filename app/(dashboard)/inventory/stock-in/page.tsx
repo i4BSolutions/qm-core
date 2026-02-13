@@ -18,6 +18,7 @@ import {
   CheckSquare,
   Square,
   Calculator,
+  Lock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -530,15 +531,18 @@ function StockInContent() {
           <button
             type="button"
             onClick={() => {
-              setSourceMode("invoice");
-              setManualCategoryId("");
-              setManualItemId("");
+              if (!preselectedInvoiceId) {
+                setSourceMode("invoice");
+                setManualCategoryId("");
+                setManualItemId("");
+              }
             }}
+            disabled={!!preselectedInvoiceId}
             className={`p-4 rounded-lg border text-left transition-all ${
               sourceMode === "invoice"
                 ? "bg-amber-500/10 border-amber-500/50"
                 : "bg-slate-800/50 border-slate-700 hover:border-slate-600"
-            }`}
+            } ${preselectedInvoiceId ? "opacity-70 cursor-not-allowed" : ""}`}
           >
             <div className="flex items-center gap-3">
               <FileText
@@ -559,12 +563,13 @@ function StockInContent() {
 
           <button
             type="button"
-            onClick={() => setSourceMode("manual")}
+            onClick={() => !preselectedInvoiceId && setSourceMode("manual")}
+            disabled={!!preselectedInvoiceId}
             className={`p-4 rounded-lg border text-left transition-all ${
               sourceMode === "manual"
                 ? "bg-amber-500/10 border-amber-500/50"
                 : "bg-slate-800/50 border-slate-700 hover:border-slate-600"
-            }`}
+            } ${preselectedInvoiceId ? "opacity-70 cursor-not-allowed" : ""}`}
           >
             <div className="flex items-center gap-3">
               <Plus
@@ -590,10 +595,25 @@ function StockInContent() {
         <>
           {/* Invoice Selection */}
           <FormSection
-            title="Select Invoice"
+            title={
+              <span className="flex items-center gap-2">
+                Select Invoice
+                {preselectedInvoiceId && (
+                  <span className="flex items-center gap-1 text-xs text-amber-500 font-normal">
+                    <Lock className="h-3 w-3" />
+                    Inherited
+                  </span>
+                )}
+              </span>
+            }
             icon={<FileText className="h-4 w-4 text-amber-500" />}
             animationDelay="50ms"
           >
+            {preselectedInvoiceId && (
+              <p className="text-xs text-slate-400 mb-3">
+                Invoice is inherited from the parent detail page
+              </p>
+            )}
 
             {invoices.length === 0 ? (
               <div className="text-center py-8 text-slate-400">
@@ -610,12 +630,12 @@ function StockInContent() {
                   return (
                     <div
                       key={invoice.id}
-                      onClick={() => setSelectedInvoiceId(invoice.id)}
-                      className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                      onClick={() => !preselectedInvoiceId && setSelectedInvoiceId(invoice.id)}
+                      className={`p-3 rounded-lg border transition-all ${
                         isSelected
                           ? "bg-amber-500/10 border-amber-500/50"
                           : "bg-slate-800/50 border-slate-700 hover:border-slate-600"
-                      }`}
+                      } ${preselectedInvoiceId ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">

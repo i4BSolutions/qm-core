@@ -12,6 +12,7 @@ import {
   DollarSign,
   AlertTriangle,
   Save,
+  Lock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -326,8 +327,23 @@ function POCreateContent() {
           title="QMHQ Selection"
           icon={<DollarSign className="h-4 w-4 text-amber-500" />}
         >
+          {preselectedQmhqId && (
+            <p className="text-xs text-slate-400 mb-3">
+              QMHQ is inherited from the parent detail page
+            </p>
+          )}
           <FormField
-            label="Select QMHQ (PO Route with Balance)"
+            label={
+              <span className="flex items-center gap-2">
+                Select QMHQ (PO Route with Balance)
+                {preselectedQmhqId && (
+                  <span className="flex items-center gap-1 text-xs text-amber-500 font-normal">
+                    <Lock className="h-3 w-3" />
+                    Inherited
+                  </span>
+                )}
+              </span>
+            }
             htmlFor="qmhq_id"
             required
           >
@@ -336,7 +352,7 @@ function POCreateContent() {
               onValueChange={setSelectedQmhqId}
               disabled={!!preselectedQmhqId}
             >
-              <SelectTrigger className="bg-slate-800/50 border-slate-700">
+              <SelectTrigger className={`bg-slate-800/50 border-slate-700 ${preselectedQmhqId ? 'opacity-70 cursor-not-allowed' : ''}`}>
                 <SelectValue placeholder="Select QMHQ..." />
               </SelectTrigger>
               <SelectContent>

@@ -16,6 +16,7 @@ import {
   Check,
   Square,
   CheckSquare,
+  Lock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -420,9 +421,24 @@ function InvoiceCreateContent() {
           <div className="space-y-6">
             {/* PO Selection */}
             <FormSection
-              title="Select Purchase Order"
+              title={
+                <span className="flex items-center gap-2">
+                  Select Purchase Order
+                  {preselectedPoId && (
+                    <span className="flex items-center gap-1 text-xs text-amber-500 font-normal">
+                      <Lock className="h-3 w-3" />
+                      Inherited
+                    </span>
+                  )}
+                </span>
+              }
               icon={<FileText className="h-4 w-4 text-amber-500" />}
             >
+              {preselectedPoId && (
+                <p className="text-xs text-slate-400 mb-3">
+                  PO is inherited from the parent detail page
+                </p>
+              )}
 
               {purchaseOrders.length === 0 ? (
                 <div className="text-center py-12 text-slate-400">
@@ -450,12 +466,12 @@ function InvoiceCreateContent() {
                     return (
                       <div
                         key={po.id}
-                        onClick={() => handleSelectPO(po.id)}
-                        className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                        onClick={() => !preselectedPoId && handleSelectPO(po.id)}
+                        className={`p-4 rounded-lg border transition-all ${
                           isSelected
                             ? "bg-amber-500/10 border-amber-500/50"
                             : "bg-slate-800/50 border-slate-700 hover:border-slate-600"
-                        }`}
+                        } ${preselectedPoId ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
