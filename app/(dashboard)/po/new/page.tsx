@@ -29,11 +29,9 @@ import {
 } from "@/components/ui/select";
 import { POBalancePanel } from "@/components/po/po-balance-panel";
 import { EditableLineItemsTable } from "@/components/po/po-line-items-table";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import { useAuth } from "@/components/providers/auth-provider";
-import { ContextSlider } from "@/components/context-slider/context-slider";
-import { QmhqSliderContent } from "@/components/context-slider/qmhq-slider-content";
 import type { QMHQ, Supplier, Item, ContactPerson } from "@/types/database";
 
 // Line item form data
@@ -52,29 +50,6 @@ interface LineItemFormData {
 // QMHQ with balance info
 interface QMHQWithBalance extends Pick<QMHQ, "id" | "request_id" | "line_name" | "balance_in_hand" | "amount_eusd" | "total_money_in" | "total_po_committed"> {}
 
-// QMHQ slider detail type
-interface QMHQSliderDetail {
-  id: string;
-  request_id: string | null;
-  line_name: string | null;
-  route_type: 'item' | 'expense' | 'po';
-  description: string | null;
-  notes: string | null;
-  quantity: number | null;
-  amount: number | null;
-  currency: string | null;
-  exchange_rate: number | null;
-  amount_eusd: number | null;
-  budget_amount: number | null;
-  budget_currency: string | null;
-  budget_exchange_rate: number | null;
-  budget_amount_eusd: number | null;
-  status?: { name: string; color: string } | null;
-  category?: { name: string; color: string } | null;
-  assigned_user?: { full_name: string } | null;
-  contact_person?: { name: string; position: string | null } | null;
-}
-
 function POCreateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -84,10 +59,6 @@ function POCreateContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Context slider state
-  const [qmhqSliderDetail, setQmhqSliderDetail] = useState<QMHQSliderDetail | null>(null);
-  const [isSliderLoading, setIsSliderLoading] = useState(false);
 
   // Reference data
   const [qmhqs, setQmhqs] = useState<QMHQWithBalance[]>([]);
@@ -113,37 +84,6 @@ function POCreateContent() {
   useEffect(() => {
     fetchReferenceData();
   }, []);
-
-  // Fetch QMHQ detail for context slider when preselected
-  useEffect(() => {
-    if (preselectedQmhqId) {
-      fetchQmhqSliderDetail(preselectedQmhqId);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preselectedQmhqId]);
-
-  const fetchQmhqSliderDetail = async (qmhqId: string) => {
-    setIsSliderLoading(true);
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("qmhq")
-      .select(`
-        id, request_id, line_name, route_type, description, notes,
-        quantity, amount, currency, exchange_rate, amount_eusd,
-        budget_amount, budget_currency, budget_exchange_rate, budget_amount_eusd,
-        status:status_config(name, color),
-        category:categories(name, color),
-        assigned_user:users!qmhq_assigned_to_fkey(full_name),
-        contact_person:contact_persons(name, position)
-      `)
-      .eq("id", qmhqId)
-      .single();
-
-    if (data) {
-      setQmhqSliderDetail(data as unknown as QMHQSliderDetail);
-    }
-    setIsSliderLoading(false);
-  };
 
   const fetchReferenceData = async () => {
     setIsLoading(true);
@@ -342,12 +282,12 @@ function POCreateContent() {
   }
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-6 relative max-w-4xl mx-auto">
       {/* Grid overlay */}
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
 
       {/* Header */}
-      <div className="relative flex items-start gap-4 animate-fade-in max-w-4xl mx-auto">
+      <div className="relative flex items-start gap-4 animate-fade-in">
         <Link href="/po">
           <Button variant="ghost" size="icon" className="mt-1 hover:bg-amber-500/10 hover:text-amber-500">
             <ArrowLeft className="h-5 w-5" />
@@ -370,7 +310,7 @@ function POCreateContent() {
 
       {/* Error Display */}
       {error && (
-        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 max-w-4xl mx-auto">
+        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-red-400 mt-0.5" />
             <div>
@@ -381,11 +321,7 @@ function POCreateContent() {
         </div>
       )}
 
-      {/* Main layout: form + context slider */}
-      <div className={cn(
-        preselectedQmhqId ? "md:grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_384px] gap-6" : "max-w-4xl mx-auto"
-      )}>
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* QMHQ Selection */}
         <FormSection
           title="QMHQ Selection"
@@ -659,17 +595,6 @@ function POCreateContent() {
           </Button>
         </div>
       </form>
-
-      {/* Context Slider */}
-      {preselectedQmhqId && (
-        <ContextSlider title="QMHQ Context">
-          <QmhqSliderContent
-            qmhq={qmhqSliderDetail}
-            isLoading={isSliderLoading}
-          />
-        </ContextSlider>
-      )}
-      </div>
     </div>
   );
 }
