@@ -28,11 +28,15 @@ export function FlowSearch({ defaultValue = "" }: FlowSearchProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const justSelected = useRef(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const navigate = useCallback(
     (requestId: string) => {
+      justSelected.current = true;
+      setValue(requestId);
+      setSuggestions([]);
       setShowDropdown(false);
       router.push(
         `/admin/flow-tracking?qmrl_id=${encodeURIComponent(requestId)}`
@@ -41,8 +45,18 @@ export function FlowSearch({ defaultValue = "" }: FlowSearchProps) {
     [router]
   );
 
+  // Sync input value when defaultValue prop changes (after navigation)
+  useEffect(() => {
+    setValue(defaultValue);
+  }, [defaultValue]);
+
   // Fetch suggestions on debounced value change
   useEffect(() => {
+    if (justSelected.current) {
+      justSelected.current = false;
+      return;
+    }
+
     const query = debouncedValue.trim();
     if (query.length < 2) {
       setSuggestions([]);
