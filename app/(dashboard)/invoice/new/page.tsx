@@ -35,13 +35,15 @@ import {
   type POForInvoice,
   type InvoiceLineItemFormData,
 } from "@/components/invoice";
-import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
+import { formatCurrency, handleQuantityKeyDown, cn } from "@/lib/utils";
 import { AmountInput } from "@/components/ui/amount-input";
 import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import { calculateAvailableQuantity } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { FormSection, FormField, PageHeader } from "@/components/composite";
+import { ContextSlider } from "@/components/context-slider/context-slider";
+import { POSliderContent } from "@/components/context-slider/po-slider-content";
 
 // Step configuration - 3 steps now
 const STEPS = [
@@ -65,6 +67,30 @@ function InvoiceCreateContent() {
   // Reference data
   const [purchaseOrders, setPurchaseOrders] = useState<POForInvoice[]>([]);
 
+  // Context slider state
+  const [poSliderDetail, setPoSliderDetail] = useState<{
+    id: string;
+    po_number: string | null;
+    po_date: string | null;
+    expected_delivery_date: string | null;
+    currency: string | null;
+    exchange_rate: number | null;
+    total_amount: number | null;
+    total_amount_eusd: number | null;
+    status: string | null;
+    notes: string | null;
+    supplier?: { name: string; company_name: string | null } | null;
+    line_items?: Array<{
+      id: string;
+      item_name: string | null;
+      item_sku: string | null;
+      quantity: number;
+      unit_price: number;
+      invoiced_quantity: number | null;
+    }>;
+  } | null>(null);
+  const [isSliderLoading, setIsSliderLoading] = useState(false);
+
   // Form state - Step 1: PO Selection + Header
   const [selectedPOId, setSelectedPOId] = useState<string>(preselectedPoId || "");
   const [invoiceDate, setInvoiceDate] = useState<Date>(new Date());
@@ -80,6 +106,35 @@ function InvoiceCreateContent() {
     fetchReferenceData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fetch PO detail for context slider when preselected
+  useEffect(() => {
+    if (preselectedPoId) {
+      fetchPoSliderDetail(preselectedPoId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedPoId]);
+
+  const fetchPoSliderDetail = async (poId: string) => {
+    setIsSliderLoading(true);
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("purchase_orders")
+      .select(`
+        id, po_number, po_date, expected_delivery_date,
+        currency, exchange_rate, total_amount, total_amount_eusd,
+        status, notes,
+        supplier:suppliers(name, company_name),
+        line_items:po_line_items(id, item_name, item_sku, quantity, unit_price, invoiced_quantity)
+      `)
+      .eq("id", poId)
+      .single();
+
+    if (data) {
+      setPoSliderDetail(data as any);
+    }
+    setIsSliderLoading(false);
+  };
 
   // When PO is selected, populate all available line items
   useEffect(() => {
@@ -314,12 +369,12 @@ function InvoiceCreateContent() {
   }
 
   return (
-    <div className="space-y-6 relative max-w-4xl mx-auto">
+    <div className="space-y-6 relative">
       {/* Grid overlay */}
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
 
       {/* Header */}
-      <div className="relative flex items-start gap-4 animate-fade-in">
+      <div className="relative flex items-start gap-4 animate-fade-in max-w-4xl mx-auto">
         <Link href="/invoice">
           <Button
             variant="ghost"
@@ -344,6 +399,12 @@ function InvoiceCreateContent() {
           />
         </div>
       </div>
+
+      {/* Main layout: content + context slider */}
+      <div className={cn(
+        preselectedPoId ? "md:grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_384px] gap-6" : "max-w-4xl mx-auto"
+      )}>
+      <div className="space-y-6 max-w-4xl">
 
       {/* Step Indicator */}
       <div className="command-panel">
@@ -897,6 +958,19 @@ function InvoiceCreateContent() {
             </Button>
           )}
         </div>
+      </div>
+
+      </div>
+
+      {/* Context Slider */}
+      {preselectedPoId && (
+        <ContextSlider title="PO Context">
+          <POSliderContent
+            po={poSliderDetail}
+            isLoading={isSliderLoading}
+          />
+        </ContextSlider>
+      )}
       </div>
     </div>
   );

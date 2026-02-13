@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
+import { formatCurrency, handleQuantityKeyDown, cn } from "@/lib/utils";
 import { AmountInput } from "@/components/ui/amount-input";
 import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
@@ -41,6 +41,8 @@ import { CategoryItemSelector } from "@/components/forms/category-item-selector"
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { FormSection, FormField, PageHeader } from "@/components/composite";
+import { ContextSlider } from "@/components/context-slider/context-slider";
+import { InvoiceSliderContent } from "@/components/context-slider/invoice-slider-content";
 import type {
   Invoice,
   InvoiceLineItem,
@@ -94,6 +96,33 @@ function StockInContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Context slider state
+  const [invoiceSliderDetail, setInvoiceSliderDetail] = useState<{
+    id: string;
+    invoice_number: string | null;
+    invoice_date: string | null;
+    currency: string | null;
+    exchange_rate: number | null;
+    total_amount: number | null;
+    total_amount_eusd: number | null;
+    status: string | null;
+    is_voided: boolean;
+    notes: string | null;
+    purchase_order?: {
+      po_number: string | null;
+      supplier?: { name: string; company_name: string | null } | null;
+    } | null;
+    line_items?: Array<{
+      id: string;
+      item_name: string | null;
+      item_sku: string | null;
+      quantity: number;
+      unit_price: number;
+      received_quantity: number | null;
+    }>;
+  } | null>(null);
+  const [isSliderLoading, setIsSliderLoading] = useState(false);
 
   // Mode selection
   const [sourceMode, setSourceMode] = useState<SourceMode>(
@@ -225,6 +254,38 @@ function StockInContent() {
   useEffect(() => {
     fetchReferenceData();
   }, [fetchReferenceData]);
+
+  // Fetch invoice detail for context slider when preselected
+  useEffect(() => {
+    if (preselectedInvoiceId) {
+      fetchInvoiceSliderDetail(preselectedInvoiceId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedInvoiceId]);
+
+  const fetchInvoiceSliderDetail = async (invoiceId: string) => {
+    setIsSliderLoading(true);
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("invoices")
+      .select(`
+        id, invoice_number, invoice_date,
+        currency, exchange_rate, total_amount, total_amount_eusd,
+        status, is_voided, notes,
+        purchase_order:purchase_orders!invoices_po_id_fkey(
+          po_number,
+          supplier:suppliers(name, company_name)
+        ),
+        line_items:invoice_line_items(id, item_name, item_sku, quantity, unit_price, received_quantity)
+      `)
+      .eq("id", invoiceId)
+      .single();
+
+    if (data) {
+      setInvoiceSliderDetail(data as any);
+    }
+    setIsSliderLoading(false);
+  };
 
   // Fetch invoice line items when invoice is selected
   useEffect(() => {
@@ -477,12 +538,12 @@ function StockInContent() {
   }
 
   return (
-    <div className="space-y-6 relative max-w-4xl mx-auto">
+    <div className="space-y-6 relative">
       {/* Grid overlay */}
       <div className="fixed inset-0 pointer-events-none grid-overlay opacity-30" />
 
       {/* Header */}
-      <div className="relative flex items-start gap-4 animate-fade-in">
+      <div className="relative flex items-start gap-4 animate-fade-in max-w-4xl mx-auto">
         <Link href="/warehouse">
           <Button
             variant="ghost"
@@ -510,7 +571,7 @@ function StockInContent() {
 
       {/* Error Display */}
       {error && (
-        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 max-w-4xl mx-auto">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-red-400 mt-0.5" />
             <div>
@@ -520,6 +581,12 @@ function StockInContent() {
           </div>
         </div>
       )}
+
+      {/* Main layout: content + context slider */}
+      <div className={cn(
+        preselectedInvoiceId ? "md:grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_384px] gap-6" : "max-w-4xl mx-auto"
+      )}>
+      <div className="space-y-6 max-w-4xl">
 
       {/* Source Mode Selection */}
       <FormSection
@@ -1084,6 +1151,19 @@ function StockInContent() {
             </>
           )}
         </Button>
+      </div>
+
+      </div>
+
+      {/* Context Slider */}
+      {preselectedInvoiceId && (
+        <ContextSlider title="Invoice Context">
+          <InvoiceSliderContent
+            invoice={invoiceSliderDetail}
+            isLoading={isSliderLoading}
+          />
+        </ContextSlider>
+      )}
       </div>
     </div>
   );
