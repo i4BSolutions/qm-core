@@ -231,3 +231,34 @@
 
 ---
 
+
+## v1.9 PO Lifecycle, Cancellation Guards & PDF Export (Shipped: 2026-02-13)
+
+**Delivered:** PO smart status engine with 6-state lifecycle, cancellation/void guards enforced at DB and UI levels, admin-only closed PO unlock, PO Matching tab with variance highlighting, per-line-item progress bars, and professional dark-themed PDF receipt export for invoices, stock-out requests, and money-out transactions.
+
+**Phases completed:** 41-43 (8 plans total)
+
+**Key accomplishments:**
+
+- Built PO smart status engine with 6-state auto-calculation (not_started → partially_invoiced → awaiting_delivery → partially_received → closed → cancelled) triggered by invoice/stock-in events
+- Added PO cancellation guard (blocks when active invoices exist) and invoice void guard (blocks when stock-in exists) at both database trigger and UI tooltip levels
+- Implemented admin-only closed PO unlock with automatic re-lock on status recalculation
+- Created PO Matching tab with side-by-side PO vs Invoice vs Stock-In comparison, variance highlighting, and voided invoice toggle
+- Built per-line-item stepped progress bars showing ordered vs invoiced vs received quantities
+- Shipped professional dark-themed PDF receipt export for invoices (with PO reference and receiving progress), stock-out requests (with approval chain audit trail), and QMHQ money-out transactions
+
+**Stats:**
+
+- 83 files modified (+13,242/-1,109 lines)
+- ~49,034 lines of TypeScript
+- 3 phases, 8 plans, 17 feat commits
+- 1 day from start to ship (2026-02-12 → 2026-02-13)
+
+**Git range:** `4ed4a75` → `4910e33`
+
+**Tech debt accepted:** PO Edit page still 404; context slider deferred for approval/execution pages; flow tracking VIEW performance unknown at scale
+
+**What's next:** TBD — run `/gsd:new-milestone` to define next goals
+
+---
+

@@ -2,33 +2,20 @@
 
 ## What This Is
 
-An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with per-line-item stock-out approval and execution workflows, deletion protection, team collaboration via comments, responsive financial displays, standardized UI via composite components, streamlined 3-role RBAC (Admin/QMRL/QMHQ), and admin-only end-to-end flow tracking.
+An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with smart PO lifecycle management (6-state status engine, cancellation/void guards, admin unlock), per-line-item stock-out approval and execution workflows, deletion protection, team collaboration via comments, responsive financial displays, standardized UI via composite components, streamlined 3-role RBAC (Admin/QMRL/QMHQ), admin-only end-to-end flow tracking, and professional PDF receipt export.
 
 ## Core Value
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-## Current Milestone: v1.9 PO Lifecycle, Cancellation Guards & PDF Export
-
-**Goal:** Complete the PO lifecycle with smart status engine, enforce cancellation/void guards, and enable PDF receipt export for key documents.
-
-**Target features:**
-- PO smart lifecycle with 6-state status engine triggered by invoice/stock-in events
-- Per-line-item progress tracking (ordered → invoiced → received)
-- PO matching tab with side-by-side PO vs Invoice vs Stock-In comparison
-- Lock mechanism on Closed POs (no edit/delete unless Admin)
-- PO cancellation blocked when invoices exist
-- Invoice void blocked when stock-in transactions exist
-- PDF receipt export for invoices, QMHQ money-out, and SOR-based stock-out
-
-## Current State (v1.8 Shipped)
+## Current State (v1.9 Shipped)
 
 **Tech Stack:**
 - Next.js 14+ with App Router, TypeScript strict mode
 - Supabase for auth, database, and file storage
 - Tailwind CSS with dark theme support
-- ~45,196 lines of TypeScript
-- 66 database migrations with RLS policies (92 policies across 20 tables)
+- ~49,034 lines of TypeScript
+- 68 database migrations with RLS policies (92 policies across 20 tables)
 
 **Shipped Features:**
 - Email OTP authentication with 3-role RBAC (Admin/QMRL/QMHQ)
@@ -70,6 +57,13 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - 32 pages migrated to standardized composites
 - Admin-only end-to-end flow tracking (QMRL → QMHQ → PO → Invoice → Stock chain)
 - Server-side layout guards for role-based route protection
+- PO smart status engine with 6-state auto-calculation triggered by invoice/stock-in events
+- PO cancellation guard (blocks when active invoices exist) at DB trigger and UI level
+- Invoice void guard (blocks when stock-in exists) at DB trigger and UI level
+- Admin-only closed PO unlock with automatic re-lock on recalculation
+- PO Matching tab with side-by-side PO vs Invoice vs Stock-In comparison
+- Per-line-item stepped progress bars (ordered/invoiced/received)
+- Professional dark-themed PDF receipt export (Invoice, Stock-Out, Money-Out)
 
 ## Requirements
 
@@ -163,18 +157,20 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - ✓ Admin-only end-to-end flow tracking page with QMRL chain visualization — v1.8
 - ✓ Navigation sidebar filtered by user role — v1.8
 
+<!-- V1.9 Features -->
+- ✓ PO smart status engine (6-state auto-calculation with advisory lock concurrency) — v1.9
+- ✓ Per-line-item stepped progress bars on PO detail (ordered/invoiced/received) — v1.9
+- ✓ Matching tab on PO detail (PO vs Invoice vs Stock-In with variance highlighting) — v1.9
+- ✓ Lock mechanism on Closed POs with admin-only unlock capability — v1.9
+- ✓ PO cancellation guard (blocked when active invoices exist, DB + UI enforcement) — v1.9
+- ✓ Invoice void guard (blocked when stock-in exists, DB + UI enforcement) — v1.9
+- ✓ PDF receipt export for invoices (with PO reference and receiving progress) — v1.9
+- ✓ PDF receipt export for QMHQ money-out transactions (dual currency) — v1.9
+- ✓ PDF receipt export for SOR-based stock-out transactions (with approval audit trail) — v1.9
+
 ### Active
 
-<!-- V1.9 Features -->
-- [ ] PO smart status engine (Not Started → Partially Invoiced → Awaiting Delivery → Partially Received → Closed → Cancelled)
-- [ ] Per-line-item progress bars on PO detail (ordered/invoiced/received)
-- [ ] Matching tab on PO detail (PO vs Invoice vs Stock-In side-by-side)
-- [ ] Lock mechanism on Closed PO/Invoice/Stock-In (Admin override)
-- [ ] PO cancellation guard (blocked if invoices exist)
-- [ ] Invoice void guard (blocked if stock-in transactions exist)
-- [ ] PDF receipt export for invoices
-- [ ] PDF receipt export for QMHQ money-out transactions
-- [ ] PDF receipt export for SOR-based stock-out transactions
+(None — run `/gsd:new-milestone` to define next milestone requirements)
 
 ### Out of Scope
 
@@ -210,7 +206,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.6 Stock-Out Approval & Data Integrity — Stock-out approval, deletion protection, user deactivation, context sliders (shipped 2026-02-10)
 - v1.7 Stock-Out Request Logic Repair — Per-line-item execution, QMHQ transaction linking, dual reference display (shipped 2026-02-11)
 - v1.8 UI Consistency, Flow Tracking & RBAC — Composite UI components, 3-role RBAC, flow tracking (shipped 2026-02-12)
-- v1.9 PO Lifecycle, Cancellation Guards & PDF Export — PO smart status, matching panel, void guards, PDF receipts (in progress)
+- v1.9 PO Lifecycle, Cancellation Guards & PDF Export — PO smart status, matching panel, void guards, PDF receipts (shipped 2026-02-13)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -239,6 +235,10 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Conditional layout pattern (grid only when context is relevant)
 - SOR-grouped transaction display with stepped progress visualization
 - Dual reference display with circular navigation prevention (currentQmhqId prop)
+- Invoice-first priority in PO status calculation (partially_invoiced over partially_received)
+- Guard-before-cascade trigger pattern (aa_ prefix fires before zz_ audit)
+- Dynamic import with SSR-safe wrapper for client-side PDF generation (@react-pdf/renderer)
+- PDF button wrapper components to prevent webpack ESM bundling errors
 - Independent nested data fetching (components fetch own data when context allows)
 - Transaction-level advisory locks (pg_advisory_xact_lock) for automatic cleanup
 - Lock ordering (line item → parent request) to prevent deadlocks
@@ -296,6 +296,16 @@ Users can reliably create purchase orders, receive inventory, and track request 
 | PostgreSQL VIEW for flow tracking | Real-time data, simpler than materialized view for <10K QMRLs | ✓ Good |
 | Card-based flow tracking (no graph library) | Linear chain doesn't need React Flow — card layout sufficient | ✓ Good |
 | Surgical JSX replacement for UI migration | Preserve business logic, only replace visual wrapper | ✓ Good |
+| Invoice-first priority in PO status | Show partially_invoiced until ALL items invoiced, even if some received | ✓ Good |
+| Advisory locks for PO status calculation | pg_advisory_xact_lock prevents concurrent calculation race conditions | ✓ Good |
+| Admin-only PO cancellation with mandatory reason | Financial control — only admin can cancel, must explain why | ✓ Good |
+| Voided invoices don't block PO cancellation | Only active non-voided invoices count for guard check | ✓ Good |
+| Skip DB-level closed-PO edit protection | UI layer + Server Action validation sufficient | ✓ Good |
+| Fallback to partially_received when unlocking | Allows admin corrections on fully-matched POs | ✓ Good |
+| @react-pdf/renderer over Puppeteer | Lighter weight, client-side PDF generation, no server-side headless browser | ✓ Good |
+| Dynamic import wrapper for PDF components | Prevents webpack ESM bundling errors and SSR canvas/fs errors | ✓ Good |
+| Dark theme PDF styling (slate-900, amber accents) | Matches app aesthetic, professional appearance | ✓ Good |
+| Single table layout for PO Matching tab | More scannable than side-by-side cards, variance columns built in | ✓ Good |
 
 ## Constraints
 
@@ -316,4 +326,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Composite prop types widened from `string` to `ReactNode` (backward compatible but less type-safe)
 
 ---
-*Last updated: 2026-02-12 after v1.9 milestone started*
+*Last updated: 2026-02-13 after v1.9 milestone completed*
