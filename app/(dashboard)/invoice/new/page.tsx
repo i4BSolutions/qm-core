@@ -38,6 +38,7 @@ import {
 import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
 import { AmountInput } from "@/components/ui/amount-input";
 import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
+import { ConversionRateInput } from "@/components/ui/conversion-rate-input";
 import { calculateAvailableQuantity } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
@@ -106,6 +107,7 @@ function InvoiceCreateContent() {
               unit_price: poLineItem.unit_price,
               po_unit_price: poLineItem.unit_price,
               available_quantity: availableQty,
+              conversion_rate: "",
             });
           }
         });
@@ -179,13 +181,17 @@ function InvoiceCreateContent() {
     (li) => li.quantity > li.available_quantity || li.quantity <= 0
   );
 
+  const hasConversionRateErrors = selectedItems.some(
+    (li) => !li.conversion_rate || parseFloat(li.conversion_rate) <= 0
+  );
+
   // Step validation - now 3 steps
   const canProceed = (step: number) => {
     switch (step) {
       case 1:
         return selectedPOId && currency && (parseFloat(exchangeRate) || 1) > 0;
       case 2:
-        return selectedLineItemIds.length > 0 && !hasQuantityErrors;
+        return selectedLineItemIds.length > 0 && !hasQuantityErrors && !hasConversionRateErrors;
       case 3:
         return true;
       default:
@@ -271,6 +277,7 @@ function InvoiceCreateContent() {
         item_id: li.item_id,
         quantity: li.quantity,
         unit_price: li.unit_price,
+        conversion_rate: parseFloat(li.conversion_rate) || 1,
         item_name: li.item_name,
         item_sku: li.item_sku || null,
         item_unit: li.item_unit || null,
@@ -669,6 +676,14 @@ function InvoiceCreateContent() {
                                 />
                               </div>
                               <div>
+                                <label className="text-xs text-slate-500 block mb-1">Conv. Rate</label>
+                                <ConversionRateInput
+                                  value={item.conversion_rate}
+                                  onValueChange={(val) => handleUpdateLineItem(item.id, "conversion_rate", val)}
+                                  className="w-24 text-right bg-slate-800 border-slate-700"
+                                />
+                              </div>
+                              <div>
                                 <label className="text-xs text-slate-500 block mb-1">Total</label>
                                 <div className="w-28 text-right font-mono text-emerald-400 py-2">
                                   {formatCurrency(item.quantity * item.unit_price)}
@@ -694,12 +709,14 @@ function InvoiceCreateContent() {
               </div>
             </div>
 
-            {hasQuantityErrors && (
+            {(hasQuantityErrors || hasConversionRateErrors) && (
               <div className="p-3 rounded bg-red-500/10 border border-red-500/30">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-red-400" />
                   <p className="text-sm text-red-400">
-                    Some quantities exceed available amounts or are invalid. Please correct before proceeding.
+                    {hasQuantityErrors && "Some quantities exceed available amounts or are invalid. "}
+                    {hasConversionRateErrors && "Conversion rate is required for all items. "}
+                    Please correct before proceeding.
                   </p>
                 </div>
               </div>
@@ -780,6 +797,9 @@ function InvoiceCreateContent() {
                         <th className="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-28">
                           Unit Price
                         </th>
+                        <th className="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-24">
+                          Conv. Rate
+                        </th>
                         <th className="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-28">
                           Total
                         </th>
@@ -804,6 +824,9 @@ function InvoiceCreateContent() {
                           </td>
                           <td className="py-2 px-3 text-right font-mono text-slate-300">
                             {formatCurrency(li.unit_price)}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-slate-300">
+                            {(parseFloat(li.conversion_rate) || 1).toFixed(4)}
                           </td>
                           <td className="py-2 px-3 text-right font-mono text-emerald-400">
                             {formatCurrency(li.quantity * li.unit_price)}
