@@ -17,11 +17,11 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 ## Current Position
 
 Phase: 49 of 50 (Conversion Rate Input)
-Plan: 2 of 3 in current phase
+Plan: 3 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-14 — Completed 49-02: PO and Invoice conversion rate input
+Last activity: 2026-02-14 — Completed 49-03: Inventory forms conversion rate input
 
-Progress: [████████████████████░░] 117/122 (95%)
+Progress: [████████████████████░░] 118/122 (96%)
 
 ---
 
@@ -51,8 +51,8 @@ Progress: [████████████████████░░] 1
 - 11 milestones shipped
 
 **v1.11 Progress:**
-- 4/9 plans complete
-- Status: Phase 49 in progress (2/3 plans complete)
+- 5/9 plans complete
+- Status: Phase 49 complete (3/3 plans complete)
 
 ---
 
@@ -88,24 +88,27 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 49-02: PO and Invoice Conversion Rate Input
-- Added conversion rate input to PO line items table (ConversionRateInput component)
-- Added conversion rate input to Invoice line items (Step 2 and Step 3 summary)
-- Validation requires conversion_rate > 0 on all line items before submit
-- Default conversion_rate to empty string to force explicit user input
-- Fixes Phase 47 TypeScript errors for po/new and invoice/new
-- Duration: 3min 49sec, 2 tasks, 2 commits
+- Completed Phase 49-03: Inventory Forms Conversion Rate Input
+- Added conversion rate input to stock-in form (invoice and manual modes)
+- Added conversion rate input to stock-out form (including transfer-in)
+- Added conversion rate input to stock-out request creation (per line item)
+- Added conversion rate input to approval dialog (per line item)
+- All conversion rate inputs validated as required (> 0)
+- All Phase 47 TypeScript breaking changes fully resolved (0 errors)
+- Duration: 5min 11sec, 2 tasks, 2 commits
 
 **Context for Next Agent:**
-- Phase 47: COMPLETE ✓ (Schema changes - added conversion_rate to tables)
+- Phase 47: COMPLETE ✓ (Schema changes - conversion_rate column added)
 - Phase 48: COMPLETE ✓ (System config + admin UI)
-- Phase 49-01: COMPLETE ✓ (ConversionRateInput component)
-- Phase 49-02: COMPLETE ✓ (PO and Invoice forms with conversion rate)
-- Phase 49-03: Add conversion rate to stock-out-request form (last plan in phase)
-- Phase 50: StandardUnitDisplay component and integration (4 plans)
+- Phase 49: COMPLETE ✓ (ConversionRateInput component + integration in all forms)
+  - 49-01: ConversionRateInput component
+  - 49-02: PO and Invoice forms
+  - 49-03: Inventory forms (stock-in, stock-out, requests, approval)
+- Phase 50: StandardUnitDisplay component and integration (4 plans) - NEXT
+- All conversion_rate data now flowing into database, ready for display
 
-**Resume at:** Execute 49-03 (Stock-out request conversion rate input)
+**Resume at:** Execute Phase 50-01 (StandardUnitDisplay component creation)
 
 ---
 
-*State last updated: 2026-02-14 after Phase 49-01 completion*
+*State last updated: 2026-02-14 after Phase 49-03 completion*
