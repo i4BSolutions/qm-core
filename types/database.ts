@@ -592,6 +592,8 @@ export type Database = {
           request_id: string
           item_id: string
           requested_quantity: number
+          conversion_rate: number
+          standard_qty: number | null
           status: Database["public"]["Enums"]["sor_line_item_status"]
           item_name: string | null
           item_sku: string | null
@@ -606,6 +608,7 @@ export type Database = {
           request_id: string
           item_id: string
           requested_quantity: number
+          conversion_rate: number
           status?: Database["public"]["Enums"]["sor_line_item_status"]
           item_name?: string | null
           item_sku?: string | null
@@ -620,6 +623,7 @@ export type Database = {
           request_id?: string
           item_id?: string
           requested_quantity?: number
+          conversion_rate?: number
           status?: Database["public"]["Enums"]["sor_line_item_status"]
           item_name?: string | null
           item_sku?: string | null
@@ -1320,6 +1324,8 @@ export type Database = {
           quantity: number
           unit_price: number
           total_price: number | null
+          conversion_rate: number
+          standard_qty: number | null
           invoiced_quantity: number | null
           received_quantity: number | null
           item_name: string | null
@@ -1336,6 +1342,7 @@ export type Database = {
           item_id?: string | null
           quantity?: number
           unit_price?: number
+          conversion_rate: number
           invoiced_quantity?: number | null
           received_quantity?: number | null
           item_name?: string | null
@@ -1352,6 +1359,7 @@ export type Database = {
           item_id?: string | null
           quantity?: number
           unit_price?: number
+          conversion_rate?: number
           invoiced_quantity?: number | null
           received_quantity?: number | null
           item_name?: string | null
@@ -1490,6 +1498,8 @@ export type Database = {
           quantity: number
           unit_price: number
           total_price: number | null
+          conversion_rate: number
+          standard_qty: number | null
           item_name: string | null
           item_sku: string | null
           item_unit: string | null
@@ -1507,6 +1517,7 @@ export type Database = {
           item_id?: string | null
           quantity?: number
           unit_price?: number
+          conversion_rate: number
           item_name?: string | null
           item_sku?: string | null
           item_unit?: string | null
@@ -1524,6 +1535,7 @@ export type Database = {
           item_id?: string | null
           quantity?: number
           unit_price?: number
+          conversion_rate?: number
           item_name?: string | null
           item_sku?: string | null
           item_unit?: string | null
@@ -1565,6 +1577,8 @@ export type Database = {
           item_id: string
           warehouse_id: string
           quantity: number
+          conversion_rate: number
+          standard_qty: number | null
           unit_cost: number | null
           currency: string | null
           exchange_rate: number | null
@@ -1595,6 +1609,7 @@ export type Database = {
           item_id: string
           warehouse_id: string
           quantity: number
+          conversion_rate: number
           unit_cost?: number | null
           currency?: string | null
           exchange_rate?: number | null
@@ -1622,6 +1637,7 @@ export type Database = {
           item_id?: string
           warehouse_id?: string
           quantity?: number
+          conversion_rate?: number
           unit_cost?: number | null
           currency?: string | null
           exchange_rate?: number | null
