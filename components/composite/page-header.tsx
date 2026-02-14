@@ -2,10 +2,15 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export interface PageHeaderProps {
+  /** Plain text page title. Rendered as h1. */
   title: string;
+  /** Optional subtitle. Accepts ReactNode for template literals and code elements. */
   description?: React.ReactNode;
+  /** Optional badge slot. Accepts ReactNode for icon+label combinations. */
   badge?: React.ReactNode;
+  /** Optional actions slot. Accepts ReactNode for buttons/links. */
   actions?: React.ReactNode;
+  /** Additional CSS classes for the container div. */
   className?: string;
 }
 

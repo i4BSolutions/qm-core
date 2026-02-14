@@ -4,12 +4,19 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface DetailPageLayoutProps {
+  /** URL path for the back button navigation. */
   backHref: string;
+  /** Accessible label for the back button. Defaults to "Back". */
   backLabel?: string;
+  /** Header content slot. Accepts ReactNode for title + badges + metadata combinations. */
   header: React.ReactNode;
+  /** Optional action buttons slot. */
   actions?: React.ReactNode;
+  /** Optional KPI metrics panel. */
   kpiPanel?: React.ReactNode;
+  /** Main content area, typically tabs or detail sections. */
   children: React.ReactNode;
+  /** Additional CSS classes for the container div. */
   className?: string;
 }
 

@@ -20,10 +20,15 @@ export const formSectionVariants = cva(
 
 export interface FormSectionProps
   extends VariantProps<typeof formSectionVariants> {
+  /** Section heading. Accepts ReactNode for dynamic titles with counts or required indicators. */
   title: React.ReactNode;
+  /** Optional icon displayed next to the title. */
   icon?: React.ReactNode;
+  /** Form fields or content within this section. */
   children: React.ReactNode;
+  /** Custom animation delay (e.g., "0.1s", "200ms"). Applied to the section container. */
   animationDelay?: string;
+  /** Additional CSS classes for the container div. */
   className?: string;
 }
 

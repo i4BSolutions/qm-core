@@ -4,12 +4,19 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 export interface FormFieldProps {
+  /** Field label. Accepts ReactNode for labels with inline indicators (e.g., lock icons in po/new and qmhq/new). Most usages pass plain strings. */
   label: React.ReactNode;
+  /** HTML ID of the input element this label refers to. */
   htmlFor?: string;
+  /** If true, displays a red asterisk (*) after the label. */
   required?: boolean;
+  /** Error message to display below the field. Takes precedence over hint. */
   error?: string;
+  /** Help text displayed below the field when no error is present. */
   hint?: string;
+  /** Form input element (Input, Select, Textarea, etc.). */
   children: React.ReactNode;
+  /** Additional CSS classes for the container div. */
   className?: string;
 }
 
