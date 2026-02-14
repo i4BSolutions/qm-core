@@ -17,11 +17,11 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 ## Current Position
 
 Phase: 49 of 50 (Conversion Rate Input)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-14 — Completed 49-01: ConversionRateInput component
+Last activity: 2026-02-14 — Completed 49-02: PO and Invoice conversion rate input
 
-Progress: [████████████████████░░] 116/122 (95%)
+Progress: [████████████████████░░] 117/122 (95%)
 
 ---
 
@@ -51,8 +51,8 @@ Progress: [████████████████████░░] 1
 - 11 milestones shipped
 
 **v1.11 Progress:**
-- 3/9 plans complete
-- Status: Phase 49 in progress (1/3 plans complete)
+- 4/9 plans complete
+- Status: Phase 49 in progress (2/3 plans complete)
 
 ---
 
@@ -71,11 +71,13 @@ Decisions archived in PROJECT.md Key Decisions table.
 - RLS: admin CRUD, all users read-only for system_config
 - Permission check via can('update', 'statuses') as admin proxy
 - ConversionRateInput mirrors ExchangeRateInput API for consistency (both use 4 decimal places)
+- Conversion rate required for all PO and Invoice line items (validation prevents submit)
+- Default conversion_rate to empty string (not 1) to force explicit user input
 
 ### TODOs
 
 **Immediate Next Steps:**
-1. Continue Phase 49 (Plans 02 and 03: Add conversion rate inputs to forms)
+1. Complete Phase 49 Plan 03 (Stock-out request conversion rate input)
 
 ### Blockers
 
@@ -86,20 +88,23 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 49-01: ConversionRateInput Component
-- Created ConversionRateInput component mirroring ExchangeRateInput (4 decimal places)
-- Component wraps AmountInput with decimalScale=4, placeholder "1.0000"
-- Ready for integration in stock-in and stock-out-request forms (plans 02-03)
-- Duration: 75 seconds, 1 task, 1 commit
+- Completed Phase 49-02: PO and Invoice Conversion Rate Input
+- Added conversion rate input to PO line items table (ConversionRateInput component)
+- Added conversion rate input to Invoice line items (Step 2 and Step 3 summary)
+- Validation requires conversion_rate > 0 on all line items before submit
+- Default conversion_rate to empty string to force explicit user input
+- Fixes Phase 47 TypeScript errors for po/new and invoice/new
+- Duration: 3min 49sec, 2 tasks, 2 commits
 
 **Context for Next Agent:**
-- Phase 47: COMPLETE ✓ (Schema changes - added conversion_rate to inventory_transactions)
+- Phase 47: COMPLETE ✓ (Schema changes - added conversion_rate to tables)
 - Phase 48: COMPLETE ✓ (System config + admin UI)
 - Phase 49-01: COMPLETE ✓ (ConversionRateInput component)
-- Phase 49-02/03: Add conversion rate inputs to forms - will fix Phase 47 breaking changes
+- Phase 49-02: COMPLETE ✓ (PO and Invoice forms with conversion rate)
+- Phase 49-03: Add conversion rate to stock-out-request form (last plan in phase)
 - Phase 50: StandardUnitDisplay component and integration (4 plans)
 
-**Resume at:** Execute 49-02 (Stock-in form conversion rate input)
+**Resume at:** Execute 49-03 (Stock-out request conversion rate input)
 
 ---
 
