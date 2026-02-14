@@ -10,15 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** Planning next milestone
+**Current Focus:** Standard Unit System
 
 ---
 
 ## Current Position
 
-**Milestone:** v1.10 Tech Debt Cleanup — SHIPPED 2026-02-14
-
-**Status:** Between milestones — ready for `/gsd:new-milestone`
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-14 — Milestone v1.11 started
 
 ---
 
@@ -58,7 +59,8 @@ Decisions archived in PROJECT.md Key Decisions table.
 ### TODOs
 
 **Immediate Next Steps:**
-1. Run `/gsd:new-milestone` to define next goals
+1. Define v1.11 requirements
+2. Create roadmap
 
 ### Blockers
 
@@ -69,15 +71,16 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed v1.10 Tech Debt Cleanup milestone (3 phases, 3 plans)
-- Milestone audited: 6/6 requirements satisfied, 7/7 integrations verified
-- Archived to `.planning/milestones/v1.10-*`
-- Git tagged v1.10
+- Started v1.11 Standard Unit System milestone
+- Feature: system-wide standard unit for item quantities, mirroring EUSD pattern
+- Per-transaction conversion rate, admin-configurable unit name, display everywhere
 
 **Context for Next Agent:**
-- All known tech debt resolved
-- Only remaining item: context slider for approval/execution pages (out of scope — approval page already shows context)
-- Run `/gsd:new-milestone` to start next milestone cycle
+- Standard unit = EUSD pattern for quantities
+- Admin configures global unit name, users input conversion rate per transaction
+- Calculation: standard_qty = qty × conversion_rate
+- Required input (no default), backfill existing with rate = 1
+- Display everywhere quantities appear (PO, invoice, stock-in/out, inventory)
 
 ---
 

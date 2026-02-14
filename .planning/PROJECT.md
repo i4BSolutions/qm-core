@@ -68,6 +68,17 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Flow tracking VIEW optimized with 8 partial indexes and Suspense loading
 - JSDoc-annotated composite component prop interfaces (24 props documented)
 
+## Current Milestone: v1.11 Standard Unit System
+
+**Goal:** Add a system-wide standard unit for item quantities — per-transaction conversion rate with display everywhere, mirroring the EUSD pattern for currencies.
+
+**Target features:**
+- Admin-configurable standard unit name (global setting)
+- Per-transaction unit conversion rate input (required, no default)
+- Standard qty calculation (`qty × conversion_rate`) and display alongside every quantity
+- Standard unit display everywhere: PO lines, invoice lines, stock-in, stock-out, inventory, dashboards
+- Backfill existing transactions with conversion rate = 1
+
 ## Requirements
 
 ### Validated
@@ -178,7 +189,10 @@ Users can reliably create purchase orders, receive inventory, and track request 
 
 ### Active
 
-(None — run `/gsd:new-milestone` to define next goals)
+- [ ] Admin-configurable standard unit name
+- [ ] Per-transaction unit conversion rate input everywhere quantities are entered
+- [ ] Standard qty display (qty × rate) alongside every quantity in the system
+- [ ] Backfill existing transactions with conversion rate = 1
 
 ### Out of Scope
 
@@ -341,4 +355,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
   - Execution is a dialog modal, not a standalone page
 
 ---
-*Last updated: 2026-02-14 after v1.10 milestone completed*
+*Last updated: 2026-02-14 after v1.11 milestone started*
