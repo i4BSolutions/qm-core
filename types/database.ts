@@ -509,6 +509,41 @@ export type Database = {
           },
         ]
       }
+      system_config: {
+        Row: {
+          id: string
+          key: string
+          value: string
+          description: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          key: string
+          value: string
+          description?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          key?: string
+          value?: string
+          description?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_config_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_out_approvals: {
         Row: {
           id: string
@@ -2222,6 +2257,9 @@ export type InventoryTransaction = Tables<"inventory_transactions">
 export type FileAttachment = Tables<"file_attachments">
 export type FileAttachmentInsert = TablesInsert<"file_attachments">
 export type FileAttachmentUpdate = TablesUpdate<"file_attachments">
+
+// System Config type alias
+export type SystemConfig = Tables<"system_config">
 
 // ============================================
 // Comment Types
