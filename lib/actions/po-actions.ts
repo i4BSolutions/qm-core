@@ -381,3 +381,200 @@ export async function unlockClosedPO(
     };
   }
 }
+
+/**
+ * Result type for update PO operation
+ */
+export type UpdatePOResult =
+  | {
+      success: true;
+      data: {
+        poNumber: string;
+      };
+    }
+  | { success: false; error: string };
+
+/**
+ * Updates a Purchase Order header fields.
+ *
+ * This action:
+ * 1. Validates user authentication
+ * 2. Fetches PO BEFORE update to get old values for audit logging
+ * 3. Guards against editing closed/cancelled POs
+ * 4. Updates editable header fields only (supplier, notes, dates, signers)
+ * 5. Creates audit log entry with old/new values
+ * 6. Revalidates affected paths
+ * 7. Returns success with PO number
+ *
+ * Editable fields:
+ * - supplier_id
+ * - notes
+ * - expected_delivery_date
+ * - contact_person_name
+ * - sign_person_name
+ * - authorized_signer_name
+ *
+ * @param poId - The UUID of the PO to update
+ * @param data - Object containing fields to update
+ * @returns UpdatePOResult with PO number or error message
+ *
+ * @example
+ * const result = await updatePO(poId, {
+ *   supplier_id: "new-supplier-id",
+ *   notes: "Updated notes",
+ *   expected_delivery_date: "2026-03-01"
+ * });
+ * if (result.success) {
+ *   toast({ title: "PO Updated", description: `${result.data.poNumber} updated successfully` });
+ * }
+ */
+export async function updatePO(
+  poId: string,
+  data: {
+    supplier_id?: string;
+    notes?: string;
+    expected_delivery_date?: string | null;
+    contact_person_name?: string | null;
+    sign_person_name?: string | null;
+    authorized_signer_name?: string | null;
+  }
+): Promise<UpdatePOResult> {
+  try {
+    const supabase = await createClient();
+
+    // 1. Validate authentication
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // 2. Fetch PO BEFORE update to get old values
+    const { data: poBefore, error: fetchError } = await supabase
+      .from('purchase_orders')
+      .select('po_number, status, supplier_id, notes, expected_delivery_date, contact_person_name, sign_person_name, authorized_signer_name')
+      .eq('id', poId)
+      .single();
+
+    if (fetchError) {
+      return {
+        success: false,
+        error: `Failed to fetch PO: ${fetchError.message}`,
+      };
+    }
+
+    // 3. Guard: Cannot edit closed or cancelled POs
+    if (poBefore.status === 'closed') {
+      return {
+        success: false,
+        error: 'Cannot edit a closed PO',
+      };
+    }
+
+    if (poBefore.status === 'cancelled') {
+      return {
+        success: false,
+        error: 'Cannot edit a cancelled PO',
+      };
+    }
+
+    // 4. Build update object from provided fields
+    const updateData: Record<string, unknown> = {
+      updated_by: user.id,
+    };
+
+    // Track changed fields for audit
+    const oldValues: Record<string, unknown> = {};
+    const newValues: Record<string, unknown> = {};
+
+    if (data.supplier_id !== undefined && data.supplier_id !== poBefore.supplier_id) {
+      updateData.supplier_id = data.supplier_id;
+      oldValues.supplier_id = poBefore.supplier_id;
+      newValues.supplier_id = data.supplier_id;
+    }
+
+    if (data.notes !== undefined && data.notes !== poBefore.notes) {
+      updateData.notes = data.notes;
+      oldValues.notes = poBefore.notes;
+      newValues.notes = data.notes;
+    }
+
+    if (data.expected_delivery_date !== undefined && data.expected_delivery_date !== poBefore.expected_delivery_date) {
+      updateData.expected_delivery_date = data.expected_delivery_date;
+      oldValues.expected_delivery_date = poBefore.expected_delivery_date;
+      newValues.expected_delivery_date = data.expected_delivery_date;
+    }
+
+    if (data.contact_person_name !== undefined && data.contact_person_name !== poBefore.contact_person_name) {
+      updateData.contact_person_name = data.contact_person_name;
+      oldValues.contact_person_name = poBefore.contact_person_name;
+      newValues.contact_person_name = data.contact_person_name;
+    }
+
+    if (data.sign_person_name !== undefined && data.sign_person_name !== poBefore.sign_person_name) {
+      updateData.sign_person_name = data.sign_person_name;
+      oldValues.sign_person_name = poBefore.sign_person_name;
+      newValues.sign_person_name = data.sign_person_name;
+    }
+
+    if (data.authorized_signer_name !== undefined && data.authorized_signer_name !== poBefore.authorized_signer_name) {
+      updateData.authorized_signer_name = data.authorized_signer_name;
+      oldValues.authorized_signer_name = poBefore.authorized_signer_name;
+      newValues.authorized_signer_name = data.authorized_signer_name;
+    }
+
+    // 5. Execute UPDATE
+    const { error: updateError } = await supabase
+      .from('purchase_orders')
+      .update(updateData)
+      .eq('id', poId);
+
+    if (updateError) {
+      return {
+        success: false,
+        error: `Failed to update PO: ${updateError.message}`,
+      };
+    }
+
+    // 6. Create audit log entry (only if something changed)
+    if (Object.keys(oldValues).length > 0) {
+      const { error: auditError } = await supabase
+        .from('audit_logs')
+        .insert({
+          entity_type: 'purchase_orders',
+          entity_id: poId,
+          action: 'update',
+          old_values: oldValues,
+          new_values: newValues,
+          summary: 'PO header fields updated',
+          changed_by: user.id,
+        });
+
+      if (auditError) {
+        // Log but don't fail the operation
+        console.warn('Failed to create audit log:', auditError);
+      }
+    }
+
+    // 7. Revalidate paths
+    revalidatePath('/po');
+    revalidatePath(`/po/${poId}`);
+
+    // 8. Return success
+    return {
+      success: true,
+      data: {
+        poNumber: poBefore.po_number || '',
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'An unexpected error occurred',
+    };
+  }
+}
