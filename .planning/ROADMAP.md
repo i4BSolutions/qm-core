@@ -151,12 +151,12 @@ Plans:
 4. Stock-out request line items include conversion rate input
 5. Conversion rate input component mirrors ExchangeRateInput pattern (decimal precision, thousand separators)
 
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 49-01: Conversion rate input component
-- [ ] 49-02: PO and Invoice integration
-- [ ] 49-03: Stock-in and stock-out integration
+- [ ] 49-01-PLAN.md -- ConversionRateInput component (mirrors ExchangeRateInput)
+- [ ] 49-02-PLAN.md -- PO and Invoice line item conversion rate integration
+- [ ] 49-03-PLAN.md -- Stock-in, stock-out, and stock-out request conversion rate integration
 
 #### Phase 50: Standard Quantity Display
 
