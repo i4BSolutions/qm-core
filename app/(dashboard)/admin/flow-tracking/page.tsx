@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchFlowChain } from "@/lib/supabase/flow-tracking-queries";
 import { FlowSearch } from "@/components/flow-tracking/flow-search";
 import { FlowChainTimeline } from "@/components/flow-tracking/flow-chain-timeline";
 import { PageHeader } from "@/components/composite";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Radio } from "lucide-react";
 
 interface FlowTrackingPageProps {
@@ -39,7 +41,9 @@ export default async function FlowTrackingPage({
           </p>
         </div>
       ) : (
-        <FlowTrackingResults qmrlId={qmrlId} />
+        <Suspense key={qmrlId} fallback={<FlowTrackingResultsSkeleton />}>
+          <FlowTrackingResults qmrlId={qmrlId} />
+        </Suspense>
       )}
     </div>
   );
@@ -84,4 +88,29 @@ async function FlowTrackingResults({ qmrlId }: { qmrlId: string }) {
   }
 
   return <FlowChainTimeline chain={data} />;
+}
+
+function FlowTrackingResultsSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="command-panel corner-accents space-y-4">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-5 w-5 rounded-full" />
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-5 w-20 rounded" />
+        </div>
+        <Skeleton className="h-4 w-64" />
+      </div>
+      <div className="ml-6 space-y-3">
+        <div className="command-panel space-y-3">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <div className="command-panel space-y-3">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+      </div>
+    </div>
+  );
 }
