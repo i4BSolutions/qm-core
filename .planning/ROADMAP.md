@@ -94,8 +94,13 @@ Phases 41-43 delivered PO smart status engine with 6-state auto-calculation, can
 
 **Dependencies:** None (extends existing PO detail page)
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 44-01-PLAN.md -- PO edit page with header-only editing and server action with audit logging
+
 **Requirements:**
-- POED-01: User can edit PO header fields (supplier, notes, expected delivery date) from detail page — line items, amounts, currency, and exchange rate are not editable
+- POED-01: User can edit PO header fields (supplier, notes, expected delivery date) from detail page -- line items, amounts, currency, and exchange rate are not editable
 - POED-02: PO edit is blocked when PO status is closed or cancelled (consistent with existing guards)
 
 **Success Criteria:**
@@ -150,21 +155,21 @@ Phases 41-43 delivered PO smart status engine with 6-state auto-calculation, can
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1-4. Foundation → Audit | v1.0 | 8/8 | ✓ Complete | 2026-01-27 |
-| 5-10. Bugs → UX Polish | v1.1 | 17/17 | ✓ Complete | 2026-01-28 |
-| 11-16. WAC → Void Cascade | v1.2 | 14/14 | ✓ Complete | 2026-01-31 |
-| 17-19. Attach → Audit Notes | v1.3 | 11/11 | ✓ Complete | 2026-02-02 |
-| 20-22. Upload → Validation | v1.4 | 9/9 | ✓ Complete | 2026-02-06 |
-| 23-26. Comments → Currency | v1.5 | 9/9 | ✓ Complete | 2026-02-09 |
-| 27-31. Stock-Out → Sliders | v1.6 | 12/12 | ✓ Complete | 2026-02-10 |
-| 32-35. Linking → Execution UI | v1.7 | 7/7 | ✓ Complete | 2026-02-11 |
-| 36-40. UI Composites → RBAC → Flow Tracking | v1.8 | 15/15 | ✓ Complete | 2026-02-12 |
+| 1-4. Foundation -> Audit | v1.0 | 8/8 | ✓ Complete | 2026-01-27 |
+| 5-10. Bugs -> UX Polish | v1.1 | 17/17 | ✓ Complete | 2026-01-28 |
+| 11-16. WAC -> Void Cascade | v1.2 | 14/14 | ✓ Complete | 2026-01-31 |
+| 17-19. Attach -> Audit Notes | v1.3 | 11/11 | ✓ Complete | 2026-02-02 |
+| 20-22. Upload -> Validation | v1.4 | 9/9 | ✓ Complete | 2026-02-06 |
+| 23-26. Comments -> Currency | v1.5 | 9/9 | ✓ Complete | 2026-02-09 |
+| 27-31. Stock-Out -> Sliders | v1.6 | 12/12 | ✓ Complete | 2026-02-10 |
+| 32-35. Linking -> Execution UI | v1.7 | 7/7 | ✓ Complete | 2026-02-11 |
+| 36-40. UI Composites -> RBAC -> Flow Tracking | v1.8 | 15/15 | ✓ Complete | 2026-02-12 |
 | 41. PO Status Engine Enhancement | v1.9 | 2/2 | ✓ Complete | 2026-02-12 |
 | 42. Cancellation Guards & Lock Mechanism | v1.9 | 3/3 | ✓ Complete | 2026-02-12 |
 | 43. PDF Export Infrastructure | v1.9 | 3/3 | ✓ Complete | 2026-02-12 |
-| 44. PO Edit Capability | v1.10 | 0/? | 🚧 Pending | - |
+| 44. PO Edit Capability | v1.10 | 0/1 | 🚧 Planned | - |
 | 45. Flow Tracking Performance | v1.10 | 0/? | 🚧 Pending | - |
 | 46. Composite Type Safety | v1.10 | 0/? | 🚧 Pending | - |
 
 ---
-*Last updated: 2026-02-14 after v1.10 roadmap created*
+*Last updated: 2026-02-14 after phase 44 planning*
