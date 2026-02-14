@@ -35,6 +35,7 @@ import {
 import { formatCurrency, handleQuantityKeyDown, cn } from "@/lib/utils";
 import { AmountInput } from "@/components/ui/amount-input";
 import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
+import { ConversionRateInput } from "@/components/ui/conversion-rate-input";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { MOVEMENT_TYPE_CONFIG } from "@/lib/utils/inventory";
 import { CategoryItemSelector } from "@/components/forms/category-item-selector";
@@ -73,6 +74,7 @@ interface StockInLineItem {
   quantity: number;
   max_quantity: number;
   unit_cost: number;
+  conversion_rate: string;
   selected: boolean;
 }
 
@@ -148,6 +150,7 @@ function StockInContent() {
   const [manualItemId, setManualItemId] = useState("");
   const [manualQuantity, setManualQuantity] = useState<string>("");
   const [manualUnitCost, setManualUnitCost] = useState<string>("");
+  const [manualConversionRate, setManualConversionRate] = useState<string>("");
 
   // Currency and exchange rate for manual mode
   const [currency, setCurrency] = useState('MMK');
@@ -243,6 +246,7 @@ function StockInContent() {
             quantity: availableQty,
             max_quantity: availableQty,
             unit_cost: li.unit_price ?? 0,
+            conversion_rate: "",
             selected: availableQty > 0,
           };
         });
@@ -359,17 +363,19 @@ function StockInContent() {
         !warehouseId ||
         selectedStockInLines.length === 0 ||
         selectedStockInLines.some(
-          (line) => line.quantity > line.max_quantity || line.quantity <= 0
+          (line) => line.quantity > line.max_quantity || line.quantity <= 0 || !line.conversion_rate || (parseFloat(line.conversion_rate) || 0) <= 0
         )
       );
     } else {
       const qty = parseFloat(manualQuantity) || 0;
       const cost = parseFloat(manualUnitCost) || 0;
+      const convRate = parseFloat(manualConversionRate) || 0;
       return (
         !warehouseId ||
         !manualItemId ||
         qty <= 0 ||
-        cost <= 0
+        cost <= 0 ||
+        convRate <= 0
       );
     }
   }, [
@@ -379,6 +385,7 @@ function StockInContent() {
     manualItemId,
     manualQuantity,
     manualUnitCost,
+    manualConversionRate,
   ]);
 
   // Handlers
@@ -420,6 +427,16 @@ function StockInContent() {
     );
   };
 
+  const handleUpdateLineConversionRate = (lineId: string, conversionRate: string) => {
+    setStockInLines((prev) =>
+      prev.map((line) =>
+        line.id === lineId
+          ? { ...line, conversion_rate: conversionRate }
+          : line
+      )
+    );
+  };
+
   // Handle currency change - auto-set USD rate to 1.0 per database constraint
   const handleCurrencyChange = (value: string) => {
     setCurrency(value);
@@ -448,6 +465,7 @@ function StockInContent() {
           unit_cost: line.unit_cost,
           currency: selectedInvoice.currency || "MMK",
           exchange_rate: selectedInvoice.exchange_rate || 1,
+          conversion_rate: parseFloat(line.conversion_rate) || 1,
           invoice_id: selectedInvoiceId,
           invoice_line_item_id: line.invoice_line_item_id,
           transaction_date: transactionDate.toISOString().split("T")[0],
@@ -482,6 +500,7 @@ function StockInContent() {
             unit_cost: cost,
             currency: currency,
             exchange_rate: parseFloat(exchangeRate) || 1,
+            conversion_rate: parseFloat(manualConversionRate) || 1,
             transaction_date: transactionDate.toISOString().split("T")[0],
             notes: notes || null,
             status: "completed",
@@ -885,6 +904,18 @@ function StockInContent() {
                                 </div>
                                 <div>
                                   <label className="text-xs text-slate-500 block mb-1">
+                                    Conv. Rate
+                                  </label>
+                                  <ConversionRateInput
+                                    value={line.conversion_rate}
+                                    onValueChange={(val) =>
+                                      handleUpdateLineConversionRate(line.id, val)
+                                    }
+                                    className="w-24 text-right bg-slate-800 border-slate-700"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-500 block mb-1">
                                     Total
                                   </label>
                                   <div className="w-28 text-right font-mono text-emerald-400 py-2">
@@ -962,8 +993,22 @@ function StockInContent() {
             </div>
           </div>
 
-          {/* Currency and Exchange Rate */}
-          <div className="grid gap-4 md:grid-cols-3 mt-4 pt-4 border-t border-slate-700">
+          {/* Conversion Rate, Currency, Exchange Rate */}
+          <div className="grid gap-4 md:grid-cols-4 mt-4 pt-4 border-t border-slate-700">
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
+                Conversion Rate *
+              </label>
+              <ConversionRateInput
+                value={manualConversionRate}
+                onValueChange={setManualConversionRate}
+                className="bg-slate-800/50 border-slate-700"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                To standard unit
+              </p>
+            </div>
+
             <div>
               <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
                 Currency *
