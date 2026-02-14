@@ -34,6 +34,7 @@ import {
   requiresDestinationWarehouse,
   formatStockQuantity,
 } from "@/lib/utils/inventory";
+import { ConversionRateInput } from "@/components/ui/conversion-rate-input";
 import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePermissions } from "@/lib/hooks/use-permissions";
@@ -90,6 +91,7 @@ export default function StockOutPage() {
   const [selectedItemId, setSelectedItemId] = useState("");
   const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
   const [quantity, setQuantity] = useState<string>("");
+  const [conversionRate, setConversionRate] = useState<string>("");
   const [reason, setReason] = useState<StockOutReason>(qmhqId ? "request" : "consumption");
   const [destinationWarehouseId, setDestinationWarehouseId] = useState("");
   const [transactionDate, setTransactionDate] = useState<Date>(new Date());
@@ -358,9 +360,11 @@ export default function StockOutPage() {
   // Validation
   const hasErrors = useMemo(() => {
     const qty = parseFloat(quantity) || 0;
+    const convRate = parseFloat(conversionRate) || 0;
     if (!selectedItemId) return true;
     if (!selectedWarehouseId) return true;
     if (qty <= 0) return true;
+    if (convRate <= 0) return true;
     if (qty > availableStock) return true;
     // For QMHQ, also check against remaining unfulfilled quantity
     if (qmhqId && remainingQmhqQty !== null && qty > remainingQmhqQty) return true;
@@ -370,6 +374,7 @@ export default function StockOutPage() {
     selectedItemId,
     selectedWarehouseId,
     quantity,
+    conversionRate,
     availableStock,
     qmhqId,
     remainingQmhqQty,
@@ -398,6 +403,7 @@ export default function StockOutPage() {
           item_id: selectedItemId,
           warehouse_id: selectedWarehouseId,
           quantity: qty,
+          conversion_rate: parseFloat(conversionRate) || 1,
           reason,
           qmhq_id: qmhqId || null,
           destination_warehouse_id:
@@ -429,6 +435,7 @@ export default function StockOutPage() {
             unit_cost: item?.wac_amount ?? null,
             currency: item?.wac_currency ?? "MMK",
             exchange_rate: 1,
+            conversion_rate: parseFloat(conversionRate) || 1,
             transaction_date: transactionDate.toISOString().split("T")[0],
             notes: `Transfer from ${selectedWarehouseStock?.warehouse_name || "unknown"}${notes ? `: ${notes}` : ""}`,
             status: "completed",
@@ -702,7 +709,7 @@ export default function StockOutPage() {
           animationDelay="50ms"
         >
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <FormField label="Source Warehouse" required>
               <Select
                 value={selectedWarehouseId}
@@ -767,6 +774,17 @@ export default function StockOutPage() {
                   </p>
                 )}
               </div>
+            </FormField>
+
+            <FormField label="Conversion Rate" htmlFor="conversion_rate" required>
+              <ConversionRateInput
+                value={conversionRate}
+                onValueChange={setConversionRate}
+                className="bg-slate-800/50 border-slate-700"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                To standard unit
+              </p>
             </FormField>
           </div>
         </FormSection>

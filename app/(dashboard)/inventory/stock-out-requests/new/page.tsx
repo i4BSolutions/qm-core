@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useUser } from "@/components/providers/auth-provider";
 import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
+import { ConversionRateInput } from "@/components/ui/conversion-rate-input";
 import type { StockOutReason } from "@/types/database";
 import { FormSection, FormField, PageHeader } from "@/components/composite";
 import { ContextSlider } from "@/components/context-slider/context-slider";
@@ -63,6 +64,7 @@ interface LineItem {
   categoryId: string;
   itemId: string;
   quantity: string;
+  conversionRate: string;
 }
 
 export default function NewStockOutRequestPage() {
@@ -80,7 +82,7 @@ export default function NewStockOutRequestPage() {
 
   // Form state
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { id: crypto.randomUUID(), categoryId: "", itemId: "", quantity: "" },
+    { id: crypto.randomUUID(), categoryId: "", itemId: "", quantity: "", conversionRate: "" },
   ]);
   const [reason, setReason] = useState<StockOutReason>("request");
   const [notes, setNotes] = useState("");
@@ -138,6 +140,7 @@ export default function NewStockOutRequestPage() {
               categoryId: qmhqItem.item.category_id || "_uncategorized",
               itemId: qmhqItem.item_id,
               quantity: String(qmhqItem.quantity || 0),
+              conversionRate: "",
             }))
           );
         } else if (data.item_id && data.quantity && data.item) {
@@ -147,6 +150,7 @@ export default function NewStockOutRequestPage() {
               categoryId: data.item.category_id || "_uncategorized",
               itemId: data.item_id,
               quantity: String(data.quantity),
+              conversionRate: "",
             },
           ]);
         }
@@ -353,7 +357,7 @@ export default function NewStockOutRequestPage() {
   const handleAddLineItem = () => {
     setLineItems([
       ...lineItems,
-      { id: crypto.randomUUID(), categoryId: "", itemId: "", quantity: "" },
+      { id: crypto.randomUUID(), categoryId: "", itemId: "", quantity: "", conversionRate: "" },
     ]);
   };
 
@@ -398,6 +402,16 @@ export default function NewStockOutRequestPage() {
         toast({
           title: "Validation Error",
           description: "All line items must have a quantity greater than 0",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const convRate = parseFloat(item.conversionRate);
+      if (!item.conversionRate || isNaN(convRate) || convRate <= 0) {
+        toast({
+          title: "Validation Error",
+          description: "All line items must have a conversion rate greater than 0",
           variant: "destructive",
         });
         return;
@@ -454,6 +468,7 @@ export default function NewStockOutRequestPage() {
         request_id: requestData.id,
         item_id: item.itemId,
         requested_quantity: parseFloat(item.quantity),
+        conversion_rate: parseFloat(item.conversionRate) || 1,
         created_by: user.id,
       }));
 
@@ -633,6 +648,24 @@ export default function NewStockOutRequestPage() {
                         placeholder="Enter quantity"
                         className="font-mono"
                       />
+                    </div>
+
+                    {/* Conversion Rate */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Conversion Rate *
+                      </label>
+                      <ConversionRateInput
+                        value={item.conversionRate}
+                        onValueChange={(val) =>
+                          handleLineItemChange(item.id, "conversionRate", val)
+                        }
+                        placeholder="1.0000"
+                        className="bg-slate-800/50 border-slate-700"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        To standard unit
+                      </p>
                     </div>
                   </div>
 

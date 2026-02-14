@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AmountInput } from "@/components/ui/amount-input";
+import { ConversionRateInput } from "@/components/ui/conversion-rate-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -53,6 +54,7 @@ interface WarehouseStock {
 interface ApprovalData {
   approvedQuantity: string;
   warehouseId: string;
+  conversionRate: string;
 }
 
 /**
@@ -159,6 +161,7 @@ export function ApprovalDialog({
         initialData.set(item.id, {
           approvedQuantity: item.remaining_quantity.toString(),
           warehouseId: "",
+          conversionRate: "",
         });
       });
       setApprovalData(initialData);
@@ -196,6 +199,7 @@ export function ApprovalDialog({
       const current = newData.get(lineItemId) || {
         approvedQuantity: "",
         warehouseId: "",
+        conversionRate: "",
       };
       newData.set(lineItemId, { ...current, [field]: value });
       return newData;
@@ -236,6 +240,15 @@ export function ApprovalDialog({
       // Validate warehouse selection
       if (!data.warehouseId) {
         errors.set(`${item.id}-warehouseId`, "Warehouse is required");
+      }
+
+      // Validate conversion rate
+      const convRate = parseFloat(data.conversionRate);
+      if (isNaN(convRate) || convRate <= 0) {
+        errors.set(
+          `${item.id}-conversionRate`,
+          "Must be greater than 0"
+        );
       }
     });
 
@@ -292,6 +305,7 @@ export function ApprovalDialog({
             item_id: item.item_id,
             warehouse_id: warehouseId,
             quantity: approvedQty,
+            conversion_rate: parseFloat(data.conversionRate) || 1,
             reason: requestReason as "request" | "consumption" | "damage" | "lost" | "transfer" | "adjustment",
             stock_out_approval_id: approvalRecord.id,
             qmhq_id: qmhqId || null,
@@ -386,7 +400,7 @@ export function ApprovalDialog({
                   </div>
 
                   {/* Input Fields */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Approved Quantity */}
                     <div className="space-y-2">
                       <Label htmlFor={`qty-${item.id}`}>
@@ -410,6 +424,31 @@ export function ApprovalDialog({
                       {validationErrors.has(`${item.id}-approvedQuantity`) && (
                         <p className="text-xs text-red-400">
                           {validationErrors.get(`${item.id}-approvedQuantity`)}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Conversion Rate */}
+                    <div className="space-y-2">
+                      <Label htmlFor={`conv-rate-${item.id}`}>
+                        Conv. Rate *
+                      </Label>
+                      <ConversionRateInput
+                        id={`conv-rate-${item.id}`}
+                        value={data?.conversionRate || ""}
+                        onValueChange={(val) =>
+                          updateApprovalData(item.id, "conversionRate", val)
+                        }
+                        placeholder="1.0000"
+                        className={cn(
+                          "bg-slate-800 border-slate-700",
+                          validationErrors.has(`${item.id}-conversionRate`) &&
+                            "border-red-500"
+                        )}
+                      />
+                      {validationErrors.has(`${item.id}-conversionRate`) && (
+                        <p className="text-xs text-red-400">
+                          {validationErrors.get(`${item.id}-conversionRate`)}
                         </p>
                       )}
                     </div>
