@@ -142,6 +142,11 @@ Plans:
 
 **Dependencies:** None (refines existing composite components from v1.8)
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 46-01-PLAN.md -- Tighten FormField label to string + JSDoc annotations on all composite props
+
 **Requirements:**
 - TYPE-01: Composite component props tightened from ReactNode to string where only strings are used
 - TYPE-02: Composite components retain ReactNode for props that genuinely need rich content
