@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
 import { AmountInput } from "@/components/ui/amount-input";
+import { ConversionRateInput } from "@/components/ui/conversion-rate-input";
 import { ItemDialog } from "@/app/(dashboard)/item/item-dialog";
 import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import type { POLineItem, Item } from "@/types/database";
@@ -27,6 +28,7 @@ interface LineItemFormData {
   item_price_reference?: string;
   quantity: number;
   unit_price: number;
+  conversion_rate: string;
 }
 
 interface EditableLineItemsTableProps {
@@ -96,6 +98,9 @@ export function EditableLineItemsTable({
               </th>
               <th className="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-32">
                 Unit Price
+              </th>
+              <th className="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-28">
+                Conv. Rate
               </th>
               <th className="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-32">
                 Line Total
@@ -255,6 +260,14 @@ export function EditableLineItemsTable({
                     className="w-32 text-right bg-slate-800 border-slate-700"
                   />
                 </td>
+                <td className="py-2 px-3">
+                  <ConversionRateInput
+                    value={item.conversion_rate}
+                    onValueChange={(val) => onUpdateItem(item.id, "conversion_rate", val)}
+                    className="w-28 text-right bg-slate-800 border-slate-700"
+                    disabled={disabled}
+                  />
+                </td>
                 <td className="py-2 px-3 text-right">
                   <span className="font-mono text-emerald-400">
                     {formatCurrency(item.quantity * item.unit_price)}
@@ -276,7 +289,7 @@ export function EditableLineItemsTable({
           </tbody>
           <tfoot>
             <tr className="border-t border-slate-600">
-              <td colSpan={3} className="py-3 px-3 text-right">
+              <td colSpan={4} className="py-3 px-3 text-right">
                 <span className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
                   Subtotal ({currency})
                 </span>

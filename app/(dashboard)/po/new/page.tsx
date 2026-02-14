@@ -45,6 +45,7 @@ interface LineItemFormData {
   item_price_reference?: string;
   quantity: number;
   unit_price: number;
+  conversion_rate: string;
 }
 
 // QMHQ with balance info
@@ -78,7 +79,7 @@ function POCreateContent() {
   const [authorizedSignerName, setAuthorizedSignerName] = useState("");
   const [notes, setNotes] = useState("");
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([
-    { id: crypto.randomUUID(), category_id: null, item_id: null, item_name: "", quantity: 1, unit_price: 0 },
+    { id: crypto.randomUUID(), category_id: null, item_id: null, item_name: "", quantity: 1, unit_price: 0, conversion_rate: "" },
   ]);
 
   useEffect(() => {
@@ -139,14 +140,14 @@ function POCreateContent() {
     supplierId &&
     currency &&
     lineItems.length > 0 &&
-    lineItems.every((li) => li.item_id && li.quantity > 0 && li.unit_price > 0) &&
+    lineItems.every((li) => li.item_id && li.quantity > 0 && li.unit_price > 0 && li.conversion_rate && parseFloat(li.conversion_rate) > 0) &&
     !exceedsBalance;
 
   // Line item handlers
   const handleAddLineItem = () => {
     setLineItems([
       ...lineItems,
-      { id: crypto.randomUUID(), category_id: null, item_id: null, item_name: "", quantity: 1, unit_price: 0 },
+      { id: crypto.randomUUID(), category_id: null, item_id: null, item_name: "", quantity: 1, unit_price: 0, conversion_rate: "" },
     ]);
   };
 
@@ -217,6 +218,7 @@ function POCreateContent() {
           item_id: li.item_id,
           quantity: li.quantity,
           unit_price: li.unit_price,
+          conversion_rate: parseFloat(li.conversion_rate) || 1,
           item_name: li.item_name,
           item_sku: li.item_sku || null,
           item_unit: li.item_unit || null,
