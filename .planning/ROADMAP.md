@@ -94,7 +94,7 @@ Phases 44-46 delivered PO header editing with status guards and audit logging, f
 
 </details>
 
-### 🚧 v1.11 Standard Unit System (In Progress)
+### v1.11 Standard Unit System (In Progress)
 
 **Milestone Goal:** Add system-wide standard unit for item quantities with per-transaction conversion rate and display everywhere, mirroring the EUSD pattern for currencies.
 
@@ -112,10 +112,10 @@ Phases 44-46 delivered PO header editing with status guards and audit logging, f
 3. Database constraints enforce conversion_rate is required (NOT NULL) on new records
 4. Generated columns automatically calculate standard_qty from qty × conversion_rate
 
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 47-01: Schema migration and backfill
+- [ ] 47-01-PLAN.md -- Schema migration adding conversion_rate and standard_qty to 4 tables with backfill
 
 #### Phase 48: Admin Configuration
 
@@ -204,4 +204,4 @@ Plans:
 | 50. Standard Quantity Display | v1.11 | 0/4 | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after v1.11 roadmap creation*
+*Last updated: 2026-02-14 after Phase 47 planning*
