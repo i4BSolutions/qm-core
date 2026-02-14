@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** Phase 47 - Schema & Data Foundation
+**Current Focus:** Phase 48 - Admin Configuration
 
 ---
 
 ## Current Position
 
-Phase: 47 of 50 (Schema & Data Foundation)
+Phase: 48 of 50 (Admin Configuration)
 Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-02-14 — Completed 47-01: Added conversion_rate and standard_qty columns to 4 tables
+Last activity: 2026-02-14 — Completed 48-01: System config table and admin settings page
 
-Progress: [████████████████████░░] 114/122 (93%)
+Progress: [████████████████████░░] 115/122 (94%)
 
 ---
 
 ## Performance Metrics
 
 **Codebase:**
-- ~49,804 lines of TypeScript
-- 70 database migrations
-- 92 RLS policies across 20 tables
+- ~50,087 lines of TypeScript
+- 71 database migrations
+- 96 RLS policies across 21 tables
 
 **Shipped Milestones:**
 - v1.0 MVP (4 phases, 8 plans) - 2026-01-27
@@ -46,13 +46,13 @@ Progress: [████████████████████░░] 1
 - v1.10 Tech Debt Cleanup (3 phases, 3 plans) - 2026-02-14
 
 **Total Delivered:**
-- 47 phases
-- 114 plans
+- 48 phases
+- 115 plans
 - 11 milestones shipped
 
 **v1.11 Progress:**
-- 1/9 plans complete
-- Status: Phase 47 complete, ready for Phase 48
+- 2/9 plans complete
+- Status: Phase 48 complete, ready for Phase 49
 
 ---
 
@@ -67,11 +67,14 @@ Decisions archived in PROJECT.md Key Decisions table.
 - Multiplication formula: standard_qty = qty × conversion_rate (not division)
 - Per-transaction conversion rate with required input (no default)
 - Backfill existing data with conversion_rate = 1
+- Use system_config key-value table for global settings (scalable pattern)
+- RLS: admin CRUD, all users read-only for system_config
+- Permission check via can('update', 'statuses') as admin proxy
 
 ### TODOs
 
 **Immediate Next Steps:**
-1. Execute Phase 48 (Admin settings for standard unit name)
+1. Execute Phase 49 (Conversion rate inputs - 3 plans)
 
 ### Blockers
 
@@ -82,20 +85,22 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 47-01: Schema & Data Foundation
-- Added conversion_rate and standard_qty columns to 4 tables (po_line_items, invoice_line_items, inventory_transactions, stock_out_line_items)
-- Backfilled all existing records with conversion_rate = 1.0000
-- Updated TypeScript types (breaking changes expected until Phase 49)
-- Duration: 163 seconds, 2 tasks, 2 commits
+- Completed Phase 48-01: Admin Configuration Infrastructure
+- Created system_config table with RLS (admin CRUD, all users read)
+- Seeded default standard_unit_name = 'Standard Units'
+- Built useStandardUnitName hook for Phase 50 display components
+- Created /admin/settings page with input, preview, and save functionality
+- Added "Settings" link to sidebar Admin section
+- Duration: 227 seconds, 2 tasks, 2 commits
 
 **Context for Next Agent:**
-- Phase 47: COMPLETE ✓
-- Phase 48: Admin settings for global standard unit name (next)
-- Phase 49: Conversion rate input components (3 plans) - will fix breaking changes
+- Phase 47: COMPLETE ✓ (Schema changes)
+- Phase 48: COMPLETE ✓ (System config + admin UI)
+- Phase 49: Conversion rate input components (3 plans) - will fix Phase 47 breaking changes
 - Phase 50: StandardUnitDisplay component and integration (4 plans)
 
-**Resume at:** `/gsd:plan-phase 48`
+**Resume at:** `/gsd:plan-phase 49`
 
 ---
 
-*State last updated: 2026-02-14 after Phase 47-01 completion*
+*State last updated: 2026-02-14 after Phase 48-01 completion*
