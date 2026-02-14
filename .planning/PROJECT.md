@@ -8,23 +8,14 @@ An internal ticket, expense, and inventory management platform serving as a Sing
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-## Current Milestone: v1.10 Tech Debt Cleanup
-
-**Goal:** Address all known tech debt — PO edit page, context sliders, flow tracking performance, and composite type safety.
-
-**Target features:**
-- PO Edit page (fix 404) — header fields only, line items immutable
-- Flow tracking VIEW performance optimization
-- Composite component type tightening
-
-## Current State (v1.9 Shipped)
+## Current State (v1.10 Shipped)
 
 **Tech Stack:**
 - Next.js 14+ with App Router, TypeScript strict mode
 - Supabase for auth, database, and file storage
 - Tailwind CSS with dark theme support
-- ~49,034 lines of TypeScript
-- 68 database migrations with RLS policies (92 policies across 20 tables)
+- ~49,804 lines of TypeScript
+- 70 database migrations with RLS policies (92 policies across 20 tables)
 
 **Shipped Features:**
 - Email OTP authentication with 3-role RBAC (Admin/QMRL/QMHQ)
@@ -73,6 +64,9 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - PO Matching tab with side-by-side PO vs Invoice vs Stock-In comparison
 - Per-line-item stepped progress bars (ordered/invoiced/received)
 - Professional dark-themed PDF receipt export (Invoice, Stock-Out, Money-Out)
+- PO header editing with status guards and audit logging (line items immutable)
+- Flow tracking VIEW optimized with 8 partial indexes and Suspense loading
+- JSDoc-annotated composite component prop interfaces (24 props documented)
 
 ## Requirements
 
@@ -177,12 +171,14 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - ✓ PDF receipt export for QMHQ money-out transactions (dual currency) — v1.9
 - ✓ PDF receipt export for SOR-based stock-out transactions (with approval audit trail) — v1.9
 
+<!-- V1.10 Features -->
+- ✓ PO Edit page at /po/[id]/edit for header fields (supplier, notes, dates) — line items and amounts immutable — v1.10
+- ✓ Flow tracking VIEW performance optimization with 8 partial indexes — v1.10
+- ✓ Composite component prop types documented with JSDoc annotations — v1.10
+
 ### Active
 
-<!-- V1.10 Tech Debt Cleanup -->
-- [ ] PO Edit page at /po/[id]/edit for header fields (supplier, notes, dates) — line items and amounts immutable
-- [ ] Flow tracking VIEW performance optimization for production scale
-- [ ] Composite component prop types tightened from ReactNode to string where appropriate
+(None — run `/gsd:new-milestone` to define next goals)
 
 ### Out of Scope
 
@@ -219,7 +215,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.7 Stock-Out Request Logic Repair — Per-line-item execution, QMHQ transaction linking, dual reference display (shipped 2026-02-11)
 - v1.8 UI Consistency, Flow Tracking & RBAC — Composite UI components, 3-role RBAC, flow tracking (shipped 2026-02-12)
 - v1.9 PO Lifecycle, Cancellation Guards & PDF Export — PO smart status, matching panel, void guards, PDF receipts (shipped 2026-02-13)
-- v1.10 Tech Debt Cleanup — PO edit page, context sliders, flow tracking performance, type safety (in progress)
+- v1.10 Tech Debt Cleanup — PO edit page, flow tracking performance, type safety (shipped 2026-02-14)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -259,6 +255,13 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Partial unique index for idempotency (scoped to specific transaction types)
 - Per-approval execution with stock pre-check and optimistic UI with rollback
 - BroadcastChannel cross-tab sync pattern (qm-stock-out-execution channel)
+- Header-only entity editing with immutable financial fields
+- Status-based edit guards at both page render and server action level
+- Conditional audit logging (only when fields actually changed)
+- Partial indexes for VIEW optimization (WHERE is_active = true matches VIEW filter)
+- OR join elimination via split LEFT JOINs + COALESCE merge
+- Next.js loading.tsx + inline Suspense for dual loading state patterns
+- JSDoc annotations on composite component props for IDE type guidance
 
 ## Key Decisions
 
@@ -319,6 +322,11 @@ Users can reliably create purchase orders, receive inventory, and track request 
 | Dynamic import wrapper for PDF components | Prevents webpack ESM bundling errors and SSR canvas/fs errors | ✓ Good |
 | Dark theme PDF styling (slate-900, amber accents) | Matches app aesthetic, professional appearance | ✓ Good |
 | Single table layout for PO Matching tab | More scannable than side-by-side cards, variance columns built in | ✓ Good |
+| PO edit header-only (line items immutable) | Financial integrity — amounts locked after creation | ✓ Good |
+| Signer names as strings (not FK) | Flexibility for signers not in contact_persons table | ✓ Good |
+| Partial indexes (WHERE is_active = true) for flow tracking | Match VIEW filter conditions for optimal index usage | ✓ Good |
+| Split OR join into two LEFT JOINs | Enables index usage on inventory_transactions; COALESCE merges columns | ✓ Good |
+| JSDoc documentation only (no type changes) for composites | All composite props have legitimate ReactNode usages; document rather than break | ✓ Good |
 
 ## Constraints
 
@@ -328,15 +336,9 @@ Users can reliably create purchase orders, receive inventory, and track request 
 
 ## Known Tech Debt
 
-- PO Edit page does not exist at /po/[id]/edit (Edit button links to 404)
-  - Pre-existing issue discovered during v1.3 audit
-  - Either create edit page or document PO as immutable after creation
 - Context slider deferred for stock-out approval/execution pages (CSLR-02, CSLR-03)
   - Approval detail page already shows full request context
   - Execution is a dialog modal, not a standalone page
-- Flow tracking VIEW performance unknown at production scale (assumes <10K QMRLs)
-  - May require materialized view or virtualization if performance insufficient
-- Composite prop types widened from `string` to `ReactNode` (backward compatible but less type-safe)
 
 ---
-*Last updated: 2026-02-14 after v1.10 milestone started*
+*Last updated: 2026-02-14 after v1.10 milestone completed*
