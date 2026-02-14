@@ -118,6 +118,10 @@ Plans:
 
 **Dependencies:** None (optimizes existing flow tracking VIEW from v1.8)
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 45-01-PLAN.md -- Database indexes + VIEW optimization (OR join elimination) + loading skeleton with Suspense
 
 **Requirements:**
 - FLOW-01: Flow tracking page loads within acceptable time for production data volumes
