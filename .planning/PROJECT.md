@@ -13,8 +13,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 **Goal:** Address all known tech debt — PO edit page, context sliders, flow tracking performance, and composite type safety.
 
 **Target features:**
-- PO Edit page (fix 404)
-- Context sliders for stock-out approval/execution pages
+- PO Edit page (fix 404) — header fields only, line items immutable
 - Flow tracking VIEW performance optimization
 - Composite component type tightening
 
@@ -181,8 +180,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 ### Active
 
 <!-- V1.10 Tech Debt Cleanup -->
-- [ ] PO Edit page at /po/[id]/edit with full edit capability
-- [ ] Context slider on stock-out approval and execution pages (CSLR-02, CSLR-03)
+- [ ] PO Edit page at /po/[id]/edit for header fields (supplier, notes, dates) — line items and amounts immutable
 - [ ] Flow tracking VIEW performance optimization for production scale
 - [ ] Composite component prop types tightened from ReactNode to string where appropriate
 
@@ -202,7 +200,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Real-time notification of approval status — no notification infrastructure yet
 - Hard delete of any entity — soft delete (is_active) is established pattern; audit integrity
 - Specific reference list in delete error — generic error sufficient; defer detailed view
-- Context slider on stock-out approval/execution pages — moved to v1.10 Active scope
+- Context slider on stock-out approval/execution pages — approval page already shows full context; execution is a dialog
 - Whole-request atomic execution — replaced by per-line-item execution in v1.7
 - Batch "Execute All" button — per-line-item execution is the goal; batch can be added later
 - Advisory lock performance tuning — defer until 10K+ SORs/month

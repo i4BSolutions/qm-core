@@ -9,14 +9,8 @@ Requirements for tech debt cleanup. Each maps to roadmap phases.
 
 ### PO Edit
 
-- [ ] **POED-01**: User can edit PO header fields (supplier, currency, exchange rate, notes) from detail page
-- [ ] **POED-02**: User can edit PO line items (add, remove, update quantities and prices)
-- [ ] **POED-03**: PO edit is blocked when PO status is closed or cancelled (consistent with existing guards)
-
-### Context Sliders
-
-- [ ] **CSLR-01**: Stock-out approval page shows QMRL/QMHQ context slider with request details
-- [ ] **CSLR-02**: Stock-out execution dialog shows relevant context (item, warehouse, quantities)
+- [ ] **POED-01**: User can edit PO header fields (supplier, notes, expected delivery date) from detail page — line items, amounts, currency, and exchange rate are not editable
+- [ ] **POED-02**: PO edit is blocked when PO status is closed or cancelled (consistent with existing guards)
 
 ### Flow Tracking Performance
 
@@ -45,21 +39,18 @@ None — tech debt milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| POED-01 | TBD | Pending |
-| POED-02 | TBD | Pending |
-| POED-03 | TBD | Pending |
-| CSLR-01 | TBD | Pending |
-| CSLR-02 | TBD | Pending |
-| FLOW-01 | TBD | Pending |
-| FLOW-02 | TBD | Pending |
-| TYPE-01 | TBD | Pending |
-| TYPE-02 | TBD | Pending |
+| POED-01 | Phase 44 | Pending |
+| POED-02 | Phase 44 | Pending |
+| FLOW-01 | Phase 45 | Pending |
+| FLOW-02 | Phase 45 | Pending |
+| TYPE-01 | Phase 46 | Pending |
+| TYPE-02 | Phase 46 | Pending |
 
 **Coverage:**
-- v1.10 requirements: 9 total
-- Mapped to phases: 0
-- Unmapped: 9 (pending roadmap creation)
+- v1.10 requirements: 6 total
+- Mapped to phases: 6 (100%)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-14*
-*Last updated: 2026-02-14 after initial definition*
+*Last updated: 2026-02-14 after roadmap creation*

@@ -12,6 +12,7 @@
 - ✅ **v1.7 Stock-Out Request Logic Repair** - Phases 32-35 (shipped 2026-02-11)
 - ✅ **v1.8 UI Consistency, Flow Tracking & RBAC** - Phases 36-40 (shipped 2026-02-12)
 - ✅ **v1.9 PO Lifecycle, Cancellation Guards & PDF Export** - Phases 41-43 (shipped 2026-02-13)
+- 🚧 **v1.10 Tech Debt Cleanup** - Phases 44-46 (in progress)
 
 ## Phases
 
@@ -85,6 +86,66 @@ Phases 41-43 delivered PO smart status engine with 6-state auto-calculation, can
 
 </details>
 
+---
+
+### Phase 44: PO Edit Capability
+
+**Goal:** Users can edit PO header fields (supplier, notes, dates) while line items and financial amounts remain immutable.
+
+**Dependencies:** None (extends existing PO detail page)
+
+**Requirements:**
+- POED-01: User can edit PO header fields (supplier, notes, expected delivery date) from detail page — line items, amounts, currency, and exchange rate are not editable
+- POED-02: PO edit is blocked when PO status is closed or cancelled (consistent with existing guards)
+
+**Success Criteria:**
+1. User can navigate to PO edit page from detail page Edit button
+2. User can modify supplier, notes, and expected delivery date
+3. Line items, amounts, currency, and exchange rate are displayed read-only (not editable)
+4. Edit page shows clear block message when PO status is closed or cancelled
+5. All edits trigger audit logging with before/after values
+
+---
+
+### Phase 45: Flow Tracking Performance Optimization
+
+**Goal:** Flow tracking page performs reliably at production scale without materialized views.
+
+**Dependencies:** None (optimizes existing flow tracking VIEW from v1.8)
+
+
+**Requirements:**
+- FLOW-01: Flow tracking page loads within acceptable time for production data volumes
+- FLOW-02: Flow tracking VIEW has appropriate indexes for common query patterns
+
+**Success Criteria:**
+1. Flow tracking VIEW query executes in under 2 seconds with 10,000+ QMRLs
+2. Database has covering indexes on frequently joined columns (qmrl_id, qmhq_id, po_id, invoice_id)
+3. EXPLAIN ANALYZE shows no sequential scans on large tables
+4. Page renders with loading skeleton during data fetch
+5. Admin can load any QMRL chain without timeout errors
+
+---
+
+### Phase 46: Composite Component Type Safety
+
+**Goal:** Composite components enforce stricter prop types without breaking existing usage.
+
+**Dependencies:** None (refines existing composite components from v1.8)
+
+**Requirements:**
+- TYPE-01: Composite component props tightened from ReactNode to string where only strings are used
+- TYPE-02: Composite components retain ReactNode for props that genuinely need rich content
+
+**Success Criteria:**
+1. PageHeader title and subtitle props accept string only (no ReactNode)
+2. FormField label prop accepts string only
+3. DetailPageLayout title prop accepts string only
+4. TypeScript compilation succeeds with no new type errors in existing pages
+5. Props that need rich content (e.g., badge elements, custom actions) retain ReactNode type
+
+---
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -101,6 +162,9 @@ Phases 41-43 delivered PO smart status engine with 6-state auto-calculation, can
 | 41. PO Status Engine Enhancement | v1.9 | 2/2 | ✓ Complete | 2026-02-12 |
 | 42. Cancellation Guards & Lock Mechanism | v1.9 | 3/3 | ✓ Complete | 2026-02-12 |
 | 43. PDF Export Infrastructure | v1.9 | 3/3 | ✓ Complete | 2026-02-12 |
+| 44. PO Edit Capability | v1.10 | 0/? | 🚧 Pending | - |
+| 45. Flow Tracking Performance | v1.10 | 0/? | 🚧 Pending | - |
+| 46. Composite Type Safety | v1.10 | 0/? | 🚧 Pending | - |
 
 ---
-*Last updated: 2026-02-13 after v1.9 milestone archived*
+*Last updated: 2026-02-14 after v1.10 roadmap created*
