@@ -131,10 +131,10 @@ Plans:
 3. All display components retrieve the current standard unit name dynamically
 4. System-wide standard unit name defaults to "Standard Units" if not configured
 
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 48-01: Admin settings page for standard unit configuration
+- [ ] 48-01-PLAN.md -- System config table, standard unit hook, and admin settings page
 
 #### Phase 49: Conversion Rate Input
 
@@ -204,4 +204,4 @@ Plans:
 | 50. Standard Quantity Display | v1.11 | 0/4 | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after Phase 47 planning*
+*Last updated: 2026-02-14 after Phase 48 planning*
