@@ -8,6 +8,16 @@ An internal ticket, expense, and inventory management platform serving as a Sing
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
+## Current Milestone: v1.10 Tech Debt Cleanup
+
+**Goal:** Address all known tech debt — PO edit page, context sliders, flow tracking performance, and composite type safety.
+
+**Target features:**
+- PO Edit page (fix 404)
+- Context sliders for stock-out approval/execution pages
+- Flow tracking VIEW performance optimization
+- Composite component type tightening
+
 ## Current State (v1.9 Shipped)
 
 **Tech Stack:**
@@ -170,7 +180,11 @@ Users can reliably create purchase orders, receive inventory, and track request 
 
 ### Active
 
-(None — run `/gsd:new-milestone` to define next milestone requirements)
+<!-- V1.10 Tech Debt Cleanup -->
+- [ ] PO Edit page at /po/[id]/edit with full edit capability
+- [ ] Context slider on stock-out approval and execution pages (CSLR-02, CSLR-03)
+- [ ] Flow tracking VIEW performance optimization for production scale
+- [ ] Composite component prop types tightened from ReactNode to string where appropriate
 
 ### Out of Scope
 
@@ -188,7 +202,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Real-time notification of approval status — no notification infrastructure yet
 - Hard delete of any entity — soft delete (is_active) is established pattern; audit integrity
 - Specific reference list in delete error — generic error sufficient; defer detailed view
-- Context slider on stock-out approval/execution pages — approval page already shows full context; execution is a dialog
+- Context slider on stock-out approval/execution pages — moved to v1.10 Active scope
 - Whole-request atomic execution — replaced by per-line-item execution in v1.7
 - Batch "Execute All" button — per-line-item execution is the goal; batch can be added later
 - Advisory lock performance tuning — defer until 10K+ SORs/month
@@ -207,6 +221,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.7 Stock-Out Request Logic Repair — Per-line-item execution, QMHQ transaction linking, dual reference display (shipped 2026-02-11)
 - v1.8 UI Consistency, Flow Tracking & RBAC — Composite UI components, 3-role RBAC, flow tracking (shipped 2026-02-12)
 - v1.9 PO Lifecycle, Cancellation Guards & PDF Export — PO smart status, matching panel, void guards, PDF receipts (shipped 2026-02-13)
+- v1.10 Tech Debt Cleanup — PO edit page, context sliders, flow tracking performance, type safety (in progress)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -326,4 +341,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Composite prop types widened from `string` to `ReactNode` (backward compatible but less type-safe)
 
 ---
-*Last updated: 2026-02-13 after v1.9 milestone completed*
+*Last updated: 2026-02-14 after v1.10 milestone started*
