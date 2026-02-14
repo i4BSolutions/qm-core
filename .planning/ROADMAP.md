@@ -12,7 +12,7 @@
 - ✅ **v1.7 Stock-Out Request Logic Repair** - Phases 32-35 (shipped 2026-02-11)
 - ✅ **v1.8 UI Consistency, Flow Tracking & RBAC** - Phases 36-40 (shipped 2026-02-12)
 - ✅ **v1.9 PO Lifecycle, Cancellation Guards & PDF Export** - Phases 41-43 (shipped 2026-02-13)
-- 🚧 **v1.10 Tech Debt Cleanup** - Phases 44-46 (in progress)
+- ✅ **v1.10 Tech Debt Cleanup** - Phases 44-46 (shipped 2026-02-14)
 
 ## Phases
 
@@ -145,7 +145,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 46-01-PLAN.md -- Tighten FormField label to string + JSDoc annotations on all composite props
+- [x] 46-01-PLAN.md -- Tighten FormField label to string + JSDoc annotations on all composite props
 
 **Requirements:**
 - TYPE-01: Composite component props tightened from ReactNode to string where only strings are used
@@ -178,7 +178,7 @@ Plans:
 | 43. PDF Export Infrastructure | v1.9 | 3/3 | ✓ Complete | 2026-02-12 |
 | 44. PO Edit Capability | v1.10 | 1/1 | ✓ Complete | 2026-02-14 |
 | 45. Flow Tracking Performance | v1.10 | 1/1 | ✓ Complete | 2026-02-14 |
-| 46. Composite Type Safety | v1.10 | 0/? | 🚧 Pending | - |
+| 46. Composite Type Safety | v1.10 | 1/1 | ✓ Complete | 2026-02-14 |
 
 ---
-*Last updated: 2026-02-14 after phase 45 execution*
+*Last updated: 2026-02-14 after phase 46 execution*
