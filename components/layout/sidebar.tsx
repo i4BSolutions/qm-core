@@ -97,6 +97,7 @@ const adminNavigation: NavItem[] = [
       { label: "Categories", href: "/admin/categories" },
       { label: "Statuses", href: "/admin/statuses" },
       { label: "Flow Tracking", href: "/admin/flow-tracking" },
+      { label: "Settings", href: "/admin/settings" },
     ],
   },
 ];
