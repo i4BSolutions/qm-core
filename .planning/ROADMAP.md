@@ -13,6 +13,7 @@
 - ✅ **v1.8 UI Consistency, Flow Tracking & RBAC** - Phases 36-40 (shipped 2026-02-12)
 - ✅ **v1.9 PO Lifecycle, Cancellation Guards & PDF Export** - Phases 41-43 (shipped 2026-02-13)
 - ✅ **v1.10 Tech Debt Cleanup** - Phases 44-46 (shipped 2026-02-14)
+- 🚧 **v1.11 Standard Unit System** - Phases 47-50 (in progress)
 
 ## Phases
 
@@ -93,6 +94,95 @@ Phases 44-46 delivered PO header editing with status guards and audit logging, f
 
 </details>
 
+### 🚧 v1.11 Standard Unit System (In Progress)
+
+**Milestone Goal:** Add system-wide standard unit for item quantities with per-transaction conversion rate and display everywhere, mirroring the EUSD pattern for currencies.
+
+#### Phase 47: Schema & Data Foundation
+
+**Goal**: Database supports per-transaction unit conversion rates with backfilled historical data
+
+**Depends on**: Phase 46 (v1.10 complete)
+
+**Requirements**: SINP-05
+
+**Success Criteria** (what must be TRUE):
+1. PO line items, invoice line items, inventory transactions, and stock-out request line items store conversion_rate and standard_qty
+2. All existing transaction records have conversion_rate = 1 and standard_qty = qty
+3. Database constraints enforce conversion_rate is required (NOT NULL) on new records
+4. Generated columns automatically calculate standard_qty from qty × conversion_rate
+
+**Plans**: TBD
+
+Plans:
+- [ ] 47-01: Schema migration and backfill
+
+#### Phase 48: Admin Configuration
+
+**Goal**: Admin can configure the global standard unit name that appears throughout the system
+
+**Depends on**: Phase 47
+
+**Requirements**: SCONF-01, SCONF-02
+
+**Success Criteria** (what must be TRUE):
+1. Admin can set the standard unit name in admin settings page
+2. Standard unit name persists in system configuration table
+3. All display components retrieve the current standard unit name dynamically
+4. System-wide standard unit name defaults to "Standard Units" if not configured
+
+**Plans**: TBD
+
+Plans:
+- [ ] 48-01: Admin settings page for standard unit configuration
+
+#### Phase 49: Conversion Rate Input
+
+**Goal**: Users enter conversion rates on all quantity-based transactions
+
+**Depends on**: Phase 48
+
+**Requirements**: SINP-01, SINP-02, SINP-03, SINP-04
+
+**Success Criteria** (what must be TRUE):
+1. PO line item entry includes conversion rate input with validation (required, > 0)
+2. Invoice line item entry includes conversion rate input with validation
+3. Stock-in form includes conversion rate input for each transaction
+4. Stock-out request line items include conversion rate input
+5. Conversion rate input component mirrors ExchangeRateInput pattern (decimal precision, thousand separators)
+
+**Plans**: TBD
+
+Plans:
+- [ ] 49-01: Conversion rate input component
+- [ ] 49-02: PO and Invoice integration
+- [ ] 49-03: Stock-in and stock-out integration
+
+#### Phase 50: Standard Quantity Display
+
+**Goal**: Standard quantities display alongside every quantity in the system
+
+**Depends on**: Phase 49
+
+**Requirements**: SDISP-01, SDISP-02, SDISP-03, SDISP-04, SDISP-05, SDISP-06, SDISP-07
+
+**Success Criteria** (what must be TRUE):
+1. PO detail shows standard qty (qty × rate) on each line item with two-line format
+2. Invoice detail shows standard qty on each line item with two-line format
+3. Inventory transaction lists show standard qty alongside quantity
+4. Warehouse detail page shows standard qty on inventory rows
+5. QMHQ item detail shows standard qty on stock-out displays
+6. StandardUnitDisplay component mirrors CurrencyDisplay two-line pattern (qty + standard qty)
+7. All existing transactions display with standard qty calculated from backfilled conversion_rate = 1
+
+**Plans**: TBD
+
+Plans:
+- [ ] 50-01: StandardUnitDisplay component
+- [ ] 50-02: PO and Invoice display integration
+- [ ] 50-03: Inventory and warehouse display integration
+- [ ] 50-04: QMHQ and stock-out display integration
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -108,6 +198,10 @@ Phases 44-46 delivered PO header editing with status guards and audit logging, f
 | 36-40. UI Composites -> RBAC -> Flow Tracking | v1.8 | 15/15 | ✓ Complete | 2026-02-12 |
 | 41-43. PO Status -> Guards -> PDF | v1.9 | 8/8 | ✓ Complete | 2026-02-13 |
 | 44-46. PO Edit -> Flow Perf -> Type Safety | v1.10 | 3/3 | ✓ Complete | 2026-02-14 |
+| 47. Schema & Data Foundation | v1.11 | 0/1 | Not started | - |
+| 48. Admin Configuration | v1.11 | 0/1 | Not started | - |
+| 49. Conversion Rate Input | v1.11 | 0/3 | Not started | - |
+| 50. Standard Quantity Display | v1.11 | 0/4 | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after v1.10 milestone completion*
+*Last updated: 2026-02-14 after v1.11 roadmap creation*

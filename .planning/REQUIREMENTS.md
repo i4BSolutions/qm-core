@@ -52,26 +52,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCONF-01 | — | Pending |
-| SCONF-02 | — | Pending |
-| SINP-01 | — | Pending |
-| SINP-02 | — | Pending |
-| SINP-03 | — | Pending |
-| SINP-04 | — | Pending |
-| SINP-05 | — | Pending |
-| SDISP-01 | — | Pending |
-| SDISP-02 | — | Pending |
-| SDISP-03 | — | Pending |
-| SDISP-04 | — | Pending |
-| SDISP-05 | — | Pending |
-| SDISP-06 | — | Pending |
-| SDISP-07 | — | Pending |
+| SCONF-01 | Phase 48 | Pending |
+| SCONF-02 | Phase 48 | Pending |
+| SINP-01 | Phase 49 | Pending |
+| SINP-02 | Phase 49 | Pending |
+| SINP-03 | Phase 49 | Pending |
+| SINP-04 | Phase 49 | Pending |
+| SINP-05 | Phase 47 | Pending |
+| SDISP-01 | Phase 50 | Pending |
+| SDISP-02 | Phase 50 | Pending |
+| SDISP-03 | Phase 50 | Pending |
+| SDISP-04 | Phase 50 | Pending |
+| SDISP-05 | Phase 50 | Pending |
+| SDISP-06 | Phase 50 | Pending |
+| SDISP-07 | Phase 50 | Pending |
 
 **Coverage:**
 - v1.11 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 ⚠️
+- Mapped to phases: 14
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-14*
-*Last updated: 2026-02-14 after initial definition*
+*Last updated: 2026-02-14 after roadmap creation*
