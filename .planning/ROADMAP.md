@@ -115,7 +115,7 @@ Phases 44-46 delivered PO header editing with status guards and audit logging, f
 **Plans:** 1 plan
 
 Plans:
-- [ ] 47-01-PLAN.md -- Schema migration adding conversion_rate and standard_qty to 4 tables with backfill
+- [x] 47-01-PLAN.md -- Schema migration adding conversion_rate and standard_qty to 4 tables with backfill
 
 #### Phase 48: Admin Configuration
 
@@ -134,7 +134,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 48-01-PLAN.md -- System config table, standard unit hook, and admin settings page
+- [x] 48-01-PLAN.md -- System config table, standard unit hook, and admin settings page
 
 #### Phase 49: Conversion Rate Input
 
@@ -154,9 +154,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 49-01-PLAN.md -- ConversionRateInput component (mirrors ExchangeRateInput)
-- [ ] 49-02-PLAN.md -- PO and Invoice line item conversion rate integration
-- [ ] 49-03-PLAN.md -- Stock-in, stock-out, and stock-out request conversion rate integration
+- [x] 49-01-PLAN.md -- ConversionRateInput component (mirrors ExchangeRateInput)
+- [x] 49-02-PLAN.md -- PO and Invoice line item conversion rate integration
+- [x] 49-03-PLAN.md -- Stock-in, stock-out, and stock-out request conversion rate integration
 
 #### Phase 50: Standard Quantity Display
 
@@ -198,10 +198,10 @@ Plans:
 | 36-40. UI Composites -> RBAC -> Flow Tracking | v1.8 | 15/15 | ✓ Complete | 2026-02-12 |
 | 41-43. PO Status -> Guards -> PDF | v1.9 | 8/8 | ✓ Complete | 2026-02-13 |
 | 44-46. PO Edit -> Flow Perf -> Type Safety | v1.10 | 3/3 | ✓ Complete | 2026-02-14 |
-| 47. Schema & Data Foundation | v1.11 | 0/1 | Not started | - |
-| 48. Admin Configuration | v1.11 | 0/1 | Not started | - |
-| 49. Conversion Rate Input | v1.11 | 0/3 | Not started | - |
+| 47. Schema & Data Foundation | v1.11 | 1/1 | ✓ Complete | 2026-02-14 |
+| 48. Admin Configuration | v1.11 | 1/1 | ✓ Complete | 2026-02-14 |
+| 49. Conversion Rate Input | v1.11 | 3/3 | ✓ Complete | 2026-02-14 |
 | 50. Standard Quantity Display | v1.11 | 0/4 | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after Phase 48 planning*
+*Last updated: 2026-02-15 after Phase 49 completion*
