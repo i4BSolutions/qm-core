@@ -17,7 +17,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePermissions } from "@/lib/hooks/use-permissions";
-import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { HistoryTab } from "@/components/history/history-tab";
 import { LineItemTable } from "@/components/stock-out-requests/line-item-table";
 import type { LineItemWithApprovals } from "@/components/stock-out-requests/line-item-table";
@@ -131,7 +130,6 @@ export default function StockOutRequestDetailPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { can } = usePermissions();
-  const { unitName } = useStandardUnitName();
   const requestId = params.id as string;
 
   const [request, setRequest] = useState<StockOutRequestWithRelations | null>(
@@ -203,7 +201,7 @@ export default function StockOutRequestDetailPage() {
       setRequest(requestData as StockOutRequestWithRelations);
 
       // Fetch line items with approvals
-      const { data: lineItemsData, error: lineItemsError } = await supabase
+      const { data: lineItemsData, error: lineItemsError} = await supabase
         .from("stock_out_line_items")
         .select(
           `
@@ -214,6 +212,7 @@ export default function StockOutRequestDetailPage() {
           requested_quantity,
           conversion_rate,
           status,
+          item:items(id, name, sku, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)),
           approvals:stock_out_approvals(
             id,
             approved_quantity,
@@ -262,6 +261,7 @@ export default function StockOutRequestDetailPage() {
             total_rejected_quantity: totalRejectedQuantity,
             remaining_quantity: remainingQuantity,
             assigned_warehouse_name: assignedWarehouseName,
+            unit_name: item.item?.standard_unit_rel?.name || undefined,
           };
         }
       );
@@ -313,8 +313,9 @@ export default function StockOutRequestDetailPage() {
             warehouse_id,
             item_id,
             stock_out_approval_id,
+            conversion_rate,
             warehouses!inventory_transactions_warehouse_id_fkey(id, name),
-            items(id, name, sku)
+            items(id, name, sku, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name))
           `
           )
           .in("stock_out_approval_id", approvalIds)
@@ -920,11 +921,14 @@ export default function StockOutRequestDetailPage() {
                               <span className="font-mono text-slate-300">
                                 {approval.approved_quantity}
                               </span>
-                              {unitName && lineItems.find(li => li.id === approval.line_item_id) && (
-                                <div className="text-xs font-mono text-slate-400 mt-1">
-                                  {(approval.approved_quantity * (lineItems.find(li => li.id === approval.line_item_id)?.conversion_rate || 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
-                                </div>
-                              )}
+                              {(() => {
+                                const lineItem = lineItems.find(li => li.id === approval.line_item_id);
+                                return lineItem?.unit_name && (
+                                  <div className="text-xs font-mono text-slate-400 mt-1">
+                                    {(approval.approved_quantity * (lineItem.conversion_rate || 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {lineItem.unit_name}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           )}
 
@@ -1002,9 +1006,9 @@ export default function StockOutRequestDetailPage() {
                         <div className="text-lg font-mono font-bold text-red-400">
                           -{tx.quantity}
                         </div>
-                        {unitName && (
+                        {(tx.items as any)?.standard_unit_rel?.name && (
                           <div className="text-xs font-mono text-slate-400 mt-1">
-                            -{(tx.quantity * (tx.conversion_rate ?? 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                            -{(tx.quantity * (tx.conversion_rate ?? 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {(tx.items as any).standard_unit_rel.name}
                           </div>
                         )}
                         <Badge

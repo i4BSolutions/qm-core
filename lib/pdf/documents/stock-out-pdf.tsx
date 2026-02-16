@@ -24,6 +24,7 @@ interface StockOutPDFProps {
     status: string;
     total_approved_quantity: number;
     total_rejected_quantity: number;
+    unit_name?: string;
   }>;
   approvals: Array<{
     approval_number?: string | null;
@@ -35,8 +36,8 @@ interface StockOutPDFProps {
     rejection_reason?: string | null;
     decided_by_name: string;
     decided_at: string;
+    unit_name?: string;
   }>;
-  standardUnitName?: string;
 }
 
 // Status label mapping
@@ -69,7 +70,7 @@ const LINE_STATUS_COLORS: Record<string, string> = {
   cancelled: "#64748B", // slate
 };
 
-export function StockOutPDF({ request, lineItems, approvals, standardUnitName }: StockOutPDFProps) {
+export function StockOutPDF({ request, lineItems, approvals }: StockOutPDFProps) {
   const statusLabel = REQUEST_STATUS_LABELS[request.status] || request.status;
   const reasonLabel = REASON_LABELS[request.reason] || request.reason;
 
@@ -85,27 +86,21 @@ export function StockOutPDF({ request, lineItems, approvals, standardUnitName }:
     });
   };
 
-  // Line items table columns
-  const lineItemColumns: PDFTableColumn[] = standardUnitName ? [
+  // Line items table columns - always use wider layout for per-item units
+  const lineItemColumns: PDFTableColumn[] = [
     { header: "#", key: "index", width: "6%", align: "center" },
     { header: "Item", key: "item", width: "30%" },
     { header: "Requested", key: "requested", width: "16%", align: "right" },
     { header: "Approved", key: "approved", width: "16%", align: "right" },
     { header: "Rejected", key: "rejected", width: "16%", align: "right" },
     { header: "Status", key: "status", width: "16%", align: "center" },
-  ] : [
-    { header: "#", key: "index", width: "8%", align: "center" },
-    { header: "Item", key: "item", width: "40%" },
-    { header: "Requested", key: "requested", width: "13%", align: "right" },
-    { header: "Approved", key: "approved", width: "13%", align: "right" },
-    { header: "Rejected", key: "rejected", width: "13%", align: "right" },
-    { header: "Status", key: "status", width: "13%", align: "center" },
   ];
 
   // Map line items to table data
   const lineItemData = lineItems.map((item, index) => {
     const statusColor = LINE_STATUS_COLORS[item.status] || "#94A3B8";
     const conversionRate = item.conversion_rate || 1;
+    const unitName = item.unit_name || '';
 
     return {
       index: (index + 1).toString(),
@@ -119,30 +114,36 @@ export function StockOutPDF({ request, lineItems, approvals, standardUnitName }:
           )}
         </View>
       ),
-      requested: standardUnitName ? (
+      requested: (
         <View>
           <Text style={darkThemeStyles.tableCell}>{item.requested_quantity.toString()}</Text>
-          <Text style={{ fontSize: 8, color: "#94A3B8", fontFamily: "Courier", marginTop: 2 }}>
-            {(item.requested_quantity * conversionRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {standardUnitName}
-          </Text>
+          {unitName && (
+            <Text style={{ fontSize: 8, color: "#94A3B8", fontFamily: "Courier", marginTop: 2 }}>
+              {(item.requested_quantity * conversionRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+            </Text>
+          )}
         </View>
-      ) : item.requested_quantity.toString(),
-      approved: standardUnitName ? (
+      ),
+      approved: (
         <View>
           <Text style={darkThemeStyles.tableCell}>{item.total_approved_quantity.toString()}</Text>
-          <Text style={{ fontSize: 8, color: "#94A3B8", fontFamily: "Courier", marginTop: 2 }}>
-            {(item.total_approved_quantity * conversionRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {standardUnitName}
-          </Text>
+          {unitName && (
+            <Text style={{ fontSize: 8, color: "#94A3B8", fontFamily: "Courier", marginTop: 2 }}>
+              {(item.total_approved_quantity * conversionRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+            </Text>
+          )}
         </View>
-      ) : item.total_approved_quantity.toString(),
-      rejected: standardUnitName ? (
+      ),
+      rejected: (
         <View>
           <Text style={darkThemeStyles.tableCell}>{item.total_rejected_quantity.toString()}</Text>
-          <Text style={{ fontSize: 8, color: "#94A3B8", fontFamily: "Courier", marginTop: 2 }}>
-            {(item.total_rejected_quantity * conversionRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {standardUnitName}
-          </Text>
+          {unitName && (
+            <Text style={{ fontSize: 8, color: "#94A3B8", fontFamily: "Courier", marginTop: 2 }}>
+              {(item.total_rejected_quantity * conversionRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+            </Text>
+          )}
         </View>
-      ) : item.total_rejected_quantity.toString(),
+      ),
       status: (
         <Text style={{ ...darkThemeStyles.tableCell, color: statusColor, fontSize: 9, textTransform: "capitalize" }}>
           {item.status.replace("_", " ")}
@@ -264,9 +265,9 @@ export function StockOutPDF({ request, lineItems, approvals, standardUnitName }:
                         <Text style={{ fontSize: 10, fontFamily: "Courier", color: "#E2E8F0" }}>
                           {approval.approved_quantity}
                         </Text>
-                        {standardUnitName && approval.conversion_rate && (
+                        {approval.unit_name && approval.conversion_rate && (
                           <Text style={{ fontSize: 8, color: "#94A3B8", fontFamily: "Courier", marginTop: 2 }}>
-                            {(approval.approved_quantity * approval.conversion_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {standardUnitName}
+                            {(approval.approved_quantity * approval.conversion_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {approval.unit_name}
                           </Text>
                         )}
                       </View>

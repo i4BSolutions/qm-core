@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import type { Enums } from "@/types/database";
 
 // Type for line item status
@@ -28,6 +27,7 @@ export interface LineItemWithApprovals {
   remaining_quantity: number; // requested - total_approved - total_rejected
   // Latest warehouse assignment (from most recent approval):
   assigned_warehouse_name: string | null;
+  unit_name?: string;
 }
 
 interface LineItemTableProps {
@@ -119,8 +119,6 @@ export function LineItemTable({
   onApproveClick,
   onRejectClick,
 }: LineItemTableProps) {
-  const { unitName } = useStandardUnitName();
-
   // Determine selectable items
   const selectableForApproval = items.filter(canSelectForApproval);
   const selectableForRejection = items.filter(canSelectForRejection);
@@ -261,9 +259,9 @@ export function LineItemTable({
                       <div className="font-mono text-slate-200">
                         {item.requested_quantity}
                       </div>
-                      {unitName && (
+                      {item.unit_name && (
                         <div className="text-xs font-mono text-slate-400 mt-1">
-                          {(item.requested_quantity * item.conversion_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                          {(item.requested_quantity * item.conversion_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {item.unit_name}
                         </div>
                       )}
                     </td>
@@ -271,9 +269,9 @@ export function LineItemTable({
                       <div className="font-mono text-slate-200">
                         {item.total_approved_quantity}
                       </div>
-                      {unitName && (
+                      {item.unit_name && (
                         <div className="text-xs font-mono text-slate-400 mt-1">
-                          {(item.total_approved_quantity * item.conversion_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                          {(item.total_approved_quantity * item.conversion_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {item.unit_name}
                         </div>
                       )}
                     </td>
@@ -286,9 +284,9 @@ export function LineItemTable({
                       )}>
                         {item.total_rejected_quantity}
                       </div>
-                      {unitName && (
+                      {item.unit_name && (
                         <div className="text-xs font-mono text-slate-400 mt-1">
-                          {(item.total_rejected_quantity * item.conversion_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                          {(item.total_rejected_quantity * item.conversion_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {item.unit_name}
                         </div>
                       )}
                     </td>
@@ -303,9 +301,9 @@ export function LineItemTable({
                       >
                         {item.remaining_quantity}
                       </div>
-                      {unitName && (
+                      {item.unit_name && (
                         <div className="text-xs font-mono text-slate-400 mt-1">
-                          {(item.remaining_quantity * item.conversion_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                          {(item.remaining_quantity * item.conversion_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {item.unit_name}
                         </div>
                       )}
                     </td>
