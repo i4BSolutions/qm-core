@@ -178,10 +178,10 @@ Plans:
 **Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 50-01-PLAN.md -- StandardUnitDisplay component mirroring CurrencyDisplay two-line pattern
-- [ ] 50-02-PLAN.md -- PO and Invoice readonly tables + Invoice PDF standard qty integration
-- [ ] 50-03-PLAN.md -- Inventory dashboard, warehouse detail, and stock-out request standard qty
-- [ ] 50-04-PLAN.md -- QMHQ detail, items summary, and PDF export wiring
+- [x] 50-01-PLAN.md -- StandardUnitDisplay component mirroring CurrencyDisplay two-line pattern
+- [x] 50-02-PLAN.md -- PO and Invoice readonly tables + Invoice PDF standard qty integration
+- [x] 50-03-PLAN.md -- Inventory dashboard, warehouse detail, and stock-out request standard qty
+- [x] 50-04-PLAN.md -- QMHQ detail, items summary, and PDF export wiring
 
 ## Progress
 
@@ -201,7 +201,9 @@ Plans:
 | 47. Schema & Data Foundation | v1.11 | 1/1 | ✓ Complete | 2026-02-14 |
 | 48. Admin Configuration | v1.11 | 1/1 | ✓ Complete | 2026-02-14 |
 | 49. Conversion Rate Input | v1.11 | 3/3 | ✓ Complete | 2026-02-14 |
-| 50. Standard Quantity Display | v1.11 | Complete    | 2026-02-16 | - |
+| 50. Standard Quantity Display | v1.11 | 4/4 | ✓ Complete | 2026-02-16 |
+| 51. Standard Unit Entity & Admin | v1.11 | 2/2 | ✓ Complete | 2026-02-16 |
+| 52. Per-Item Standard Unit Assignment | v1.11 | 2/2 | ✓ Complete | 2026-02-16 |
 
 ### Phase 51: Standard Unit Entity & Admin
 
@@ -210,8 +212,8 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 51-01-PLAN.md -- Database migration, types, and global config cleanup
-- [ ] 51-02-PLAN.md -- Admin page, dialog, sidebar nav, and inline-create-select extension
+- [x] 51-01-PLAN.md -- Database migration, types, and global config cleanup
+- [x] 51-02-PLAN.md -- Admin page, dialog, sidebar nav, and inline-create-select extension
 
 ### Phase 52: Per-Item Standard Unit Assignment
 
@@ -220,17 +222,19 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 52-01-PLAN.md — Database migration: add standard_unit_id FK to items, backfill with 'pcs'
-- [ ] 52-02-PLAN.md — UI integration: item forms, list, detail, and admin item counts
+- [x] 52-01-PLAN.md — Database migration: add standard_unit_id FK to items, backfill with 'pcs'
+- [x] 52-02-PLAN.md — UI integration: item forms, list, detail, and admin item counts
 
 ### Phase 53: Standard Unit Display Refactor
 
 **Goal**: All standard quantity displays use the per-item standard unit name instead of the global setting, and global setting is removed
 **Depends on**: Phase 52
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 53 to break down)
+- [ ] 53-01-PLAN.md — Foundation cleanup: drop system_config, refactor StandardUnitDisplay to presentational, remove useStandardUnitName hook
+- [ ] 53-02-PLAN.md — PO/Invoice per-item unit display, remove aggregate totals, Invoice PDF update, PO form live preview
+- [ ] 53-03-PLAN.md — Warehouse/Inventory/QMHQ/Stock-Out per-item unit display, Stock-Out PDF, stock-in and stock-out form live previews
 
 ---
-*Last updated: 2026-02-15 after Phase 49 completion*
+*Last updated: 2026-02-16 after Phase 53 planning*
