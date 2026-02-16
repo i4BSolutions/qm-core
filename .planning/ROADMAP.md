@@ -204,6 +204,8 @@ Plans:
 | 50. Standard Quantity Display | v1.11 | 4/4 | ✓ Complete | 2026-02-16 |
 | 51. Standard Unit Entity & Admin | v1.11 | 2/2 | ✓ Complete | 2026-02-16 |
 | 52. Per-Item Standard Unit Assignment | v1.11 | 2/2 | ✓ Complete | 2026-02-16 |
+| 53. Standard Unit Display Refactor | v1.11 | 3/3 | ✓ Complete | 2026-02-16 |
+| 54. USD Exchange Rate Auto-Lock | v1.11 | 1/1 | ✓ Complete | 2026-02-16 |
 
 ### Phase 51: Standard Unit Entity & Admin
 
@@ -232,9 +234,9 @@ Plans:
 **Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 53-01-PLAN.md — Foundation cleanup: drop system_config, refactor StandardUnitDisplay to presentational, remove useStandardUnitName hook
-- [ ] 53-02-PLAN.md — PO/Invoice per-item unit display, remove aggregate totals, Invoice PDF update, PO form live preview
-- [ ] 53-03-PLAN.md — Warehouse/Inventory/QMHQ/Stock-Out per-item unit display, Stock-Out PDF, stock-in and stock-out form live previews
+- [x] 53-01-PLAN.md — Foundation cleanup: drop system_config, refactor StandardUnitDisplay to presentational, remove useStandardUnitName hook
+- [x] 53-02-PLAN.md — PO/Invoice per-item unit display, remove aggregate totals, Invoice PDF update, PO form live preview
+- [x] 53-03-PLAN.md — Warehouse/Inventory/QMHQ/Stock-Out per-item unit display, Stock-Out PDF, stock-in and stock-out form live previews
 
 ### Phase 54: USD Exchange Rate Auto-Lock
 
@@ -243,7 +245,7 @@ Plans:
 **Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 54-01-PLAN.md — Database constraints + UI auto-lock on PO create, Invoice create, QMHQ route, and Transaction dialog
+- [x] 54-01-PLAN.md — Database constraints + UI auto-lock on PO create, Invoice create, QMHQ route, and Transaction dialog
 
 ---
 *Last updated: 2026-02-16 after Phase 54 planning*
