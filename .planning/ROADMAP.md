@@ -236,5 +236,14 @@ Plans:
 - [ ] 53-02-PLAN.md — PO/Invoice per-item unit display, remove aggregate totals, Invoice PDF update, PO form live preview
 - [ ] 53-03-PLAN.md — Warehouse/Inventory/QMHQ/Stock-Out per-item unit display, Stock-Out PDF, stock-in and stock-out form live previews
 
+### Phase 54: USD Exchange Rate Auto-Lock
+
+**Goal:** [To be planned]
+**Depends on:** Phase 53
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 54 to break down)
+
 ---
 *Last updated: 2026-02-16 after Phase 53 planning*

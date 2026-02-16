@@ -68,7 +68,8 @@ Progress: [█████████████████████] 128/
 
 - Phase 51 added: Standard Unit Entity & Admin (complete)
 - Phase 52 added: Per-Item Standard Unit Assignment (complete)
-- Phase 53 added: Standard Unit Display Refactor (in progress)
+- Phase 53 added: Standard Unit Display Refactor (complete)
+- Phase 54 added: USD Exchange Rate Auto-Lock
 
 ### Decisions Made
 
