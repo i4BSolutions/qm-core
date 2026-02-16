@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { HistoryTab } from "@/components/history/history-tab";
 import { LineItemTable } from "@/components/stock-out-requests/line-item-table";
 import type { LineItemWithApprovals } from "@/components/stock-out-requests/line-item-table";
@@ -130,6 +131,7 @@ export default function StockOutRequestDetailPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { can } = usePermissions();
+  const { unitName } = useStandardUnitName();
   const requestId = params.id as string;
 
   const [request, setRequest] = useState<StockOutRequestWithRelations | null>(
@@ -210,6 +212,7 @@ export default function StockOutRequestDetailPage() {
           item_name,
           item_sku,
           requested_quantity,
+          conversion_rate,
           status,
           approvals:stock_out_approvals(
             id,
@@ -253,6 +256,7 @@ export default function StockOutRequestDetailPage() {
             item_name: item.item_name,
             item_sku: item.item_sku,
             requested_quantity: item.requested_quantity,
+            conversion_rate: item.conversion_rate || 1,
             status: item.status as SorLineItemStatus,
             total_approved_quantity: totalApprovedQuantity,
             total_rejected_quantity: totalRejectedQuantity,
@@ -302,6 +306,7 @@ export default function StockOutRequestDetailPage() {
             id,
             movement_type,
             quantity,
+            conversion_rate,
             status,
             transaction_date,
             created_at,
@@ -627,20 +632,26 @@ export default function StockOutRequestDetailPage() {
               item_name: li.item_name || "Unknown Item",
               item_sku: li.item_sku,
               requested_quantity: li.requested_quantity,
+              conversion_rate: li.conversion_rate,
               status: li.status,
               total_approved_quantity: li.total_approved_quantity,
               total_rejected_quantity: li.total_rejected_quantity,
             }))}
-            approvals={approvals.map(a => ({
-              approval_number: a.approval_number,
-              item_name: a.line_item?.item_name || "Unknown",
-              item_sku: a.line_item?.item_sku,
-              approved_quantity: a.approved_quantity,
-              decision: a.decision,
-              rejection_reason: a.rejection_reason,
-              decided_by_name: a.decided_by_user?.full_name || "Unknown",
-              decided_at: a.decided_at,
-            }))}
+            approvals={approvals.map(a => {
+              const lineItem = lineItems.find(li => li.id === a.line_item_id);
+              return {
+                approval_number: a.approval_number,
+                item_name: a.line_item?.item_name || "Unknown",
+                item_sku: a.line_item?.item_sku,
+                approved_quantity: a.approved_quantity,
+                conversion_rate: lineItem?.conversion_rate,
+                decision: a.decision,
+                rejection_reason: a.rejection_reason,
+                decided_by_name: a.decided_by_user?.full_name || "Unknown",
+                decided_at: a.decided_at,
+              };
+            })}
+            standardUnitName={unitName}
           />
           {canCancel && (
             <Button
@@ -910,6 +921,11 @@ export default function StockOutRequestDetailPage() {
                               <span className="font-mono text-slate-300">
                                 {approval.approved_quantity}
                               </span>
+                              {unitName && itemsWithTotals.find(li => li.id === approval.line_item_id) && (
+                                <div className="text-xs font-mono text-slate-400 mt-1">
+                                  {(approval.approved_quantity * (itemsWithTotals.find(li => li.id === approval.line_item_id)?.conversion_rate || 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                                </div>
+                              )}
                             </div>
                           )}
 
@@ -987,6 +1003,11 @@ export default function StockOutRequestDetailPage() {
                         <div className="text-lg font-mono font-bold text-red-400">
                           -{tx.quantity}
                         </div>
+                        {unitName && (
+                          <div className="text-xs font-mono text-slate-400 mt-1">
+                            -{(tx.quantity * (tx.conversion_rate ?? 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                          </div>
+                        )}
                         <Badge
                           variant="outline"
                           className={cn(

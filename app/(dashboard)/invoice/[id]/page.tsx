@@ -44,6 +44,7 @@ import {
 } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { HistoryTab } from "@/components/history";
 import { voidInvoice } from "@/lib/actions/invoice-actions";
 import { useToast } from "@/components/ui/use-toast";
@@ -87,6 +88,7 @@ export default function InvoiceDetailPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { unitName } = useStandardUnitName();
   const invoiceId = params.id as string;
 
   const [invoice, setInvoice] = useState<InvoiceWithRelations | null>(null);
@@ -394,6 +396,7 @@ export default function InvoiceDetailPage() {
             lineItems={lineItems.map(li => {
               const lineTotal = (li.quantity || 0) * (li.unit_price || 0);
               const lineTotalEusd = lineTotal / (invoice.exchange_rate ?? 1);
+              const standardQty = (li.quantity || 0) * (li.conversion_rate ?? 1);
               return {
                 item_name: li.item?.name || "Unknown Item",
                 item_sku: li.item?.sku || undefined,
@@ -403,6 +406,8 @@ export default function InvoiceDetailPage() {
                 line_total_eusd: lineTotalEusd,
                 received_quantity: li.received_quantity ?? 0,
                 po_unit_price: li.po_unit_price ?? undefined,
+                conversion_rate: li.conversion_rate ?? 1,
+                standard_qty: standardQty,
               };
             })}
             purchaseOrder={invoice.purchase_order ? {
@@ -417,6 +422,7 @@ export default function InvoiceDetailPage() {
               email: invoice.purchase_order.supplier.email || undefined,
               phone: invoice.purchase_order.supplier.phone || undefined,
             } : null}
+            standardUnitName={unitName}
           />
           {showVoidButton && (
             <TooltipProvider>

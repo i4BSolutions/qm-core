@@ -51,6 +51,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Lock } from "lucide-react";
 import { HistoryTab } from "@/components/history";
 import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { CommentsSection } from "@/components/comments";
 import { DetailPageLayout } from "@/components/composite";
 import type {
@@ -89,6 +90,7 @@ export default function PODetailPage() {
   const params = useParams();
   const router = useRouter();
   const { can } = usePermissions();
+  const { unitName } = useStandardUnitName();
   const poId = params.id as string;
 
   const [po, setPO] = useState<POWithRelations | null>(null);
