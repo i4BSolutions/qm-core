@@ -26,6 +26,7 @@ interface InvoicePDFButtonProps {
     line_total_eusd?: number;
     received_quantity?: number;
     po_unit_price?: number;
+    conversion_rate?: number;
   }>;
   purchaseOrder?: {
     po_number: string;
@@ -39,6 +40,7 @@ interface InvoicePDFButtonProps {
     email?: string;
     phone?: string;
   } | null;
+  standardUnitName?: string;
 }
 
 export function InvoicePDFButton({
@@ -46,6 +48,7 @@ export function InvoicePDFButton({
   lineItems,
   purchaseOrder,
   supplier,
+  standardUnitName,
 }: InvoicePDFButtonProps) {
   return (
     <PDFDownloadButton
@@ -55,6 +58,7 @@ export function InvoicePDFButton({
           lineItems={lineItems}
           purchaseOrder={purchaseOrder}
           supplier={supplier}
+          standardUnitName={standardUnitName}
         />
       }
       fileName={`Invoice_${invoice.invoice_number}_${format(new Date(), "yyyy-MM-dd")}.pdf`}

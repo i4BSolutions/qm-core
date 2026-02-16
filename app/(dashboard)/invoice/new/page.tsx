@@ -39,6 +39,8 @@ import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
 import { AmountInput } from "@/components/ui/amount-input";
 import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import { ConversionRateInput } from "@/components/ui/conversion-rate-input";
+import { StandardUnitDisplay } from "@/components/ui/standard-unit-display";
+import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { calculateAvailableQuantity } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
@@ -56,6 +58,7 @@ function InvoiceCreateContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { unitName } = useStandardUnitName();
   const preselectedPoId = searchParams.get("po");
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -819,8 +822,13 @@ function InvoiceCreateContent() {
                               </code>
                             )}
                           </td>
-                          <td className="py-2 px-3 text-right font-mono text-slate-300">
-                            {li.quantity}
+                          <td className="py-2 px-3 text-right">
+                            <StandardUnitDisplay
+                              quantity={li.quantity}
+                              conversionRate={parseFloat(li.conversion_rate) || 1}
+                              size="sm"
+                              align="right"
+                            />
                           </td>
                           <td className="py-2 px-3 text-right font-mono text-slate-300">
                             {formatCurrency(li.unit_price)}
