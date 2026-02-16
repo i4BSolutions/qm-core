@@ -17,11 +17,11 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 ## Current Position
 
 Phase: 50 of 50 (Standard Quantity Display)
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: In progress
-Last activity: 2026-02-16 — Completed 50-01: StandardUnitDisplay component
+Last activity: 2026-02-16 — Completed 50-02: PO and Invoice line items standard qty display
 
-Progress: [████████████████████░░] 119/122 (97%)
+Progress: [████████████████████░░] 120/122 (98%)
 
 ---
 
@@ -51,8 +51,8 @@ Progress: [████████████████████░░] 1
 - 11 milestones shipped
 
 **v1.11 Progress:**
-- 6/9 plans complete
-- Status: Phase 50 in progress (1/4 plans complete)
+- 7/9 plans complete
+- Status: Phase 50 in progress (2/4 plans complete)
 
 ---
 
@@ -77,9 +77,8 @@ Decisions archived in PROJECT.md Key Decisions table.
 ### TODOs
 
 **Immediate Next Steps:**
-1. Execute Phase 50-02 (Integrate StandardUnitDisplay in PO and Invoice line item tables)
-2. Execute Phase 50-03 (Add StandardUnitDisplay to stock movement tables)
-3. Execute Phase 50-04 (Add StandardUnitDisplay to warehouse inventory display)
+1. Execute Phase 50-03 (Add StandardUnitDisplay to stock movement tables)
+2. Execute Phase 50-04 (Add StandardUnitDisplay to warehouse inventory display)
 
 ### Blockers
 
@@ -90,14 +89,13 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 50-01: StandardUnitDisplay Component
-- Created StandardUnitDisplay component mirroring CurrencyDisplay's two-line pattern
-- Primary line shows original quantity, secondary line shows standard quantity + unit name
-- Integrated useStandardUnitName hook for dynamic admin-configured unit names
-- Hides second line when unit name not configured or loading
-- Supports size variants (sm, md, lg) and alignment options
-- Numbers formatted with thousand separators and 2 decimal places
-- Duration: 42 seconds, 1 task, 1 commit
+- Completed Phase 50-02: PO and Invoice Line Items Standard Qty Display
+- Integrated StandardUnitDisplay into ReadonlyLineItemsTable (PO) and ReadonlyInvoiceLineItemsTable
+- Added footer totals showing summed standard qty across all line items
+- Updated Invoice PDF to include conditional "Std Qty" column when unit name configured
+- Added "Total Standard Qty" row in PDF totals section
+- Updated Invoice creation Step 3 summary to show standard qty
+- Duration: 283 seconds, 2 tasks, 2 commits
 
 **Context for Next Agent:**
 - Phase 47: COMPLETE ✓ (Schema changes - conversion_rate column added)
@@ -108,13 +106,13 @@ Decisions archived in PROJECT.md Key Decisions table.
   - 49-03: Inventory forms (stock-in, stock-out, requests, approval)
 - Phase 50: StandardUnitDisplay component and integration (4 plans) - IN PROGRESS
   - 50-01: StandardUnitDisplay component ✓ COMPLETE
-  - 50-02: PO and Invoice line item tables - NEXT
-  - 50-03: Stock movement tables
+  - 50-02: PO and Invoice line item tables ✓ COMPLETE
+  - 50-03: Stock movement tables - NEXT
   - 50-04: Warehouse inventory display
-- StandardUnitDisplay component ready for integration in all quantity displays
+- Standard qty now visible in primary transactional views (PO detail, Invoice detail, Invoice PDF)
 
-**Resume at:** Execute Phase 50-02 (Integrate StandardUnitDisplay in PO and Invoice line item tables)
+**Resume at:** Execute Phase 50-03 (Add StandardUnitDisplay to stock movement tables)
 
 ---
 
-*State last updated: 2026-02-16 after Phase 50-01 completion*
+*State last updated: 2026-02-16 after Phase 50-02 completion*
