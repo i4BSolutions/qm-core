@@ -17,11 +17,11 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 ## Current Position
 
 Phase: 52 of 53 (Per-Item Standard Unit Assignment)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-16 — Completed 52-01: Item Standard Unit FK
+Plan: 2 of 2 in current phase
+Status: Complete
+Last activity: 2026-02-16 — Completed 52-02: Item Form Standard Unit Selection
 
-Progress: [████████████████████░░] 124/125 (99%)
+Progress: [█████████████████████] 125/125 (100%)
 
 ---
 
@@ -47,12 +47,18 @@ Progress: [████████████████████░░] 1
 
 **Total Delivered:**
 - 48 phases
-- 119 plans
+- 120 plans
 - 11 milestones shipped
 
 **v1.11 Progress:**
-- 9/9 plans complete (Phase 50-52 complete)
-- Status: Phase 52 in progress (1/2 plans complete)
+- 10/10 plans complete (Phase 50-52 complete)
+- Status: Phase 52 complete (2/2 plans complete)
+
+**Latest Execution Metrics:**
+| Phase | Plan | Duration | Tasks | Files | Commits | Date |
+|-------|------|----------|-------|-------|---------|------|
+| 52 | 01 | 120s | 1 | 2 | 1 | 2026-02-16 |
+| 52 | 02 | 223s | 2 | 4 | 2 | 2026-02-16 |
 
 ---
 
@@ -93,9 +99,9 @@ Decisions archived in PROJECT.md Key Decisions table.
 ### TODOs
 
 **Immediate Next Steps:**
-1. Execute Phase 52-02 (Item form standard unit selection UI)
-2. Execute Phase 53 (Standard unit display refactor)
-3. Complete v1.11 milestone
+1. Execute Phase 53 (Standard unit display refactor)
+2. Complete v1.11 milestone
+3. Verify all standard unit features end-to-end
 
 ### Blockers
 
@@ -106,13 +112,12 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 52-01: Item Standard Unit FK
-- Added standard_unit_id FK column to items table
-- Backfilled all existing items with 'pcs' standard unit
-- Set NOT NULL constraint after backfill
-- Added FK constraint with ON DELETE RESTRICT
-- Updated TypeScript types for items table
-- Duration: 120 seconds, 1 task, 1 commit (18b2f1c)
+- Completed Phase 52-02: Item Form Standard Unit Selection
+- Added standard unit selector to item dialog (InlineCreateSelect, required field)
+- Updated item list to show Unit column with unit names
+- Updated item detail page to show standard unit in header and details section
+- Updated admin standard-units page to show real item usage counts
+- Duration: 223 seconds, 2 tasks, 2 commits (7f40af6, 20497fe)
 
 **Context for Next Agent:**
 - Phase 50: COMPLETE ✓ (Standard Quantity Display - 4 plans)
@@ -121,14 +126,16 @@ Decisions archived in PROJECT.md Key Decisions table.
   - standard_units table created with seed data
   - Admin UI with full CRUD operations
   - InlineCreateSelect supports standard_unit type
-- Phase 52: Per-Item Standard Unit Assignment (2 plans) - IN PROGRESS
+- Phase 52: COMPLETE ✓ (Per-Item Standard Unit Assignment - 2 plans)
   - 52-01: Item Standard Unit FK ✓ COMPLETE
-  - 52-02: Item Form Standard Unit Selection - NEXT
-- Database ready: items.standard_unit_id FK in place
-- All existing items have 'pcs' as default
-- Next: Update item forms to display and require standard unit selection
+  - 52-02: Item Form Standard Unit Selection ✓ COMPLETE
+- Items now have required standard_unit_id FK
+- Item forms require standard unit selection
+- Item views display unit names from per-item assignments
+- Admin page shows real usage counts per unit
+- Next: Phase 53 - Standard Unit Display Refactor (remove default_unit references)
 
-**Resume at:** Execute Phase 52-02 (Item Form Standard Unit Selection)
+**Resume at:** Execute Phase 53 (Standard Unit Display Refactor)
 
 ---
 
