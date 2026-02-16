@@ -16,12 +16,12 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 
 ## Current Position
 
-Phase: 53 of 53 (Standard Unit Display Refactor)
-Plan: 3 of 3 in current phase
+Phase: 54 of 54 (USD Exchange Rate Auto-Lock)
+Plan: 1 of 1 in current phase
 Status: Complete
-Last activity: 2026-02-16 — Completed 53-03: Inventory/Warehouse/QMHQ/Stock-Out Per-Item Unit Names
+Last activity: 2026-02-16 — Completed 54-01: USD Exchange Rate Auto-Lock (database + UI)
 
-Progress: [█████████████████████] 128/128 (100%)
+Progress: [█████████████████████] 129/129 (100%)
 
 ---
 
@@ -29,7 +29,7 @@ Progress: [█████████████████████] 128/
 
 **Codebase:**
 - ~50,000 lines of TypeScript
-- 73 database migrations
+- 74 database migrations
 - 100 RLS policies across 22 tables
 
 **Shipped Milestones:**
@@ -46,21 +46,21 @@ Progress: [█████████████████████] 128/
 - v1.10 Tech Debt Cleanup (3 phases, 3 plans) - 2026-02-14
 
 **Total Delivered:**
-- 48 phases
-- 120 plans
+- 49 phases
+- 121 plans
 - 11 milestones shipped
 
 **v1.11 Progress:**
-- 12/13 plans complete (Phase 50-52 complete, Phase 53 in progress)
-- Status: Phase 53 in progress (2/3 plans complete)
+- 13/13 plans complete (Phase 50-54 complete)
+- Status: v1.11 Complete ✓
 
 **Latest Execution Metrics:**
 | Phase | Plan | Duration | Tasks | Files | Commits | Date |
 |-------|------|----------|-------|-------|---------|------|
-| 52 | 02 | 223s | 2 | 4 | 2 | 2026-02-16 |
 | 53 | 01 | 2 min | 2 | 7 | 2 | 2026-02-16 |
 | 53 | 03 | 11 min | 2 | 9 | 1 | 2026-02-16 |
 | 53 | 02 | 8 min | 2 | 8 | 2 | 2026-02-16 |
+| 54 | 01 | 15 min | 2 | 5 | 2 | 2026-02-16 |
 
 ## Accumulated Context
 
@@ -96,13 +96,15 @@ Decisions archived in PROJECT.md Key Decisions table.
 - Hide color picker in InlineCreateSelect for standard_unit type (name-only form)
 - Backfill all existing items with 'pcs' as default standard unit
 - Use FK constraint with ON DELETE RESTRICT to protect standard units in use
+- EUR and SGD currencies supported in financial_transactions and qmhq tables (but not in PO/Invoice)
+- Transaction dialog inherits currency from QMHQ and auto-locks USD rate on data load
+- Followed exact pattern from stock-in page (Phase 9) for USD auto-lock consistency
 
 ### TODOs
 
 **Immediate Next Steps:**
-1. Execute Phase 53 (Standard unit display refactor)
-2. Complete v1.11 milestone
-3. Verify all standard unit features end-to-end
+1. Celebrate v1.11 completion (Standard Unit System + USD Auto-Lock)
+2. Await next roadmap phase or milestone definition
 
 ### Blockers
 
@@ -113,28 +115,25 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 53-03: Inventory/Warehouse/QMHQ/Stock-Out Per-Item Unit Names
-- Refactored all inventory, warehouse, QMHQ, and stock-out displays to use per-item standard unit names
-- Removed all useStandardUnitName hook references system-wide
-- Updated Supabase queries to join items->standard_units throughout
-- Removed cross-item aggregate totalStandardUnits from warehouse KPIs
-- Kept per-item standard_stock on warehouse inventory rows with inline unit names
-- Updated stock-out PDF to use per-item unit names
-- Duration: 11 min, 2 tasks, 1 commit (9d65797)
+- Completed Phase 54-01: USD Exchange Rate Auto-Lock
+- Added database CHECK constraints enforcing exchange_rate = 1.0 for USD on 4 tables (purchase_orders, invoices, financial_transactions, qmhq)
+- Added positive exchange rate and currency validation constraints
+- Implemented UI auto-lock across all financial forms (PO create, Invoice create, QMHQ routes, Transaction dialog)
+- Auto-sets exchange rate to 1.0 when USD is selected
+- Disables ExchangeRateInput for USD with helper text "USD rate is always 1.0"
+- Duration: 15 min, 2 tasks, 2 commits (a859b1f, f69518c)
 
 **Context for Next Agent:**
 - Phase 50: COMPLETE ✓ (Standard Quantity Display - 4 plans)
 - Phase 51: COMPLETE ✓ (Standard Unit Entity & Admin - 3 plans)
 - Phase 52: COMPLETE ✓ (Per-Item Standard Unit Assignment - 2 plans)
 - Phase 53: COMPLETE ✓ (Standard Unit Display Refactor - 3 plans)
-  - 53-01: Remove Global Infrastructure ✓ COMPLETE
-  - 53-02: PO/Invoice Display Per-Item Unit Names ✓ COMPLETE
-  - 53-03: Inventory/Warehouse/QMHQ/Stock-Out Per-Item Unit Names ✓ COMPLETE
-- All phases in milestone v1.11 Standard Unit System are complete
-- All displays now use per-item unit names via database joins
+- Phase 54: COMPLETE ✓ (USD Exchange Rate Auto-Lock - 1 plan)
+- **v1.11 milestone COMPLETE** (Standard Unit System + USD Auto-Lock)
+- All financial forms enforce USD = 1.0 EUSD at both database and UI levels
 
-**Resume at:** Next milestone or phase as directed by roadmap
+**Resume at:** Awaiting next milestone or roadmap phase
 
 ---
 
-*State last updated: 2026-02-16 after Phase 53-02 completion*
+*State last updated: 2026-02-16 after Phase 54-01 completion*
