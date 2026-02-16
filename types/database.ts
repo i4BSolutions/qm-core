@@ -2205,6 +2205,18 @@ export type Department = Tables<"departments">
 export type User = Tables<"users">
 export type StatusConfig = Tables<"status_config">
 export type Category = Tables<"categories">
+
+// Standard Unit (entity-managed, not config-based)
+export interface StandardUnit {
+  id: string;
+  name: string;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  updated_by: string | null;
+}
+
 export type ContactPerson = Tables<"contact_persons">
 export type Supplier = Tables<"suppliers">
 export type Item = Tables<"items">
