@@ -175,13 +175,13 @@ Plans:
 6. StandardUnitDisplay component mirrors CurrencyDisplay two-line pattern (qty + standard qty)
 7. All existing transactions display with standard qty calculated from backfilled conversion_rate = 1
 
-**Plans**: TBD
+**Plans:** 4 plans
 
 Plans:
-- [ ] 50-01: StandardUnitDisplay component
-- [ ] 50-02: PO and Invoice display integration
-- [ ] 50-03: Inventory and warehouse display integration
-- [ ] 50-04: QMHQ and stock-out display integration
+- [ ] 50-01-PLAN.md -- StandardUnitDisplay component mirroring CurrencyDisplay two-line pattern
+- [ ] 50-02-PLAN.md -- PO and Invoice readonly tables + Invoice PDF standard qty integration
+- [ ] 50-03-PLAN.md -- Inventory dashboard, warehouse detail, and stock-out request standard qty
+- [ ] 50-04-PLAN.md -- QMHQ detail, items summary, and PDF export wiring
 
 ## Progress
 
