@@ -2,6 +2,7 @@
 
 import { PDFDownloadButton } from "@/components/pdf-export/pdf-download-button";
 import { StockOutPDF } from "@/lib/pdf/documents/stock-out-pdf";
+import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { format } from "date-fns";
 
 interface StockOutPDFButtonProps {
@@ -19,6 +20,7 @@ interface StockOutPDFButtonProps {
     item_name: string;
     item_sku?: string | null;
     requested_quantity: number;
+    conversion_rate?: number;
     status: string;
     total_approved_quantity: number;
     total_rejected_quantity: number;
@@ -28,6 +30,7 @@ interface StockOutPDFButtonProps {
     item_name: string;
     item_sku?: string | null;
     approved_quantity: number;
+    conversion_rate?: number;
     decision: string;
     rejection_reason?: string | null;
     decided_by_name: string;
@@ -40,6 +43,8 @@ export function StockOutPDFButton({
   lineItems,
   approvals,
 }: StockOutPDFButtonProps) {
+  const { unitName } = useStandardUnitName();
+
   return (
     <PDFDownloadButton
       document={
@@ -47,6 +52,7 @@ export function StockOutPDFButton({
           request={request}
           lineItems={lineItems}
           approvals={approvals}
+          standardUnitName={unitName || undefined}
         />
       }
       fileName={`StockOut_${request.request_number}_${format(new Date(), "yyyy-MM-dd")}.pdf`}

@@ -20,6 +20,7 @@ interface StockOutPDFProps {
     item_name: string;
     item_sku?: string | null;
     requested_quantity: number;
+    conversion_rate?: number;
     status: string;
     total_approved_quantity: number;
     total_rejected_quantity: number;
@@ -29,11 +30,13 @@ interface StockOutPDFProps {
     item_name: string;
     item_sku?: string | null;
     approved_quantity: number;
+    conversion_rate?: number;
     decision: string;
     rejection_reason?: string | null;
     decided_by_name: string;
     decided_at: string;
   }>;
+  standardUnitName?: string;
 }
 
 // Status label mapping
@@ -66,7 +69,7 @@ const LINE_STATUS_COLORS: Record<string, string> = {
   cancelled: "#64748B", // slate
 };
 
-export function StockOutPDF({ request, lineItems, approvals }: StockOutPDFProps) {
+export function StockOutPDF({ request, lineItems, approvals, standardUnitName }: StockOutPDFProps) {
   const statusLabel = REQUEST_STATUS_LABELS[request.status] || request.status;
   const reasonLabel = REASON_LABELS[request.reason] || request.reason;
 
@@ -83,7 +86,14 @@ export function StockOutPDF({ request, lineItems, approvals }: StockOutPDFProps)
   };
 
   // Line items table columns
-  const lineItemColumns: PDFTableColumn[] = [
+  const lineItemColumns: PDFTableColumn[] = standardUnitName ? [
+    { header: "#", key: "index", width: "6%", align: "center" },
+    { header: "Item", key: "item", width: "30%" },
+    { header: "Requested", key: "requested", width: "16%", align: "right" },
+    { header: "Approved", key: "approved", width: "16%", align: "right" },
+    { header: "Rejected", key: "rejected", width: "16%", align: "right" },
+    { header: "Status", key: "status", width: "16%", align: "center" },
+  ] : [
     { header: "#", key: "index", width: "8%", align: "center" },
     { header: "Item", key: "item", width: "40%" },
     { header: "Requested", key: "requested", width: "13%", align: "right" },
@@ -95,6 +105,7 @@ export function StockOutPDF({ request, lineItems, approvals }: StockOutPDFProps)
   // Map line items to table data
   const lineItemData = lineItems.map((item, index) => {
     const statusColor = LINE_STATUS_COLORS[item.status] || "#94A3B8";
+    const conversionRate = item.conversion_rate || 1;
 
     return {
       index: (index + 1).toString(),
@@ -108,9 +119,30 @@ export function StockOutPDF({ request, lineItems, approvals }: StockOutPDFProps)
           )}
         </View>
       ),
-      requested: item.requested_quantity.toString(),
-      approved: item.total_approved_quantity.toString(),
-      rejected: item.total_rejected_quantity.toString(),
+      requested: standardUnitName ? (
+        <View>
+          <Text style={darkThemeStyles.tableCell}>{item.requested_quantity.toString()}</Text>
+          <Text style={{ fontSize: 8, color: "#94A3B8", fontFamily: "Courier", marginTop: 2 }}>
+            {(item.requested_quantity * conversionRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {standardUnitName}
+          </Text>
+        </View>
+      ) : item.requested_quantity.toString(),
+      approved: standardUnitName ? (
+        <View>
+          <Text style={darkThemeStyles.tableCell}>{item.total_approved_quantity.toString()}</Text>
+          <Text style={{ fontSize: 8, color: "#94A3B8", fontFamily: "Courier", marginTop: 2 }}>
+            {(item.total_approved_quantity * conversionRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {standardUnitName}
+          </Text>
+        </View>
+      ) : item.total_approved_quantity.toString(),
+      rejected: standardUnitName ? (
+        <View>
+          <Text style={darkThemeStyles.tableCell}>{item.total_rejected_quantity.toString()}</Text>
+          <Text style={{ fontSize: 8, color: "#94A3B8", fontFamily: "Courier", marginTop: 2 }}>
+            {(item.total_rejected_quantity * conversionRate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {standardUnitName}
+          </Text>
+        </View>
+      ) : item.total_rejected_quantity.toString(),
       status: (
         <Text style={{ ...darkThemeStyles.tableCell, color: statusColor, fontSize: 9, textTransform: "capitalize" }}>
           {item.status.replace("_", " ")}
@@ -232,6 +264,11 @@ export function StockOutPDF({ request, lineItems, approvals }: StockOutPDFProps)
                         <Text style={{ fontSize: 10, fontFamily: "Courier", color: "#E2E8F0" }}>
                           {approval.approved_quantity}
                         </Text>
+                        {standardUnitName && approval.conversion_rate && (
+                          <Text style={{ fontSize: 8, color: "#94A3B8", fontFamily: "Courier", marginTop: 2 }}>
+                            {(approval.approved_quantity * approval.conversion_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {standardUnitName}
+                          </Text>
+                        )}
                       </View>
                     )}
                   </View>
