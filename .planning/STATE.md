@@ -17,11 +17,11 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 ## Current Position
 
 Phase: 51 of 53 (Standard Unit Entity & Admin)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-16 — Completed 51-01: Standard Units Table & Type Foundation
+Last activity: 2026-02-16 — Completed 51-02: Standard Units Admin UI
 
-Progress: [████████████████████░░] 122/125 (98%)
+Progress: [████████████████████░░] 123/125 (98%)
 
 ---
 
@@ -84,6 +84,9 @@ Decisions archived in PROJECT.md Key Decisions table.
 - Aggregate standard_stock in warehouse inventory by summing standard_qty from transactions
 - Show standard qty as second line below original quantity in all displays
 - Pass standardUnitName to PDF components to conditionally render columns
+- Use admin permission proxy via categories for standard units CRUD
+- Hard delete with FK protection for standard units (consistent with migration)
+- Hide color picker in InlineCreateSelect for standard_unit type (name-only form)
 
 ### TODOs
 
@@ -100,29 +103,28 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 51-01: Standard Units Table & Type Foundation
-- Created standard_units table with id, name, display_order, and audit columns
-- Added RLS policies: admin-only write, all-users read
-- Seeded 9 default units: pcs, kg, g, L, mL, m, cm, box, pack
-- Removed standard_unit_name from system_config table (now entity-managed)
-- Added StandardUnit TypeScript interface
-- Cleaned up admin/settings page (removed unit config UI)
-- Duration: 179 seconds, 2 tasks, 2 commits (5511ad9, b951f08)
+- Completed Phase 51-02: Standard Units Admin UI
+- Created /admin/standard-units page with DataTable and UnitDialog
+- Implemented CRUD operations: create, edit, delete with FK protection
+- Added "Standard Units" entry to sidebar admin navigation
+- Extended InlineCreateSelect to support standard_unit createType
+- Conditional UI: no color picker for standard_unit (name-only form)
+- Duration: 262 seconds, 2 tasks, 2 commits (17888e2, b047806)
 
 **Context for Next Agent:**
 - Phase 50: COMPLETE ✓ (Standard Quantity Display - 4 plans)
   - System-wide standard qty display integrated across all modules
 - Phase 51: Standard Unit Entity & Admin (3 plans) - IN PROGRESS
   - 51-01: Standard Units Table & Type Foundation ✓ COMPLETE
-  - 51-02: Standard Units Admin UI - NEXT
-  - 51-03: Standard Units Admin Integration
-- Database foundation ready: standard_units table exists with 9 seed units
-- TypeScript types ready: StandardUnit interface exported
-- Old system_config standard_unit_name removed
-- Next: Build admin CRUD UI for managing standard units
+  - 51-02: Standard Units Admin UI ✓ COMPLETE
+  - 51-03: Standard Units Admin Integration - NEXT
+- Admin UI ready: /admin/standard-units with full CRUD
+- InlineCreateSelect ready: supports standard_unit type for Phase 52
+- Sidebar navigation includes Standard Units link
+- Next: Final admin integration touches (if any)
 
-**Resume at:** Execute Phase 51-02 (Standard Units Admin UI with CRUD operations)
+**Resume at:** Execute Phase 51-03 (Standard Units Admin Integration)
 
 ---
 
-*State last updated: 2026-02-16 after Phase 51-01 completion*
+*State last updated: 2026-02-16 after Phase 51-02 completion*
