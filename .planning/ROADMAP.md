@@ -13,7 +13,7 @@
 - ✅ **v1.8 UI Consistency, Flow Tracking & RBAC** - Phases 36-40 (shipped 2026-02-12)
 - ✅ **v1.9 PO Lifecycle, Cancellation Guards & PDF Export** - Phases 41-43 (shipped 2026-02-13)
 - ✅ **v1.10 Tech Debt Cleanup** - Phases 44-46 (shipped 2026-02-14)
-- 🚧 **v1.11 Standard Unit System** - Phases 47-50 (in progress)
+- 🚧 **v1.11 Standard Unit System** - Phases 47-53 (in progress)
 
 ## Phases
 
@@ -202,6 +202,34 @@ Plans:
 | 48. Admin Configuration | v1.11 | 1/1 | ✓ Complete | 2026-02-14 |
 | 49. Conversion Rate Input | v1.11 | 3/3 | ✓ Complete | 2026-02-14 |
 | 50. Standard Quantity Display | v1.11 | Complete    | 2026-02-16 | - |
+
+### Phase 51: Standard Unit Entity & Admin
+
+**Goal**: Admin can manage a list of standard units (kg, liters, meters, etc.) with full CRUD, and inline creation is available in forms
+**Depends on**: Phase 50
+**Plans:** 2 plans
+
+Plans:
+- [ ] 51-01-PLAN.md -- Database migration, types, and global config cleanup
+- [ ] 51-02-PLAN.md -- Admin page, dialog, sidebar nav, and inline-create-select extension
+
+### Phase 52: Per-Item Standard Unit Assignment
+
+**Goal**: Each item gets assigned a standard unit from the managed list, with required selection on item create/edit and migration of existing items
+**Depends on**: Phase 51
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 52 to break down)
+
+### Phase 53: Standard Unit Display Refactor
+
+**Goal**: All standard quantity displays use the per-item standard unit name instead of the global setting, and global setting is removed
+**Depends on**: Phase 52
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 53 to break down)
 
 ---
 *Last updated: 2026-02-15 after Phase 49 completion*
