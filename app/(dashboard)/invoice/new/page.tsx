@@ -201,6 +201,14 @@ function InvoiceCreateContent() {
     }
   };
 
+  // Handle currency change - auto-set USD rate to 1.0 per database constraint
+  const handleCurrencyChange = (value: string) => {
+    setCurrency(value);
+    if (value === 'USD') {
+      setExchangeRate('1');
+    }
+  };
+
   // Handlers
   const handleSelectPO = (poId: string) => {
     if (poId !== selectedPOId) {
@@ -536,7 +544,7 @@ function InvoiceCreateContent() {
                   </FormField>
 
                   <FormField label="Currency" required>
-                    <Select value={currency} onValueChange={setCurrency}>
+                    <Select value={currency} onValueChange={handleCurrencyChange}>
                       <SelectTrigger className="bg-slate-800/50 border-slate-700">
                         <SelectValue placeholder="Select currency..." />
                       </SelectTrigger>
@@ -553,8 +561,12 @@ function InvoiceCreateContent() {
                     <ExchangeRateInput
                       value={exchangeRate}
                       onValueChange={setExchangeRate}
+                      disabled={currency === 'USD'}
                       className="bg-slate-800/50 border-slate-700"
                     />
+                    <p className="text-xs text-slate-500 mt-1">
+                      {currency === 'USD' ? 'USD rate is always 1.0' : `1 EUSD = ${exchangeRate || '1'} ${currency}`}
+                    </p>
                   </FormField>
                 </div>
 

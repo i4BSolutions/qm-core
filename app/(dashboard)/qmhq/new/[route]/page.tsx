@@ -183,6 +183,14 @@ export default function QMHQRouteDetailsPage() {
     setIsLoading(false);
   };
 
+  // Handle currency change - auto-set USD rate to 1.0 per database constraint
+  const handleCurrencyChange = (value: string) => {
+    setCurrency(value);
+    if (value === 'USD') {
+      setExchangeRate('1');
+    }
+  };
+
   const handleAddItem = () => {
     setSelectedItems([
       ...selectedItems,
@@ -575,7 +583,7 @@ export default function QMHQRouteDetailsPage() {
                     </FormField>
 
                     <FormField label="Currency" htmlFor="currency">
-                      <Select value={currency} onValueChange={setCurrency}>
+                      <Select value={currency} onValueChange={handleCurrencyChange}>
                         <SelectTrigger className="bg-slate-800/50 border-slate-700">
                           <SelectValue />
                         </SelectTrigger>
@@ -599,8 +607,12 @@ export default function QMHQRouteDetailsPage() {
                         id="exchange_rate"
                         value={exchangeRate}
                         onValueChange={setExchangeRate}
+                        disabled={currency === 'USD'}
                         className="bg-slate-800/50 border-slate-700 focus:border-emerald-500/50 text-slate-200"
                       />
+                      <p className="text-xs text-slate-500 mt-1">
+                        {currency === 'USD' ? 'USD rate is always 1.0' : `1 EUSD = ${exchangeRate || '1'} ${currency}`}
+                      </p>
                     </FormField>
                   </div>
 
@@ -659,7 +671,7 @@ export default function QMHQRouteDetailsPage() {
                     </FormField>
 
                     <FormField label="Currency" htmlFor="currency">
-                      <Select value={currency} onValueChange={setCurrency}>
+                      <Select value={currency} onValueChange={handleCurrencyChange}>
                         <SelectTrigger className="bg-slate-800/50 border-slate-700">
                           <SelectValue />
                         </SelectTrigger>
@@ -683,8 +695,12 @@ export default function QMHQRouteDetailsPage() {
                         id="exchange_rate"
                         value={exchangeRate}
                         onValueChange={setExchangeRate}
+                        disabled={currency === 'USD'}
                         className="bg-slate-800/50 border-slate-700 focus:border-purple-500/50 text-slate-200"
                       />
+                      <p className="text-xs text-slate-500 mt-1">
+                        {currency === 'USD' ? 'USD rate is always 1.0' : `1 EUSD = ${exchangeRate || '1'} ${currency}`}
+                      </p>
                     </FormField>
                   </div>
 

@@ -111,8 +111,10 @@ export function TransactionDialog({
             exchange_rate: data.exchange_rate || 1,
             balance_in_hand: data.balance_in_hand || 0,
           });
-          setCurrency(data.currency || "MMK");
-          setExchangeRate(String(data.exchange_rate || 1));
+          const inheritedCurrency = data.currency || "MMK";
+          setCurrency(inheritedCurrency);
+          // Auto-lock USD rate to 1.0 per database constraint
+          setExchangeRate(inheritedCurrency === 'USD' ? '1' : String(data.exchange_rate || 1));
         }
         setIsLoadingQmhq(false);
       };
@@ -407,8 +409,12 @@ export function TransactionDialog({
                 id="exchange_rate"
                 value={exchangeRate}
                 onValueChange={setExchangeRate}
+                disabled={currency === 'USD'}
                 className="bg-slate-800/50 border-slate-700 text-slate-200"
               />
+              <p className="text-xs text-slate-500 mt-1">
+                {currency === 'USD' ? 'USD rate is always 1.0' : `1 EUSD = ${exchangeRate || '1'} ${currency}`}
+              </p>
             </div>
           </div>
 
