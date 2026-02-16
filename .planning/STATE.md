@@ -16,12 +16,12 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 
 ## Current Position
 
-Phase: 52 of 53 (Per-Item Standard Unit Assignment)
-Plan: 2 of 2 in current phase
-Status: Complete
-Last activity: 2026-02-16 — Completed 52-02: Item Form Standard Unit Selection
+Phase: 53 of 53 (Standard Unit Display Refactor)
+Plan: 1 of 3 in current phase
+Status: In Progress
+Last activity: 2026-02-16 — Completed 53-01: Remove Global Standard Unit Infrastructure
 
-Progress: [█████████████████████] 125/125 (100%)
+Progress: [█████████████████████] 126/128 (98%)
 
 ---
 
@@ -51,24 +51,23 @@ Progress: [█████████████████████] 125/
 - 11 milestones shipped
 
 **v1.11 Progress:**
-- 10/10 plans complete (Phase 50-52 complete)
-- Status: Phase 52 complete (2/2 plans complete)
+- 11/13 plans complete (Phase 50-52 complete, Phase 53 in progress)
+- Status: Phase 53 in progress (1/3 plans complete)
 
 **Latest Execution Metrics:**
 | Phase | Plan | Duration | Tasks | Files | Commits | Date |
 |-------|------|----------|-------|-------|---------|------|
 | 52 | 01 | 120s | 1 | 2 | 1 | 2026-02-16 |
 | 52 | 02 | 223s | 2 | 4 | 2 | 2026-02-16 |
-
----
+| 53 | 01 | 2 min | 2 | 7 | 2 | 2026-02-16 |
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
 - Phase 51 added: Standard Unit Entity & Admin (complete)
-- Phase 52 added: Per-Item Standard Unit Assignment (in progress)
-- Phase 53 added: Standard Unit Display Refactor (pending)
+- Phase 52 added: Per-Item Standard Unit Assignment (complete)
+- Phase 53 added: Standard Unit Display Refactor (in progress)
 
 ### Decisions Made
 
@@ -112,31 +111,26 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 52-02: Item Form Standard Unit Selection
-- Added standard unit selector to item dialog (InlineCreateSelect, required field)
-- Updated item list to show Unit column with unit names
-- Updated item detail page to show standard unit in header and details section
-- Updated admin standard-units page to show real item usage counts
-- Duration: 223 seconds, 2 tasks, 2 commits (7f40af6, 20497fe)
+- Completed Phase 53-01: Remove Global Standard Unit Infrastructure
+- Refactored StandardUnitDisplay to pure presentational component with unitName prop
+- Dropped system_config table via migration (policies, triggers, indexes removed)
+- Deleted admin settings page and removed sidebar link
+- Removed useStandardUnitName hook and SystemConfig type
+- Duration: 2 min, 2 tasks, 2 commits (de61689, 6bae1cf)
 
 **Context for Next Agent:**
 - Phase 50: COMPLETE ✓ (Standard Quantity Display - 4 plans)
-  - System-wide standard qty display integrated across all modules
 - Phase 51: COMPLETE ✓ (Standard Unit Entity & Admin - 3 plans)
-  - standard_units table created with seed data
-  - Admin UI with full CRUD operations
-  - InlineCreateSelect supports standard_unit type
 - Phase 52: COMPLETE ✓ (Per-Item Standard Unit Assignment - 2 plans)
-  - 52-01: Item Standard Unit FK ✓ COMPLETE
-  - 52-02: Item Form Standard Unit Selection ✓ COMPLETE
-- Items now have required standard_unit_id FK
-- Item forms require standard unit selection
-- Item views display unit names from per-item assignments
-- Admin page shows real usage counts per unit
-- Next: Phase 53 - Standard Unit Display Refactor (remove default_unit references)
+- Phase 53: IN PROGRESS (Standard Unit Display Refactor)
+  - 53-01: Remove Global Infrastructure ✓ COMPLETE
+  - StandardUnitDisplay is now presentational (accepts unitName prop)
+  - system_config table dropped, useStandardUnitName hook deleted
+  - Downstream consumers have broken imports (expected)
+- Next: 53-02: Update warehouse inventory consumers to fetch per-item unit names
 
-**Resume at:** Execute Phase 53 (Standard Unit Display Refactor)
+**Resume at:** Execute Plan 53-02 (Warehouse Inventory Consumers)
 
 ---
 
-*State last updated: 2026-02-16 after Phase 52-01 completion*
+*State last updated: 2026-02-16 after Phase 53-01 completion*
