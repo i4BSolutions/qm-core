@@ -1,5 +1,6 @@
 "use client";
 
+import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 
 export interface ItemProgressData {
   itemId: string;
@@ -9,6 +10,9 @@ export interface ItemProgressData {
   approved: number;
   executed: number;
   rejected: number;
+  standardRequested?: number;
+  standardApproved?: number;
+  standardExecuted?: number;
 }
 
 interface ItemsSummaryProgressProps {
@@ -16,6 +20,8 @@ interface ItemsSummaryProgressProps {
 }
 
 export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
+  const { unitName } = useStandardUnitName();
+
   return (
     <div className="space-y-6">
       <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
@@ -88,15 +94,36 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
               <div className="flex items-center gap-4 text-xs">
                 <div className="flex items-center text-slate-400">
                   <span className="w-2 h-2 rounded-full bg-slate-600 inline-block mr-1" />
-                  Requested: {item.requested}
+                  <div>
+                    <div>Requested: {item.requested}</div>
+                    {unitName && item.standardRequested != null && (
+                      <div className="text-slate-500 font-mono">
+                        {item.standardRequested.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center text-blue-400">
                   <span className="w-2 h-2 rounded-full bg-blue-500 inline-block mr-1" />
-                  Approved: {item.approved}
+                  <div>
+                    <div>Approved: {item.approved}</div>
+                    {unitName && item.standardApproved != null && (
+                      <div className="text-blue-500/60 font-mono">
+                        {item.standardApproved.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center text-emerald-400">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1" />
-                  Executed: {item.executed}
+                  <div>
+                    <div>Executed: {item.executed}</div>
+                    {unitName && item.standardExecuted != null && (
+                      <div className="text-emerald-500/60 font-mono">
+                        {item.standardExecuted.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {item.rejected > 0 && (
                   <div className="flex items-center text-red-400">

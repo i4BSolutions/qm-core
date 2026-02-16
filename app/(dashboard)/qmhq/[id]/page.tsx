@@ -33,6 +33,7 @@ import { formatCurrency } from "@/lib/utils";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { TransactionDialog } from "@/components/qmhq/transaction-dialog";
 import { TransactionViewModal } from "@/components/qmhq/transaction-view-modal";
 import { POStatusBadge } from "@/components/po/po-status-badge";
@@ -132,6 +133,7 @@ export default function QMHQDetailPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { can } = usePermissions();
+  const { unitName } = useStandardUnitName();
   const qmhqId = params.id as string;
 
   // Track updated param to trigger refetch after stock-out
@@ -193,6 +195,7 @@ export default function QMHQDetailPage() {
         .from('qmhq_items')
         .select(`
           *,
+          conversion_rate,
           item:items(id, name, sku, default_unit),
           warehouse:warehouses(id, name)
         `)
@@ -237,6 +240,7 @@ export default function QMHQDetailPage() {
         .from('inventory_transactions')
         .select(`
           *,
+          conversion_rate,
           item:items(id, name, sku),
           warehouse:warehouses!inventory_transactions_warehouse_id_fkey(id, name),
           qmhq:qmhq!inventory_transactions_qmhq_id_fkey(id, request_id),
@@ -244,9 +248,11 @@ export default function QMHQDetailPage() {
             id,
             approval_number,
             approved_quantity,
+            conversion_rate,
             line_item:stock_out_line_items(
               id,
               requested_quantity,
+              conversion_rate,
               status,
               request:stock_out_requests(
                 id,
@@ -466,10 +472,15 @@ export default function QMHQDetailPage() {
     return qmhqItems.map((item) => {
       // Get requested qty from the QMHQ item
       const requested = item.quantity;
+      const itemConversionRate = (item as any).conversion_rate ?? 1;
+
+      // Calculate standard requested
+      const standardRequested = requested * itemConversionRate;
 
       // Calculate approved qty from SOR line items
       let approved = 0;
       let rejected = 0;
+      let standardApproved = 0;
       if (stockOutRequest?.line_items) {
         for (const li of stockOutRequest.line_items) {
           if (li.item_id === item.item_id) {
@@ -477,6 +488,12 @@ export default function QMHQDetailPage() {
             const rejectedApprovals = li.approvals?.filter((a: any) => a.decision === 'rejected') || [];
             approved += approvedApprovals.reduce((sum: number, a: any) => sum + (a.approved_quantity || 0), 0);
             rejected += rejectedApprovals.reduce((sum: number, a: any) => sum + (a.approved_quantity || 0), 0);
+            // Calculate standard approved using approval conversion_rate
+            standardApproved += approvedApprovals.reduce((sum: number, a: any) => {
+              const qty = a.approved_quantity || 0;
+              const rate = a.conversion_rate ?? 1;
+              return sum + (qty * rate);
+            }, 0);
           }
         }
       }
@@ -486,6 +503,15 @@ export default function QMHQDetailPage() {
         .filter(t => t.item_id === item.item_id && t.status === 'completed')
         .reduce((sum, t) => sum + (t.quantity || 0), 0);
 
+      // Calculate standard executed using transaction conversion_rate
+      const standardExecuted = stockOutTransactions
+        .filter(t => t.item_id === item.item_id && t.status === 'completed')
+        .reduce((sum, t) => {
+          const qty = t.quantity || 0;
+          const rate = (t as any).conversion_rate ?? 1;
+          return sum + (qty * rate);
+        }, 0);
+
       return {
         itemId: item.item_id,
         itemName: item.item?.name || 'Unknown Item',
@@ -494,6 +520,9 @@ export default function QMHQDetailPage() {
         approved,
         executed,
         rejected,
+        standardRequested,
+        standardApproved,
+        standardExecuted,
       };
     });
   }, [qmhqItems, stockOutRequest, stockOutTransactions]);
@@ -869,9 +898,16 @@ export default function QMHQDetailPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="text-lg font-mono text-blue-400">{item.quantity}</span>
-                        {item.item?.default_unit && (
-                          <span className="text-xs text-slate-400 ml-1">{item.item.default_unit}</span>
+                        <div>
+                          <span className="text-lg font-mono text-blue-400">{item.quantity}</span>
+                          {item.item?.default_unit && (
+                            <span className="text-xs text-slate-400 ml-1">{item.item.default_unit}</span>
+                          )}
+                        </div>
+                        {unitName && item.quantity != null && item.conversion_rate && (
+                          <div className="text-xs font-mono text-slate-400">
+                            {((item.quantity || 0) * (item.conversion_rate ?? 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                          </div>
                         )}
                       </div>
                     </div>
