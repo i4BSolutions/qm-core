@@ -2,20 +2,20 @@
 
 ## What This Is
 
-An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with smart PO lifecycle management (6-state status engine, cancellation/void guards, admin unlock), per-line-item stock-out approval and execution workflows, deletion protection, team collaboration via comments, responsive financial displays, standardized UI via composite components, streamlined 3-role RBAC (Admin/QMRL/QMHQ), admin-only end-to-end flow tracking, and professional PDF receipt export.
+An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with smart PO lifecycle management (6-state status engine, cancellation/void guards, admin unlock), per-line-item stock-out approval and execution workflows, per-item standard unit management with conversion rate tracking, deletion protection, team collaboration via comments, responsive financial displays, standardized UI via composite components, streamlined 3-role RBAC (Admin/QMRL/QMHQ), admin-only end-to-end flow tracking, and professional PDF receipt export.
 
 ## Core Value
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-## Current State (v1.10 Shipped)
+## Current State (v1.11 Shipped)
 
 **Tech Stack:**
 - Next.js 14+ with App Router, TypeScript strict mode
 - Supabase for auth, database, and file storage
 - Tailwind CSS with dark theme support
-- ~49,804 lines of TypeScript
-- 70 database migrations with RLS policies (92 policies across 20 tables)
+- ~45,170 lines of TypeScript
+- 74 database migrations with RLS policies (100 policies across 22 tables)
 
 **Shipped Features:**
 - Email OTP authentication with 3-role RBAC (Admin/QMRL/QMHQ)
@@ -67,17 +67,11 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - PO header editing with status guards and audit logging (line items immutable)
 - Flow tracking VIEW optimized with 8 partial indexes and Suspense loading
 - JSDoc-annotated composite component prop interfaces (24 props documented)
-
-## Current Milestone: v1.11 Standard Unit System
-
-**Goal:** Add a system-wide standard unit for item quantities — per-transaction conversion rate with display everywhere, mirroring the EUSD pattern for currencies.
-
-**Target features:**
-- Admin-configurable standard unit name (global setting)
-- Per-transaction unit conversion rate input (required, no default)
-- Standard qty calculation (`qty × conversion_rate`) and display alongside every quantity
-- Standard unit display everywhere: PO lines, invoice lines, stock-in, stock-out, inventory, dashboards
-- Backfill existing transactions with conversion rate = 1
+- Standard unit entity management with CRUD admin page and inline creation
+- Per-item standard unit assignment (items → standard_units FK)
+- Per-transaction conversion rate input on PO, Invoice, stock-in, and stock-out forms
+- Standard quantity display (qty x rate) on all detail pages, tables, and PDF exports
+- USD exchange rate auto-lock at database (CHECK constraints) and UI levels
 
 ## Requirements
 
@@ -187,12 +181,17 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - ✓ Flow tracking VIEW performance optimization with 8 partial indexes — v1.10
 - ✓ Composite component prop types documented with JSDoc annotations — v1.10
 
+<!-- V1.11 Features -->
+- ✓ Standard unit entity management with admin CRUD page — v1.11
+- ✓ Per-item standard unit assignment with FK and inline creation — v1.11
+- ✓ Per-transaction conversion rate input on all quantity forms (PO, Invoice, stock-in, stock-out) — v1.11
+- ✓ Standard qty display (qty × rate) on all detail pages, tables, and PDF exports — v1.11
+- ✓ Backfill existing transactions with conversion_rate = 1 and items with 'pcs' unit — v1.11
+- ✓ USD exchange rate auto-lock enforcement (DB constraints + UI) — v1.11
+
 ### Active
 
-- [ ] Admin-configurable standard unit name
-- [ ] Per-transaction unit conversion rate input everywhere quantities are entered
-- [ ] Standard qty display (qty × rate) alongside every quantity in the system
-- [ ] Backfill existing transactions with conversion rate = 1
+(None — awaiting next milestone definition)
 
 ### Out of Scope
 
@@ -215,6 +214,8 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Batch "Execute All" button — per-line-item execution is the goal; batch can be added later
 - Advisory lock performance tuning — defer until 10K+ SORs/month
 - Real-time subscription for execution status — query invalidation sufficient for internal tool
+- WAC per standard unit display — deferred, no user request yet
+- Aggregate standard units on dashboards — deferred, per-item units make aggregation less meaningful
 
 ## Context
 
@@ -230,6 +231,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.8 UI Consistency, Flow Tracking & RBAC — Composite UI components, 3-role RBAC, flow tracking (shipped 2026-02-12)
 - v1.9 PO Lifecycle, Cancellation Guards & PDF Export — PO smart status, matching panel, void guards, PDF receipts (shipped 2026-02-13)
 - v1.10 Tech Debt Cleanup — PO edit page, flow tracking performance, type safety (shipped 2026-02-14)
+- v1.11 Standard Unit System — Per-item standard units, conversion rates, standard qty display, USD auto-lock (shipped 2026-02-16)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -276,6 +278,13 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - OR join elimination via split LEFT JOINs + COALESCE merge
 - Next.js loading.tsx + inline Suspense for dual loading state patterns
 - JSDoc annotations on composite component props for IDE type guidance
+- ConversionRateInput mirroring ExchangeRateInput API (4-decimal, thousand separators)
+- StandardUnitDisplay presentational component (unitName prop, no hooks)
+- Per-item standard unit via FK join (items → standard_units) for display
+- Generated columns for standard_qty (qty × conversion_rate) in transaction tables
+- Entity-managed standard units replacing key-value config pattern
+- InlineCreateSelect extension for new entity types (standard_unit with no color picker)
+- USD exchange rate CHECK constraints on financial tables (rate = 1.0 when currency = USD)
 
 ## Key Decisions
 
@@ -341,6 +350,15 @@ Users can reliably create purchase orders, receive inventory, and track request 
 | Partial indexes (WHERE is_active = true) for flow tracking | Match VIEW filter conditions for optimal index usage | ✓ Good |
 | Split OR join into two LEFT JOINs | Enables index usage on inventory_transactions; COALESCE merges columns | ✓ Good |
 | JSDoc documentation only (no type changes) for composites | All composite props have legitimate ReactNode usages; document rather than break | ✓ Good |
+| Multiplication formula for standard qty | standard_qty = qty × conversion_rate (not division like exchange rate) | ✓ Good |
+| Per-transaction conversion rate (no per-item default) | Mirrors exchange rate pattern — user enters every time, no assumptions | ✓ Good |
+| Entity-managed standard units over key-value config | Full CRUD, FK references, usage counts — better than simple config string | ✓ Good |
+| Per-item standard unit assignment | Each item has a unit (kg, liters, pcs) — more precise than global setting | ✓ Good |
+| Global config → entity migration path | Started with system_config, evolved to standard_units table, then dropped config | ✓ Good |
+| Hard delete with FK protection for standard units | ON DELETE RESTRICT prevents removing units in use; consistent with entity pattern | ✓ Good |
+| USD exchange rate CHECK constraints | Database-level enforcement (rate = 1.0 when USD) — cannot be bypassed | ✓ Good |
+| ConversionRateInput mirrors ExchangeRateInput | Same API, same decimal precision, consistent UX across financial and unit inputs | ✓ Good |
+| Skip aggregate standard qty on PO totals | Different items have different units — aggregating is meaningless | ✓ Good |
 
 ## Constraints
 
@@ -355,4 +373,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
   - Execution is a dialog modal, not a standalone page
 
 ---
-*Last updated: 2026-02-14 after v1.11 milestone started*
+*Last updated: 2026-02-16 after v1.11 milestone*

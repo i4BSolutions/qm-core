@@ -292,3 +292,32 @@
 
 ---
 
+
+## v1.11 Standard Unit System (Shipped: 2026-02-16)
+
+**Delivered:** System-wide standard unit management with per-item unit assignment, per-transaction conversion rate input, standard quantity display on every detail page and PDF export, and USD exchange rate auto-lock enforcement.
+
+**Phases completed:** 47-54 (8 phases, 17 plans)
+
+**Key accomplishments:**
+
+- Added conversion_rate and standard_qty columns to 4 transaction tables (PO lines, invoice lines, inventory, stock-out) with full backfill
+- Built ConversionRateInput component integrated into all quantity-based forms with 4-decimal precision and required validation
+- Created standard unit entity management with CRUD admin page, inline creation in forms, and 9 seeded units (kg, liters, pcs, etc.)
+- Implemented per-item standard unit assignment replacing global config — each item gets a managed unit via FK
+- Built StandardUnitDisplay showing per-item unit names alongside quantities on every detail page, table, and PDF export
+- Added USD exchange rate auto-lock at both database (CHECK constraints on 4 tables) and UI levels
+
+**Stats:**
+
+- 70 files modified (+7,934/-652 lines)
+- ~45,170 lines of TypeScript
+- 8 phases, 17 plans, 54 commits
+- 3 days from start to ship (2026-02-14 → 2026-02-16)
+
+**Git range:** `de81974` → `0bc4f7e`
+
+**What's next:** TBD — run `/gsd:new-milestone` to define next goals
+
+---
+
