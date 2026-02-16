@@ -904,9 +904,9 @@ export default function QMHQDetailPage() {
                             <span className="text-xs text-slate-400 ml-1">{item.item.default_unit}</span>
                           )}
                         </div>
-                        {unitName && item.quantity != null && item.conversion_rate && (
+                        {unitName && item.quantity != null && (
                           <div className="text-xs font-mono text-slate-400">
-                            {((item.quantity || 0) * (item.conversion_rate ?? 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                            {(item.quantity || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
                           </div>
                         )}
                       </div>

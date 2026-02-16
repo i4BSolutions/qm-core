@@ -26,6 +26,7 @@ export interface InventoryTransaction {
   transaction_date: string;
   movement_type: "inventory_in" | "inventory_out";
   quantity: number;
+  conversion_rate: number;
   unit_cost: number | null;
   currency: string;
   exchange_rate: number;
@@ -141,6 +142,7 @@ export async function getInventoryTransactions(
       transaction_date,
       movement_type,
       quantity,
+      conversion_rate,
       unit_cost,
       currency,
       exchange_rate,

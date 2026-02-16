@@ -651,7 +651,6 @@ export default function StockOutRequestDetailPage() {
                 decided_at: a.decided_at,
               };
             })}
-            standardUnitName={unitName}
           />
           {canCancel && (
             <Button
@@ -921,9 +920,9 @@ export default function StockOutRequestDetailPage() {
                               <span className="font-mono text-slate-300">
                                 {approval.approved_quantity}
                               </span>
-                              {unitName && itemsWithTotals.find(li => li.id === approval.line_item_id) && (
+                              {unitName && lineItems.find(li => li.id === approval.line_item_id) && (
                                 <div className="text-xs font-mono text-slate-400 mt-1">
-                                  {(approval.approved_quantity * (itemsWithTotals.find(li => li.id === approval.line_item_id)?.conversion_rate || 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                                  {(approval.approved_quantity * (lineItems.find(li => li.id === approval.line_item_id)?.conversion_rate || 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
                                 </div>
                               )}
                             </div>
