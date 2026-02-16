@@ -14,11 +14,5 @@ DROP TRIGGER IF EXISTS trg_system_config_updated_at ON public.system_config;
 -- Drop index
 DROP INDEX IF EXISTS public.idx_system_config_key;
 
--- Drop table
+-- Drop table (also removes all associated comments)
 DROP TABLE IF EXISTS public.system_config;
-
--- Comments
-COMMENT ON COLUMN public.system_config.key IS NULL;
-COMMENT ON COLUMN public.system_config.value IS NULL;
-COMMENT ON COLUMN public.system_config.description IS NULL;
-COMMENT ON TABLE public.system_config IS NULL;
