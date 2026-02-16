@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { InlineCreateSelect } from "@/components/forms/inline-create-select";
 import { ImageIcon, X, Loader2 } from "lucide-react";
-import type { Item, Category } from "@/types/database";
+import type { Item, Category, StandardUnit } from "@/types/database";
 
 interface ItemDialogProps {
   open: boolean;
@@ -28,9 +28,11 @@ interface ItemDialogProps {
 export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [standardUnits, setStandardUnits] = useState<StandardUnit[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     category_id: "",
+    standard_unit_id: "",
     price_reference: "",
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -40,24 +42,36 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Fetch categories on mount
+  // Fetch categories and standard units on mount
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchData = async () => {
       const supabase = createClient();
-      const { data } = await supabase
+
+      // Fetch categories
+      const { data: categoriesData } = await supabase
         .from("categories")
         .select("*")
         .eq("entity_type", "item")
         .eq("is_active", true)
         .order("display_order");
 
-      if (data) {
-        setCategories(data);
+      if (categoriesData) {
+        setCategories(categoriesData);
+      }
+
+      // Fetch standard units
+      const { data: unitsData } = await supabase
+        .from("standard_units" as any)
+        .select("id, name, display_order")
+        .order("display_order");
+
+      if (unitsData) {
+        setStandardUnits(unitsData as unknown as StandardUnit[]);
       }
     };
 
     if (open) {
-      fetchCategories();
+      fetchData();
     }
   }, [open]);
 
@@ -66,6 +80,7 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
       setFormData({
         name: item.name || "",
         category_id: item.category_id || "",
+        standard_unit_id: item.standard_unit_id || "",
         price_reference: item.price_reference || "",
       });
       setExistingPhotoUrl(item.photo_url || null);
@@ -75,6 +90,7 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
       setFormData({
         name: "",
         category_id: "",
+        standard_unit_id: "",
         price_reference: "",
       });
       setExistingPhotoUrl(null);
@@ -88,8 +104,8 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
   useEffect(() => {
     if (!open) return;
 
-    const initialEmpty = !item && !formData.name && !formData.category_id && !formData.price_reference && !photoFile;
-    const hasEdits = !!(formData.name || formData.category_id || formData.price_reference || photoFile);
+    const initialEmpty = !item && !formData.name && !formData.category_id && !formData.standard_unit_id && !formData.price_reference && !photoFile;
+    const hasEdits = !!(formData.name || formData.category_id || formData.standard_unit_id || formData.price_reference || photoFile);
 
     setHasChanges(!initialEmpty && hasEdits);
   }, [formData, photoFile, item, open]);
@@ -177,6 +193,7 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
       const data = {
         name: formData.name,
         category_id: formData.category_id || null,
+        standard_unit_id: formData.standard_unit_id,
         photo_url: photoUrl,
         price_reference: formData.price_reference || null,
       };
@@ -268,6 +285,22 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
                 }
                 placeholder="Item name"
                 required
+              />
+            </div>
+
+            {/* Standard Unit */}
+            <div className="grid gap-2">
+              <Label>
+                Standard Unit <span className="text-red-400">*</span>
+              </Label>
+              <InlineCreateSelect
+                value={formData.standard_unit_id}
+                onValueChange={(value) => setFormData({ ...formData, standard_unit_id: value })}
+                options={standardUnits}
+                onOptionsChange={setStandardUnits}
+                placeholder="Select unit"
+                entityType="item"
+                createType="standard_unit"
               />
             </div>
 
@@ -381,7 +414,7 @@ export function ItemDialog({ open, onClose, item }: ItemDialogProps) {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !formData.name || !formData.price_reference || (!item && !formData.category_id)}>
+            <Button type="submit" disabled={isLoading || !formData.name || !formData.standard_unit_id || !formData.price_reference || (!item && !formData.category_id)}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

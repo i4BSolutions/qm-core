@@ -22,6 +22,7 @@ import type { Item, Category } from "@/types/database";
 // Extended item type with category relation
 interface ItemWithCategory extends Item {
   category_rel?: Category | null;
+  standard_unit_rel?: { id: string; name: string } | null;
 }
 
 export default function ItemsPage() {
@@ -42,8 +43,9 @@ export default function ItemsPage() {
       const { data, error: queryError } = await supabase
         .from("items")
         .select(`
-          id, name, sku, photo_url, category_id, price_reference,
-          category_rel:categories(id, name, color)
+          id, name, sku, photo_url, category_id, price_reference, standard_unit_id,
+          category_rel:categories(id, name, color),
+          standard_unit_rel:standard_units!items_standard_unit_id_fkey(id, name)
         `)
         .eq("is_active", true)
         .order("name")
@@ -57,7 +59,7 @@ export default function ItemsPage() {
 
       // Set data
       if (data) {
-        setItems(data as ItemWithCategory[]);
+        setItems(data as unknown as ItemWithCategory[]);
       }
 
     } catch (err) {
@@ -164,6 +166,18 @@ export default function ItemsPage() {
           </span>
         </div>
       ),
+    },
+    {
+      accessorKey: "standard_unit_rel",
+      header: "Unit",
+      cell: ({ row }) => {
+        const unit = row.original.standard_unit_rel;
+        return unit ? (
+          <span className="text-sm text-slate-300">{unit.name}</span>
+        ) : (
+          <span className="text-slate-500">—</span>
+        );
+      },
     },
     {
       accessorKey: "price_reference",
