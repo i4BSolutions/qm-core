@@ -50,7 +50,7 @@ interface InlineCreateSelectProps<T extends BaseOption> {
   disabled?: boolean;
   // For creation
   entityType: "qmrl" | "qmhq" | "item";
-  createType: "category" | "status";
+  createType: "category" | "status" | "standard_unit";
   // For status creation only
   statusGroup?: "to_do" | "in_progress" | "done";
 }
@@ -132,7 +132,7 @@ export function InlineCreateSelect<T extends BaseOption>({
           description: `Category "${newName}" created and selected`,
           variant: "success",
         });
-      } else {
+      } else if (createType === "status") {
         // Status creation
         const { data, error } = await supabase
           .from("status_config")
@@ -156,6 +156,38 @@ export function InlineCreateSelect<T extends BaseOption>({
         toast({
           title: "Success",
           description: `Status "${newName}" created and selected`,
+          variant: "success",
+        });
+      } else if (createType === "standard_unit") {
+        // Standard unit creation
+        // Get max display_order for auto-append
+        const { data: maxOrderData } = await supabase
+          .from("standard_units" as any)
+          .select("display_order")
+          .order("display_order", { ascending: false })
+          .limit(1)
+          .single();
+
+        const nextOrder = ((maxOrderData as any)?.display_order ?? 0) + 1;
+
+        const { data, error } = await supabase
+          .from("standard_units" as any)
+          .insert({
+            name: newName.trim(),
+            display_order: nextOrder,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Add to options and select it
+        onOptionsChange([...options, data as unknown as T]);
+        onValueChange((data as any).id);
+
+        toast({
+          title: "Success",
+          description: `Unit "${newName}" created and selected`,
           variant: "success",
         });
       }
@@ -224,7 +256,7 @@ export function InlineCreateSelect<T extends BaseOption>({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`Search ${createType}...`}
+                placeholder={`Search ${createType === "category" ? "category" : createType === "status" ? "status" : "unit"}...`}
                 className="flex h-10 w-full bg-transparent py-3 px-2 text-sm text-slate-200 placeholder:text-slate-400 outline-none"
                 autoFocus
               />
@@ -280,7 +312,7 @@ export function InlineCreateSelect<T extends BaseOption>({
             {/* Create New Hint */}
             <div className="border-t border-slate-700 p-2">
               <p className="text-xs text-slate-500 text-center">
-                Click [+] button to create new {createType}
+                Click [+] button to create new {createType === "category" ? "category" : createType === "status" ? "status" : "unit"}
               </p>
             </div>
           </PopoverContent>
@@ -308,7 +340,7 @@ export function InlineCreateSelect<T extends BaseOption>({
         <div className="p-4 rounded-lg border border-amber-500/30 bg-slate-800/50 space-y-4 animate-slide-up">
           <div className="flex items-center gap-2 text-amber-500 text-sm font-medium">
             <Plus className="h-4 w-4" />
-            <span>Create New {createType === "category" ? "Category" : "Status"}</span>
+            <span>Create New {createType === "category" ? "Category" : createType === "status" ? "Status" : "Unit"}</span>
           </div>
 
           <div className="grid gap-4">
@@ -364,27 +396,29 @@ export function InlineCreateSelect<T extends BaseOption>({
               </div>
             )}
 
-            {/* Color picker */}
-            <div className="grid gap-2">
-              <Label className="text-xs text-slate-400">Color</Label>
-              <div className="flex flex-wrap gap-2">
-                {colorPresets.map((color) => (
-                  <button
-                    key={color.value}
-                    type="button"
-                    onClick={() => setNewColor(color.value)}
-                    className={`w-7 h-7 rounded-full border-2 transition-all ${
-                      newColor === color.value
-                        ? "border-white scale-110"
-                        : "border-transparent hover:scale-105"
-                    }`}
-                    style={{ backgroundColor: color.value }}
-                    title={color.label}
-                    disabled={isSubmitting}
-                  />
-                ))}
+            {/* Color picker (not for standard_unit) */}
+            {createType !== "standard_unit" && (
+              <div className="grid gap-2">
+                <Label className="text-xs text-slate-400">Color</Label>
+                <div className="flex flex-wrap gap-2">
+                  {colorPresets.map((color) => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      onClick={() => setNewColor(color.value)}
+                      className={`w-7 h-7 rounded-full border-2 transition-all ${
+                        newColor === color.value
+                          ? "border-white scale-110"
+                          : "border-transparent hover:scale-105"
+                      }`}
+                      style={{ backgroundColor: color.value }}
+                      title={color.label}
+                      disabled={isSubmitting}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Action buttons */}
