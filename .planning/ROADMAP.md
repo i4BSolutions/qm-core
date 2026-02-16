@@ -217,10 +217,11 @@ Plans:
 
 **Goal**: Each item gets assigned a standard unit from the managed list, with required selection on item create/edit and migration of existing items
 **Depends on**: Phase 51
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 52 to break down)
+- [ ] 52-01-PLAN.md — Database migration: add standard_unit_id FK to items, backfill with 'pcs'
+- [ ] 52-02-PLAN.md — UI integration: item forms, list, detail, and admin item counts
 
 ### Phase 53: Standard Unit Display Refactor
 
