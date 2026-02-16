@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import { formatCurrency } from "@/lib/utils";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import {
   MOVEMENT_TYPE_CONFIG,
   STOCK_OUT_REASON_CONFIG,
@@ -53,6 +54,7 @@ interface WarehouseInventoryItem {
   item_sku: string | null;
   item_unit: string | null;
   current_stock: number;
+  standard_stock: number;
   wac_amount: number | null;
   wac_currency: string | null;
   wac_amount_eusd: number | null;
@@ -69,6 +71,7 @@ export default function WarehouseDetailPage() {
   const params = useParams();
   const router = useRouter();
   const warehouseId = params.id as string;
+  const { unitName } = useStandardUnitName();
 
   const [warehouse, setWarehouse] = useState<WarehouseType | null>(null);
   const [inventoryItems, setInventoryItems] = useState<WarehouseInventoryItem[]>([]);
@@ -106,7 +109,9 @@ export default function WarehouseDetailPage() {
         .select(`
           *,
           item:items!inventory_transactions_item_id_fkey(id, name, sku, default_unit, wac_amount, wac_currency, wac_amount_eusd),
-          destination_warehouse:warehouses!inventory_transactions_destination_warehouse_id_fkey(id, name)
+          destination_warehouse:warehouses!inventory_transactions_destination_warehouse_id_fkey(id, name),
+          conversion_rate,
+          standard_qty
         `)
         .eq("warehouse_id", warehouseId)
         .eq("is_active", true)
@@ -136,6 +141,7 @@ export default function WarehouseDetailPage() {
               item_sku: item.sku,
               item_unit: item.default_unit,
               current_stock: 0,
+              standard_stock: 0,
               wac_amount: item.wac_amount,
               wac_currency: item.wac_currency,
               wac_amount_eusd: item.wac_amount_eusd,
@@ -147,8 +153,10 @@ export default function WarehouseDetailPage() {
           const inv = inventoryMap.get(item.id)!;
           if (t.movement_type === "inventory_in") {
             inv.current_stock += t.quantity;
+            inv.standard_stock += (t.standard_qty ?? t.quantity);
           } else if (t.movement_type === "inventory_out") {
             inv.current_stock -= t.quantity;
+            inv.standard_stock -= (t.standard_qty ?? t.quantity);
           }
         });
 
@@ -181,8 +189,9 @@ export default function WarehouseDetailPage() {
     const itemsWithStock = inventoryItems.filter((item) => item.current_stock > 0);
     const totalItems = itemsWithStock.length;
     const totalUnits = itemsWithStock.reduce((sum, item) => sum + item.current_stock, 0);
+    const totalStandardUnits = itemsWithStock.reduce((sum, item) => sum + item.standard_stock, 0);
     const totalValueEusd = itemsWithStock.reduce((sum, item) => sum + item.total_value_eusd, 0);
-    return { totalItems, totalUnits, totalValueEusd };
+    return { totalItems, totalUnits, totalStandardUnits, totalValueEusd };
   }, [inventoryItems]);
 
   const formatDate = (dateStr: string | null | undefined) => {
@@ -256,6 +265,7 @@ export default function WarehouseDetailPage() {
       ),
       cell: ({ row }) => {
         const stock = row.getValue("current_stock") as number;
+        const standardStock = row.original.standard_stock;
         const unit = row.original.item_unit;
         let colorClass = "text-emerald-400";
 
@@ -270,6 +280,11 @@ export default function WarehouseDetailPage() {
             <span className={`font-mono ${colorClass}`}>
               {formatStockQuantity(stock, unit)}
             </span>
+            {unitName && (
+              <div className="text-xs font-mono text-slate-400 mt-1">
+                {standardStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {unitName}
+              </div>
+            )}
           </div>
         );
       },
@@ -386,13 +401,17 @@ export default function WarehouseDetailPage() {
       cell: ({ row }) => {
         const type = row.original.movement_type;
         const qty = row.getValue("quantity") as number;
+        const conversionRate = row.original.conversion_rate ?? 1;
+        const prefix = type === "inventory_in" ? "+" : "-";
         return (
-          <span
-            className={`font-mono ${type === "inventory_in" ? "text-emerald-400" : "text-red-400"}`}
-          >
-            {type === "inventory_in" ? "+" : "-"}
-            {qty}
-          </span>
+          <div className={type === "inventory_in" ? "text-emerald-400" : "text-red-400"}>
+            <span className="font-mono">{prefix}{qty}</span>
+            {unitName && (
+              <div className="text-xs font-mono text-slate-400 mt-1">
+                {prefix}{(qty * conversionRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {unitName}
+              </div>
+            )}
+          </div>
         );
       },
     },
@@ -573,6 +592,11 @@ export default function WarehouseDetailPage() {
           <p className="text-3xl font-mono font-bold text-emerald-400">
             {kpis.totalUnits.toLocaleString()}
           </p>
+          {unitName && (
+            <p className="text-xs font-mono text-slate-400 mt-1">
+              {kpis.totalStandardUnits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {unitName}
+            </p>
+          )}
           <p className="text-xs text-slate-500 mt-1">units in stock</p>
         </div>
         </div>
