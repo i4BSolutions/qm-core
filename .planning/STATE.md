@@ -17,11 +17,11 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 ## Current Position
 
 Phase: 53 of 53 (Standard Unit Display Refactor)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In Progress
-Last activity: 2026-02-16 — Completed 53-01: Remove Global Standard Unit Infrastructure
+Last activity: 2026-02-16 — Completed 53-02: PO/Invoice Display Per-Item Unit Names
 
-Progress: [█████████████████████] 126/128 (98%)
+Progress: [█████████████████████] 127/128 (99%)
 
 ---
 
@@ -51,8 +51,8 @@ Progress: [█████████████████████] 126/
 - 11 milestones shipped
 
 **v1.11 Progress:**
-- 11/13 plans complete (Phase 50-52 complete, Phase 53 in progress)
-- Status: Phase 53 in progress (1/3 plans complete)
+- 12/13 plans complete (Phase 50-52 complete, Phase 53 in progress)
+- Status: Phase 53 in progress (2/3 plans complete)
 
 **Latest Execution Metrics:**
 | Phase | Plan | Duration | Tasks | Files | Commits | Date |
@@ -60,6 +60,7 @@ Progress: [█████████████████████] 126/
 | 52 | 01 | 120s | 1 | 2 | 1 | 2026-02-16 |
 | 52 | 02 | 223s | 2 | 4 | 2 | 2026-02-16 |
 | 53 | 01 | 2 min | 2 | 7 | 2 | 2026-02-16 |
+| 53 | 02 | 8 min | 2 | 8 | 2 | 2026-02-16 |
 
 ## Accumulated Context
 
@@ -111,12 +112,13 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 53-01: Remove Global Standard Unit Infrastructure
-- Refactored StandardUnitDisplay to pure presentational component with unitName prop
-- Dropped system_config table via migration (policies, triggers, indexes removed)
-- Deleted admin settings page and removed sidebar link
-- Removed useStandardUnitName hook and SystemConfig type
-- Duration: 2 min, 2 tasks, 2 commits (de61689, 6bae1cf)
+- Completed Phase 53-02: PO/Invoice Display Per-Item Unit Names
+- Refactored PO and Invoice readonly tables to display per-item unit names
+- Updated detail pages to fetch standard_units via items join
+- Removed all aggregate standard qty totals from tables and PDF
+- Invoice PDF now always shows Std Qty column with per-item unit names
+- Added live conversion rate preview in PO creation form
+- Duration: 8 min, 2 tasks, 2 commits (c27d5b5, 1032d59)
 
 **Context for Next Agent:**
 - Phase 50: COMPLETE ✓ (Standard Quantity Display - 4 plans)
@@ -124,13 +126,14 @@ Decisions archived in PROJECT.md Key Decisions table.
 - Phase 52: COMPLETE ✓ (Per-Item Standard Unit Assignment - 2 plans)
 - Phase 53: IN PROGRESS (Standard Unit Display Refactor)
   - 53-01: Remove Global Infrastructure ✓ COMPLETE
-  - StandardUnitDisplay is now presentational (accepts unitName prop)
-  - system_config table dropped, useStandardUnitName hook deleted
-  - Downstream consumers have broken imports (expected)
-- Next: 53-02: Update warehouse inventory consumers to fetch per-item unit names
+  - 53-02: PO/Invoice Display Per-Item Unit Names ✓ COMPLETE
+  - PO and Invoice consumers fully updated
+  - All standard qty displays now show per-item unit names
+  - Live preview in PO form provides conversion rate feedback
+- Next: 53-03: Update all other consumers (warehouse, stock movements, etc.)
 
-**Resume at:** Execute Plan 53-02 (Warehouse Inventory Consumers)
+**Resume at:** Execute Plan 53-03 (All Other Consumers)
 
 ---
 
-*State last updated: 2026-02-16 after Phase 53-01 completion*
+*State last updated: 2026-02-16 after Phase 53-02 completion*
