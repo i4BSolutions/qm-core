@@ -175,7 +175,7 @@ Plans:
 6. StandardUnitDisplay component mirrors CurrencyDisplay two-line pattern (qty + standard qty)
 7. All existing transactions display with standard qty calculated from backfilled conversion_rate = 1
 
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] 50-01-PLAN.md -- StandardUnitDisplay component mirroring CurrencyDisplay two-line pattern
@@ -201,7 +201,7 @@ Plans:
 | 47. Schema & Data Foundation | v1.11 | 1/1 | ✓ Complete | 2026-02-14 |
 | 48. Admin Configuration | v1.11 | 1/1 | ✓ Complete | 2026-02-14 |
 | 49. Conversion Rate Input | v1.11 | 3/3 | ✓ Complete | 2026-02-14 |
-| 50. Standard Quantity Display | v1.11 | 0/4 | Not started | - |
+| 50. Standard Quantity Display | v1.11 | Complete    | 2026-02-16 | - |
 
 ---
 *Last updated: 2026-02-15 after Phase 49 completion*
