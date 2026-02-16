@@ -17,11 +17,11 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 ## Current Position
 
 Phase: 53 of 53 (Standard Unit Display Refactor)
-Plan: 2 of 3 in current phase
-Status: In Progress
-Last activity: 2026-02-16 — Completed 53-02: PO/Invoice Display Per-Item Unit Names
+Plan: 3 of 3 in current phase
+Status: Complete
+Last activity: 2026-02-16 — Completed 53-03: Inventory/Warehouse/QMHQ/Stock-Out Per-Item Unit Names
 
-Progress: [█████████████████████] 127/128 (99%)
+Progress: [█████████████████████] 128/128 (100%)
 
 ---
 
@@ -57,9 +57,9 @@ Progress: [█████████████████████] 127/
 **Latest Execution Metrics:**
 | Phase | Plan | Duration | Tasks | Files | Commits | Date |
 |-------|------|----------|-------|-------|---------|------|
-| 52 | 01 | 120s | 1 | 2 | 1 | 2026-02-16 |
 | 52 | 02 | 223s | 2 | 4 | 2 | 2026-02-16 |
 | 53 | 01 | 2 min | 2 | 7 | 2 | 2026-02-16 |
+| 53 | 03 | 11 min | 2 | 9 | 1 | 2026-02-16 |
 | 53 | 02 | 8 min | 2 | 8 | 2 | 2026-02-16 |
 
 ## Accumulated Context
@@ -112,27 +112,27 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 53-02: PO/Invoice Display Per-Item Unit Names
-- Refactored PO and Invoice readonly tables to display per-item unit names
-- Updated detail pages to fetch standard_units via items join
-- Removed all aggregate standard qty totals from tables and PDF
-- Invoice PDF now always shows Std Qty column with per-item unit names
-- Added live conversion rate preview in PO creation form
-- Duration: 8 min, 2 tasks, 2 commits (c27d5b5, 1032d59)
+- Completed Phase 53-03: Inventory/Warehouse/QMHQ/Stock-Out Per-Item Unit Names
+- Refactored all inventory, warehouse, QMHQ, and stock-out displays to use per-item standard unit names
+- Removed all useStandardUnitName hook references system-wide
+- Updated Supabase queries to join items->standard_units throughout
+- Removed cross-item aggregate totalStandardUnits from warehouse KPIs
+- Kept per-item standard_stock on warehouse inventory rows with inline unit names
+- Updated stock-out PDF to use per-item unit names
+- Duration: 11 min, 2 tasks, 1 commit (9d65797)
 
 **Context for Next Agent:**
 - Phase 50: COMPLETE ✓ (Standard Quantity Display - 4 plans)
 - Phase 51: COMPLETE ✓ (Standard Unit Entity & Admin - 3 plans)
 - Phase 52: COMPLETE ✓ (Per-Item Standard Unit Assignment - 2 plans)
-- Phase 53: IN PROGRESS (Standard Unit Display Refactor)
+- Phase 53: COMPLETE ✓ (Standard Unit Display Refactor - 3 plans)
   - 53-01: Remove Global Infrastructure ✓ COMPLETE
   - 53-02: PO/Invoice Display Per-Item Unit Names ✓ COMPLETE
-  - PO and Invoice consumers fully updated
-  - All standard qty displays now show per-item unit names
-  - Live preview in PO form provides conversion rate feedback
-- Next: 53-03: Update all other consumers (warehouse, stock movements, etc.)
+  - 53-03: Inventory/Warehouse/QMHQ/Stock-Out Per-Item Unit Names ✓ COMPLETE
+- All phases in milestone v1.11 Standard Unit System are complete
+- All displays now use per-item unit names via database joins
 
-**Resume at:** Execute Plan 53-03 (All Other Consumers)
+**Resume at:** Next milestone or phase as directed by roadmap
 
 ---
 
