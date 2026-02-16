@@ -9,5 +9,3 @@ export {
 } from "./use-permissions";
 
 export { useInterval } from "./use-interval";
-
-export { useStandardUnitName } from "./use-standard-unit-name";

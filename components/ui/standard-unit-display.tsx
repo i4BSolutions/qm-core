@@ -1,13 +1,14 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 
 export interface StandardUnitDisplayProps {
   /** Original quantity */
   quantity: number | null | undefined;
   /** Conversion rate for this transaction */
   conversionRate: number;
+  /** Per-item unit name */
+  unitName?: string;
   /** Size variant matching CurrencyDisplay */
   size?: "sm" | "md" | "lg";
   /** Align text */
@@ -19,12 +20,11 @@ export interface StandardUnitDisplayProps {
 export function StandardUnitDisplay({
   quantity,
   conversionRate,
+  unitName,
   size = "md",
   align = "left",
   className,
 }: StandardUnitDisplayProps) {
-  // Get standard unit name from system config
-  const { unitName, isLoading } = useStandardUnitName();
 
   // Handle null/undefined quantities
   const displayQuantity = quantity ?? 0;
@@ -60,8 +60,8 @@ export function StandardUnitDisplay({
   const styles = sizeStyles[size];
 
   // Determine if we should show the second line
-  // Hide if loading or if unit name is empty
-  const showSecondLine = !isLoading && unitName && unitName.trim() !== "";
+  // Hide if unit name is not provided or empty
+  const showSecondLine = unitName && unitName.trim() !== "";
 
   return (
     <div className={cn("flex flex-col min-w-0", align === "right" && "items-end", className)}>
