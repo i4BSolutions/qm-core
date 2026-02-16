@@ -644,7 +644,7 @@ function InvoiceCreateContent() {
 
                       {/* Item Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-4">
+                        <div>
                           <div>
                             <p className="font-medium text-slate-200">{item.item_name}</p>
                             <div className="flex items-center gap-2 mt-1">
@@ -661,9 +661,9 @@ function InvoiceCreateContent() {
                             </p>
                           </div>
 
-                          {/* Quantity & Price Inputs */}
+                          {/* Quantity & Price Inputs - 2nd row */}
                           {isSelected && (
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-end gap-3 mt-3 pt-3 border-t border-slate-700/50">
                               <div>
                                 <label className="text-xs text-slate-500 block mb-1">Qty</label>
                                 <Input
@@ -697,9 +697,20 @@ function InvoiceCreateContent() {
                                   className="w-24 text-right bg-slate-800 border-slate-700"
                                 />
                               </div>
-                              <div>
+                              {item.conversion_rate && parseFloat(item.conversion_rate) > 0 && item.quantity > 0 && (
+                                <div className="pb-2">
+                                  <span className="text-xs font-mono text-slate-400">
+                                    = {(item.quantity * parseFloat(item.conversion_rate)).toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}{" "}
+                                    {item.unit_name || ""}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="ml-auto text-right">
                                 <label className="text-xs text-slate-500 block mb-1">Total</label>
-                                <div className="w-28 text-right font-mono text-emerald-400 py-2">
+                                <div className="py-2 px-3 font-mono text-emerald-400">
                                   {formatCurrency(item.quantity * item.unit_price)}
                                 </div>
                               </div>

@@ -87,236 +87,217 @@ export function EditableLineItemsTable({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-700">
-              <th className="text-left py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Item
-              </th>
-              <th className="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-24">
-                Qty
-              </th>
-              <th className="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-32">
-                Unit Price
-              </th>
-              <th className="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-28">
-                Conv. Rate
-              </th>
-              <th className="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 w-32">
-                Line Total
-              </th>
-              <th className="w-12"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr
-                key={item.id}
-                className="border-b border-slate-700/50 hover:bg-slate-800/30"
-              >
-                <td className="py-2 px-3 min-w-[280px]">
-                  {item.item_id ? (
-                    <div className="flex items-center gap-2">
-                      <TooltipProvider delayDuration={300}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm cursor-default">
-                              <code className="font-mono text-amber-400 mr-2">
-                                {item.item_sku || "---"}
-                              </code>
-                              <span className="text-slate-400 mr-2">-</span>
-                              <span className="text-slate-200">{item.item_name}</span>
-                            </div>
-                          </TooltipTrigger>
-                          {item.item_price_reference && (
-                            <TooltipContent side="top" className="max-w-xs">
-                              <p className="text-xs">
-                                <span className="text-slate-400">Price Ref: </span>
-                                <span className="text-slate-200">{item.item_price_reference}</span>
-                              </p>
-                            </TooltipContent>
-                          )}
-                        </Tooltip>
-                      </TooltipProvider>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          onUpdateItem(item.id, "category_id", null);
-                          onUpdateItem(item.id, "item_id", null);
-                          onUpdateItem(item.id, "item_name", "");
-                          onUpdateItem(item.id, "item_sku", "");
-                          onUpdateItem(item.id, "item_unit", "");
-                          onUpdateItem(item.id, "item_price_reference", "");
-                        }}
-                        disabled={disabled}
-                        className="h-8 px-2 text-slate-400 hover:text-slate-200"
-                      >
-                        Change
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <CategoryItemSelector
-                          categoryId={item.category_id || ""}
-                          itemId=""
-                          onCategoryChange={(catId) => {
-                            onUpdateItem(item.id, "category_id", catId);
-                          }}
-                          onItemChange={(itmId) => {
-                            const selectedItem = availableItems.find(i => i.id === itmId);
-                            if (selectedItem) {
-                              onUpdateItem(item.id, "item_id", itmId);
-                              onUpdateItem(item.id, "item_name", selectedItem.name);
-                              onUpdateItem(item.id, "item_sku", selectedItem.sku || "");
-                              onUpdateItem(item.id, "item_unit", selectedItem.default_unit || "");
-                              onUpdateItem(item.id, "item_price_reference", selectedItem.price_reference || "");
-                              onUpdateItem(item.id, "item_standard_unit", selectedItem.standard_unit_rel?.name || "");
-                            }
-                          }}
-                          disabled={disabled}
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          setPendingLineId(item.id);
-                          setCreateDialogOpen(true);
-                        }}
-                        disabled={disabled}
-                        className="shrink-0 border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 self-start"
-                        title="Create new item"
-                      >
-                        <PlusIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </td>
-                <td className="py-2 px-3">
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() =>
-                        onUpdateItem(
-                          item.id,
-                          "quantity",
-                          Math.max(1, item.quantity - 1)
-                        )
-                      }
-                      disabled={disabled || item.quantity <= 1}
-                      className="h-8 w-8 border-slate-700 hover:bg-slate-700"
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      value={item.quantity === 0 ? "" : item.quantity}
-                      onChange={(e) =>
-                        onUpdateItem(
-                          item.id,
-                          "quantity",
-                          Math.max(1, Math.floor(parseInt(e.target.value) || 1))
-                        )
-                      }
-                      onKeyDown={handleQuantityKeyDown}
-                      disabled={disabled}
-                      className="w-16 text-center font-mono bg-slate-800 border-slate-700"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() =>
-                        onUpdateItem(
-                          item.id,
-                          "quantity",
-                          item.quantity + 1
-                        )
-                      }
-                      disabled={disabled}
-                      className="h-8 w-8 border-slate-700 hover:bg-slate-700"
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </td>
-                <td className="py-2 px-3">
-                  <AmountInput
-                    value={item.unit_price === 0 ? "" : String(item.unit_price)}
-                    onValueChange={(val) =>
-                      onUpdateItem(
-                        item.id,
-                        "unit_price",
-                        parseFloat(val) || 0
-                      )
-                    }
-                    disabled={disabled}
-                    className="w-32 text-right bg-slate-800 border-slate-700"
-                  />
-                </td>
-                <td className="py-2 px-3">
-                  <div className="flex flex-col">
-                    <ConversionRateInput
-                      value={item.conversion_rate}
-                      onValueChange={(val) => onUpdateItem(item.id, "conversion_rate", val)}
-                      className="w-28 text-right bg-slate-800 border-slate-700"
-                      disabled={disabled}
-                    />
-                    {item.conversion_rate && parseFloat(item.conversion_rate) > 0 && item.quantity > 0 && (
-                      <span className="text-xs font-mono text-slate-400 mt-0.5">
-                        {(item.quantity * parseFloat(item.conversion_rate)).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {item.item_standard_unit || ""}
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="py-2 px-3 text-right">
-                  <span className="font-mono text-emerald-400">
-                    {formatCurrency(item.quantity * item.unit_price)}
-                  </span>
-                </td>
-                <td className="py-2 px-3">
+    <div className="space-y-3">
+      {items.map((item, index) => (
+        <div
+          key={item.id}
+          className="rounded-lg border border-slate-700 bg-slate-800/30 p-4 space-y-3"
+        >
+          {/* Row 1: Item selector + actions */}
+          <div className="flex items-start gap-2">
+            <span className="text-xs font-mono text-slate-500 mt-2.5 shrink-0 w-5">
+              {index + 1}.
+            </span>
+            <div className="flex-1 min-w-0">
+              {item.item_id ? (
+                <div className="flex items-center gap-2">
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm cursor-default">
+                          <code className="font-mono text-amber-400 mr-2">
+                            {item.item_sku || "---"}
+                          </code>
+                          <span className="text-slate-400 mr-2">-</span>
+                          <span className="text-slate-200">{item.item_name}</span>
+                        </div>
+                      </TooltipTrigger>
+                      {item.item_price_reference && (
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p className="text-xs">
+                            <span className="text-slate-400">Price Ref: </span>
+                            <span className="text-slate-200">{item.item_price_reference}</span>
+                          </p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                   <Button
+                    type="button"
                     variant="ghost"
-                    size="icon"
-                    onClick={() => onRemoveItem(item.id)}
-                    disabled={disabled || items.length <= 1}
-                    className="h-8 w-8 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                    size="sm"
+                    onClick={() => {
+                      onUpdateItem(item.id, "category_id", null);
+                      onUpdateItem(item.id, "item_id", null);
+                      onUpdateItem(item.id, "item_name", "");
+                      onUpdateItem(item.id, "item_sku", "");
+                      onUpdateItem(item.id, "item_unit", "");
+                      onUpdateItem(item.id, "item_price_reference", "");
+                    }}
+                    disabled={disabled}
+                    className="h-8 px-2 text-slate-400 hover:text-slate-200"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    Change
                   </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-slate-600">
-              <td colSpan={4} className="py-3 px-3 text-right">
-                <span className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
-                  Subtotal ({currency})
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <CategoryItemSelector
+                      categoryId={item.category_id || ""}
+                      itemId=""
+                      onCategoryChange={(catId) => {
+                        onUpdateItem(item.id, "category_id", catId);
+                      }}
+                      onItemChange={(itmId) => {
+                        const selectedItem = availableItems.find(i => i.id === itmId);
+                        if (selectedItem) {
+                          onUpdateItem(item.id, "item_id", itmId);
+                          onUpdateItem(item.id, "item_name", selectedItem.name);
+                          onUpdateItem(item.id, "item_sku", selectedItem.sku || "");
+                          onUpdateItem(item.id, "item_unit", selectedItem.default_unit || "");
+                          onUpdateItem(item.id, "item_price_reference", selectedItem.price_reference || "");
+                          onUpdateItem(item.id, "item_standard_unit", selectedItem.standard_unit_rel?.name || "");
+                        }
+                      }}
+                      disabled={disabled}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      setPendingLineId(item.id);
+                      setCreateDialogOpen(true);
+                    }}
+                    disabled={disabled}
+                    className="shrink-0 border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 self-start"
+                    title="Create new item"
+                  >
+                    <PlusIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onRemoveItem(item.id)}
+              disabled={disabled || items.length <= 1}
+              className="h-8 w-8 text-slate-400 hover:text-red-400 hover:bg-red-500/10 shrink-0"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Row 2: Qty, Unit Price, Conv. Rate, Std Qty, Line Total */}
+          <div className="flex items-end gap-3 pl-7">
+            <div>
+              <label className="text-xs text-slate-500 block mb-1">Qty</label>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    onUpdateItem(
+                      item.id,
+                      "quantity",
+                      Math.max(1, item.quantity - 1)
+                    )
+                  }
+                  disabled={disabled || item.quantity <= 1}
+                  className="h-8 w-8 border-slate-700 hover:bg-slate-700"
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={item.quantity === 0 ? "" : item.quantity}
+                  onChange={(e) =>
+                    onUpdateItem(
+                      item.id,
+                      "quantity",
+                      Math.max(1, Math.floor(parseInt(e.target.value) || 1))
+                    )
+                  }
+                  onKeyDown={handleQuantityKeyDown}
+                  disabled={disabled}
+                  className="w-16 text-center font-mono bg-slate-800 border-slate-700"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    onUpdateItem(
+                      item.id,
+                      "quantity",
+                      item.quantity + 1
+                    )
+                  }
+                  disabled={disabled}
+                  className="h-8 w-8 border-slate-700 hover:bg-slate-700"
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 block mb-1">Unit Price</label>
+              <AmountInput
+                value={item.unit_price === 0 ? "" : String(item.unit_price)}
+                onValueChange={(val) =>
+                  onUpdateItem(
+                    item.id,
+                    "unit_price",
+                    parseFloat(val) || 0
+                  )
+                }
+                disabled={disabled}
+                className="w-32 text-right bg-slate-800 border-slate-700"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 block mb-1">Conv. Rate</label>
+              <ConversionRateInput
+                value={item.conversion_rate}
+                onValueChange={(val) => onUpdateItem(item.id, "conversion_rate", val)}
+                className="w-28 text-right bg-slate-800 border-slate-700"
+                disabled={disabled}
+              />
+            </div>
+            {item.conversion_rate && parseFloat(item.conversion_rate) > 0 && item.quantity > 0 && (
+              <div className="pb-2">
+                <span className="text-xs font-mono text-slate-400">
+                  = {(item.quantity * parseFloat(item.conversion_rate)).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  {item.item_standard_unit || ""}
                 </span>
-              </td>
-              <td className="py-3 px-3 text-right">
-                <span className="text-lg font-mono font-bold text-emerald-400">
-                  {formatCurrency(subtotal)}
-                </span>
-              </td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
+              </div>
+            )}
+            <div className="ml-auto text-right">
+              <label className="text-xs text-slate-500 block mb-1">Line Total</label>
+              <div className="py-2 px-3 font-mono text-emerald-400">
+                {formatCurrency(item.quantity * item.unit_price)}
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* Subtotal */}
+      <div className="flex items-center justify-end gap-4 pt-2 border-t border-slate-600">
+        <span className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+          Subtotal ({currency})
+        </span>
+        <span className="text-lg font-mono font-bold text-emerald-400">
+          {formatCurrency(subtotal)}
+        </span>
       </div>
 
       <Button
