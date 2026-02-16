@@ -16,21 +16,21 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 
 ## Current Position
 
-Phase: 50 of 50 (Standard Quantity Display)
-Plan: 3 of 4 in current phase
+Phase: 51 of 53 (Standard Unit Entity & Admin)
+Plan: 1 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-16 — Completed 50-03: Warehouse, inventory, and stock-out request standard qty display
+Last activity: 2026-02-16 — Completed 51-01: Standard Units Table & Type Foundation
 
-Progress: [████████████████████░░] 121/122 (99%)
+Progress: [████████████████████░░] 122/125 (98%)
 
 ---
 
 ## Performance Metrics
 
 **Codebase:**
-- ~50,087 lines of TypeScript
-- 71 database migrations
-- 96 RLS policies across 21 tables
+- ~50,000 lines of TypeScript
+- 72 database migrations
+- 100 RLS policies across 22 tables
 
 **Shipped Milestones:**
 - v1.0 MVP (4 phases, 8 plans) - 2026-01-27
@@ -57,6 +57,12 @@ Progress: [████████████████████░░] 1
 ---
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 51 added: Standard Unit Entity & Admin
+- Phase 52 added: Per-Item Standard Unit Assignment (pending)
+- Phase 53 added: Standard Unit Display Refactor (pending)
 
 ### Decisions Made
 
@@ -94,32 +100,29 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 50-03: Warehouse, Inventory, and Stock-Out Request Standard Qty Display
-- Added standard_stock tracking in warehouse inventory aggregation (summing standard_qty from transactions)
-- Displayed standard qty on warehouse detail inventory rows and KPI totals
-- Added standard qty to inventory dashboard transaction list
-- Extended stock-out request line item table with standard qty for all quantity columns
-- Added standard qty to stock-out request detail approvals and transactions
-- Enhanced stock-out PDF with conditional standard qty columns
-- Duration: 90 seconds, 2 tasks, 2 commits (a882d7c, 2279a83)
+- Completed Phase 51-01: Standard Units Table & Type Foundation
+- Created standard_units table with id, name, display_order, and audit columns
+- Added RLS policies: admin-only write, all-users read
+- Seeded 9 default units: pcs, kg, g, L, mL, m, cm, box, pack
+- Removed standard_unit_name from system_config table (now entity-managed)
+- Added StandardUnit TypeScript interface
+- Cleaned up admin/settings page (removed unit config UI)
+- Duration: 179 seconds, 2 tasks, 2 commits (5511ad9, b951f08)
 
 **Context for Next Agent:**
-- Phase 47: COMPLETE ✓ (Schema changes - conversion_rate column added)
-- Phase 48: COMPLETE ✓ (System config + admin UI)
-- Phase 49: COMPLETE ✓ (ConversionRateInput component + integration in all forms)
-  - 49-01: ConversionRateInput component
-  - 49-02: PO and Invoice forms
-  - 49-03: Inventory forms (stock-in, stock-out, requests, approval)
-- Phase 50: StandardUnitDisplay component and integration (4 plans) - IN PROGRESS
-  - 50-01: StandardUnitDisplay component ✓ COMPLETE
-  - 50-02: PO and Invoice line item tables ✓ COMPLETE
-  - 50-03: Warehouse, inventory, and stock-out request standard qty ✓ COMPLETE
-  - 50-04: QMHQ detail standard qty and PDF export wiring - NEXT
-- Standard quantity display integrated in warehouse, inventory, and stock-out modules
-- Remaining: QMHQ detail standard qty display
+- Phase 50: COMPLETE ✓ (Standard Quantity Display - 4 plans)
+  - System-wide standard qty display integrated across all modules
+- Phase 51: Standard Unit Entity & Admin (3 plans) - IN PROGRESS
+  - 51-01: Standard Units Table & Type Foundation ✓ COMPLETE
+  - 51-02: Standard Units Admin UI - NEXT
+  - 51-03: Standard Units Admin Integration
+- Database foundation ready: standard_units table exists with 9 seed units
+- TypeScript types ready: StandardUnit interface exported
+- Old system_config standard_unit_name removed
+- Next: Build admin CRUD UI for managing standard units
 
-**Resume at:** Execute Phase 50-04 (QMHQ detail standard qty and PDF export wiring)
+**Resume at:** Execute Phase 51-02 (Standard Units Admin UI with CRUD operations)
 
 ---
 
-*State last updated: 2026-02-16 after Phase 50-03 completion*
+*State last updated: 2026-02-16 after Phase 51-01 completion*
