@@ -238,12 +238,12 @@ Plans:
 
 ### Phase 54: USD Exchange Rate Auto-Lock
 
-**Goal:** [To be planned]
+**Goal:** When USD is selected as currency on any financial form, exchange rate auto-locks to 1.0 and input is disabled, enforced at both UI and database level
 **Depends on:** Phase 53
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 54 to break down)
+- [ ] 54-01-PLAN.md — Database constraints + UI auto-lock on PO create, Invoice create, QMHQ route, and Transaction dialog
 
 ---
-*Last updated: 2026-02-16 after Phase 53 planning*
+*Last updated: 2026-02-16 after Phase 54 planning*
