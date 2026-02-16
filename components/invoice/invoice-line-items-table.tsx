@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
 import { AmountInput } from "@/components/ui/amount-input";
 import { StandardUnitDisplay } from "@/components/ui/standard-unit-display";
-import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { calculateAvailableQuantity } from "@/lib/utils/invoice-status";
 import { MiniProgressBar } from "@/components/po/po-progress-bar";
 import type { InvoiceLineItem, POLineItem, Item } from "@/types/database";
@@ -227,6 +226,7 @@ export function EditableInvoiceLineItemsTable({
 interface ReadonlyInvoiceLineItemsTableProps {
   items: (InvoiceLineItem & {
     item?: Pick<Item, "id" | "name" | "sku"> | null;
+    unit_name?: string;
   })[];
   currency?: string;
   showPOPrice?: boolean;
@@ -239,15 +239,8 @@ export function ReadonlyInvoiceLineItemsTable({
   showPOPrice = true,
   showProgress = true,
 }: ReadonlyInvoiceLineItemsTableProps) {
-  const { unitName } = useStandardUnitName();
-
   const subtotal = items.reduce(
     (sum, item) => sum + (item.total_price ?? 0),
-    0
-  );
-
-  const totalStandardQty = items.reduce(
-    (sum, item) => sum + ((item.quantity || 0) * (item.conversion_rate ?? 1)),
     0
   );
 
@@ -312,6 +305,7 @@ export function ReadonlyInvoiceLineItemsTable({
                   <StandardUnitDisplay
                     quantity={qty}
                     conversionRate={item.conversion_rate ?? 1}
+                    unitName={item.unit_name}
                     size="sm"
                     align="right"
                   />
@@ -359,21 +353,7 @@ export function ReadonlyInvoiceLineItemsTable({
                 Total
               </span>
             </td>
-            <td className="py-3 px-3 text-right">
-              <div className="flex flex-col items-end">
-                <span className="text-sm font-mono text-slate-200">
-                  {totalStandardQty.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </span>
-                {unitName && (
-                  <span className="text-xs text-slate-400">
-                    {unitName}
-                  </span>
-                )}
-              </div>
-            </td>
+            <td></td>
             <td colSpan={showPOPrice ? (showProgress ? 3 : 2) : (showProgress ? 2 : 1)} className="py-3 px-3 text-right">
               <span className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
                 Subtotal ({currency})

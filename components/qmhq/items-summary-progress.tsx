@@ -1,7 +1,5 @@
 "use client";
 
-import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
-
 export interface ItemProgressData {
   itemId: string;
   itemName: string;
@@ -13,6 +11,7 @@ export interface ItemProgressData {
   standardRequested?: number;
   standardApproved?: number;
   standardExecuted?: number;
+  standardUnitName?: string;
 }
 
 interface ItemsSummaryProgressProps {
@@ -20,8 +19,6 @@ interface ItemsSummaryProgressProps {
 }
 
 export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
-  const { unitName } = useStandardUnitName();
-
   return (
     <div className="space-y-6">
       <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
@@ -96,9 +93,9 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
                   <span className="w-2 h-2 rounded-full bg-slate-600 inline-block mr-1" />
                   <div>
                     <div>Requested: {item.requested}</div>
-                    {unitName && item.standardRequested != null && (
+                    {item.standardUnitName && item.standardRequested != null && (
                       <div className="text-slate-500 font-mono">
-                        {item.standardRequested.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                        {item.standardRequested.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {item.standardUnitName}
                       </div>
                     )}
                   </div>
@@ -107,9 +104,9 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
                   <span className="w-2 h-2 rounded-full bg-blue-500 inline-block mr-1" />
                   <div>
                     <div>Approved: {item.approved}</div>
-                    {unitName && item.standardApproved != null && (
+                    {item.standardUnitName && item.standardApproved != null && (
                       <div className="text-blue-500/60 font-mono">
-                        {item.standardApproved.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                        {item.standardApproved.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {item.standardUnitName}
                       </div>
                     )}
                   </div>
@@ -118,9 +115,9 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
                   <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1" />
                   <div>
                     <div>Executed: {item.executed}</div>
-                    {unitName && item.standardExecuted != null && (
+                    {item.standardUnitName && item.standardExecuted != null && (
                       <div className="text-emerald-500/60 font-mono">
-                        {item.standardExecuted.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                        {item.standardExecuted.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {item.standardUnitName}
                       </div>
                     )}
                   </div>

@@ -33,7 +33,6 @@ import { formatCurrency } from "@/lib/utils";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePermissions } from "@/lib/hooks/use-permissions";
-import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { TransactionDialog } from "@/components/qmhq/transaction-dialog";
 import { TransactionViewModal } from "@/components/qmhq/transaction-view-modal";
 import { POStatusBadge } from "@/components/po/po-status-badge";
@@ -133,7 +132,6 @@ export default function QMHQDetailPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { can } = usePermissions();
-  const { unitName } = useStandardUnitName();
   const qmhqId = params.id as string;
 
   // Track updated param to trigger refetch after stock-out
@@ -175,7 +173,7 @@ export default function QMHQDetailPage() {
         assigned_user:users!qmhq_assigned_to_fkey(id, full_name, email),
         created_by_user:users!qmhq_created_by_fkey(id, full_name),
         qmrl:qmrl!qmhq_qmrl_id_fkey(id, request_id, title),
-        item:items!qmhq_item_id_fkey(id, name, sku, default_unit),
+        item:items!qmhq_item_id_fkey(id, name, sku, default_unit, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)),
         contact_person:contact_persons!qmhq_contact_person_id_fkey(id, name, position)
       `)
       .eq("id", qmhqId)
@@ -196,7 +194,7 @@ export default function QMHQDetailPage() {
         .select(`
           *,
           conversion_rate,
-          item:items(id, name, sku, default_unit),
+          item:items(id, name, sku, default_unit, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)),
           warehouse:warehouses(id, name)
         `)
         .eq('qmhq_id', qmhqData.id);
@@ -207,7 +205,7 @@ export default function QMHQDetailPage() {
         // Fallback for legacy single-item QMHQ
         const { data: legacyItem } = await supabase
           .from('items')
-          .select('id, name, sku, default_unit')
+          .select('id, name, sku, default_unit, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)')
           .eq('id', qmhqData.item_id)
           .single();
 
@@ -241,7 +239,7 @@ export default function QMHQDetailPage() {
         .select(`
           *,
           conversion_rate,
-          item:items(id, name, sku),
+          item:items(id, name, sku, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)),
           warehouse:warehouses!inventory_transactions_warehouse_id_fkey(id, name),
           qmhq:qmhq!inventory_transactions_qmhq_id_fkey(id, request_id),
           stock_out_approval:stock_out_approvals(
@@ -523,6 +521,7 @@ export default function QMHQDetailPage() {
         standardRequested,
         standardApproved,
         standardExecuted,
+        standardUnitName: (item.item as any)?.standard_unit_rel?.name || undefined,
       };
     });
   }, [qmhqItems, stockOutRequest, stockOutTransactions]);
@@ -904,9 +903,9 @@ export default function QMHQDetailPage() {
                             <span className="text-xs text-slate-400 ml-1">{item.item.default_unit}</span>
                           )}
                         </div>
-                        {unitName && item.quantity != null && (
+                        {(item.item as any)?.standard_unit_rel?.name && item.quantity != null && (
                           <div className="text-xs font-mono text-slate-400">
-                            {(item.quantity || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {unitName}
+                            {(item.quantity || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {(item.item as any).standard_unit_rel.name}
                           </div>
                         )}
                       </div>

@@ -51,7 +51,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { Lock } from "lucide-react";
 import { HistoryTab } from "@/components/history";
 import { usePermissions } from "@/lib/hooks/use-permissions";
-import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { CommentsSection } from "@/components/comments";
 import { DetailPageLayout } from "@/components/composite";
 import type {
@@ -80,6 +79,7 @@ interface POWithRelations extends PurchaseOrder {
 
 interface POLineItemWithItem extends POLineItem {
   item?: Pick<Item, "id" | "name" | "sku"> | null;
+  unit_name?: string;
 }
 
 interface InvoiceForPO extends Invoice {
@@ -90,7 +90,6 @@ export default function PODetailPage() {
   const params = useParams();
   const router = useRouter();
   const { can } = usePermissions();
-  const { unitName } = useStandardUnitName();
   const poId = params.id as string;
 
   const [po, setPO] = useState<POWithRelations | null>(null);
@@ -142,19 +141,24 @@ export default function PODetailPage() {
 
     setPO(poData as unknown as POWithRelations);
 
-    // Fetch line items
+    // Fetch line items with standard unit names
     const { data: lineItemsData } = await supabase
       .from("po_line_items")
       .select(`
         *,
-        item:items(id, name, sku)
+        item:items!po_line_items_item_id_fkey(id, name, sku, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name))
       `)
       .eq("po_id", poId)
       .eq("is_active", true)
       .order("created_at");
 
     if (lineItemsData) {
-      setLineItems(lineItemsData as POLineItemWithItem[]);
+      // Map unit_name from the join result
+      const mappedLineItems = lineItemsData.map((li: any) => ({
+        ...li,
+        unit_name: li.item?.standard_unit_rel?.name || undefined,
+      }));
+      setLineItems(mappedLineItems as POLineItemWithItem[]);
 
       // Safety-net: recompute status from aggregates and log mismatches
       const totalQty = lineItemsData.reduce((sum, li) => sum + li.quantity, 0);

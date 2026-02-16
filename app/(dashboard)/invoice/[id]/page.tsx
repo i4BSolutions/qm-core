@@ -44,7 +44,6 @@ import {
 } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePermissions } from "@/lib/hooks/use-permissions";
-import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { HistoryTab } from "@/components/history";
 import { voidInvoice } from "@/lib/actions/invoice-actions";
 import { useToast } from "@/components/ui/use-toast";
@@ -81,6 +80,7 @@ interface InvoiceWithRelations extends Invoice {
 
 interface InvoiceLineItemWithItem extends InvoiceLineItem {
   item?: Pick<Item, "id" | "name" | "sku"> | null;
+  unit_name?: string;
 }
 
 export default function InvoiceDetailPage() {
@@ -88,7 +88,6 @@ export default function InvoiceDetailPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { unitName } = useStandardUnitName();
   const invoiceId = params.id as string;
 
   const [invoice, setInvoice] = useState<InvoiceWithRelations | null>(null);
@@ -132,12 +131,12 @@ export default function InvoiceDetailPage() {
 
       setInvoice(invoiceData as unknown as InvoiceWithRelations);
 
-      // Fetch line items
+      // Fetch line items with standard unit names
       const { data: lineItemsData, error: lineItemsError } = await supabase
         .from("invoice_line_items")
         .select(`
           *,
-          item:items(id, name, sku)
+          item:items!invoice_line_items_item_id_fkey(id, name, sku, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name))
         `)
         .eq("invoice_id", invoiceId)
         .eq("is_active", true)
@@ -149,7 +148,12 @@ export default function InvoiceDetailPage() {
       }
 
       if (lineItemsData) {
-        setLineItems(lineItemsData as InvoiceLineItemWithItem[]);
+        // Map unit_name from the join result
+        const mappedLineItems = lineItemsData.map((li: any) => ({
+          ...li,
+          unit_name: li.item?.standard_unit_rel?.name || undefined,
+        }));
+        setLineItems(mappedLineItems as InvoiceLineItemWithItem[]);
       }
 
       // Fetch stock receipts (inventory transactions linked to this invoice)
@@ -408,6 +412,7 @@ export default function InvoiceDetailPage() {
                 po_unit_price: li.po_unit_price ?? undefined,
                 conversion_rate: li.conversion_rate ?? 1,
                 standard_qty: standardQty,
+                unit_name: li.unit_name,
               };
             })}
             purchaseOrder={invoice.purchase_order ? {
@@ -422,7 +427,6 @@ export default function InvoiceDetailPage() {
               email: invoice.purchase_order.supplier.email || undefined,
               phone: invoice.purchase_order.supplier.phone || undefined,
             } : null}
-            standardUnitName={unitName}
           />
           {showVoidButton && (
             <TooltipProvider>

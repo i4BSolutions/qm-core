@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatAmount } from "@/lib/utils";
 import { PageHeader } from "@/components/composite";
-import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import {
   getInventoryKPIs,
   getInventoryTransactions,
@@ -28,7 +27,6 @@ import { FilterChips, type FilterChip } from "./components/filter-chips";
 export default function InventoryPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { unitName } = useStandardUnitName();
   const [kpis, setKpis] = useState<InventoryKPIs | null>(null);
   const [transactions, setTransactions] = useState<InventoryTransaction[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -511,9 +509,9 @@ export default function InventoryPage() {
                           <td className="px-4 py-4 text-sm font-medium text-foreground">
                             <div>
                               <div>{transaction.quantity.toLocaleString()}</div>
-                              {unitName && transaction.conversion_rate && (
+                              {(transaction.item as any)?.standard_unit_rel?.name && transaction.conversion_rate && (
                                 <div className="text-xs font-mono text-muted-foreground">
-                                  {(transaction.quantity * transaction.conversion_rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {unitName}
+                                  {(transaction.quantity * transaction.conversion_rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {(transaction.item as any).standard_unit_rel.name}
                                 </div>
                               )}
                             </div>

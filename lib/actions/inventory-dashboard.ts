@@ -39,6 +39,7 @@ export interface InventoryTransaction {
     id: string;
     name: string;
     sku: string;
+    standard_unit_name?: string | null;
   } | null;
   warehouse: {
     id: string;
@@ -151,7 +152,7 @@ export async function getInventoryTransactions(
       reference_no,
       invoice_id,
       qmhq_id,
-      item:items(id, name, sku),
+      item:items(id, name, sku, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)),
       warehouse:warehouses!inventory_transactions_warehouse_id_fkey(id, name),
       invoice:invoices(id, invoice_number),
       qmhq:qmhq(id, request_id)
