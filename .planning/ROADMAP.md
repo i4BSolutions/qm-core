@@ -207,7 +207,7 @@ Plans:
 
 **Goal**: Admin can manage a list of standard units (kg, liters, meters, etc.) with full CRUD, and inline creation is available in forms
 **Depends on**: Phase 50
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 51-01-PLAN.md -- Database migration, types, and global config cleanup
