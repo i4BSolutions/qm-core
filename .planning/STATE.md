@@ -16,12 +16,12 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 
 ## Current Position
 
-Phase: 51 of 53 (Standard Unit Entity & Admin)
-Plan: 2 of 3 in current phase
+Phase: 52 of 53 (Per-Item Standard Unit Assignment)
+Plan: 1 of 2 in current phase
 Status: In progress
-Last activity: 2026-02-16 — Completed 51-02: Standard Units Admin UI
+Last activity: 2026-02-16 — Completed 52-01: Item Standard Unit FK
 
-Progress: [████████████████████░░] 123/125 (98%)
+Progress: [████████████████████░░] 124/125 (99%)
 
 ---
 
@@ -29,7 +29,7 @@ Progress: [████████████████████░░] 1
 
 **Codebase:**
 - ~50,000 lines of TypeScript
-- 72 database migrations
+- 73 database migrations
 - 100 RLS policies across 22 tables
 
 **Shipped Milestones:**
@@ -47,12 +47,12 @@ Progress: [████████████████████░░] 1
 
 **Total Delivered:**
 - 48 phases
-- 118 plans
+- 119 plans
 - 11 milestones shipped
 
 **v1.11 Progress:**
-- 8/9 plans complete
-- Status: Phase 50 in progress (3/4 plans complete)
+- 9/9 plans complete (Phase 50-52 complete)
+- Status: Phase 52 in progress (1/2 plans complete)
 
 ---
 
@@ -60,8 +60,8 @@ Progress: [████████████████████░░] 1
 
 ### Roadmap Evolution
 
-- Phase 51 added: Standard Unit Entity & Admin
-- Phase 52 added: Per-Item Standard Unit Assignment (pending)
+- Phase 51 added: Standard Unit Entity & Admin (complete)
+- Phase 52 added: Per-Item Standard Unit Assignment (in progress)
 - Phase 53 added: Standard Unit Display Refactor (pending)
 
 ### Decisions Made
@@ -87,12 +87,15 @@ Decisions archived in PROJECT.md Key Decisions table.
 - Use admin permission proxy via categories for standard units CRUD
 - Hard delete with FK protection for standard units (consistent with migration)
 - Hide color picker in InlineCreateSelect for standard_unit type (name-only form)
+- Backfill all existing items with 'pcs' as default standard unit
+- Use FK constraint with ON DELETE RESTRICT to protect standard units in use
 
 ### TODOs
 
 **Immediate Next Steps:**
-1. Execute Phase 50-04 (QMHQ detail standard qty and PDF export wiring)
-2. Complete v1.11 milestone
+1. Execute Phase 52-02 (Item form standard unit selection UI)
+2. Execute Phase 53 (Standard unit display refactor)
+3. Complete v1.11 milestone
 
 ### Blockers
 
@@ -103,28 +106,30 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 51-02: Standard Units Admin UI
-- Created /admin/standard-units page with DataTable and UnitDialog
-- Implemented CRUD operations: create, edit, delete with FK protection
-- Added "Standard Units" entry to sidebar admin navigation
-- Extended InlineCreateSelect to support standard_unit createType
-- Conditional UI: no color picker for standard_unit (name-only form)
-- Duration: 262 seconds, 2 tasks, 2 commits (17888e2, b047806)
+- Completed Phase 52-01: Item Standard Unit FK
+- Added standard_unit_id FK column to items table
+- Backfilled all existing items with 'pcs' standard unit
+- Set NOT NULL constraint after backfill
+- Added FK constraint with ON DELETE RESTRICT
+- Updated TypeScript types for items table
+- Duration: 120 seconds, 1 task, 1 commit (18b2f1c)
 
 **Context for Next Agent:**
 - Phase 50: COMPLETE ✓ (Standard Quantity Display - 4 plans)
   - System-wide standard qty display integrated across all modules
-- Phase 51: Standard Unit Entity & Admin (3 plans) - IN PROGRESS
-  - 51-01: Standard Units Table & Type Foundation ✓ COMPLETE
-  - 51-02: Standard Units Admin UI ✓ COMPLETE
-  - 51-03: Standard Units Admin Integration - NEXT
-- Admin UI ready: /admin/standard-units with full CRUD
-- InlineCreateSelect ready: supports standard_unit type for Phase 52
-- Sidebar navigation includes Standard Units link
-- Next: Final admin integration touches (if any)
+- Phase 51: COMPLETE ✓ (Standard Unit Entity & Admin - 3 plans)
+  - standard_units table created with seed data
+  - Admin UI with full CRUD operations
+  - InlineCreateSelect supports standard_unit type
+- Phase 52: Per-Item Standard Unit Assignment (2 plans) - IN PROGRESS
+  - 52-01: Item Standard Unit FK ✓ COMPLETE
+  - 52-02: Item Form Standard Unit Selection - NEXT
+- Database ready: items.standard_unit_id FK in place
+- All existing items have 'pcs' as default
+- Next: Update item forms to display and require standard unit selection
 
-**Resume at:** Execute Phase 51-03 (Standard Units Admin Integration)
+**Resume at:** Execute Phase 52-02 (Item Form Standard Unit Selection)
 
 ---
 
-*State last updated: 2026-02-16 after Phase 51-02 completion*
+*State last updated: 2026-02-16 after Phase 52-01 completion*
