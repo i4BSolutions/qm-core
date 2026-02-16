@@ -296,6 +296,7 @@ export type Database = {
           photo_url: string | null
           price_reference: string | null
           sku: string | null
+          standard_unit_id: string
           updated_at: string | null
           updated_by: string | null
           wac_amount: number | null
@@ -316,6 +317,7 @@ export type Database = {
           photo_url?: string | null
           price_reference?: string | null
           sku?: string | null
+          standard_unit_id?: string
           updated_at?: string | null
           updated_by?: string | null
           wac_amount?: number | null
@@ -336,6 +338,7 @@ export type Database = {
           photo_url?: string | null
           price_reference?: string | null
           sku?: string | null
+          standard_unit_id?: string
           updated_at?: string | null
           updated_by?: string | null
           wac_amount?: number | null
@@ -356,6 +359,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_standard_unit_id_fkey"
+            columns: ["standard_unit_id"]
+            isOneToOne: false
+            referencedRelation: "standard_units"
             referencedColumns: ["id"]
           },
           {
