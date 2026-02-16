@@ -217,7 +217,7 @@ Plans:
 
 **Goal**: Each item gets assigned a standard unit from the managed list, with required selection on item create/edit and migration of existing items
 **Depends on**: Phase 51
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 52-01-PLAN.md — Database migration: add standard_unit_id FK to items, backfill with 'pcs'
