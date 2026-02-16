@@ -17,11 +17,11 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 ## Current Position
 
 Phase: 50 of 50 (Standard Quantity Display)
-Plan: 4 of 4 in current phase
-Status: Complete
-Last activity: 2026-02-16 — Completed 50-04: QMHQ detail standard qty and PDF export wiring
+Plan: 3 of 4 in current phase
+Status: In progress
+Last activity: 2026-02-16 — Completed 50-03: Warehouse, inventory, and stock-out request standard qty display
 
-Progress: [████████████████████░░] 122/122 (100%)
+Progress: [████████████████████░░] 121/122 (99%)
 
 ---
 
@@ -46,14 +46,13 @@ Progress: [████████████████████░░] 1
 - v1.10 Tech Debt Cleanup (3 phases, 3 plans) - 2026-02-14
 
 **Total Delivered:**
-- 50 phases
-- 122 plans
+- 48 phases
+- 118 plans
 - 11 milestones shipped
 
-**v1.11 Complete:**
-- 9/9 plans complete
-- Status: Phase 50 complete (4/4 plans complete)
-- Standard quantity integration fully deployed
+**v1.11 Progress:**
+- 8/9 plans complete
+- Status: Phase 50 in progress (3/4 plans complete)
 
 ---
 
@@ -76,12 +75,15 @@ Decisions archived in PROJECT.md Key Decisions table.
 - Default conversion_rate to empty string (not 1) to force explicit user input
 - Use per-transaction and per-approval conversion rates for accurate standard qty calculations in progress aggregates
 - Skip aggregate standard qty display on PO detail page (invoiced/received totals) as they span multiple items with different rates
+- Aggregate standard_stock in warehouse inventory by summing standard_qty from transactions
+- Show standard qty as second line below original quantity in all displays
+- Pass standardUnitName to PDF components to conditionally render columns
 
 ### TODOs
 
 **Immediate Next Steps:**
-1. Review completed v1.11 milestone
-2. Plan next milestone or phase
+1. Execute Phase 50-04 (QMHQ detail standard qty and PDF export wiring)
+2. Complete v1.11 milestone
 
 ### Blockers
 
@@ -92,13 +94,14 @@ Decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Completed Phase 50-04: QMHQ Detail Standard Qty and PDF Export Wiring
-- Added standard qty display to QMHQ item quantities and stock-out transactions
-- Enhanced ItemsSummaryProgress with standard qty for requested/approved/executed
-- Computed standard quantities using per-transaction and per-approval conversion rates
-- Wired standardUnitName prop to InvoicePDFButton and StockOutPDFButton
-- Passed conversion_rate and standard_qty data in PDF export line items
-- Duration: 327 seconds, 2 tasks, 2 commits
+- Completed Phase 50-03: Warehouse, Inventory, and Stock-Out Request Standard Qty Display
+- Added standard_stock tracking in warehouse inventory aggregation (summing standard_qty from transactions)
+- Displayed standard qty on warehouse detail inventory rows and KPI totals
+- Added standard qty to inventory dashboard transaction list
+- Extended stock-out request line item table with standard qty for all quantity columns
+- Added standard qty to stock-out request detail approvals and transactions
+- Enhanced stock-out PDF with conditional standard qty columns
+- Duration: 90 seconds, 2 tasks, 2 commits (a882d7c, 2279a83)
 
 **Context for Next Agent:**
 - Phase 47: COMPLETE ✓ (Schema changes - conversion_rate column added)
@@ -107,16 +110,16 @@ Decisions archived in PROJECT.md Key Decisions table.
   - 49-01: ConversionRateInput component
   - 49-02: PO and Invoice forms
   - 49-03: Inventory forms (stock-in, stock-out, requests, approval)
-- Phase 50: COMPLETE ✓ (StandardUnitDisplay component and integration - 4 plans)
-  - 50-01: StandardUnitDisplay component ✓
-  - 50-02: PO and Invoice line item tables ✓
-  - 50-03: Stock movement tables ✓
-  - 50-04: QMHQ detail and PDF export wiring ✓
-- Standard quantity integration complete across all major views
-- v1.11 milestone complete (Phase 47-50)
+- Phase 50: StandardUnitDisplay component and integration (4 plans) - IN PROGRESS
+  - 50-01: StandardUnitDisplay component ✓ COMPLETE
+  - 50-02: PO and Invoice line item tables ✓ COMPLETE
+  - 50-03: Warehouse, inventory, and stock-out request standard qty ✓ COMPLETE
+  - 50-04: QMHQ detail standard qty and PDF export wiring - NEXT
+- Standard quantity display integrated in warehouse, inventory, and stock-out modules
+- Remaining: QMHQ detail standard qty display
 
-**Resume at:** Phase 50 complete - ready for next phase or milestone
+**Resume at:** Execute Phase 50-04 (QMHQ detail standard qty and PDF export wiring)
 
 ---
 
-*State last updated: 2026-02-16 after Phase 50-04 completion*
+*State last updated: 2026-02-16 after Phase 50-03 completion*
