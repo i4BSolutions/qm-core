@@ -43,6 +43,7 @@ interface LineItemFormData {
   item_sku?: string;
   item_unit?: string;
   item_price_reference?: string;
+  item_standard_unit?: string;
   quantity: number;
   unit_price: number;
   conversion_rate: string;
@@ -106,7 +107,7 @@ function POCreateContent() {
         .order("name"),
       supabase
         .from("items")
-        .select("id, name, sku, default_unit, price_reference")
+        .select("id, name, sku, default_unit, price_reference, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)")
         .eq("is_active", true)
         .order("name"),
       supabase

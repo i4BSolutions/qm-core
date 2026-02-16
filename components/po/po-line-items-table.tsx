@@ -27,6 +27,7 @@ interface LineItemFormData {
   item_sku?: string;
   item_unit?: string;
   item_price_reference?: string;
+  item_standard_unit?: string;
   quantity: number;
   unit_price: number;
   conversion_rate: string;
@@ -34,7 +35,7 @@ interface LineItemFormData {
 
 interface EditableLineItemsTableProps {
   items: LineItemFormData[];
-  availableItems: Pick<Item, "id" | "name" | "sku" | "default_unit" | "price_reference">[];
+  availableItems: (Pick<Item, "id" | "name" | "sku" | "default_unit" | "price_reference"> & { standard_unit_rel?: { name: string } | null })[];
   onAddItem: () => void;
   onRemoveItem: (id: string) => void;
   onUpdateItem: (id: string, field: keyof LineItemFormData, value: unknown) => void;
@@ -174,6 +175,7 @@ export function EditableLineItemsTable({
                               onUpdateItem(item.id, "item_sku", selectedItem.sku || "");
                               onUpdateItem(item.id, "item_unit", selectedItem.default_unit || "");
                               onUpdateItem(item.id, "item_price_reference", selectedItem.price_reference || "");
+                              onUpdateItem(item.id, "item_standard_unit", selectedItem.standard_unit_rel?.name || "");
                             }
                           }}
                           disabled={disabled}
@@ -262,12 +264,23 @@ export function EditableLineItemsTable({
                   />
                 </td>
                 <td className="py-2 px-3">
-                  <ConversionRateInput
-                    value={item.conversion_rate}
-                    onValueChange={(val) => onUpdateItem(item.id, "conversion_rate", val)}
-                    className="w-28 text-right bg-slate-800 border-slate-700"
-                    disabled={disabled}
-                  />
+                  <div className="flex flex-col">
+                    <ConversionRateInput
+                      value={item.conversion_rate}
+                      onValueChange={(val) => onUpdateItem(item.id, "conversion_rate", val)}
+                      className="w-28 text-right bg-slate-800 border-slate-700"
+                      disabled={disabled}
+                    />
+                    {item.conversion_rate && parseFloat(item.conversion_rate) > 0 && item.quantity > 0 && (
+                      <span className="text-xs font-mono text-slate-400 mt-0.5">
+                        {(item.quantity * parseFloat(item.conversion_rate)).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        {item.item_standard_unit || ""}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="py-2 px-3 text-right">
                   <span className="font-mono text-emerald-400">

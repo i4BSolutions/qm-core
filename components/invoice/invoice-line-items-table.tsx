@@ -29,6 +29,7 @@ export interface InvoiceLineItemFormData {
   po_unit_price: number;
   available_quantity: number;
   conversion_rate: string;
+  unit_name?: string;
 }
 
 interface EditableInvoiceLineItemsTableProps {

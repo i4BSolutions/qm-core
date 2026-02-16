@@ -31,6 +31,7 @@ interface InvoicePDFProps {
     po_unit_price?: number;
     conversion_rate?: number;
     standard_qty?: number;
+    unit_name?: string;
   }>;
   purchaseOrder?: {
     po_number: string;
@@ -44,7 +45,6 @@ interface InvoicePDFProps {
     email?: string;
     phone?: string;
   } | null;
-  standardUnitName?: string;
 }
 
 // Inline helper for formatting amounts
@@ -171,7 +171,6 @@ export default function InvoicePDF({
   lineItems,
   purchaseOrder,
   supplier,
-  standardUnitName,
 }: InvoicePDFProps) {
   // Determine status display and color
   const statusDisplay = invoice.is_voided
@@ -190,19 +189,14 @@ export default function InvoicePDF({
       ? Math.min(100, Math.round((totalReceived / totalOrdered) * 100))
       : 0;
 
-  // Calculate total standard qty
-  const totalStandardQty = standardUnitName
-    ? lineItems.reduce((sum, li) => sum + (li.quantity * (li.conversion_rate ?? 1)), 0)
-    : 0;
-
-  // Prepare table columns
+  // Prepare table columns - always show Std Qty column
   const columns: PDFTableColumn[] = [
     { header: "#", key: "index", width: "5%", align: "left" },
-    { header: "Item", key: "item", width: standardUnitName ? "25%" : "30%", align: "left" },
+    { header: "Item", key: "item", width: "25%", align: "left" },
     { header: "Qty", key: "quantity", width: "10%", align: "right" },
-    ...(standardUnitName ? [{ header: "Std Qty", key: "standard_qty", width: "12%", align: "right" as const }] : []),
+    { header: "Std Qty", key: "standard_qty", width: "12%", align: "right" },
     { header: "Unit Price", key: "unit_price", width: "15%", align: "right" },
-    { header: "Line Total", key: "line_total", width: standardUnitName ? "20%" : "25%", align: "right" },
+    { header: "Line Total", key: "line_total", width: "20%", align: "right" },
     { header: "Received", key: "received", width: "13%", align: "right" },
   ];
 
@@ -226,18 +220,18 @@ export default function InvoicePDF({
         {li.quantity}
       </Text>
     ),
-    ...(standardUnitName ? {
-      standard_qty: (
-        <View>
-          <Text style={{ fontFamily: "Courier", fontSize: 9, color: "#F8FAFC" }}>
-            {formatAmount(li.quantity * (li.conversion_rate ?? 1))}
-          </Text>
+    standard_qty: (
+      <View>
+        <Text style={{ fontFamily: "Courier", fontSize: 9, color: "#F8FAFC" }}>
+          {formatAmount(li.quantity * (li.conversion_rate ?? 1))}
+        </Text>
+        {li.unit_name && (
           <Text style={{ fontFamily: "Courier", fontSize: 7, color: "#94A3B8", marginTop: 2 }}>
-            {standardUnitName}
+            {li.unit_name}
           </Text>
-        </View>
-      ),
-    } : {}),
+        )}
+      </View>
+    ),
     unit_price: (
       <Text style={{ fontFamily: "Courier", fontSize: 9, color: "#F8FAFC" }}>
         {formatAmount(li.unit_price)} {invoice.currency}
@@ -375,21 +369,6 @@ export default function InvoicePDF({
             </Text>
           </View>
         </View>
-
-        {/* Standard Qty Total Row (if configured) */}
-        {standardUnitName && (
-          <View style={{ ...styles.totalsRow, borderTopWidth: 0, paddingTop: 8, marginTop: 0 }}>
-            <Text style={styles.totalsLabel}>Total Standard Qty</Text>
-            <View style={{ alignItems: "flex-end" }}>
-              <Text style={{ ...styles.totalsAmount, fontSize: 12 }}>
-                {formatAmount(totalStandardQty)}
-              </Text>
-              <Text style={{ ...styles.totalsAmountEusd, fontSize: 9 }}>
-                {standardUnitName}
-              </Text>
-            </View>
-          </View>
-        )}
       </View>
 
       {/* Section D: Received Progress Summary */}

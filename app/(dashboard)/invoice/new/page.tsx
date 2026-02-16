@@ -40,7 +40,6 @@ import { AmountInput } from "@/components/ui/amount-input";
 import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import { ConversionRateInput } from "@/components/ui/conversion-rate-input";
 import { StandardUnitDisplay } from "@/components/ui/standard-unit-display";
-import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { calculateAvailableQuantity } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
@@ -58,7 +57,6 @@ function InvoiceCreateContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { unitName } = useStandardUnitName();
   const preselectedPoId = searchParams.get("po");
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -111,6 +109,7 @@ function InvoiceCreateContent() {
               po_unit_price: poLineItem.unit_price,
               available_quantity: availableQty,
               conversion_rate: "",
+              unit_name: (poLineItem.item as any)?.standard_unit_rel?.name || undefined,
             });
           }
         });
@@ -129,7 +128,7 @@ function InvoiceCreateContent() {
     setIsLoading(true);
     const supabase = createClient();
 
-    // Fetch POs that can accept invoices (not closed/cancelled)
+    // Fetch POs that can accept invoices (not closed/cancelled) with standard units
     const { data: posData } = await supabase
       .from("purchase_orders")
       .select(`
@@ -137,7 +136,7 @@ function InvoiceCreateContent() {
         supplier:suppliers(id, name, company_name),
         line_items:po_line_items(
           *,
-          item:items(id, name, sku)
+          item:items!po_line_items_item_id_fkey(id, name, sku, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name))
         )
       `)
       .eq("is_active", true)
@@ -826,6 +825,7 @@ function InvoiceCreateContent() {
                             <StandardUnitDisplay
                               quantity={li.quantity}
                               conversionRate={parseFloat(li.conversion_rate) || 1}
+                              unitName={li.unit_name}
                               size="sm"
                               align="right"
                             />
