@@ -229,7 +229,7 @@ Plans:
 
 **Goal**: All standard quantity displays use the per-item standard unit name instead of the global setting, and global setting is removed
 **Depends on**: Phase 52
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 53-01-PLAN.md — Foundation cleanup: drop system_config, refactor StandardUnitDisplay to presentational, remove useStandardUnitName hook
