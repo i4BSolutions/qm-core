@@ -20,6 +20,7 @@ import type { StandardUnit } from "@/types/database";
 
 export default function StandardUnitsPage() {
   const [units, setUnits] = useState<StandardUnit[]>([]);
+  const [itemCounts, setItemCounts] = useState<Map<string, number>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUnit, setEditingUnit] = useState<StandardUnit | null>(null);
@@ -35,6 +36,7 @@ export default function StandardUnitsPage() {
     setIsLoading(true);
     const supabase = createClient();
 
+    // Fetch units
     const { data } = await supabase
       .from("standard_units" as any)
       .select("id, name, display_order, created_at, updated_at, created_by, updated_by")
@@ -43,6 +45,24 @@ export default function StandardUnitsPage() {
     if (data) {
       setUnits(data as unknown as StandardUnit[]);
     }
+
+    // Fetch item counts per unit
+    const { data: countData } = await supabase
+      .from("items")
+      .select("standard_unit_id")
+      .eq("is_active", true);
+
+    // Build count map
+    const countMap = new Map<string, number>();
+    if (countData) {
+      countData.forEach((item: any) => {
+        if (item.standard_unit_id) {
+          countMap.set(item.standard_unit_id, (countMap.get(item.standard_unit_id) || 0) + 1);
+        }
+      });
+    }
+    setItemCounts(countMap);
+
     setIsLoading(false);
   }, []);
 
@@ -105,11 +125,14 @@ export default function StandardUnitsPage() {
     {
       accessorKey: "item_count",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Item Count" />,
-      cell: ({ row }) => (
-        <span className="text-slate-400" title="Available after item assignment">
-          0
-        </span>
-      ),
+      cell: ({ row }) => {
+        const count = itemCounts.get(row.original.id) || 0;
+        return (
+          <span className={count > 0 ? "text-slate-200 font-medium" : "text-slate-500"}>
+            {count}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "display_order",

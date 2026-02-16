@@ -48,6 +48,7 @@ import type {
 // Extended types
 interface ItemWithCategory extends Item {
   category_rel?: Category | null;
+  standard_unit_rel?: { id: string; name: string } | null;
 }
 
 interface WarehouseStock {
@@ -84,7 +85,8 @@ export default function ItemDetailPage() {
       .from("items")
       .select(`
         *,
-        category_rel:categories!items_category_id_fkey(id, name, color)
+        category_rel:categories!items_category_id_fkey(id, name, color),
+        standard_unit_rel:standard_units!items_standard_unit_id_fkey(id, name)
       `)
       .eq("id", itemId)
       .single();
@@ -95,7 +97,7 @@ export default function ItemDetailPage() {
       return;
     }
 
-    setItem(itemData as ItemWithCategory);
+    setItem(itemData as unknown as ItemWithCategory);
 
     // Fetch inventory transactions
     const { data: transactionsData } = await supabase
@@ -413,9 +415,9 @@ export default function ItemDetailPage() {
                   {item.category_rel.name}
                 </Badge>
               )}
-              {item.default_unit && (
+              {item.standard_unit_rel && (
                 <span className="text-sm text-slate-500">
-                  Unit: {item.default_unit}
+                  Unit: {item.standard_unit_rel.name}
                 </span>
               )}
             </div>
@@ -565,9 +567,9 @@ export default function ItemDetailPage() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
-                      Default Unit
+                      Standard Unit
                     </p>
-                    <p className="text-slate-200">{item.default_unit || "pcs"}</p>
+                    <p className="text-slate-200">{item.standard_unit_rel?.name || "—"}</p>
                   </div>
                 </div>
 
