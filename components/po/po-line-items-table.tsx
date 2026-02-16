@@ -13,6 +13,8 @@ import {
 import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
 import { AmountInput } from "@/components/ui/amount-input";
 import { ConversionRateInput } from "@/components/ui/conversion-rate-input";
+import { StandardUnitDisplay } from "@/components/ui/standard-unit-display";
+import { useStandardUnitName } from "@/lib/hooks/use-standard-unit-name";
 import { ItemDialog } from "@/app/(dashboard)/item/item-dialog";
 import { CategoryItemSelector } from "@/components/forms/category-item-selector";
 import type { POLineItem, Item } from "@/types/database";
@@ -392,8 +394,15 @@ export function ReadonlyLineItemsTable({
   currency = "MMK",
   showProgress = true,
 }: ReadonlyLineItemsTableProps) {
+  const { unitName } = useStandardUnitName();
+
   const subtotal = items.reduce(
     (sum, item) => sum + (item.total_price ?? 0),
+    0
+  );
+
+  const totalStandardQty = items.reduce(
+    (sum, item) => sum + (item.quantity * (item.conversion_rate ?? 1)),
     0
   );
 
@@ -445,14 +454,12 @@ export function ReadonlyLineItemsTable({
                   </div>
                 </td>
                 <td className="py-3 px-3 text-right">
-                  <span className="font-mono text-slate-200">
-                    {item.quantity}
-                  </span>
-                  {item.item_unit && (
-                    <span className="text-xs text-slate-400 ml-1">
-                      {item.item_unit}
-                    </span>
-                  )}
+                  <StandardUnitDisplay
+                    quantity={item.quantity}
+                    conversionRate={item.conversion_rate ?? 1}
+                    size="sm"
+                    align="right"
+                  />
                 </td>
                 <td className="py-3 px-3 text-right">
                   <span className="font-mono text-slate-300">
@@ -479,12 +486,29 @@ export function ReadonlyLineItemsTable({
         </tbody>
         <tfoot>
           <tr className="border-t border-slate-600">
-            <td
-              colSpan={showProgress ? 3 : 3}
-              className="py-3 px-3 text-right"
-            >
+            <td className="py-3 px-3 text-right">
               <span className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
-                Total ({currency})
+                Total
+              </span>
+            </td>
+            <td className="py-3 px-3 text-right">
+              <div className="flex flex-col items-end">
+                <span className="text-sm font-mono text-slate-200">
+                  {totalStandardQty.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+                {unitName && (
+                  <span className="text-xs text-slate-400">
+                    {unitName}
+                  </span>
+                )}
+              </div>
+            </td>
+            <td className="py-3 px-3 text-right" colSpan={showProgress ? 2 : 1}>
+              <span className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+                Subtotal ({currency})
               </span>
             </td>
             <td className="py-3 px-3 text-right">
