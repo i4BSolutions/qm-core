@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-17 (57-01)
+**Last Updated:** 2026-02-17 (57-02)
 
 ---
 
@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.12 Two-Layer Approval UI — Phase 57 plan 01 complete
+**Current Focus:** v1.12 Two-Layer Approval UI — Phase 57 plan 02 complete
 
 ---
 
 ## Current Position
 
 Phase: 57 (Two-Layer Approval UI & Execution Page)
-Plan: 01 complete — Phase 57 plan 01 done
-Status: Phase 57 in progress — plan 01 executed (L1 per-row approval UI)
-Last activity: 2026-02-17 — 57-01 executed (L1 approval dialog, progress bar, line-item-table rewrite)
+Plan: 02 complete — Phase 57 plan 02 done
+Status: Phase 57 in progress — plans 01 and 02 executed (L1 + L2 approval UI complete)
+Last activity: 2026-02-17 — 57-02 executed (L2 warehouse dialog, warehouse assignments tab, expandable line items, execution with before/after stock)
 
 Progress: [█████████░░░░░░░░░░░] Phase 55+56 complete, Phase 57 plan 01 done
 
@@ -54,7 +54,7 @@ Progress: [█████████░░░░░░░░░░░] Phase 5
 **v1.12 In Progress:**
 - 4 phases planned (55-58)
 - 25 requirements mapped
-- Phase 55 complete, Phase 56 complete (all 3 plans), Phase 57 plan 01 complete
+- Phase 55 complete, Phase 56 complete (all 3 plans), Phase 57 plans 01 and 02 complete
 
 ---
 
@@ -89,11 +89,16 @@ All decisions archived in PROJECT.md Key Decisions table.
 - Batch checkbox selection and floating action bar removed from SOR line item table — replaced with per-row action buttons
 - Approvals tab in SOR detail is now read-only history with L1/L2 layer badges — execute buttons deferred to Plan 02/03
 - REQUEST_STATUS_CONFIG: partially_approved renamed "Awaiting Warehouse", approved renamed "Ready to Execute"
+- L2 hard cap: AmountInput max = min(remaining_to_assign, availableWarehouseStock) — enforced via isAllowed callback
+- Pending inventory_transaction inserted at L2 time (warehouse now known); execution updates status to completed
+- warehouseAssignments array built from L2 approvals in fetchData, grouped by line_item_id in WarehouseAssignmentsTab
+- handleExecuteAssignment fetches current stock before opening dialog to show before/after impact
+- SOR detail page "Details" tab renamed to "Line Items"; new 5th tab "Warehouse Assignments" added between Line Items and Approvals
 
 ### TODOs
 
 **Immediate Next Steps:**
-1. Phase 57 plan 01 complete — proceed to Phase 57 plan 02 (L2 warehouse assignment dialog)
+1. Phase 57 plan 02 complete — proceed to Phase 57 plan 03 (execution page) if it exists
 
 ### Blockers
 
@@ -104,21 +109,21 @@ All decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 57 plan 01 executed:
-  - Created `components/stock-out-requests/l1-approval-dialog.tsx` — L1 qty-only approval dialog, single item, no warehouse, no inventory_transaction
-  - Created `components/stock-out-requests/line-item-progress-bar.tsx` — 3-segment bar (blue/purple/emerald) with tooltip
-  - Rewrote `components/stock-out-requests/line-item-table.tsx` — per-row action buttons, LineItemWithApprovals extended with l2_assigned_quantity/executed_quantity
-  - Rewrote `app/(dashboard)/inventory/stock-out-requests/[id]/page.tsx` — layer-aware fetching, L1 dialog wiring, Approvals tab read-only with L1/L2 badges, updated status labels
-  - Requirements completed: APPR-01, APPR-05
+- Phase 57 plan 02 executed:
+  - Created `components/stock-out-requests/l2-warehouse-dialog.tsx` — L2 warehouse dialog with real-time stock validation, hard qty cap at min(remaining, stock), pending inventory_transaction creation
+  - Created `components/stock-out-requests/warehouse-assignments-tab.tsx` — grouped by line item, Execute buttons, Pending/Executed badges
+  - Updated `components/stock-out-requests/line-item-table.tsx` — L1ApprovalData/L2AssignmentData types, expandable rows with ChevronDown, real Assign WH button
+  - Updated `components/stock-out-requests/execution-confirmation-dialog.tsx` — optional currentStock/afterStock for before/after display
+  - Updated `app/(dashboard)/inventory/stock-out-requests/[id]/page.tsx` — 5 tabs, L2 dialog wiring, warehouse assignments data pipeline, execution with stock fetch
+  - Requirements completed: APPR-02, APPR-03, APPR-04, APPR-05
 
 **Context for Next Agent:**
-- LineItemTable has a disabled "Assign WH" placeholder button for awaiting_admin rows — Plan 02 should wire the L2 dialog to this slot
-- l2_assigned_quantity and executed_quantity are computed in fetchData and passed to LineItemProgressBar
-- The old ApprovalDialog (approval-dialog.tsx) file still exists but is no longer imported anywhere — can be deleted or repurposed in Plan 02
-- stock_out_approvals query now fetches layer, warehouse_id, parent_approval_id fields
+- approval-dialog.tsx still exists but is no longer imported — can be deleted
+- The full L1 -> L2 -> Execute lifecycle works from SOR detail page
+- warehouseAssignments array built from L2 approvals in fetchData, is_executed determined by inventory_transaction.status
 
-**Resume at:** Phase 57 plan 02 (L2 warehouse assignment dialog)
+**Resume at:** Phase 57 plan 03 (if exists — dedicated execution page)
 
 ---
 
-*State last updated: 2026-02-17 after Phase 57 plan 01 (L1 per-row approval UI + progress bar) complete*
+*State last updated: 2026-02-17 after Phase 57 plan 02 (L2 warehouse dialog + warehouse assignments tab + execution) complete*
