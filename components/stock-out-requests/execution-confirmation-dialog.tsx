@@ -19,12 +19,17 @@ interface ExecutionConfirmationDialogProps {
   warehouseName: string;
   onConfirm: () => void;
   isExecuting: boolean;
+  /** Optional: current stock before execution (for before/after display) */
+  currentStock?: number;
+  /** Optional: stock after execution = currentStock - quantity */
+  afterStock?: number;
 }
 
 /**
- * Minimal confirmation dialog for per-line-item execution
+ * Confirmation dialog for per-line-item execution
  *
  * Shows item details and permanent action warning before execution.
+ * If currentStock and afterStock are provided, shows a Stock Levels section.
  */
 export function ExecutionConfirmationDialog({
   open,
@@ -34,7 +39,12 @@ export function ExecutionConfirmationDialog({
   warehouseName,
   onConfirm,
   isExecuting,
+  currentStock,
+  afterStock,
 }: ExecutionConfirmationDialogProps) {
+  const showStockLevels =
+    currentStock !== undefined && afterStock !== undefined;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -61,6 +71,35 @@ export function ExecutionConfirmationDialog({
             <span className="text-sm text-slate-400">Warehouse</span>
             <span className="text-sm text-slate-200 font-medium">{warehouseName}</span>
           </div>
+
+          {/* Stock Levels section — only shown when stock data is available */}
+          {showStockLevels && (
+            <div className="py-2 border-b border-slate-700">
+              <div className="text-sm text-slate-400 mb-2">Stock Impact</div>
+              <div className="flex items-center gap-3 text-sm">
+                <div className="text-slate-300">
+                  <span className="text-slate-500 text-xs block mb-0.5">Before</span>
+                  <span className="font-mono">{currentStock}</span>
+                </div>
+                <div className="text-slate-600 text-lg">→</div>
+                <div className="text-slate-300">
+                  <span className="text-slate-500 text-xs block mb-0.5">After</span>
+                  <span
+                    className={
+                      afterStock !== undefined && afterStock < 0
+                        ? "font-mono text-red-400"
+                        : "font-mono text-emerald-400"
+                    }
+                  >
+                    {afterStock}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-500 ml-auto">
+                  in {warehouseName}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Warning Banner */}

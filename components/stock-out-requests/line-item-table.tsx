@@ -1,14 +1,35 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X } from "lucide-react";
+import { Check, X, ChevronDown, Warehouse } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LineItemProgressBar } from "./line-item-progress-bar";
 import type { Enums } from "@/types/database";
 
 // Type for line item status
 type SorLineItemStatus = Enums<"sor_line_item_status">;
+
+/**
+ * L2 assignment data nested inside an L1 approval
+ */
+export interface L2AssignmentData {
+  id: string;
+  warehouse_name: string;
+  approved_quantity: number;
+  is_executed: boolean;
+}
+
+/**
+ * L1 approval data attached to a line item
+ */
+export interface L1ApprovalData {
+  id: string;
+  approved_quantity: number;
+  total_l2_assigned: number;
+  l2_assignments: L2AssignmentData[];
+}
 
 /**
  * Extended line item type with computed totals from approvals (two-layer aware)
@@ -31,6 +52,8 @@ export interface LineItemWithApprovals {
   // Legacy / info fields:
   assigned_warehouse_name: string | null;
   unit_name?: string;
+  // L1 approvals with their L2 children (for expandable section and L2 dialog)
+  l1Approvals?: L1ApprovalData[];
 }
 
 interface LineItemTableProps {
@@ -38,6 +61,10 @@ interface LineItemTableProps {
   canApprove: boolean;
   onApproveItem: (item: LineItemWithApprovals) => void;
   onRejectItem: (item: LineItemWithApprovals) => void;
+  onAssignWarehouse?: (
+    item: LineItemWithApprovals,
+    l1Approval: { id: string; approved_quantity: number; total_l2_assigned: number }
+  ) => void;
 }
 
 /**
@@ -123,7 +150,11 @@ function getRowAction(
   item: LineItemWithApprovals,
   canApprove: boolean,
   onApprove: (item: LineItemWithApprovals) => void,
-  onReject: (item: LineItemWithApprovals) => void
+  onReject: (item: LineItemWithApprovals) => void,
+  onAssignWarehouse?: (
+    item: LineItemWithApprovals,
+    l1Approval: { id: string; approved_quantity: number; total_l2_assigned: number }
+  ) => void
 ): React.ReactNode {
   if (!canApprove) return null;
 
@@ -153,22 +184,33 @@ function getRowAction(
   }
 
   if (item.status === "awaiting_admin" && canApprove) {
-    // Check if there's remaining L1 qty not yet covered by L2
+    // Find L1 approvals with remaining unassigned qty
+    const l1WithRemaining = (item.l1Approvals || []).find(
+      (l1) => l1.approved_quantity - l1.total_l2_assigned > 0
+    );
+
     const unassignedL1 = item.total_approved_quantity - item.l2_assigned_quantity;
-    if (unassignedL1 > 0) {
-      // Plan 02 will wire the L2 dialog; for now render a placeholder disabled button
+
+    if (unassignedL1 > 0 && l1WithRemaining) {
       return (
         <Button
           size="sm"
           variant="outline"
-          disabled
-          className="border-purple-500/50 text-purple-400 text-xs h-7 px-2 opacity-60"
-          title="Warehouse assignment coming in next plan"
+          className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300 text-xs h-7 px-2"
+          onClick={() =>
+            onAssignWarehouse?.(item, {
+              id: l1WithRemaining.id,
+              approved_quantity: l1WithRemaining.approved_quantity,
+              total_l2_assigned: l1WithRemaining.total_l2_assigned,
+            })
+          }
         >
+          <Warehouse className="w-3 h-3 mr-1" />
           Assign WH
         </Button>
       );
     }
+
     // All L1 qty covered by L2 — show a static badge
     return (
       <Badge
@@ -220,8 +262,9 @@ function getRowAction(
  * Line Item Table Component
  *
  * Shows stock-out request line items with per-row action buttons for
- * approval (L1 qty-only) and rejection. Batch checkbox selection and
- * floating action bar have been removed entirely.
+ * approval (L1 qty-only), rejection, and L2 warehouse assignment.
+ *
+ * Rows are expandable to show warehouse assignments per line item.
  *
  * Columns: Item | SKU | Requested | Approved | Rejected | Remaining | Status | Progress | Action
  */
@@ -230,12 +273,30 @@ export function LineItemTable({
   canApprove,
   onApproveItem,
   onRejectItem,
+  onAssignWarehouse,
 }: LineItemTableProps) {
+  const [expandedItemIds, setExpandedItemIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (itemId: string) => {
+    setExpandedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  };
+
+  const colSpan = canApprove ? 10 : 9;
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-slate-700">
+            <th className="pb-3 w-8" />
             <th className="pb-3 text-left font-medium text-sm text-slate-400">
               Item
             </th>
@@ -271,7 +332,7 @@ export function LineItemTable({
           {items.length === 0 ? (
             <tr>
               <td
-                colSpan={canApprove ? 9 : 8}
+                colSpan={colSpan}
                 className="py-8 text-center text-slate-500"
               >
                 No line items found
@@ -280,144 +341,227 @@ export function LineItemTable({
           ) : (
             items.map((item) => {
               const config = resolveStatusConfig(item);
-              const rowAction = getRowAction(item, canApprove, onApproveItem, onRejectItem);
+              const rowAction = getRowAction(
+                item,
+                canApprove,
+                onApproveItem,
+                onRejectItem,
+                onAssignWarehouse
+              );
+              const isExpanded = expandedItemIds.has(item.id);
+
+              // Check if this item has any L2 assignments to show
+              const hasL2 =
+                (item.l1Approvals || []).some(
+                  (l1) => l1.l2_assignments.length > 0
+                );
 
               return (
-                <tr
-                  key={item.id}
-                  className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
-                >
-                  {/* Item Name */}
-                  <td className="py-4">
-                    <div className="font-medium text-slate-200">
-                      {item.item_name || "Unknown Item"}
-                    </div>
-                  </td>
-
-                  {/* SKU */}
-                  <td className="py-4">
-                    <div className="font-mono text-sm text-slate-400">
-                      {item.item_sku || "—"}
-                    </div>
-                  </td>
-
-                  {/* Requested */}
-                  <td className="py-4 text-right">
-                    <div className="font-mono text-slate-200">
-                      {item.requested_quantity}
-                    </div>
-                    {item.unit_name && (
-                      <div className="text-xs font-mono text-slate-400 mt-1">
-                        {(
-                          item.requested_quantity * item.conversion_rate
-                        ).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {item.unit_name}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Approved (L1) */}
-                  <td className="py-4 text-right">
-                    <div className="font-mono text-slate-200">
-                      {item.total_approved_quantity}
-                    </div>
-                    {item.unit_name && (
-                      <div className="text-xs font-mono text-slate-400 mt-1">
-                        {(
-                          item.total_approved_quantity * item.conversion_rate
-                        ).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {item.unit_name}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Rejected */}
-                  <td className="py-4 text-right">
-                    <div
-                      className={cn(
-                        "font-mono",
-                        item.total_rejected_quantity > 0
-                          ? "text-red-400"
-                          : "text-slate-500"
-                      )}
-                    >
-                      {item.total_rejected_quantity}
-                    </div>
-                    {item.unit_name && (
-                      <div className="text-xs font-mono text-slate-400 mt-1">
-                        {(
-                          item.total_rejected_quantity * item.conversion_rate
-                        ).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {item.unit_name}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Remaining */}
-                  <td className="py-4 text-right">
-                    <div
-                      className={cn(
-                        "font-mono",
-                        item.remaining_quantity > 0
-                          ? "text-amber-400"
-                          : "text-slate-500"
-                      )}
-                    >
-                      {item.remaining_quantity}
-                    </div>
-                    {item.unit_name && (
-                      <div className="text-xs font-mono text-slate-400 mt-1">
-                        {(
-                          item.remaining_quantity * item.conversion_rate
-                        ).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {item.unit_name}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Status Badge */}
-                  <td className="py-4">
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "border font-mono text-xs",
-                        config.bgColor,
-                        config.color
-                      )}
-                    >
-                      {config.label}
-                    </Badge>
-                  </td>
-
-                  {/* Progress Bar */}
-                  <td className="py-4 min-w-[120px] pr-4">
-                    <LineItemProgressBar
-                      requestedQty={item.requested_quantity}
-                      l1ApprovedQty={item.total_approved_quantity}
-                      l2AssignedQty={item.l2_assigned_quantity}
-                      executedQty={item.executed_quantity}
-                    />
-                  </td>
-
-                  {/* Action Column (only when canApprove) */}
-                  {canApprove && (
-                    <td className="py-4">
-                      {rowAction}
+                <>
+                  <tr
+                    key={item.id}
+                    className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
+                  >
+                    {/* Expand toggle */}
+                    <td className="py-4 pr-1 w-8">
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(item.id)}
+                        className="text-slate-500 hover:text-slate-300 transition-colors p-1 rounded"
+                        aria-label={isExpanded ? "Collapse" : "Expand warehouse assignments"}
+                      >
+                        <ChevronDown
+                          className={cn(
+                            "w-4 h-4 transition-transform duration-200",
+                            isExpanded && "rotate-180"
+                          )}
+                        />
+                      </button>
                     </td>
+
+                    {/* Item Name */}
+                    <td className="py-4">
+                      <div className="font-medium text-slate-200">
+                        {item.item_name || "Unknown Item"}
+                      </div>
+                    </td>
+
+                    {/* SKU */}
+                    <td className="py-4">
+                      <div className="font-mono text-sm text-slate-400">
+                        {item.item_sku || "—"}
+                      </div>
+                    </td>
+
+                    {/* Requested */}
+                    <td className="py-4 text-right">
+                      <div className="font-mono text-slate-200">
+                        {item.requested_quantity}
+                      </div>
+                      {item.unit_name && (
+                        <div className="text-xs font-mono text-slate-400 mt-1">
+                          {(
+                            item.requested_quantity * item.conversion_rate
+                          ).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          {item.unit_name}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Approved (L1) */}
+                    <td className="py-4 text-right">
+                      <div className="font-mono text-slate-200">
+                        {item.total_approved_quantity}
+                      </div>
+                      {item.unit_name && (
+                        <div className="text-xs font-mono text-slate-400 mt-1">
+                          {(
+                            item.total_approved_quantity * item.conversion_rate
+                          ).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          {item.unit_name}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Rejected */}
+                    <td className="py-4 text-right">
+                      <div
+                        className={cn(
+                          "font-mono",
+                          item.total_rejected_quantity > 0
+                            ? "text-red-400"
+                            : "text-slate-500"
+                        )}
+                      >
+                        {item.total_rejected_quantity}
+                      </div>
+                      {item.unit_name && (
+                        <div className="text-xs font-mono text-slate-400 mt-1">
+                          {(
+                            item.total_rejected_quantity * item.conversion_rate
+                          ).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          {item.unit_name}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Remaining */}
+                    <td className="py-4 text-right">
+                      <div
+                        className={cn(
+                          "font-mono",
+                          item.remaining_quantity > 0
+                            ? "text-amber-400"
+                            : "text-slate-500"
+                        )}
+                      >
+                        {item.remaining_quantity}
+                      </div>
+                      {item.unit_name && (
+                        <div className="text-xs font-mono text-slate-400 mt-1">
+                          {(
+                            item.remaining_quantity * item.conversion_rate
+                          ).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          {item.unit_name}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Status Badge */}
+                    <td className="py-4">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "border font-mono text-xs",
+                          config.bgColor,
+                          config.color
+                        )}
+                      >
+                        {config.label}
+                      </Badge>
+                    </td>
+
+                    {/* Progress Bar */}
+                    <td className="py-4 min-w-[120px] pr-4">
+                      <LineItemProgressBar
+                        requestedQty={item.requested_quantity}
+                        l1ApprovedQty={item.total_approved_quantity}
+                        l2AssignedQty={item.l2_assigned_quantity}
+                        executedQty={item.executed_quantity}
+                      />
+                    </td>
+
+                    {/* Action Column (only when canApprove) */}
+                    {canApprove && (
+                      <td className="py-4">
+                        {rowAction}
+                      </td>
+                    )}
+                  </tr>
+
+                  {/* Expandable warehouse assignments section */}
+                  {isExpanded && (
+                    <tr key={`${item.id}-expanded`} className="border-b border-slate-800">
+                      <td colSpan={colSpan} className="py-3 px-4 bg-slate-900/40">
+                        <div className="pl-6">
+                          <div className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wide">
+                            Warehouse Assignments
+                          </div>
+                          {!hasL2 ? (
+                            <div className="text-xs text-slate-500 italic">
+                              No warehouse assignments yet
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              {(item.l1Approvals || []).flatMap((l1) =>
+                                l1.l2_assignments.map((l2) => (
+                                  <div
+                                    key={l2.id}
+                                    className="flex items-center gap-3 text-xs text-slate-400"
+                                  >
+                                    <span className="font-medium text-slate-300">
+                                      {l2.warehouse_name}:
+                                    </span>
+                                    <span className="font-mono">
+                                      {l2.approved_quantity} units
+                                    </span>
+                                    {l2.is_executed ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs py-0 px-2"
+                                      >
+                                        Executed
+                                      </Badge>
+                                    ) : (
+                                      <Badge
+                                        variant="outline"
+                                        className="border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs py-0 px-2"
+                                      >
+                                        Pending
+                                      </Badge>
+                                    )}
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                </tr>
+                </>
               );
             })
           )}

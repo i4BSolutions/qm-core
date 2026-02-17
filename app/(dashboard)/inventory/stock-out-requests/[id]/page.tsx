@@ -17,10 +17,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/components/providers/auth-provider";
 import { HistoryTab } from "@/components/history/history-tab";
 import { LineItemTable } from "@/components/stock-out-requests/line-item-table";
-import type { LineItemWithApprovals } from "@/components/stock-out-requests/line-item-table";
+import type { LineItemWithApprovals, L1ApprovalData } from "@/components/stock-out-requests/line-item-table";
 import { L1ApprovalDialog } from "@/components/stock-out-requests/l1-approval-dialog";
+import { L2WarehouseDialog } from "@/components/stock-out-requests/l2-warehouse-dialog";
 import { RejectionDialog } from "@/components/stock-out-requests/rejection-dialog";
 import { ExecutionConfirmationDialog } from "@/components/stock-out-requests/execution-confirmation-dialog";
+import { WarehouseAssignmentsTab } from "@/components/stock-out-requests/warehouse-assignments-tab";
+import type { WarehouseAssignment } from "@/components/stock-out-requests/warehouse-assignments-tab";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
 import { DetailPageLayout } from "@/components/composite";
 import { toast } from "sonner";
@@ -65,6 +68,7 @@ interface ApprovalWithUser {
   line_item_id: string;
   layer: string | null;
   warehouse_id: string | null;
+  parent_approval_id: string | null;
   decided_by_user?: Pick<User, "id" | "full_name"> | null;
   line_item?: {
     item_name: string | null;
@@ -125,8 +129,8 @@ const REQUEST_STATUS_CONFIG: Record<
  *
  * Two-layer approval flow:
  * - L1 (quartermaster): qty-only approval via L1ApprovalDialog — per-row button
- * - L2 (admin): warehouse assignment — coming in Plan 02
- * - Execution: handled via Plan 02/03
+ * - L2 (admin): warehouse assignment via L2WarehouseDialog — per-row button on awaiting_admin items
+ * - Execution: from Warehouse Assignments tab with before/after stock display
  */
 export default function StockOutRequestDetailPage() {
   const params = useParams();
@@ -140,21 +144,27 @@ export default function StockOutRequestDetailPage() {
   const [lineItems, setLineItems] = useState<LineItemWithApprovals[]>([]);
   const [approvals, setApprovals] = useState<ApprovalWithUser[]>([]);
   const [inventoryTransactions, setInventoryTransactions] = useState<any[]>([]);
+  const [warehouseAssignments, setWarehouseAssignments] = useState<WarehouseAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("details");
+  const [activeTab, setActiveTab] = useState("line-items");
   const [isCancelling, setIsCancelling] = useState(false);
 
-  // Per-row dialog state (replaces old batch selection)
+  // Per-row dialog state
   const [l1DialogItem, setL1DialogItem] = useState<LineItemWithApprovals | null>(null);
   const [rejectionItem, setRejectionItem] = useState<LineItemWithApprovals | null>(null);
 
-  // Execution dialog state (retained from old flow for legacy pending transactions)
+  // L2 dialog state
+  const [l2DialogState, setL2DialogState] = useState<{
+    lineItem: LineItemWithApprovals;
+    l1Approval: { id: string; approved_quantity: number; total_l2_assigned: number };
+  } | null>(null);
+
+  // Execution dialog state
   const [executionDialogState, setExecutionDialogState] = useState<{
     open: boolean;
-    approvalId: string;
-    itemName: string;
-    quantity: number;
-    warehouseName: string;
+    assignment: WarehouseAssignment;
+    currentStock?: number;
+    afterStock?: number;
   } | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
 
@@ -162,6 +172,10 @@ export default function StockOutRequestDetailPage() {
   const canApprove = user?.role === "admin";
   const isRequester = user?.id === request?.requester_id;
   const canCancel = isRequester && request?.status === "pending";
+
+  // Execute is only available when request is fully_approved or partially_executed/executed (any pending transactions remain)
+  // The button per row in WarehouseAssignmentsTab handles this — canExecute just checks admin role
+  const canExecute = user?.role === "admin";
 
   /**
    * Fetch request data with two-layer-aware line item quantities
@@ -201,7 +215,7 @@ export default function StockOutRequestDetailPage() {
 
       setRequest(requestData as StockOutRequestWithRelations);
 
-      // Fetch line items with layer-aware approvals
+      // Fetch line items with layer-aware approvals (including warehouse info for L2)
       const { data: lineItemsData, error: lineItemsError } = await supabase
         .from("stock_out_line_items")
         .select(
@@ -220,7 +234,8 @@ export default function StockOutRequestDetailPage() {
             decision,
             layer,
             warehouse_id,
-            parent_approval_id
+            parent_approval_id,
+            warehouses:warehouses!stock_out_approvals_warehouse_id_fkey(id, name)
           )
         `
         )
@@ -239,15 +254,24 @@ export default function StockOutRequestDetailPage() {
         });
       });
 
-      // Fetch completed inventory transactions for L2 approvals
+      // Fetch inventory transactions for L2 approvals (both pending and completed)
+      let txByApprovalId: Record<string, { status: string; quantity: number }> = {};
       let executedQtyByLineItem: Record<string, number> = {};
+
       if (allL2ApprovalIds.length > 0) {
-        const { data: completedTxData } = await supabase
+        const { data: txData } = await supabase
           .from("inventory_transactions")
-          .select("stock_out_approval_id, quantity, item_id")
+          .select("id, stock_out_approval_id, quantity, status, item_id")
           .in("stock_out_approval_id", allL2ApprovalIds)
-          .eq("status", "completed")
           .eq("is_active", true);
+
+        // Build map for execution status lookup
+        (txData || []).forEach((tx: any) => {
+          txByApprovalId[tx.stock_out_approval_id] = {
+            status: tx.status,
+            quantity: tx.quantity,
+          };
+        });
 
         // Map L2 approval ID -> line item ID for aggregation
         const approvalToLineItem: Record<string, string> = {};
@@ -257,11 +281,13 @@ export default function StockOutRequestDetailPage() {
           });
         });
 
-        (completedTxData || []).forEach((tx: any) => {
-          const lineItemId = approvalToLineItem[tx.stock_out_approval_id];
-          if (lineItemId) {
-            executedQtyByLineItem[lineItemId] =
-              (executedQtyByLineItem[lineItemId] || 0) + (tx.quantity || 0);
+        (txData || []).forEach((tx: any) => {
+          if (tx.status === "completed") {
+            const lineItemId = approvalToLineItem[tx.stock_out_approval_id];
+            if (lineItemId) {
+              executedQtyByLineItem[lineItemId] =
+                (executedQtyByLineItem[lineItemId] || 0) + (tx.quantity || 0);
+            }
           }
         });
       }
@@ -301,6 +327,31 @@ export default function StockOutRequestDetailPage() {
           const remainingQuantity =
             item.requested_quantity - totalApprovedQuantity - totalRejectedQuantity;
 
+          // Build L1 approval data with nested L2 assignments
+          const l1ApprovalData: L1ApprovalData[] = l1Approvals.map((l1: any) => {
+            const l2Children = l2Approvals.filter(
+              (l2: any) => l2.parent_approval_id === l1.id
+            );
+            const totalL2ForThisL1 = l2Children.reduce(
+              (sum: number, l2: any) => sum + (l2.approved_quantity || 0),
+              0
+            );
+            return {
+              id: l1.id,
+              approved_quantity: l1.approved_quantity,
+              total_l2_assigned: totalL2ForThisL1,
+              l2_assignments: l2Children.map((l2: any) => {
+                const tx = txByApprovalId[l2.id];
+                return {
+                  id: l2.id,
+                  warehouse_name: l2.warehouses?.name || "Unknown Warehouse",
+                  approved_quantity: l2.approved_quantity,
+                  is_executed: tx?.status === "completed",
+                };
+              }),
+            };
+          });
+
           return {
             id: item.id,
             item_id: item.item_id,
@@ -316,11 +367,45 @@ export default function StockOutRequestDetailPage() {
             executed_quantity: executedQuantity,
             assigned_warehouse_name: null,
             unit_name: item.item?.standard_unit_rel?.name || undefined,
+            l1Approvals: l1ApprovalData,
           };
         }
       );
 
       setLineItems(itemsWithTotals);
+
+      // Build warehouse assignments array for Warehouse Assignments tab
+      // Each L2 approval becomes a WarehouseAssignment entry
+      const warehouseAssignmentsList: WarehouseAssignment[] = [];
+
+      (lineItemsData || []).forEach((item: any) => {
+        const l2Apprs = (item.approvals || []).filter(
+          (a: any) => a.decision === "approved" && a.layer === "admin"
+        );
+
+        const unitName =
+          item.item?.standard_unit_rel?.name || undefined;
+
+        l2Apprs.forEach((l2: any) => {
+          const tx = txByApprovalId[l2.id];
+          warehouseAssignmentsList.push({
+            id: l2.id,
+            line_item_id: item.id,
+            item_name: item.item_name || "Unknown Item",
+            item_sku: item.item_sku || null,
+            item_id: item.item_id,
+            warehouse_name: l2.warehouses?.name || "Unknown Warehouse",
+            warehouse_id: l2.warehouse_id,
+            approved_quantity: l2.approved_quantity,
+            conversion_rate: item.conversion_rate || 1,
+            unit_name: unitName,
+            is_executed: tx?.status === "completed",
+            inventory_transaction_id: undefined,
+          });
+        });
+      });
+
+      setWarehouseAssignments(warehouseAssignmentsList);
 
       // Fetch all approvals for Approvals tab (with layer and warehouse info)
       const { data: approvalsData, error: approvalsError } = await supabase
@@ -337,6 +422,7 @@ export default function StockOutRequestDetailPage() {
           line_item_id,
           layer,
           warehouse_id,
+          parent_approval_id,
           decided_by_user:users!stock_out_approvals_decided_by_fkey(id, full_name),
           line_item:stock_out_line_items(item_name, item_sku),
           warehouse:warehouses!stock_out_approvals_warehouse_id_fkey(id, name)
@@ -422,46 +508,63 @@ export default function StockOutRequestDetailPage() {
   }, [requestId, fetchData]);
 
   /**
-   * Handle successful dialog action (L1 approval or rejection) — refetch data
+   * Handle successful dialog action — refetch data
    */
   const handleDialogSuccess = async () => {
     await fetchData();
   };
 
   /**
-   * Handle opening execution confirmation for pending transactions (legacy flow)
+   * Handle execute from Warehouse Assignments tab — fetch current stock, show confirmation
    */
-  const handleExecuteApproval = (approvalId: string) => {
-    const approval = approvals.find((a) => a.id === approvalId);
-    if (!approval) return;
+  const handleExecuteAssignment = async (assignment: WarehouseAssignment) => {
+    const supabase = createClient();
 
-    const pendingTx = inventoryTransactions.find(
-      (tx: any) =>
-        tx.stock_out_approval_id === approvalId && tx.status === "pending"
-    );
+    try {
+      // Fetch current stock for this item + warehouse
+      const { data: transactions } = await supabase
+        .from("inventory_transactions")
+        .select("movement_type, quantity")
+        .eq("item_id", assignment.item_id)
+        .eq("warehouse_id", assignment.warehouse_id)
+        .eq("status", "completed")
+        .eq("is_active", true);
 
-    if (!pendingTx) {
-      toast.error("No pending transaction found for this approval");
-      return;
+      let currentStock = 0;
+      (transactions || []).forEach((tx: any) => {
+        if (tx.movement_type === "inventory_in") {
+          currentStock += tx.quantity || 0;
+        } else if (tx.movement_type === "inventory_out") {
+          currentStock -= tx.quantity || 0;
+        }
+      });
+
+      const afterStock = currentStock - assignment.approved_quantity;
+
+      setExecutionDialogState({
+        open: true,
+        assignment,
+        currentStock,
+        afterStock,
+      });
+    } catch (error: any) {
+      console.error("Error fetching stock levels:", error);
+      // Still open dialog without stock levels
+      setExecutionDialogState({
+        open: true,
+        assignment,
+      });
     }
-
-    setExecutionDialogState({
-      open: true,
-      approvalId,
-      itemName: approval.line_item?.item_name || "Unknown Item",
-      quantity: approval.approved_quantity,
-      warehouseName: pendingTx.warehouses?.name || "Unknown Warehouse",
-    });
   };
 
   /**
-   * Confirm and execute the stock-out for a single approval (legacy pending tx flow)
+   * Confirm and execute the stock-out for a warehouse assignment
    */
   const confirmExecution = async () => {
     if (!executionDialogState) return;
 
     setIsExecuting(true);
-    const { approvalId } = executionDialogState;
+    const { assignment } = executionDialogState;
     const supabase = createClient();
 
     try {
@@ -473,19 +576,21 @@ export default function StockOutRequestDetailPage() {
           status: "completed",
           transaction_date: now,
         })
-        .eq("stock_out_approval_id", approvalId)
+        .eq("stock_out_approval_id", assignment.id)
         .eq("status", "pending");
 
       if (updateError) throw updateError;
 
-      toast.success("Stock-out executed successfully");
+      toast.success(
+        `Stock-out executed: ${assignment.approved_quantity} unit(s) from ${assignment.warehouse_name}`
+      );
 
       if (typeof BroadcastChannel !== "undefined") {
         try {
           const channel = new BroadcastChannel("qm-stock-out-execution");
           channel.postMessage({
             type: "APPROVAL_EXECUTED",
-            approvalId,
+            approvalId: assignment.id,
             requestId,
             qmhqId: request?.qmhq_id,
           });
@@ -560,6 +665,7 @@ export default function StockOutRequestDetailPage() {
 
   const statusConfig = REQUEST_STATUS_CONFIG[request.status];
   const reasonConfig = STOCK_OUT_REASON_CONFIG[request.reason];
+  const pendingAssignments = warehouseAssignments.filter((a) => !a.is_executed);
 
   return (
     <DetailPageLayout
@@ -725,10 +831,18 @@ export default function StockOutRequestDetailPage() {
         </div>
       }
     >
-      {/* Tabs */}
+      {/* 5-Tab layout */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="details">Details</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="line-items">Line Items</TabsTrigger>
+          <TabsTrigger value="warehouse-assignments">
+            Warehouse Assignments
+            {warehouseAssignments.length > 0 && (
+              <Badge variant="secondary" className="ml-2 text-xs">
+                {warehouseAssignments.length}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="approvals">
             Approvals
             {approvals.length > 0 && (
@@ -748,8 +862,8 @@ export default function StockOutRequestDetailPage() {
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
-        {/* Details Tab — per-row action buttons (no batch selection) */}
-        <TabsContent value="details" className="space-y-4">
+        {/* Line Items Tab */}
+        <TabsContent value="line-items" className="space-y-4">
           <div className="command-panel p-6">
             <h3 className="text-lg font-semibold text-slate-200 mb-4">
               Line Items
@@ -759,6 +873,32 @@ export default function StockOutRequestDetailPage() {
               canApprove={canApprove}
               onApproveItem={(item) => setL1DialogItem(item)}
               onRejectItem={(item) => setRejectionItem(item)}
+              onAssignWarehouse={(item, l1) => setL2DialogState({ lineItem: item, l1Approval: l1 })}
+            />
+          </div>
+        </TabsContent>
+
+        {/* Warehouse Assignments Tab */}
+        <TabsContent value="warehouse-assignments" className="space-y-4">
+          <div className="command-panel p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-200">
+                Warehouse Assignments
+              </h3>
+              {pendingAssignments.length > 0 && (
+                <Badge
+                  variant="outline"
+                  className="border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs"
+                >
+                  {pendingAssignments.length} pending
+                </Badge>
+              )}
+            </div>
+            <WarehouseAssignmentsTab
+              assignments={warehouseAssignments}
+              canExecute={canExecute}
+              onExecute={handleExecuteAssignment}
+              isExecuting={isExecuting}
             />
           </div>
         </TabsContent>
@@ -1054,18 +1194,35 @@ export default function StockOutRequestDetailPage() {
         />
       )}
 
-      {/* Execution Confirmation Dialog (for legacy pending transactions) */}
+      {/* L2 Warehouse Assignment Dialog */}
+      {l2DialogState && (
+        <L2WarehouseDialog
+          open={!!l2DialogState}
+          onOpenChange={(open) => {
+            if (!open) setL2DialogState(null);
+          }}
+          lineItem={l2DialogState.lineItem}
+          l1Approval={l2DialogState.l1Approval}
+          requestReason={request.reason}
+          qmhqId={request.qmhq_id}
+          onSuccess={handleDialogSuccess}
+        />
+      )}
+
+      {/* Execution Confirmation Dialog */}
       {executionDialogState && (
         <ExecutionConfirmationDialog
           open={executionDialogState.open}
           onOpenChange={(open) => {
             if (!open) setExecutionDialogState(null);
           }}
-          itemName={executionDialogState.itemName}
-          quantity={executionDialogState.quantity}
-          warehouseName={executionDialogState.warehouseName}
+          itemName={executionDialogState.assignment.item_name}
+          quantity={executionDialogState.assignment.approved_quantity}
+          warehouseName={executionDialogState.assignment.warehouse_name}
           onConfirm={confirmExecution}
           isExecuting={isExecuting}
+          currentStock={executionDialogState.currentStock}
+          afterStock={executionDialogState.afterStock}
         />
       )}
     </DetailPageLayout>
