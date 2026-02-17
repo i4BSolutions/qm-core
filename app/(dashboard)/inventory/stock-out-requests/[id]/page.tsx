@@ -410,13 +410,14 @@ export default function StockOutRequestDetailPage() {
       setWarehouseAssignments(warehouseAssignmentsList);
 
       // Build pending L1 approvals list for the Warehouse Assignments tab "Pending Assignment" section.
-      // An L1 approval is "pending" if its remaining unassigned qty > 0 AND the line item
-      // has status awaiting_admin (meaning it still needs warehouse assignment).
+      // An L1 approval is "pending" if its remaining unassigned qty > 0.
+      // Include items in both 'pending' (partial L1) and 'awaiting_admin' (full L1) status
+      // so that partial L1 approvals can be assigned to warehouses immediately.
       const pendingL1List: PendingL1Approval[] = [];
 
       (lineItemsData || []).forEach((item: any) => {
-        // Only items in awaiting_admin status need warehouse assignment
-        if (item.status !== "awaiting_admin") return;
+        // Skip items that no longer need warehouse assignment
+        if (!["pending", "awaiting_admin"].includes(item.status)) return;
 
         const approvalList = item.approvals || [];
         const unitName = item.item?.standard_unit_rel?.name || undefined;
