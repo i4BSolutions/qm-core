@@ -1,16 +1,37 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Plus, Search, LayoutGrid, List as ListIcon, AlertCircle } from "lucide-react";
+import {
+  Plus,
+  AlertCircle,
+  LayoutGrid,
+  List as ListIcon,
+  SlidersHorizontal,
+} from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Pagination } from "@/components/ui/pagination";
+import { PageHeader, FilterBar } from "@/components/composite";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { RequestCard } from "@/components/stock-out-requests/request-card";
 import { usePermissions } from "@/lib/hooks/use-permissions";
-import { PageHeader } from "@/components/composite";
+import { usePaginationParams } from "@/lib/hooks";
 import type { StockOutReason } from "@/types/database";
 
 interface StockOutRequest {
@@ -40,14 +61,16 @@ interface StockOutRequest {
   }>;
 }
 
-// Status tabs configuration
-const STATUS_TABS = [
-  { key: "all", label: "All" },
-  { key: "pending", label: "Pending" },
-  { key: "approved", label: "Approved" },
-  { key: "rejected", label: "Rejected" },
-  { key: "cancelled", label: "Cancelled" },
-] as const;
+// Status color mapping for list view badges
+const SOR_STATUS_COLORS: Record<string, string> = {
+  pending: "#f59e0b",
+  partially_approved: "#8b5cf6",
+  approved: "#3b82f6",
+  partially_executed: "#a855f7",
+  executed: "#10b981",
+  rejected: "#ef4444",
+  cancelled: "#94a3b8",
+};
 
 // Status group mapping for card view
 const STATUS_GROUPS = {
@@ -63,14 +86,60 @@ const GROUP_LABELS = {
 } as const;
 
 export default function StockOutRequestsPage() {
+  const router = useRouter();
   const [requests, setRequests] = useState<StockOutRequest[]>([]);
+  const [users, setUsers] = useState<{ id: string; full_name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [requesterFilter, setRequesterFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
   const { can } = usePermissions();
+
+  // URL-driven pagination
+  const {
+    page: currentPage,
+    pageSize,
+    setPage: setCurrentPage,
+    setPageSize,
+  } = usePaginationParams(20);
+
+  // Filter change handlers that reset page to 1
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
+      setCurrentPage(1);
+    },
+    [setCurrentPage]
+  );
+
+  const handleStatusChange = useCallback(
+    (value: string) => {
+      setStatusFilter(value);
+      setCurrentPage(1);
+    },
+    [setCurrentPage]
+  );
+
+  const handleRequesterChange = useCallback(
+    (value: string) => {
+      setRequesterFilter(value);
+      setCurrentPage(1);
+    },
+    [setCurrentPage]
+  );
+
+  // Responsive auto-switch to card view below md breakpoint
+  useEffect(() => {
+    const checkBreakpoint = () => {
+      if (window.innerWidth < 768) setViewMode("card");
+    };
+    checkBreakpoint();
+    window.addEventListener("resize", checkBreakpoint);
+    return () => window.removeEventListener("resize", checkBreakpoint);
+  }, []);
 
   const fetchRequests = useCallback(async () => {
     setIsLoading(true);
@@ -79,23 +148,35 @@ export default function StockOutRequestsPage() {
     try {
       const supabase = createClient();
 
-      const { data, error: fetchError } = await supabase
-        .from("stock_out_requests")
-        .select(`
-          id, request_number, status, reason, notes, qmhq_id, requester_id, created_at,
-          requester:users!stock_out_requests_requester_id_fkey(id, full_name),
-          qmhq:qmhq!stock_out_requests_qmhq_id_fkey(id, request_id, line_name),
-          line_items:stock_out_line_items(id, item_name, item_sku, requested_quantity, status)
-        `)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
+      const [requestsRes, usersRes] = await Promise.all([
+        supabase
+          .from("stock_out_requests")
+          .select(`
+            id, request_number, status, reason, notes, qmhq_id, requester_id, created_at,
+            requester:users!stock_out_requests_requester_id_fkey(id, full_name),
+            qmhq:qmhq!stock_out_requests_qmhq_id_fkey(id, request_id, line_name),
+            line_items:stock_out_line_items(id, item_name, item_sku, requested_quantity, status)
+          `)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("users")
+          .select("id, full_name")
+          .eq("is_active", true)
+          .order("full_name"),
+      ]);
 
-      if (fetchError) {
-        console.error("Error fetching requests:", fetchError);
-        throw new Error(fetchError.message);
+      if (requestsRes.error) {
+        console.error("Error fetching requests:", requestsRes.error);
+        throw new Error(requestsRes.error.message);
+      }
+      if (usersRes.error) {
+        console.error("Error fetching users:", usersRes.error);
+        throw new Error(usersRes.error.message);
       }
 
-      setRequests((data as StockOutRequest[]) || []);
+      setRequests((requestsRes.data as StockOutRequest[]) || []);
+      setUsers(usersRes.data || []);
     } catch (err) {
       console.error("Error:", err);
       const errorMessage =
@@ -118,6 +199,11 @@ export default function StockOutRequestsPage() {
         return false;
       }
 
+      // Requester filter
+      if (requesterFilter !== "all" && request.requester_id !== requesterFilter) {
+        return false;
+      }
+
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -135,9 +221,19 @@ export default function StockOutRequestsPage() {
 
       return true;
     });
-  }, [requests, statusFilter, searchQuery]);
+  }, [requests, statusFilter, requesterFilter, searchQuery]);
 
-  // Group requests by status for card view
+  // Pagination calculations
+  const totalItems = filteredRequests.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+
+  // Paginated items
+  const paginatedRequests = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredRequests.slice(start, start + pageSize);
+  }, [filteredRequests, currentPage, pageSize]);
+
+  // Group paginated requests by status for card view
   const groupedRequests = useMemo(() => {
     const groups: Record<keyof typeof STATUS_GROUPS, StockOutRequest[]> = {
       pending: [],
@@ -145,45 +241,59 @@ export default function StockOutRequestsPage() {
       done: [],
     };
 
-    filteredRequests.forEach((request) => {
-      if (STATUS_GROUPS.pending.includes(request.status as any)) {
+    paginatedRequests.forEach((request) => {
+      if ((STATUS_GROUPS.pending as readonly string[]).includes(request.status)) {
         groups.pending.push(request);
-      } else if (STATUS_GROUPS.in_progress.includes(request.status as any)) {
+      } else if ((STATUS_GROUPS.in_progress as readonly string[]).includes(request.status)) {
         groups.in_progress.push(request);
-      } else if (STATUS_GROUPS.done.includes(request.status as any)) {
+      } else if ((STATUS_GROUPS.done as readonly string[]).includes(request.status)) {
         groups.done.push(request);
       }
     });
 
     return groups;
-  }, [filteredRequests]);
+  }, [paginatedRequests]);
 
-  // Count by status for tabs
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      all: requests.length,
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-      cancelled: 0,
-    };
+  // Count active filters for mobile filter button badge
+  const activeFilterCount = [
+    statusFilter !== "all",
+    requesterFilter !== "all",
+  ].filter(Boolean).length;
 
-    requests.forEach((request) => {
-      if (request.status === "pending") counts.pending++;
-      if (request.status === "approved" || request.status === "partially_approved") {
-        counts.approved++;
-      }
-      if (request.status === "rejected") counts.rejected++;
-      if (request.status === "cancelled") counts.cancelled++;
-    });
+  // Shared status select content
+  const statusSelectContent = (
+    <>
+      <SelectItem value="all">All Statuses</SelectItem>
+      <SelectItem value="pending">Pending</SelectItem>
+      <SelectItem value="approved">Approved</SelectItem>
+      <SelectItem value="rejected">Rejected</SelectItem>
+      <SelectItem value="cancelled">Cancelled</SelectItem>
+    </>
+  );
 
-    return counts;
-  }, [requests]);
+  // Shared requester select content
+  const requesterSelectContent = (
+    <>
+      <SelectItem value="all">All Requesters</SelectItem>
+      {users.map((u) => (
+        <SelectItem key={u.id} value={u.id}>
+          <div className="flex items-center gap-2">
+            <UserAvatar fullName={u.full_name} size={20} />
+            <span>{u.full_name}</span>
+          </div>
+        </SelectItem>
+      ))}
+    </>
+  );
 
   if (isLoading) {
     return (
-      <div className="p-8 space-y-6">
-        <Skeleton className="h-12 w-64" />
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-10 w-36" />
+        </div>
+        <Skeleton className="h-12 w-full" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Skeleton key={i} className="h-48" />
@@ -195,12 +305,18 @@ export default function StockOutRequestsPage() {
 
   if (error) {
     return (
-      <div className="p-8">
+      <div>
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
           <div>
             <h3 className="text-sm font-medium text-red-400">Error Loading Requests</h3>
             <p className="text-sm text-red-300/80 mt-1">{error}</p>
+            <button
+              onClick={fetchRequests}
+              className="mt-2 text-sm text-red-400 underline hover:text-red-300"
+            >
+              Click to retry
+            </button>
           </div>
         </div>
       </div>
@@ -208,8 +324,8 @@ export default function StockOutRequestsPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
-      {/* Header */}
+    <div className="space-y-6">
+      {/* Page Header */}
       <PageHeader
         title="Stock-Out Requests"
         description="Request items to be issued from warehouse"
@@ -225,70 +341,103 @@ export default function StockOutRequestsPage() {
         }
       />
 
-      {/* Status Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setStatusFilter(tab.key)}
-            className={`
-              px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap
-              ${
-                statusFilter === tab.key
-                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                  : "bg-slate-800/50 text-slate-400 border border-slate-700 hover:border-slate-600"
-              }
-            `}
-          >
-            {tab.label}
-            <Badge
-              variant="outline"
-              className={`ml-2 ${
-                statusFilter === tab.key
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                  : "border-slate-600 bg-slate-700/50 text-slate-300"
-              }`}
-            >
-              {statusCounts[tab.key] || 0}
-            </Badge>
-          </button>
-        ))}
-      </div>
+      {/* Filters Bar */}
+      <FilterBar>
+        {/* Search always visible */}
+        <FilterBar.Search
+          value={searchQuery}
+          onChange={handleSearchChange}
+          placeholder="Search by request number or requester..."
+        />
 
-      {/* Search and View Toggle */}
-      <div className="flex items-center gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search by request number or requester..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+        {/* Desktop filters (hidden on mobile) */}
+        <div className="hidden md:flex items-center gap-4">
+          {/* Status filter */}
+          <Select value={statusFilter} onValueChange={handleStatusChange}>
+            <SelectTrigger className="w-[160px] bg-slate-800/50 border-slate-700">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>{statusSelectContent}</SelectContent>
+          </Select>
+
+          {/* Requester filter with avatar */}
+          <Select value={requesterFilter} onValueChange={handleRequesterChange}>
+            <SelectTrigger className="w-[180px] bg-slate-800/50 border-slate-700">
+              <SelectValue placeholder="Requester" />
+            </SelectTrigger>
+            <SelectContent>{requesterSelectContent}</SelectContent>
+          </Select>
         </div>
 
-        <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-1 border border-slate-700">
-          <Button
-            variant="ghost"
-            size="sm"
+        {/* Mobile filters button */}
+        <div className="flex md:hidden">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-slate-700"
+              >
+                <SlidersHorizontal className="h-4 w-4 mr-2" />
+                Filters{activeFilterCount > 0 && ` (${activeFilterCount})`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 space-y-3" align="start">
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Status
+                </p>
+                <Select value={statusFilter} onValueChange={handleStatusChange}>
+                  <SelectTrigger className="w-full bg-slate-800/50 border-slate-700">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>{statusSelectContent}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Requester
+                </p>
+                <Select value={requesterFilter} onValueChange={handleRequesterChange}>
+                  <SelectTrigger className="w-full bg-slate-800/50 border-slate-700">
+                    <SelectValue placeholder="All Requesters" />
+                  </SelectTrigger>
+                  <SelectContent>{requesterSelectContent}</SelectContent>
+                </Select>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Card/List toggle — pushed right */}
+        <div className="ml-auto flex items-center border border-slate-700 rounded-lg overflow-hidden">
+          <button
             onClick={() => setViewMode("card")}
-            className={viewMode === "card" ? "bg-slate-700" : ""}
+            className={
+              viewMode === "card"
+                ? "p-2 bg-amber-500/20 text-amber-400"
+                : "p-2 bg-slate-800/50 text-slate-400 hover:text-slate-200"
+            }
+            aria-label="Card view"
           >
             <LayoutGrid className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
+          </button>
+          <button
             onClick={() => setViewMode("list")}
-            className={viewMode === "list" ? "bg-slate-700" : ""}
+            className={
+              viewMode === "list"
+                ? "p-2 bg-amber-500/20 text-amber-400"
+                : "p-2 bg-slate-800/50 text-slate-400 hover:text-slate-200"
+            }
+            aria-label="List view"
           >
             <ListIcon className="h-4 w-4" />
-          </Button>
+          </button>
         </div>
-      </div>
+      </FilterBar>
 
       {/* Content */}
-      {filteredRequests.length === 0 ? (
+      {paginatedRequests.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-slate-400">No stock-out requests found</p>
         </div>
@@ -296,8 +445,8 @@ export default function StockOutRequestsPage() {
         <div className="space-y-6">
           {(Object.keys(groupedRequests) as Array<keyof typeof STATUS_GROUPS>).map(
             (groupKey) => {
-              const groupRequests = groupedRequests[groupKey];
-              if (groupRequests.length === 0) return null;
+              const groupItems = groupedRequests[groupKey];
+              if (groupItems.length === 0) return null;
 
               return (
                 <div key={groupKey}>
@@ -315,12 +464,12 @@ export default function StockOutRequestsPage() {
                       {GROUP_LABELS[groupKey]}
                     </h2>
                     <Badge variant="outline" className="border-slate-600 bg-slate-700/50">
-                      {groupRequests.length}
+                      {groupItems.length}
                     </Badge>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {groupRequests.map((request) => (
+                    {groupItems.map((request) => (
                       <RequestCard key={request.id} request={request} />
                     ))}
                   </div>
@@ -330,76 +479,110 @@ export default function StockOutRequestsPage() {
           )}
         </div>
       ) : (
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-slate-800/50 border-b border-slate-700">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Request #
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Requester
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Reason
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Items
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Created
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {filteredRequests.map((request) => (
-                <tr
-                  key={request.id}
-                  className="hover:bg-slate-800/30 cursor-pointer transition-colors"
-                  onClick={() =>
-                    (window.location.href = `/inventory/stock-out-requests/${request.id}`)
-                  }
-                >
-                  <td className="px-4 py-3">
-                    <code className="text-sm font-mono text-amber-400">
-                      {request.request_number || "—"}
-                    </code>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-200">
-                    {request.requester?.full_name || "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge
-                      variant="outline"
-                      className="text-xs border-slate-600 bg-slate-700/50"
-                    >
-                      {request.reason}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-400">
-                    {request.line_items?.length || 0} item(s)
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant="outline" className="text-xs">
-                      {request.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-400">
-                    {request.created_at
-                      ? new Date(request.created_at).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })
-                      : "—"}
-                  </td>
+        <div className="command-panel">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-700">
+                  <th className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    SOR ID
+                  </th>
+                  <th className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Item
+                  </th>
+                  <th className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Requester
+                  </th>
+                  <th className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Reason
+                  </th>
+                  <th className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    QMHQ Ref
+                  </th>
+                  <th className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Status
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedRequests.map((request) => (
+                  <tr
+                    key={request.id}
+                    className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer"
+                    onClick={() =>
+                      router.push(`/inventory/stock-out-requests/${request.id}`)
+                    }
+                  >
+                    {/* SOR ID */}
+                    <td className="py-3 px-4">
+                      <code className="text-sm font-mono text-amber-400">
+                        {request.request_number || "—"}
+                      </code>
+                    </td>
+
+                    {/* Item */}
+                    <td className="py-3 px-4 text-sm text-slate-400">
+                      {request.line_items?.length || 0} item(s)
+                    </td>
+
+                    {/* Requester */}
+                    <td className="py-3 px-4 text-sm text-slate-200">
+                      {request.requester?.full_name || "—"}
+                    </td>
+
+                    {/* Reason */}
+                    <td className="py-3 px-4">
+                      <Badge
+                        variant="outline"
+                        className="text-xs border-slate-600 bg-slate-700/50"
+                      >
+                        {request.reason}
+                      </Badge>
+                    </td>
+
+                    {/* QMHQ Ref */}
+                    <td className="py-3 px-4">
+                      {request.qmhq ? (
+                        <code className="text-amber-400 text-sm">
+                          {request.qmhq.request_id}
+                        </code>
+                      ) : (
+                        <span className="text-slate-500">-</span>
+                      )}
+                    </td>
+
+                    {/* Status */}
+                    <td className="py-3 px-4">
+                      <Badge
+                        className="text-xs text-white"
+                        style={{
+                          backgroundColor:
+                            SOR_STATUS_COLORS[request.status] || "#94a3b8",
+                          border: "none",
+                        }}
+                      >
+                        {request.status}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalItems > 0 && (
+        <div className="command-panel mt-6">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
     </div>
