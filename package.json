@@ -28,6 +28,7 @@
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.50.0",
     "@tanstack/react-table": "^8.21.3",
+    "boring-avatars": "^2.0.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
