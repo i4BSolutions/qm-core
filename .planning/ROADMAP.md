@@ -122,11 +122,11 @@ Phases 47-54 delivered per-item standard unit management with admin CRUD, per-tr
   2. All existing `stock_out_approvals` records with `decision = 'approved'` have `layer = 'admin'` set (backfill complete, no NULL layer on approved records)
   3. `boring-avatars` package is installed and importable in the project
   4. `UserAvatar` component exists at `/components/ui/user-avatar.tsx`, accepts a `fullName` string, and renders the same deterministic SVG avatar for the same name on every page
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 55-01: Two-layer approval database migration with backfill and trigger rewrite
-- [ ] 55-02: boring-avatars install and UserAvatar component
+- [ ] 55-01-PLAN.md -- Two-layer approval database migration with enum extension, trigger rewrites, and data backfill
+- [ ] 55-02-PLAN.md -- boring-avatars install and UserAvatar component
 
 ### Phase 56: List View Standardization
 **Goal**: Every major list page has a consistent list view with defined columns, working pagination, and an assigned person filter.
