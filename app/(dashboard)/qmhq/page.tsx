@@ -1,8 +1,20 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Plus, LayoutGrid, List, Package, Wallet, ShoppingCart, Radio, ChevronRight, AlertCircle } from "lucide-react";
+import {
+  Plus,
+  LayoutGrid,
+  List,
+  Package,
+  Wallet,
+  ShoppingCart,
+  Radio,
+  ChevronRight,
+  AlertCircle,
+  SlidersHorizontal,
+} from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +27,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { PageHeader, FilterBar, CardViewGrid } from "@/components/composite";
+import { usePaginationParams } from "@/lib/hooks";
 import type { QMHQ, StatusConfig, Category, User as UserType, QMRL } from "@/types/database";
 
 // Extended QMHQ type with joined relations
@@ -42,19 +67,69 @@ const statusGroups = [
 ] as const;
 
 export default function QMHQPage() {
+  const router = useRouter();
   const [qmhqs, setQmhqs] = useState<QMHQWithRelations[]>([]);
   const [statuses, setStatuses] = useState<StatusConfig[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [users, setUsers] = useState<UserType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [routeFilter, setRouteFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [assignedFilter, setAssignedFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  // URL-driven pagination
+  const {
+    page: currentPage,
+    pageSize,
+    setPage: setCurrentPage,
+    setPageSize,
+  } = usePaginationParams(20);
+
+  // Filter change handlers that reset page to 1
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
+      setCurrentPage(1);
+    },
+    [setCurrentPage]
+  );
+
+  const handleRouteChange = useCallback(
+    (value: string) => {
+      setRouteFilter(value);
+      setCurrentPage(1);
+    },
+    [setCurrentPage]
+  );
+
+  const handleStatusChange = useCallback(
+    (value: string) => {
+      setStatusFilter(value);
+      setCurrentPage(1);
+    },
+    [setCurrentPage]
+  );
+
+  const handleAssignedChange = useCallback(
+    (value: string) => {
+      setAssignedFilter(value);
+      setCurrentPage(1);
+    },
+    [setCurrentPage]
+  );
+
+  // Responsive auto-switch to card view below md breakpoint
+  useEffect(() => {
+    const checkBreakpoint = () => {
+      if (window.innerWidth < 768) setViewMode("card");
+    };
+    checkBreakpoint();
+    window.addEventListener("resize", checkBreakpoint);
+    return () => window.removeEventListener("resize", checkBreakpoint);
+  }, []);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -63,7 +138,7 @@ export default function QMHQPage() {
     try {
       const supabase = createClient();
 
-      const [qmhqRes, statusRes, categoryRes] = await Promise.all([
+      const [qmhqRes, statusRes, categoryRes, userRes] = await Promise.all([
         supabase
           .from("qmhq")
           .select(`
@@ -91,6 +166,11 @@ export default function QMHQPage() {
           .eq("entity_type", "qmhq")
           .eq("is_active", true)
           .order("display_order"),
+        supabase
+          .from("users")
+          .select("id, full_name")
+          .eq("is_active", true)
+          .order("full_name"),
       ]);
 
       // Check for errors
@@ -106,11 +186,16 @@ export default function QMHQPage() {
         console.error('Category query error:', categoryRes.error);
         throw new Error(categoryRes.error.message);
       }
+      if (userRes.error) {
+        console.error('User query error:', userRes.error);
+        throw new Error(userRes.error.message);
+      }
 
       // Set data
       if (qmhqRes.data) setQmhqs(qmhqRes.data as QMHQWithRelations[]);
       if (statusRes.data) setStatuses(statusRes.data as StatusConfig[]);
       if (categoryRes.data) setCategories(categoryRes.data as Category[]);
+      if (userRes.data) setUsers(userRes.data as UserType[]);
 
     } catch (err) {
       console.error('Error fetching QMHQ data:', err);
@@ -125,11 +210,6 @@ export default function QMHQPage() {
     fetchData();
   }, [fetchData]);
 
-  // Reset page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, routeFilter, statusFilter]);
-
   const filteredQmhqs = useMemo(() => {
     return qmhqs.filter((qmhq) => {
       if (searchQuery) {
@@ -142,9 +222,10 @@ export default function QMHQPage() {
       }
       if (routeFilter !== "all" && qmhq.route_type !== routeFilter) return false;
       if (statusFilter !== "all" && qmhq.status_id !== statusFilter) return false;
+      if (assignedFilter !== "all" && qmhq.assigned_to !== assignedFilter) return false;
       return true;
     });
-  }, [qmhqs, searchQuery, routeFilter, statusFilter]);
+  }, [qmhqs, searchQuery, routeFilter, statusFilter, assignedFilter]);
 
   // Pagination calculations
   const totalItems = filteredQmhqs.length;
@@ -176,12 +257,6 @@ export default function QMHQPage() {
     return groups;
   }, [paginatedQmhqs]);
 
-  // Handle page size change
-  const handlePageSizeChange = (size: number) => {
-    setPageSize(size);
-    setCurrentPage(1);
-  };
-
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -196,6 +271,28 @@ export default function QMHQPage() {
     const Icon = config.icon;
     return <Icon className={`h-4 w-4 ${config.color}`} />;
   };
+
+  // Count active filters for mobile filter button badge
+  const activeFilterCount = [
+    routeFilter !== "all",
+    statusFilter !== "all",
+    assignedFilter !== "all",
+  ].filter(Boolean).length;
+
+  // Shared assignee select content
+  const assigneeSelectContent = (
+    <>
+      <SelectItem value="all">All Assignees</SelectItem>
+      {users.map((u) => (
+        <SelectItem key={u.id} value={u.id}>
+          <div className="flex items-center gap-2">
+            <UserAvatar fullName={u.full_name} size={20} />
+            <span>{u.full_name}</span>
+          </div>
+        </SelectItem>
+      ))}
+    </>
+  );
 
   if (isLoading) {
     return (
@@ -252,94 +349,162 @@ export default function QMHQPage() {
           </div>
         }
         actions={
-          <>
-            {/* View Toggle */}
-            <div className="flex items-center border border-slate-700 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setViewMode("card")}
-                className={`p-2 transition-colors ${
-                  viewMode === "card"
-                    ? "bg-amber-500/20 text-amber-400"
-                    : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-2 transition-colors ${
-                  viewMode === "list"
-                    ? "bg-amber-500/20 text-amber-400"
-                    : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <List className="h-4 w-4" />
-              </button>
-            </div>
-            <Link href="/qmhq/new">
-              <Button className="group relative overflow-hidden">
-                <span className="relative z-10 flex items-center gap-2">
-                  <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-                  New QMHQ
-                </span>
-              </Button>
-            </Link>
-          </>
+          <Link href="/qmhq/new">
+            <Button className="group relative overflow-hidden">
+              <span className="relative z-10 flex items-center gap-2">
+                <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+                New QMHQ
+              </span>
+            </Button>
+          </Link>
         }
       />
 
       {/* Filters Bar */}
       <FilterBar>
+        {/* Search always visible */}
         <FilterBar.Search
           value={searchQuery}
-          onChange={setSearchQuery}
+          onChange={handleSearchChange}
           placeholder="Search by name or ID..."
         />
-        <Select value={routeFilter} onValueChange={setRouteFilter}>
-          <SelectTrigger className="w-[140px] bg-slate-800/50 border-slate-700">
-            <SelectValue placeholder="Route" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Routes</SelectItem>
-            <SelectItem value="item">
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-blue-400" />
-                Item
-              </div>
-            </SelectItem>
-            <SelectItem value="expense">
-              <div className="flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-emerald-400" />
-                Expense
-              </div>
-            </SelectItem>
-            <SelectItem value="po">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="h-4 w-4 text-purple-400" />
-                PO
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[160px] bg-slate-800/50 border-slate-700">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            {statuses.map((status) => (
-              <SelectItem key={status.id} value={status.id}>
+
+        {/* Desktop filters */}
+        <div className="hidden md:flex items-center gap-4">
+          <Select value={routeFilter} onValueChange={handleRouteChange}>
+            <SelectTrigger className="w-[140px] bg-slate-800/50 border-slate-700">
+              <SelectValue placeholder="Route" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Routes</SelectItem>
+              <SelectItem value="item">
                 <div className="flex items-center gap-2">
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: status.color || "#94a3b8" }}
-                  />
-                  {status.name}
+                  <Package className="h-4 w-4 text-blue-400" />
+                  Item
                 </div>
               </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+              <SelectItem value="expense">
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-emerald-400" />
+                  Expense
+                </div>
+              </SelectItem>
+              <SelectItem value="po">
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4 text-purple-400" />
+                  PO
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={statusFilter} onValueChange={handleStatusChange}>
+            <SelectTrigger className="w-[160px] bg-slate-800/50 border-slate-700">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {statuses.map((status) => (
+                <SelectItem key={status.id} value={status.id}>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: status.color || "#94a3b8" }}
+                    />
+                    {status.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Assigned person filter */}
+          <Select value={assignedFilter} onValueChange={handleAssignedChange}>
+            <SelectTrigger className="w-[180px] bg-slate-800/50 border-slate-700">
+              <SelectValue placeholder="Assignee" />
+            </SelectTrigger>
+            <SelectContent>{assigneeSelectContent}</SelectContent>
+          </Select>
+        </div>
+
+        {/* Mobile filters button */}
+        <div className="flex md:hidden">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="border-slate-700">
+                <SlidersHorizontal className="h-4 w-4 mr-2" />
+                Filters{activeFilterCount > 0 && ` (${activeFilterCount})`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 space-y-3" align="start">
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Route</p>
+                <Select value={routeFilter} onValueChange={handleRouteChange}>
+                  <SelectTrigger className="w-full bg-slate-800/50 border-slate-700">
+                    <SelectValue placeholder="All Routes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Routes</SelectItem>
+                    <SelectItem value="item">Item</SelectItem>
+                    <SelectItem value="expense">Expense</SelectItem>
+                    <SelectItem value="po">PO</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Status</p>
+                <Select value={statusFilter} onValueChange={handleStatusChange}>
+                  <SelectTrigger className="w-full bg-slate-800/50 border-slate-700">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {statuses.map((status) => (
+                      <SelectItem key={status.id} value={status.id}>
+                        {status.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Assignee</p>
+                <Select value={assignedFilter} onValueChange={handleAssignedChange}>
+                  <SelectTrigger className="w-full bg-slate-800/50 border-slate-700">
+                    <SelectValue placeholder="All Assignees" />
+                  </SelectTrigger>
+                  <SelectContent>{assigneeSelectContent}</SelectContent>
+                </Select>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Card/List toggle — pushed right */}
+        <div className="ml-auto flex items-center border border-slate-700 rounded-lg overflow-hidden">
+          <button
+            onClick={() => setViewMode("card")}
+            className={
+              viewMode === "card"
+                ? "p-2 bg-amber-500/20 text-amber-400"
+                : "p-2 bg-slate-800/50 text-slate-400 hover:text-slate-200"
+            }
+            aria-label="Card view"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setViewMode("list")}
+            className={
+              viewMode === "list"
+                ? "p-2 bg-amber-500/20 text-amber-400"
+                : "p-2 bg-slate-800/50 text-slate-400 hover:text-slate-200"
+            }
+            aria-label="List view"
+          >
+            <List className="h-4 w-4" />
+          </button>
+        </div>
       </FilterBar>
 
       {/* Card View - Kanban Style */}
@@ -458,97 +623,113 @@ export default function QMHQPage() {
 
       {/* List View */}
       {viewMode === "list" && (
-        <div className="command-panel">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700">
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">ID</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Name</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Route</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Parent QMRL</th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Amount (EUSD)</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Status</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Assigned</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedQmhqs.map((qmhq) => (
-                  <tr
-                    key={qmhq.id}
-                    className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer"
-                    onClick={() => window.location.href = `/qmhq/${qmhq.id}`}
-                  >
-                    <td className="py-3 px-4">
-                      <code className="text-amber-400 text-sm">{qmhq.request_id}</code>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-slate-200 font-medium">{qmhq.line_name}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border ${routeConfig[qmhq.route_type]?.bgColor}`}>
-                        <RouteIcon routeType={qmhq.route_type} />
-                        <span className={`text-xs font-medium ${routeConfig[qmhq.route_type]?.color}`}>
-                          {routeConfig[qmhq.route_type]?.label}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      {qmhq.qmrl ? (
-                        <code className="text-slate-400 text-sm">{qmhq.qmrl.request_id}</code>
-                      ) : (
-                        <span className="text-slate-500">—</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      {(qmhq.route_type === "expense" || qmhq.route_type === "po") && qmhq.amount ? (
-                        <CurrencyDisplay
-                          amount={qmhq.amount}
-                          currency={qmhq.currency || "MMK"}
-                          amountEusd={qmhq.amount_eusd}
-                          size="sm"
-                          align="right"
-                          context="card"
-                          fluid
-                        />
-                      ) : (
-                        <span className="text-slate-500">—</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      {qmhq.status ? (
-                        <Badge
-                          variant="outline"
-                          className="text-xs"
-                          style={{
-                            borderColor: qmhq.status.color || undefined,
-                            color: qmhq.status.color || undefined,
-                          }}
-                        >
-                          {qmhq.status.name}
-                        </Badge>
-                      ) : (
-                        <span className="text-slate-500">—</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-slate-400 text-sm">
-                        {qmhq.assigned_user?.full_name || "—"}
-                      </span>
-                    </td>
+        <TooltipProvider>
+          <div className="command-panel">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-700">
+                    <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">ID</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Name</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Route</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Parent QMRL</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Amount (EUSD)</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Status</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Assigned</th>
                   </tr>
-                ))}
-                {paginatedQmhqs.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
-                      No QMHQ lines found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {paginatedQmhqs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-400">
+                        No QMHQ lines found
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedQmhqs.map((qmhq) => (
+                      <tr
+                        key={qmhq.id}
+                        className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer"
+                        onClick={() => router.push(`/qmhq/${qmhq.id}`)}
+                      >
+                        <td className="py-3 px-4">
+                          <code className="text-amber-400 text-sm">{qmhq.request_id}</code>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-slate-200 font-medium">{qmhq.line_name}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border ${routeConfig[qmhq.route_type]?.bgColor}`}>
+                            <RouteIcon routeType={qmhq.route_type} />
+                            <span className={`text-xs font-medium ${routeConfig[qmhq.route_type]?.color}`}>
+                              {routeConfig[qmhq.route_type]?.label}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          {qmhq.qmrl ? (
+                            <code className="text-slate-400 text-sm">{qmhq.qmrl.request_id}</code>
+                          ) : (
+                            <span className="text-slate-500">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {(qmhq.route_type === "expense" || qmhq.route_type === "po") && qmhq.amount ? (
+                            <CurrencyDisplay
+                              amount={qmhq.amount}
+                              currency={qmhq.currency || "MMK"}
+                              amountEusd={qmhq.amount_eusd}
+                              size="sm"
+                              align="right"
+                              context="card"
+                              fluid
+                            />
+                          ) : (
+                            <span className="text-slate-500">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {qmhq.status ? (
+                            <Badge
+                              className="text-xs text-white"
+                              style={{
+                                backgroundColor: qmhq.status.color || "#94a3b8",
+                                border: "none",
+                              }}
+                            >
+                              {qmhq.status.name}
+                            </Badge>
+                          ) : (
+                            <span className="text-slate-500">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {qmhq.assigned_user ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex cursor-default">
+                                  <UserAvatar
+                                    fullName={qmhq.assigned_user.full_name}
+                                    size={28}
+                                  />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {qmhq.assigned_user.full_name}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="text-slate-500 text-xs">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </TooltipProvider>
       )}
 
       {/* Pagination */}
@@ -560,7 +741,7 @@ export default function QMHQPage() {
             totalItems={totalItems}
             pageSize={pageSize}
             onPageChange={setCurrentPage}
-            onPageSizeChange={handlePageSizeChange}
+            onPageSizeChange={setPageSize}
           />
         </div>
       )}
