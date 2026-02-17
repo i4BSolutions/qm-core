@@ -621,11 +621,12 @@ export default function QMRLPage() {
                         <td className="py-3 px-4">
                           {qmrl.status ? (
                             <Badge
-                              className="text-xs text-white"
+                              variant="outline"
+                              className="text-xs font-mono uppercase tracking-wider"
                               style={{
-                                backgroundColor:
-                                  qmrl.status.color || "#94a3b8",
-                                border: "none",
+                                borderColor: qmrl.status.color || undefined,
+                                color: qmrl.status.color || undefined,
+                                backgroundColor: `${qmrl.status.color}15` || "transparent",
                               }}
                             >
                               {qmrl.status.name}

@@ -12,8 +12,6 @@ import {
   Box,
   ImageIcon,
   AlertCircle,
-  LayoutGrid,
-  List,
   SlidersHorizontal,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -62,7 +60,7 @@ export default function ItemsPage() {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"card" | "list">("card");
+  const viewMode = "list" as const;
   const { toast } = useToast();
 
   // URL-driven pagination
@@ -90,15 +88,6 @@ export default function ItemsPage() {
     [setCurrentPage]
   );
 
-  // Responsive auto-switch to card view below md breakpoint
-  useEffect(() => {
-    const checkBreakpoint = () => {
-      if (window.innerWidth < 768) setViewMode("card");
-    };
-    checkBreakpoint();
-    window.addEventListener("resize", checkBreakpoint);
-    return () => window.removeEventListener("resize", checkBreakpoint);
-  }, []);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -343,149 +332,7 @@ export default function ItemsPage() {
           </Popover>
         </div>
 
-        {/* Card/List toggle — pushed right */}
-        <div className="ml-auto flex items-center border border-slate-700 rounded-lg overflow-hidden">
-          <button
-            onClick={() => setViewMode("card")}
-            className={
-              viewMode === "card"
-                ? "p-2 bg-amber-500/20 text-amber-400"
-                : "p-2 bg-slate-800/50 text-slate-400 hover:text-slate-200"
-            }
-            aria-label="Card view"
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={
-              viewMode === "list"
-                ? "p-2 bg-amber-500/20 text-amber-400"
-                : "p-2 bg-slate-800/50 text-slate-400 hover:text-slate-200"
-            }
-            aria-label="List view"
-          >
-            <List className="h-4 w-4" />
-          </button>
-        </div>
       </FilterBar>
-
-      {/* Card View */}
-      {viewMode === "card" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {paginatedItems.length === 0 ? (
-            <div className="col-span-full py-16 text-center text-slate-400">
-              No items found
-            </div>
-          ) : (
-            paginatedItems.map((item, index) => (
-              <div
-                key={item.id}
-                className="command-panel corner-accents animate-slide-up cursor-pointer hover:border-slate-600 transition-colors relative"
-                style={{ animationDelay: `${index * 30}ms` }}
-                onClick={() => router.push(`/item/${item.id}`)}
-              >
-                {/* Scan line effect */}
-                <div className="scan-overlay" />
-
-                {/* Photo / placeholder */}
-                <div className="relative w-full h-36 rounded-t-lg overflow-hidden bg-slate-800/50 border-b border-slate-700 flex items-center justify-center">
-                  {item.photo_url ? (
-                    <Image
-                      src={item.photo_url}
-                      alt={item.name}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    />
-                  ) : (
-                    <ImageIcon className="h-10 w-10 text-slate-600" />
-                  )}
-                </div>
-
-                <div className="p-4">
-                  {/* SKU badge */}
-                  {item.sku && (
-                    <div className="mb-2">
-                      <code className="rounded bg-slate-800 px-2 py-0.5 text-xs font-mono font-semibold text-amber-400">
-                        {item.sku}
-                      </code>
-                    </div>
-                  )}
-
-                  {/* Name */}
-                  <h3 className="font-semibold text-slate-200 mb-2 line-clamp-2 leading-snug">
-                    {item.name}
-                  </h3>
-
-                  {/* Category badge */}
-                  {item.category_rel && (
-                    <div className="mb-2">
-                      <Badge
-                        variant="outline"
-                        className="text-xs font-medium"
-                        style={{
-                          borderColor: item.category_rel.color || "rgb(100, 116, 139)",
-                          color: item.category_rel.color || "rgb(148, 163, 184)",
-                          backgroundColor: `${item.category_rel.color}10` || "transparent",
-                        }}
-                      >
-                        <Tag className="mr-1 h-3 w-3" />
-                        {item.category_rel.name}
-                      </Badge>
-                    </div>
-                  )}
-
-                  <div className="divider-accent" />
-
-                  <div className="flex items-center justify-between text-xs text-slate-400 mt-2">
-                    <div className="flex items-center gap-1">
-                      <Package className="h-3 w-3" />
-                      <span>{item.standard_unit_rel?.name || "—"}</span>
-                    </div>
-                    {item.price_reference && (
-                      <span className="truncate max-w-[120px]" title={item.price_reference}>
-                        {item.price_reference}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Actions — stop propagation so card click doesn't trigger */}
-                <div
-                  className="absolute top-3 right-3"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        className="h-7 w-7 p-0 bg-slate-800/80 hover:bg-slate-700"
-                      >
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(item)}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(item.id)}
-                        className="text-red-400 focus:text-red-400"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
 
       {/* List View */}
       {viewMode === "list" && (

@@ -691,10 +691,12 @@ export default function QMHQPage() {
                         <td className="py-3 px-4">
                           {qmhq.status ? (
                             <Badge
-                              className="text-xs text-white"
+                              variant="outline"
+                              className="text-xs font-mono uppercase tracking-wider"
                               style={{
-                                backgroundColor: qmhq.status.color || "#94a3b8",
-                                border: "none",
+                                borderColor: qmhq.status.color || undefined,
+                                color: qmhq.status.color || undefined,
+                                backgroundColor: `${qmhq.status.color}15` || "transparent",
                               }}
                             >
                               {qmhq.status.name}
