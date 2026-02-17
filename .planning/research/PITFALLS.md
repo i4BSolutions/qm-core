@@ -1,752 +1,399 @@
-# Domain Pitfalls
+# Pitfalls Research
 
-**Domain:** Purchase Order Lifecycle Management (Adding to Existing System)
-**Researched:** 2026-02-12
+**Domain:** Adding List View Standardization, Two-Layer Approval, User Avatars, and Pagination Consistency to Existing Internal Tool (QM System)
+**Researched:** 2026-02-17
+**Confidence:** HIGH
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites or major issues.
+### Pitfall 1: State Machine Migration — Adding a Second Approval Layer Invalidates Existing `approved` Status Records
 
-### Pitfall 1: PO Status Calculation Race Conditions Under Concurrent Load
-**What goes wrong:** Multiple concurrent invoice creations or stock-in transactions for the same PO result in incorrect status calculations, causing POs to show wrong state (e.g., "awaiting_delivery" when actually "partially_received"). Real-world case: PrestaShop documented doubled invoices and quadrupled payments from concurrent order status updates without locking.
+**What goes wrong:**
+Adding a warehouse-approval layer to the stock-out workflow means existing `stock_out_approvals` records (currently covering "approve qty") must now be interpreted as "qty approved only — warehouse still pending." Records that are already `decision = 'approved'` in the current schema have no warehouse assignment. The second-layer check sees no warehouse on old approvals and either blocks execution or — worse — silently skips the second approval gate because a guard written as `WHERE warehouse_id IS NULL` treats old records as exempt.
 
-**Why it happens:** PostgreSQL default READ COMMITTED isolation allows phantom reads during status calculation. Two transactions simultaneously:
-1. Read current `total_invoiced` = 100
-2. Both calculate `total_ordered` = 200, conclude status = "partially_invoiced"
-3. Both write status = "partially_invoiced" even though after both commits, actual invoiced = 200 (should be "awaiting_delivery")
+**Why it happens:**
+Developers add the new column (`approved_warehouse_id UUID`) with a `DEFAULT NULL` and then add the second-layer gate as `IF NEW.approved_warehouse_id IS NOT NULL THEN ... END IF`. Old approvals have `NULL`, so they slip through the gate, violating the new business rule. The data migration step to mark old approvals as "warehouse already confirmed" (or to re-route them into a "pending warehouse approval" queue) is skipped because "old data is old data."
 
-**Consequences:**
-- PO shows incorrect lifecycle state in UI
-- Business decisions made on wrong data (e.g., don't order more when PO shows "partially_invoiced" but is actually fully invoiced)
-- Audit trail becomes unreliable
-- Customer trust eroded when PO state doesn't match reality
+**How to avoid:**
+Write the migration in three explicit steps — not two:
 
-**Prevention:**
+1. Add the structural change (new column/table for warehouse approval).
+2. Run a data migration that classifies every existing `approved` record:
+   - For approvals whose parent SOR `status IN ('executed', 'partially_executed')`: mark warehouse approval as already completed (backfill with a sentinel or a dedicated "legacy" warehouse record).
+   - For approvals whose parent SOR `status IN ('approved', 'partially_approved')`: insert a pending warehouse-approval record, reset line item status to `qty_approved_pending_warehouse`.
+3. Deploy the application code that enforces the new two-layer gate.
+
+Never do step 3 without step 2 in the same migration transaction.
+
 ```sql
--- OPTION A: Advisory locks (already used in system for stock validation)
-CREATE OR REPLACE FUNCTION calculate_po_status(po_id UUID)
-RETURNS po_status AS $$
+-- Example backfill for completed approvals:
+INSERT INTO stock_out_warehouse_approvals (
+  line_item_id, approved_warehouse_id, approved_by, approved_at, is_legacy_backfill
+)
+SELECT
+  li.id,
+  it.warehouse_id,   -- use the warehouse from the actual inventory_transaction
+  it.created_by,
+  it.created_at,
+  true
+FROM stock_out_line_items li
+JOIN stock_out_approvals soa ON soa.line_item_id = li.id AND soa.decision = 'approved'
+JOIN inventory_transactions it ON it.stock_out_approval_id = soa.id
+WHERE li.status IN ('executed', 'partially_executed');
+```
+
+**Warning signs:**
+- Any SOR in `approved` or `partially_approved` status with no corresponding warehouse-approval record after migration — use this as the verification query:
+  ```sql
+  SELECT COUNT(*) FROM stock_out_approvals soa
+  LEFT JOIN stock_out_warehouse_approvals swa ON swa.sor_approval_id = soa.id
+  WHERE soa.decision = 'approved'
+    AND swa.id IS NULL;
+  -- Should be 0 after migration
+  ```
+- Any inventory_transaction with `stock_out_approval_id NOT NULL` that was created before migration date and has no warehouse approval record — this is a phantom execution from the old flow.
+
+**Phase to address:**
+The database migration phase that introduces the two-layer schema (adding the warehouse approval table or column). The data backfill must be in the same migration file, not a follow-up.
+
+---
+
+### Pitfall 2: Existing `validate_sor_line_item_status_transition()` Trigger Blocks the New Intermediate Status
+
+**What goes wrong:**
+Migration 053 (`trg_validate_sor_li_status_transition`) hard-codes allowed transitions. Adding a new intermediate status (e.g., `qty_approved` between `pending` and `approved`) without updating this trigger causes all new-flow transitions to raise an exception and the feature ships broken on first use.
+
+**Why it happens:**
+The transition allowlist is a static array inside the trigger function. Developers add the new enum value to `sor_line_item_status` but forget to add the corresponding transition rows to the allowlist. The ENUM update succeeds silently (Postgres allows adding enum values), the application code sends the new status, and the trigger raises `Cannot change line item status from pending to qty_approved`.
+
+**How to avoid:**
+- Add the new enum value AND update the trigger function in the same migration.
+- Write a dedicated transition test function that exercises every transition path after migration:
+
+```sql
+-- Run immediately after migration to verify:
+DO $$
+DECLARE
+  test_li_id UUID;
+BEGIN
+  -- Insert test line item in 'pending' state
+  -- Attempt transition to 'qty_approved' — should succeed
+  -- Attempt 'qty_approved' -> 'approved' — should succeed
+  -- Attempt 'pending' -> 'approved' (skipping qty step) — should raise exception
+  RAISE NOTICE 'Transition validation OK';
+END;
+$$;
+```
+
+- Keep the transition allowlist as a table, not an inline array, so it can be queried and audited without reading function source code.
+
+**Warning signs:**
+- Error `Cannot change line item status from X to Y` appearing in Supabase logs immediately after deploying a new status.
+- The status enum in `pg_enum` has the new value but `update_line_item_status_on_approval()` still only references old statuses.
+
+**Phase to address:**
+Same phase as the two-layer approval schema migration. The transition trigger must be updated atomically with the enum addition.
+
+---
+
+### Pitfall 3: The Row-Level Locking Pattern (Migration 059) Deadlocks When Two Approvals Compete for the Same Request Row
+
+**What goes wrong:**
+Migration 059 adds `SELECT ... FOR UPDATE` on `stock_out_requests` inside `compute_sor_request_status()`. With a single approval layer this was safe: one trigger fires at a time per line item. With two approval layers, two concurrent database operations can lock the same parent request row from different parent triggers, causing a deadlock:
+
+- Session A: Approving qty on line item 1 → locks `stock_out_requests.id`
+- Session B: Approving warehouse on line item 2 (same request) → tries to lock same `stock_out_requests.id`
+
+PostgreSQL detects the cycle and aborts one session with `ERROR: deadlock detected`.
+
+**Why it happens:**
+The advisory lock (migration 058) and the `FOR UPDATE` row lock (migration 059) are distinct mechanisms. Adding a second trigger chain (warehouse approval → line item status → request status) introduces a new path to the same `FOR UPDATE` lock on `stock_out_requests`. Two threads competing on different line items of the same request both converge on the parent row lock.
+
+**How to avoid:**
+Use the advisory lock pattern exclusively (migration 058 approach) for the warehouse approval layer — do NOT add another `FOR UPDATE` in the new trigger. Advisory locks are transaction-scoped, use the same `hashtext(request_id::text)` key, and serialize correctly without deadlock because PostgreSQL advisory locks are cooperative:
+
+```sql
+-- In the new warehouse approval status aggregation trigger:
+CREATE OR REPLACE FUNCTION compute_sor_status_from_warehouse_approval()
+RETURNS TRIGGER AS $$
 DECLARE
   lock_key BIGINT;
-  calculated_status po_status;
+  parent_request_id UUID;
 BEGIN
-  -- Serialize status calculation per PO
-  lock_key := hashtext(po_id::text);
-  PERFORM pg_advisory_xact_lock(lock_key);
+  -- Reuse the same advisory lock key as the existing trigger (migration 059)
+  SELECT li.request_id INTO parent_request_id
+  FROM stock_out_line_items li WHERE li.id = NEW.line_item_id;
 
-  -- Now safe to read and calculate
-  -- [status calculation logic]
-  RETURN calculated_status;
-END;
-$$ LANGUAGE plpgsql;
+  lock_key := hashtext(parent_request_id::text);
+  PERFORM pg_advisory_xact_lock(lock_key);  -- Blocks, does not deadlock
 
--- OPTION B: SERIALIZABLE isolation for status calculation transaction
-BEGIN ISOLATION LEVEL SERIALIZABLE;
--- status calculation and update
-COMMIT; -- May throw serialization_failure, app must retry
-```
-
-Prefer OPTION A (advisory locks) for consistency with existing pattern in migration 058.
-
-**Detection:**
-- Monitor for PO status audit logs showing rapid back-and-forth status changes (thrashing)
-- Test: Run concurrent invoice creation script (5+ workers, same PO) and verify status stays consistent
-- pg_stat_activity shows multiple sessions with `state = 'active'` and matching `query` on same PO
-
-**Phase assignment:** Phase addressing PO status calculation overhaul must implement advisory locks BEFORE any status calculation logic.
-
----
-
-### Pitfall 2: Void Cascade Trigger Ordering Creates Inconsistent State
-**What goes wrong:** Invoice void triggers fire in wrong order, causing PO status to update before guard checks run, resulting in voided invoices with orphaned stock-in records or incorrect PO status.
-
-**Why it happens:** PostgreSQL fires triggers alphabetically within same timing (BEFORE/AFTER). System already uses trigger name prefixes for ordering:
-- `aa_block_invoice_void_stockin` (migration 040) - BEFORE UPDATE, blocks void if stock-in exists
-- `invoice_void_recalculate` - BEFORE UPDATE, updates PO line item quantities
-- `audit_invoices` - AFTER UPDATE, logs void action
-- `zz_audit_invoice_void_cascade` (migration 041) - AFTER UPDATE, logs cascade effects
-
-If new PO cancellation adds triggers without prefix discipline, cascade becomes unpredictable.
-
-**Consequences:**
-- Data corruption: PO shows "closed" but has voided invoice still counted
-- Guard bypassed: Invoice voided despite having stock-in (if guard trigger fires after quantity update)
-- Audit gaps: CASCADE EFFECTS logged before they happen, timestamps wrong
-
-**Prevention:**
-```sql
--- Maintain trigger naming convention:
--- BEFORE: aa_ (guards), bb_ (validation), [default], yy_ (last BEFORE)
--- AFTER: [default], yy_ (late), zz_ (absolute last)
-
--- Example for PO cancellation guard:
-CREATE TRIGGER aa_block_po_cancel_if_invoiced
-  BEFORE UPDATE ON purchase_orders
-  FOR EACH ROW
-  EXECUTE FUNCTION block_po_cancel_with_invoices();
-
--- Example for PO cancellation cascade audit:
-CREATE TRIGGER zz_audit_po_cancel_cascade
-  AFTER UPDATE ON purchase_orders
-  FOR EACH ROW
-  EXECUTE FUNCTION audit_po_cancel_cascade();
-```
-
-Document trigger dependency graph in migration header:
-```sql
--- ============================================
--- Trigger ordering:
--- - 'aa_' prefix ensures this trigger fires FIRST (alphabetically)
--- - Must fire before calculate_po_status which may lock record
--- - Sequence: aa_guard -> calculate_status -> audit -> zz_cascade_audit
--- ============================================
-```
-
-**Detection:**
-- Review migration diffs manually (AI-generated migrations can miss trigger ordering)
-- Test void operation, check audit_logs timestamps: guard log MUST precede cascade logs
-- Query trigger order: `SELECT tgname FROM pg_trigger WHERE tgrelid = 'invoices'::regclass ORDER BY tgname;`
-
-**Phase assignment:** ANY phase adding PO lifecycle triggers must document ordering requirements and follow prefix convention.
-
----
-
-### Pitfall 3: Soft Delete + Foreign Key Cascade = Silent Data Loss
-**What goes wrong:** PO cancellation implemented as soft delete (`is_active = false`) but foreign key constraints have `ON DELETE CASCADE`, causing soft-deleted PO to leave orphaned child records when constraint misfire occurs during hard delete operations.
-
-**Why it happens:** System uses `is_active` soft delete pattern but database foreign keys expect hard deletes. When combining:
-```sql
--- Table with soft delete
-ALTER TABLE purchase_orders ADD COLUMN is_active BOOLEAN DEFAULT true;
-
--- Child table with CASCADE (expects hard delete)
-ALTER TABLE po_line_items
-  ADD CONSTRAINT fk_po
-  FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE;
-```
-
-If PO accidentally hard deleted (migration cleanup, admin action), CASCADE fires and permanently deletes line items even though soft delete pattern intended to preserve them.
-
-**Consequences:**
-- Audit trail destroyed: line items vanished, no history
-- Financial reporting broken: totals don't reconcile, missing committed amounts
-- Legal risk: procurement records required for compliance, now gone
-- Cannot un-cancel: soft delete supposed to be reversible, but child data lost
-
-**Prevention:**
-```sql
--- OPTION A: Use RESTRICT for soft-delete tables (recommended for QM System)
-ALTER TABLE po_line_items
-  ADD CONSTRAINT fk_po
-  FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE RESTRICT;
--- Hard delete blocked, forces application-level cleanup
-
--- OPTION B: Soft delete child records via trigger
-CREATE TRIGGER cascade_soft_delete_po_lines
-  BEFORE UPDATE ON purchase_orders
-  FOR EACH ROW
-  WHEN (OLD.is_active = true AND NEW.is_active = false)
-  EXECUTE FUNCTION soft_delete_po_line_items();
--- Updates line items is_active = false when PO cancelled
-
--- OPTION C: Application-enforced RLS filters
-CREATE POLICY rls_po_line_items ON po_line_items
-  USING (EXISTS (
-    SELECT 1 FROM purchase_orders
-    WHERE id = po_id AND is_active = true
-  ));
--- UI/queries never see line items for inactive POs
-```
-
-System uses RESTRICT pattern (e.g., `qmhq_id UUID NOT NULL REFERENCES qmhq(id) ON DELETE RESTRICT` in purchase_orders). Continue this pattern for new tables.
-
-**Detection:**
-- Code review: Search migrations for `ON DELETE CASCADE` on tables with `is_active`
-- Test: Soft-delete PO, verify line items still in database with `is_active = true`
-- Test: Attempt hard delete of PO, verify `RESTRICT` blocks it
-
-**Phase assignment:** Phase adding PO cancellation MUST verify foreign key constraints use RESTRICT, NOT CASCADE.
-
----
-
-### Pitfall 4: State Machine Transitions Not Validated at Database Level
-**What goes wrong:** PO transitions from `not_started` directly to `closed` bypassing intermediate states, or transitions backwards (closed → partially_invoiced), violating business logic. Application code enforces transitions but database doesn't, allowing:
-- Direct SQL updates bypass validation
-- Concurrent updates race and overwrite valid state with invalid state
-- Migration scripts accidentally set invalid transitions
-
-**Why it happens:** Status stored as enum but no CHECK constraint or trigger validates transition legality. Valid transitions:
-```
-not_started → partially_invoiced → awaiting_delivery → partially_received → closed
-                                  → cancelled (from any state except closed)
-```
-
-But database allows:
-```sql
-UPDATE purchase_orders SET status = 'closed' WHERE status = 'not_started'; -- Should be blocked
-```
-
-**Consequences:**
-- Business logic violated: PO marked closed without any invoices/receipts
-- Reporting broken: KPIs show impossible states, analytics teams lose trust
-- Audit compliance failed: cannot prove status changes followed approval workflow
-- Support nightmare: "How did this PO get to closed state?" → "No idea, database allowed it"
-
-**Prevention:**
-```sql
--- OPTION A: Transition validation trigger (recommended for complex state machines)
-CREATE OR REPLACE FUNCTION validate_po_status_transition()
-RETURNS TRIGGER AS $$
-DECLARE
-  valid_transitions TEXT[][];
-BEGIN
-  IF OLD.status IS DISTINCT FROM NEW.status THEN
-    -- Define valid transitions as array of [from, to] pairs
-    valid_transitions := ARRAY[
-      ARRAY['not_started', 'partially_invoiced'],
-      ARRAY['not_started', 'cancelled'],
-      ARRAY['partially_invoiced', 'awaiting_delivery'],
-      ARRAY['partially_invoiced', 'cancelled'],
-      ARRAY['awaiting_delivery', 'partially_received'],
-      ARRAY['awaiting_delivery', 'cancelled'],
-      ARRAY['partially_received', 'closed'],
-      ARRAY['partially_received', 'cancelled']
-      -- closed is terminal, no transitions out
-    ];
-
-    -- Check if transition is valid
-    IF NOT ARRAY[OLD.status::TEXT, NEW.status::TEXT] = ANY(valid_transitions) THEN
-      RAISE EXCEPTION 'Invalid PO status transition from % to %',
-        OLD.status, NEW.status;
-    END IF;
-  END IF;
-
+  -- Now compute new status safely
+  -- ...
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
-CREATE TRIGGER validate_po_transition
-  BEFORE UPDATE ON purchase_orders
-  FOR EACH ROW
-  EXECUTE FUNCTION validate_po_status_transition();
-
--- OPTION B: Use a transitions table (for user-configurable workflows)
-CREATE TABLE po_status_transitions (
-  from_status po_status,
-  to_status po_status,
-  is_allowed BOOLEAN DEFAULT true,
-  PRIMARY KEY (from_status, to_status)
-);
--- Then trigger queries this table
 ```
 
-OPTION A recommended for fixed PO lifecycle. Reserve OPTION B for future if workflows become customizable.
+Remove the `FOR UPDATE` from `compute_sor_request_status()` in migration 059 if the advisory lock key is shared — the two mechanisms conflict and double-locking the same row is deadlock-prone.
 
-**Detection:**
-- Test suite: Try all invalid transitions, expect exception
-- Audit log review: Check for status_change actions that skip states
-- pg_stat_statements: Monitor for UPDATE purchase_orders WHERE status = 'X' patterns
+**Warning signs:**
+- `ERROR: deadlock detected` in Supabase logs involving `stock_out_requests` and `stock_out_line_items`.
+- UI: Stock-out approval actions silently fail (the rolled-back transaction shows as "no change" rather than an error if the app catches exceptions generically).
+- pg_stat_activity shows sessions blocked with `wait_event = 'relation'` on `stock_out_requests`.
 
-**Phase assignment:** Phase implementing 6-state PO status engine MUST add transition validation trigger in same migration as status calculation logic.
+**Phase to address:**
+The two-layer approval database phase. Review lock acquisition order across all triggers that touch `stock_out_requests` before writing a single line of new trigger code.
 
 ---
 
-## Moderate Pitfalls
+### Pitfall 4: Client-Side Pagination on Fetch-All Queries Causes Silent Data Truncation
 
-### Pitfall 5: PDF Generation Memory Leak in Serverless Environment
-**What goes wrong:** PDF export for PO/invoice works in dev (Node 500MB heap) but fails in production Vercel serverless (1GB limit reached, function times out after 10-60s). Browser tabs in Puppeteer consume increasing memory and don't release, causing progressive slowdown.
+**What goes wrong:**
+Multiple list pages (QMRL, QMHQ, PO) fetch with `.limit(100)` from Supabase, then slice client-side for pagination display. When a list grows beyond 100 records, the pagination UI shows "Page 1 of 5 (of 100 items)" while the actual database has 240 records. Users assume they are seeing all data, make business decisions on incomplete information. No error, no warning — the pagination math is just wrong because `totalItems` is capped at 100.
 
 **Why it happens:**
-- Puppeteer launches full Chromium browser (~100-200MB base memory)
-- Each PDF render creates new page (~50-100MB depending on content)
-- Browser instance reused across requests (singleton pattern) accumulates memory
-- Vercel serverless cold start adds 15s overhead just loading Chromium
+The pattern is already established in the codebase: `/qmrl/page.tsx` line 76 uses `.limit(100)` and then does client-side slice. This is a known shortcut (`totalItems = filteredQmrls.length`, always <= 100). Standardizing pagination across pages without changing this architectural decision copies the bug to new pages.
 
-Real-world data: Vercel functions 4-8x slower than local dev, basic CPU takes ~50s vs 10s on Performance CPU tier.
+**How to avoid:**
+Server-side pagination via Supabase range queries with count:
 
-**Consequences:**
-- User-facing timeout errors during PDF download
-- Increased Vercel costs (longer function execution time)
-- Degraded UX: users retry, creating more load
-- Memory exhaustion crashes entire function container, affecting other requests
-
-**Prevention:**
 ```typescript
-// BAD: Singleton browser reused indefinitely
-let browser: Browser | null = null;
-export async function generatePDF() {
-  if (!browser) browser = await puppeteer.launch();
-  const page = await browser.newPage(); // Memory leak: pages accumulate
-  // ... render PDF
-}
+// WRONG (current pattern):
+const { data } = await supabase
+  .from('stock_out_requests')
+  .select('*')
+  .limit(100);  // Silent truncation at 100
 
-// GOOD: Close page after each render
-export async function generatePDF() {
-  const browser = await puppeteer.launch({
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    headless: true
-  });
-  try {
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'load' }); // Use 'load' not 'networkidle2'
-    const pdf = await page.pdf({ format: 'A4' });
-    return pdf;
-  } finally {
-    await browser.close(); // CRITICAL: Always close
-  }
-}
+// CORRECT:
+const from = (currentPage - 1) * pageSize;
+const to = from + pageSize - 1;
 
-// BETTER: Use @react-pdf/renderer server-side (no browser needed)
-import { renderToStream } from '@react-pdf/renderer';
-export async function generatePDF(data) {
-  const stream = await renderToStream(<PODocument {...data} />);
-  return stream; // ~10MB memory vs 200MB for Puppeteer
-}
+const { data, count } = await supabase
+  .from('stock_out_requests')
+  .select('*', { count: 'exact' })
+  .range(from, to)
+  .order('created_at', { ascending: false });
 
-// BEST: Offload to Supabase Edge Function for heavy PDFs
-// - Edge Function calls pdf-lib or @react-pdf/renderer
-// - Stores result in Supabase Storage
-// - Returns signed URL to client
-// - Avoids Next.js serverless limits entirely
+// totalItems = count (database total, not array length)
 ```
 
-For QM System: Recommend @react-pdf/renderer for structured documents (PO, invoice). Reserve Puppeteer for complex HTML rendering if needed, but use dedicated Edge Function.
+Standardization phase must change the fetch architecture, not just copy the Pagination component. Pages that already have `.limit(100)` need `{ count: 'exact' }` + `.range()` before the Pagination component is meaningful.
 
-**Detection:**
-- Monitor Vercel function metrics: execution time, memory usage
-- Load test: Generate 10 PDFs sequentially, measure memory trend
-- Heap snapshot: Compare heap before/after PDF generation, check for retained browser objects
+**Warning signs:**
+- `totalItems` in any list page equals exactly 100, 50, or 20 (a configured limit value) despite UI showing "Page X of Y".
+- Pagination shows multiple pages but filtering reveals far fewer records than expected when switching to a filter that includes only recent records.
+- Stock-out-requests page (`page.tsx`) has no Pagination import at all — it fetches all and renders all in the table view with no paging.
 
-**Phase assignment:** Phase adding PDF export must implement memory-safe pattern and load test BEFORE merging.
+**Phase to address:**
+Pagination standardization phase. Before adding the Pagination component to any page, verify the data fetch uses server-side range + count, not client-side slice.
 
 ---
 
-### Pitfall 6: Cancellation Guard Doesn't Account for Partially Voided Invoices
-**What goes wrong:** Business rule "Cannot cancel PO if invoices exist" blocks cancellation even when all invoices are voided. User voids all invoices expecting to unlock PO cancellation, but guard still prevents it. Escalates to support, requires manual database intervention.
+### Pitfall 5: Avatar Component Initiates N+1 User Fetches When Rendered in List Rows
 
-**Why it happens:** Guard checks for invoice existence, not invoice validity:
-```sql
--- WRONG: Blocks cancellation even if all invoices voided
-CREATE FUNCTION block_po_cancel_with_invoices() AS $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM invoices WHERE po_id = NEW.id) THEN
-    RAISE EXCEPTION 'Cannot cancel PO: invoices exist';
-  END IF;
-END;
-$$;
-
--- CORRECT: Only blocks if ACTIVE, NON-VOIDED invoices exist
-CREATE FUNCTION block_po_cancel_with_invoices() AS $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM invoices
-    WHERE po_id = NEW.id
-      AND is_active = true
-      AND (is_voided = false OR is_voided IS NULL)
-  ) THEN
-    RAISE EXCEPTION 'Cannot cancel PO: active non-voided invoices exist';
-  END IF;
-END;
-$$;
-```
-
-**Consequences:**
-- User frustration: "I voided the invoices, why can't I cancel?"
-- Support burden: Requires manual SQL to bypass guard
-- Workaround culture: Users learn to soft-delete instead of following workflow
-- Data integrity risk: Manual interventions bypass other guards
-
-**Prevention:**
-- Always filter guards by `is_active = true` AND `is_voided = false`
-- Test matrix: PO with [no invoices, voided invoices, active invoices, mix] × cancellation attempt
-- Document in guard function: "Only blocks for ACTIVE, NON-VOIDED invoices"
-
-Example comprehensive guard:
-```sql
-CREATE OR REPLACE FUNCTION block_po_cancel_with_active_invoices()
-RETURNS TRIGGER AS $$
-DECLARE
-  active_invoice_count INTEGER;
-  active_stockin_count INTEGER;
-BEGIN
-  -- Only check when status changes to 'cancelled'
-  IF NEW.status = 'cancelled' AND OLD.status != 'cancelled' THEN
-
-    -- Count active, non-voided invoices
-    SELECT COUNT(*) INTO active_invoice_count
-    FROM invoices
-    WHERE po_id = NEW.id
-      AND is_active = true
-      AND (is_voided = false OR is_voided IS NULL);
-
-    IF active_invoice_count > 0 THEN
-      RAISE EXCEPTION 'Cannot cancel PO: % active invoice(s) exist. Void invoices first.',
-        active_invoice_count;
-    END IF;
-
-    -- Count active stock-in transactions (even if invoice voided, stock received)
-    SELECT COUNT(*) INTO active_stockin_count
-    FROM inventory_transactions
-    WHERE po_id = NEW.id
-      AND movement_type = 'inventory_in'
-      AND is_active = true;
-
-    IF active_stockin_count > 0 THEN
-      RAISE EXCEPTION 'Cannot cancel PO: % stock-in transaction(s) recorded. Physical inventory received.',
-        active_stockin_count;
-    END IF;
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-```
-
-**Detection:**
-- Test: Create PO, invoice it, void invoice, attempt cancel → should succeed
-- Test: Create PO, invoice it, receive stock, void invoice, attempt cancel → should fail (stock received)
-- Code review: Search for guard functions, verify all check `is_voided`
-
-**Phase assignment:** Phase adding PO cancellation must test void scenarios in guard logic.
-
----
-
-### Pitfall 7: Concurrent Status Calculation + Audit Logging = Duplicate Audit Entries
-**What goes wrong:** PO status recalculated from `partially_invoiced` to `awaiting_delivery` twice concurrently. Audit trigger fires twice, creating two audit_logs entries with identical timestamps and changes_summary, confusing history timeline.
+**What goes wrong:**
+A naive `<UserAvatar userId={...} />` component that fetches user data independently triggers one Supabase query per avatar per row. A list of 20 stock-out requests with requesters and approvers renders 40 individual `users` table queries. Supabase's connection pool saturates on list pages; the page load time is 5-8 seconds instead of 200ms.
 
 **Why it happens:**
-1. Invoice A and Invoice B created concurrently for same PO
-2. Both trigger `update_po_status()` function
-3. Both read current status = `partially_invoiced`
-4. Both calculate new status = `awaiting_delivery` (after their invoice quantities)
-5. Both execute UPDATE purchase_orders SET status = 'awaiting_delivery'
-6. Audit trigger fires twice (once per UPDATE)
+Avatar components are designed for convenience — pass a `userId`, get an avatar. This is ergonomic when the component is used once per page (header, profile). When used in list rows, each row mounts independently and each component fires its own `useEffect` fetch, unaware of sibling fetches for the same users.
 
-Even with advisory locks preventing wrong status, duplicate UPDATEs still occur because both transactions conclude same status is correct.
+**How to avoid:**
+Two valid patterns — choose one per context:
 
-**Consequences:**
-- Cluttered audit history: users see duplicate "Status changed to awaiting_delivery" entries
-- Confusion in timeline: "Why did status change twice at same time?"
-- Report inaccuracy: status_change count doubled
-- Not critical but degrades audit quality
-
-**Prevention:**
-```sql
--- OPTION A: Check if status actually changing in audit trigger
-CREATE OR REPLACE FUNCTION create_audit_log() AS $$
-BEGIN
-  IF TG_OP = 'UPDATE' AND TG_TABLE_NAME = 'purchase_orders' THEN
-    -- Only log if status ACTUALLY changed
-    IF OLD.status IS DISTINCT FROM NEW.status THEN
-      INSERT INTO audit_logs (...);
-    END IF;
-  END IF;
-END;
-$$ LANGUAGE plpgsql;
--- Already implemented in migration 026 (line 142: "IF OLD.status IS DISTINCT FROM NEW.status")
-
--- OPTION B: Idempotent status update (skip UPDATE if no change)
-CREATE OR REPLACE FUNCTION update_po_status() AS $$
-DECLARE
-  calculated_status po_status;
-BEGIN
-  -- Calculate status
-  calculated_status := calculate_po_status(NEW.id);
-
-  -- Only update if changed (prevents no-op UPDATE)
-  IF calculated_status != OLD.status THEN
-    NEW.status := calculated_status;
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-```
-
-System already has OPTION A (audit trigger checks IS DISTINCT FROM). Add OPTION B for efficiency: avoid triggering audit at all if status unchanged.
-
-**Detection:**
-- Query audit_logs for duplicate status_change entries:
-  ```sql
-  SELECT entity_id, changes_summary, COUNT(*)
-  FROM audit_logs
-  WHERE action = 'status_change'
-  GROUP BY entity_id, changes_summary, DATE_TRUNC('second', changed_at)
-  HAVING COUNT(*) > 1;
-  ```
-- Load test: Concurrent invoice creation, check audit log count matches actual status changes
-
-**Phase assignment:** Phase implementing status calculation should add idempotency check to avoid no-op UPDATEs.
-
----
-
-## Minor Pitfalls
-
-### Pitfall 8: PDF Export Generates Stale Data Without Transaction Isolation
-**What goes wrong:** User clicks "Export PO PDF", invoice gets created during PDF generation, exported PDF shows old status/quantities that were already outdated when download completed.
-
-**Why it happens:** PDF generation queries database multiple times (PO details, line items, invoices, stock-in) without transaction wrapper. Between queries, concurrent updates occur:
-1. Query PO: status = "partially_invoiced"
-2. → New invoice created, status updated to "awaiting_delivery"
-3. Query line items: shows NEW invoiced_quantity (after update)
-4. Generated PDF: Status says "partially_invoiced" but quantities show fully invoiced (inconsistent snapshot)
-
-**Consequences:**
-- User confusion: PDF doesn't match screen
-- Compliance risk: exported documents have inconsistent data
-- Cannot reproduce: re-export shows different data, no audit trail
-
-**Prevention:**
+**Pattern A (preferred for lists): Fetch users with the list query, pass `user` object as prop:**
 ```typescript
-// BAD: Multiple unrelated queries
-async function generatePOPDF(poId: string) {
-  const po = await supabase.from('purchase_orders').select().eq('id', poId).single();
-  // ← Invoice created here by another user
-  const lineItems = await supabase.from('po_line_items').select().eq('po_id', poId);
-  // Inconsistent: PO status old, line items new
-}
+// List page: join users in the main query
+const { data } = await supabase
+  .from('stock_out_requests')
+  .select(`
+    id, status, reason,
+    requester:users!requester_id(id, full_name),
+    approved_by:users!qty_approver_id(id, full_name)
+  `);
 
-// GOOD: Single query with joins (atomic snapshot)
-async function generatePOPDF(poId: string) {
-  const { data } = await supabase
-    .from('purchase_orders')
-    .select(`
-      *,
-      po_line_items(*),
-      invoices(*),
-      qmhq(*)
-    `)
-    .eq('id', poId)
-    .single();
-  // All data from same snapshot
-}
+// Row component receives full user objects
+<RequestRow request={request} />
 
-// BETTER: Use RPC with REPEATABLE READ isolation
-// supabase/functions/get_po_for_pdf.sql
-CREATE OR REPLACE FUNCTION get_po_for_pdf(p_po_id UUID)
-RETURNS JSON AS $$
-DECLARE
-  result JSON;
-BEGIN
-  -- Explicit isolation ensures consistent snapshot
-  SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-
-  SELECT json_build_object(
-    'po', row_to_json(po.*),
-    'line_items', (SELECT json_agg(row_to_json(pl.*)) FROM po_line_items pl WHERE pl.po_id = p_po_id),
-    'invoices', (SELECT json_agg(row_to_json(i.*)) FROM invoices i WHERE i.po_id = p_po_id)
-  ) INTO result
-  FROM purchase_orders po
-  WHERE po.id = p_po_id;
-
-  RETURN result;
-END;
-$$ LANGUAGE plpgsql;
-
-// TypeScript
-const { data } = await supabase.rpc('get_po_for_pdf', { p_po_id: poId });
+// Avatar receives pre-fetched user (no fetch needed)
+<UserAvatar user={request.requester} size="sm" />
 ```
 
-Recommend single-query approach for QM System (simpler, adequate for PDF snapshot needs).
+**Pattern B (for detail pages where user list unknown at render): Fetch all needed users once at page level, provide via context:**
+```typescript
+// Detail page: collect all user IDs, fetch once
+const allUserIds = [...new Set([
+  log.changed_by,
+  ...approvals.map(a => a.decided_by)
+])].filter(Boolean);
 
-**Detection:**
-- Test: Open PO in two tabs, export PDF in Tab A while updating status in Tab B, verify PDF matches pre-update state
-- Code review: PDF generation functions must use single snapshot query
+const { data: usersMap } = await supabase
+  .from('users')
+  .select('id, full_name')
+  .in('id', allUserIds);
 
-**Phase assignment:** Phase adding PDF export must use atomic snapshot query pattern.
+// Context or prop: usersById: Record<string, User>
+```
+
+Never build `<UserAvatar userId={userId} />` that internally fetches. The component must accept a `user` object or `initials`/`name` string, not a UUID.
+
+**Warning signs:**
+- Supabase project dashboard shows "Users" table appearing disproportionately often in the query stats relative to business tables.
+- Network tab in browser shows 15-30 simultaneous GET requests to `/rest/v1/users` on list page load.
+- List page load time measured in seconds rather than milliseconds.
+
+**Phase to address:**
+Avatar implementation phase. The component API must be designed as data-passive (receives user data) from the start. This is unrecoverable by refactor without touching every callsite.
 
 ---
 
-### Pitfall 9: Cancellation Doesn't Release Balance in Hand Commitment
-**What goes wrong:** User cancels PO expecting to free up budget for new PO, but Balance in Hand remains depleted. QMHQ still shows `total_po_committed` includes cancelled PO amount. User believes budget exhausted, doesn't create needed PO.
+## Technical Debt Patterns
 
-**Why it happens:** Existing trigger `update_qmhq_po_committed()` (migration 015) correctly excludes cancelled POs:
-```sql
-SELECT COALESCE(SUM(total_amount_eusd), 0)
-FROM purchase_orders
-WHERE qmhq_id = target_qmhq_id
-  AND is_active = true
-  AND status != 'cancelled'; -- ✓ Cancelled POs excluded
-```
+Shortcuts that seem reasonable but create long-term problems.
 
-But if cancellation implemented as soft delete (`is_active = false`) instead of status change, logic breaks:
-```sql
--- If cancellation does:
-UPDATE purchase_orders SET is_active = false WHERE id = ?;
--- Then SUM excludes it (is_active = true filter)
-
--- But if cancellation does:
-UPDATE purchase_orders SET status = 'cancelled' WHERE id = ?;
--- Then SUM correctly excludes it (status != 'cancelled' filter)
-```
-
-Pitfall occurs if implementation inconsistent: cancellation sets `is_active = false` OR `status = 'cancelled'` but not both/correctly.
-
-**Consequences:**
-- Budget appears unavailable when actually free
-- Users abandon valid PO creation
-- Finance team gets "we're out of budget" questions when data shows availability
-
-**Prevention:**
-- Decide: Is cancellation a status (`status = 'cancelled'`) or deletion (`is_active = false`)?
-- Recommendation: Use status (preserves record, clearer semantics, follows existing PO status enum)
-- Ensure trigger filters match cancellation method
-- Test: Cancel PO, verify `balance_in_hand` increases immediately
-
-```sql
--- If using status approach (recommended):
-UPDATE purchase_orders SET status = 'cancelled', updated_by = ? WHERE id = ?;
--- Trigger already handles this correctly
-
--- If using soft delete (NOT recommended):
-UPDATE purchase_orders SET is_active = false WHERE id = ?;
--- Must update trigger to also filter is_active:
-AND (status != 'cancelled' OR is_active = true) -- Overkill, just use status
-```
-
-**Detection:**
-- Test: Create PO for $1000, verify balance_in_hand decreases by $1000, cancel PO, verify increases by $1000
-- Check trigger logic matches cancellation implementation
-
-**Phase assignment:** Phase adding PO cancellation must verify balance_in_hand calculation updates correctly.
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Client-side pagination with `.limit(100)` | Simple code, no server-side complexity | Silent data truncation above limit; pagination math lies | Never for production user-facing lists |
+| Avatar component that fetches by `userId` | Convenient at callsite | N+1 queries on any list; saturates connection pool | Only in single-user contexts (profile page, header) |
+| Copying `.limit(100)` pattern to new pages during "standardization" | Fast to implement | Propagates the truncation bug to more pages | Never |
+| Adding new enum value without updating transition trigger | Faster migration | Feature breaks on first state transition; silent ENUM accepts it, trigger blocks it | Never |
+| Reusing `FOR UPDATE` locking pattern from migration 059 in new triggers | Consistent with existing code | Deadlock when two triggers compete on same row | Never without auditing all lock acquisition paths first |
+| Using `changed_by_name` cached text in audit_logs without avatar | No join needed for history display | History tab shows names but no visual identity; inconsistent with everywhere else that now has avatars | Acceptable for initial history implementation, but becomes inconsistent debt when avatars land elsewhere |
 
 ---
 
-### Pitfall 10: RLS Policy Recursion When Checking PO Permissions Based on Related Entity
-**What goes wrong:** RLS policy on `purchase_orders` checks if user has access to parent QMHQ, but QMHQ RLS policy checks if user has access to parent QMRL, which checks department, which checks users table, creating infinite recursion. Query times out with "stack depth exceeded" or "query takes too long".
+## Integration Gotchas
 
-**Why it happens:**
-```sql
--- PO RLS: Can view if user can view QMHQ
-CREATE POLICY po_select ON purchase_orders USING (
-  EXISTS (SELECT 1 FROM qmhq WHERE qmhq.id = purchase_orders.qmhq_id)
-);
+Common mistakes when adding these features to the existing system.
 
--- QMHQ RLS: Can view if user can view QMRL
-CREATE POLICY qmhq_select ON qmhq USING (
-  EXISTS (SELECT 1 FROM qmrl WHERE qmrl.id = qmhq.qmrl_id)
-);
-
--- QMRL RLS: Can view if user in same department
-CREATE POLICY qmrl_select ON qmrl USING (
-  department_id IN (SELECT department_id FROM users WHERE id = auth.uid())
-);
-
--- Users RLS: Can view self
-CREATE POLICY users_select ON users USING (id = auth.uid());
-```
-
-Circular dependency: PO → QMHQ → QMRL → Users → (RLS checks on users) → infinite loop.
-
-Real-world case: GitHub issue #1138 documents infinite recursion in Supabase RLS when users table used to specify role for other table policies.
-
-**Consequences:**
-- Query timeout: 30s+ for simple PO select
-- Application hangs waiting for database
-- Cannot load PO list in UI
-- pg_stat_activity shows queries stuck in "active" state
-
-**Prevention:**
-```sql
--- OPTION A: Security definer function (breaks recursion)
-CREATE OR REPLACE FUNCTION user_can_view_po(p_po_id UUID, p_user_id UUID)
-RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1
-    FROM purchase_orders po
-    JOIN qmhq ON qmhq.id = po.qmhq_id
-    JOIN qmrl ON qmrl.id = qmhq.qmrl_id
-    WHERE po.id = p_po_id
-      AND (
-        qmrl.requester_id = p_user_id
-        OR qmrl.assigned_to = p_user_id
-        OR p_user_id IN (SELECT id FROM users WHERE role IN ('admin', 'quartermaster', 'finance'))
-      )
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE POLICY po_select ON purchase_orders USING (
-  user_can_view_po(id, auth.uid())
-);
-
--- OPTION B: Denormalize (cache department_id on QMHQ/PO)
-ALTER TABLE purchase_orders ADD COLUMN department_id UUID;
--- Update via trigger when QMHQ changes
--- RLS becomes simple:
-CREATE POLICY po_select ON purchase_orders USING (
-  department_id IN (SELECT department_id FROM users WHERE id = auth.uid())
-);
--- No joins, no recursion
-```
-
-OPTION A recommended for QM System (leverages existing RBAC logic, no schema changes). Migration 039 already uses SECURITY DEFINER pattern for complex checks.
-
-**Detection:**
-- Query slow log: SELECT queries on purchase_orders taking >1s
-- Test: Log in as requester role, load /po page, verify loads <500ms
-- EXPLAIN ANALYZE: Should see "Index Scan" not "Seq Scan on users" (indicates recursion)
-
-**Phase assignment:** Phase adding PO RLS policies must test for recursion and use security definer functions for complex permission checks.
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| Two-layer approval + existing idempotency constraint (`idx_unique_approval_execution`) | Adding a warehouse approval record as a new row in `stock_out_approvals` with a new FK causes the unique partial index to block the second approval's execution because it treats both approvals as competing for the same execution slot | Keep the two layers in separate tables: `stock_out_approvals` (qty layer), `stock_out_warehouse_approvals` (warehouse layer). The unique index on `inventory_transactions(stock_out_approval_id)` then correctly governs per-qty-approval execution |
+| User avatars + existing `changed_by_name TEXT` cache in `audit_logs` | Displaying avatar in history requires a join to `users` for the avatar initials, but `changed_by_name` was cached to avoid this join. Developers add a second join and the column becomes redundant — or worse, inconsistent when a user's name changes | Use `changed_by UUID` for avatar fetching (batch-fetched at page level via Pattern B above). `changed_by_name` remains as fallback display text when `changed_by` is NULL (system actions). Explicitly document this dual-field convention |
+| Pagination + card-view grouped layout | Grouping by status after server-side pagination means a page of 20 records might have 19 in one group and 1 in another, breaking the grouped layout assumption. Current QMRL, QMHQ, and PO pages group the full client-side result — this breaks with real server-side pagination | For grouped card views: either fetch all (no pagination, just virtual scroll) or paginate within each status group separately using `status_id` filter + individual counts per group |
+| List view toggle + existing card-only pages | Pages without list view (item, warehouse, admin pages) need list view added. Copying the toggle UI without implementing the list table for that entity results in a toggle that switches to a blank/broken view | Require both card and list implementations before shipping the toggle button |
+| Pagination component + stock-out-requests page | The existing stock-out-requests page has no Pagination import and no page state — it renders all records in table view. Adding Pagination without changing the fetch pattern (it uses `.order().eq()` with no limit) works correctly by accident only as long as record count stays low | Add server-side range + count to stock-out-requests fetch before adding the Pagination component |
+| Two-layer approval + existing audit trigger | The current `audit_triggers.sql` (migration 026) logs changes to `stock_out_approvals`. A new `stock_out_warehouse_approvals` table has no audit trigger by default. Warehouse approval actions (approve/reject warehouse) won't appear in entity history | Add audit trigger to the new warehouse approval table in the same migration that creates it |
 
 ---
 
-## Phase-Specific Warnings
+## Performance Traps
 
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| PO Status Calculation Overhaul | Pitfall #1 (Race Conditions) | Implement advisory locks using hashtext(po_id) pattern from migration 058 |
-| PO Cancellation Feature | Pitfall #2 (Trigger Ordering), #3 (Soft Delete Cascade), #6 (Void Edge Cases) | Follow aa_/zz_ prefix convention, use ON DELETE RESTRICT, test voided invoice scenarios |
-| PDF Export Implementation | Pitfall #5 (Memory Leak), #8 (Stale Data) | Use @react-pdf/renderer or Supabase Edge Function, atomic snapshot queries |
-| PO Lifecycle Audit Logging | Pitfall #7 (Duplicate Audits) | Add idempotency check in status update function to skip no-op UPDATEs |
-| RLS Policy for POs | Pitfall #10 (Recursion) | Use SECURITY DEFINER functions, avoid EXISTS on RLS-protected tables |
-| State Transition Validation | Pitfall #4 (Invalid Transitions) | Add BEFORE UPDATE trigger validating allowed transitions array |
+Patterns that work at small scale but fail as usage grows.
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Client-side filter + sort on fetch-all lists | Filtering works but count in tabs/badges is always total (no filter-aware count); search feels instant at low volume but lags at 500+ records | Move filter logic to Supabase query parameters | Around 200-300 records per table |
+| Rendering all avatars in history tab (50 entries) with individual user fetches | History tab takes 3-5 seconds to load after audit log count grows | Batch-fetch all `changed_by` UUIDs from the 50 log entries in one query | After ~10 history entries in the tab (10 unique users = 10 queries vs 1) |
+| Grouping records client-side for kanban view after server-side pagination | Group counts shown in column headers are wrong (show page count not total count) | For group counts, run `SELECT status, COUNT(*) GROUP BY status` as a separate count query | Any time records span more than one page |
+| Pagination state in URL (`?page=2`) vs React state | User shares link to page 2, recipient sees page 1 (state not in URL); back button loses page position | Sync pagination state to URL search params via `useSearchParams` | Users start sharing direct links or using back navigation |
+
+---
+
+## Security Mistakes
+
+Domain-specific security issues beyond general web security.
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Two-layer approval where the same user can approve both layers for their own request | Approval circumvention: a malicious user self-approves qty AND warehouse assignment, bypasses oversight | Add `CHECK (warehouse_approver_id != requester_id)` at DB level AND RLS policy that prevents inserting warehouse approval where `auth.uid() = parent_request.requester_id` |
+| Avatar component receives `userId` and fetches from `users` table without RLS restriction | Any authenticated user can observe user full names by inspecting network requests, even for users they cannot otherwise see | Ensure `users` table RLS policy restricts `SELECT` to relevant context; or expose only `id + initials + color` in a `user_display_profiles` view without PII |
+| Warehouse approval step performed by same role that performs qty approval (if business rule requires separation) | One person can complete entire approval chain, defeating the two-layer control | Enforce in DB: warehouse approver must have a different role, or at minimum be a different user (`warehouse_approver_id != qty_approver_id`) |
+| Pagination with server-side range queries bypasses existing RLS | If range query is computed on a pre-filtered client count but RLS filters more rows server-side, `count` from Supabase is RLS-scoped but page math done on unfiltered count — shows "Page 1 of 3" when there are actually 0 items on page 3 | Always use `count: 'exact'` from Supabase (which is RLS-aware) rather than computing totalPages from a separate unguarded count |
+
+---
+
+## UX Pitfalls
+
+Common user experience mistakes in this domain.
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Two-layer approval shows as "Pending" at both stages with no differentiation | Approvers cannot distinguish "pending qty approval" from "pending warehouse approval" — both show the same badge | Use distinct badge labels: "Awaiting Qty Approval" vs "Awaiting Warehouse" — or use a two-dot progress indicator showing which stage is active |
+| Avatars shown only on list pages but not on detail pages (or vice versa) | Inconsistent identity display erodes trust — users expect the same person to look the same everywhere | Roll out UserAvatar component to all user-reference contexts in one phase, not incrementally |
+| Pagination persists to page 5, user applies filter, page 5 returns empty | User sees blank page with no explanation — they are on page 5 of a 2-page filtered result | Reset `currentPage` to 1 on every filter change (QMRL page does this correctly; ensure all new pages replicate the `useEffect([searchQuery, ...], () => setCurrentPage(1))` pattern) |
+| List view shows fewer columns than card view communicates | User switches to list view expecting to scan all data; critical fields (e.g., approved qty, warehouse) are omitted in list table | Define list view column spec before implementation; minimum required: ID, requester, status, key financial/qty field, date, actions |
+| Two-layer approval history in audit log shows two "Approved" events with no label distinguishing layers | History tab confusing — which approval was qty, which was warehouse? | Ensure audit log `changes_summary` includes the approval layer: `"Qty approved: 50 units"` vs `"Warehouse approved: Central Warehouse"` |
+
+---
+
+## "Looks Done But Isn't" Checklist
+
+Things that appear complete but are missing critical pieces.
+
+- [ ] **Two-layer approval UI**: Both approval stages are visible in the detail page — verify that the execution (stock-out) button is gated on BOTH layers, not just one. Check: can you execute after only qty approval but before warehouse approval?
+- [ ] **UserAvatar in list rows**: Avatar renders correctly — verify it shows correct initials for all users including users with one-word names (no space in full_name splits to empty slice). Test with `full_name = "Admin"`.
+- [ ] **Pagination standardization**: Pagination component is present — verify `totalItems` equals actual database row count, not array length. Run `SELECT COUNT(*) FROM table` in psql and compare to what the UI displays.
+- [ ] **List view toggle on all pages**: Toggle button present — verify list view actually renders a table with data, not an empty or skeleton state. Toggle all new pages to list mode after each phase.
+- [ ] **Audit history for two-layer approvals**: Approval records appear in history tab — verify the new `stock_out_warehouse_approvals` table has an audit trigger (not just `stock_out_approvals`).
+- [ ] **Avatar in history tab**: `changed_by_name` displays in history — verify avatar initials match `changed_by_name` (they come from different sources: name from cached text, avatar from UUID lookup; they can diverge if user renames).
+- [ ] **Page size preference reset on navigation**: User sets page size to 50, navigates away, returns — verify page size resets to default 20 or is persisted consistently. Inconsistency across pages creates confusion.
+- [ ] **Filter + pagination interaction**: Filters applied — verify status-tab counts update to reflect filtered total, not total-total. (Stock-out-requests page status counts use the full `requests` array, correct for in-memory; server-side pages need separate count queries per status group.)
+
+---
+
+## Recovery Strategies
+
+When pitfalls occur despite prevention, how to recover.
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Old approvals bypass warehouse gate after migration | HIGH | 1. Emergency migration to mark all existing approvals as "warehouse confirmed" with a backfill flag. 2. Audit all SOR executions that occurred in the gap window. 3. Confirm no phantom stock reductions from improper gate bypass. |
+| Transition trigger blocks new status after ENUM addition | LOW | Write a new migration that updates `validate_sor_line_item_status_transition()` to include the new transition. Deploy immediately. No data corruption, only functional breakage. |
+| Deadlock detected in approval triggers | MEDIUM | 1. Identify which triggers hold conflicting locks via `pg_locks`. 2. Migrate to advisory lock pattern in the conflicting trigger. 3. Remove `FOR UPDATE` from the trigger that competes. Requires migration + deploy but no data repair. |
+| Client-side pagination truncated data (limit 100) was live for weeks | MEDIUM | 1. Identify which business decisions were made from pages where count was artificially capped. 2. Audit report: run actual count queries and compare to what was displayed. 3. Fix the fetch architecture. No data loss, but business trust impact. |
+| Avatar N+1 saturating connection pool | MEDIUM | 1. Add connection pool increase temporarily in Supabase dashboard. 2. Remove all UserAvatar components that fetch internally. 3. Rebuild with data-passive pattern. 4. Restore pool to normal settings. |
+
+---
+
+## Pitfall-to-Phase Mapping
+
+How roadmap phases should address these pitfalls.
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| State machine migration invalidates existing `approved` records | Two-layer approval database migration phase | Run verification query: count `stock_out_approvals` where `decision = 'approved'` AND no corresponding warehouse approval record — must be 0 |
+| Transition trigger blocks new intermediate status | Same migration as ENUM addition (atomic) | Run DO block after migration that exercises all valid and invalid transition paths |
+| Row lock deadlock from competing triggers | Two-layer approval trigger design phase | Load test: 10 concurrent approvals on different line items of same request — zero deadlock errors |
+| Client-side pagination silent truncation | Pagination standardization phase | Insert 150 test records in staging, verify paginated list shows all 150 (total count in UI = 150, not 100) |
+| Avatar N+1 queries | Avatar implementation phase | Load list page with 20 rows, inspect network tab — exactly 1 users query, not 20 |
+| Old data bypasses warehouse gate | Before warehouse approval gate is enforced in DB | Row count of "gated" approvals with no warehouse record must be 0 |
+| Grouped card view breaks with server-side pagination | Pagination standardization phase | For each page that uses grouped card view: group counts in column headers must sum to database total, not page size |
+| Missing audit trigger on new warehouse approval table | Warehouse approval schema migration | Insert a test warehouse approval, verify entry appears in audit_logs for the parent SOR entity |
 
 ---
 
 ## Sources
 
-### PostgreSQL Isolation & Concurrency
-- [PostgreSQL: Documentation: 18: Transaction Isolation](https://www.postgresql.org/docs/current/transaction-iso.html) — Authoritative isolation level documentation
-- [Preventing Postgres SQL Race Conditions with SELECT FOR UPDATE](https://on-systems.tech/blog/128-preventing-read-committed-sql-concurrency-errors/) — Concurrency patterns
-- [PostgreSQL Advisory Locks (2026)](https://oneuptime.com/blog/post/2026-01-25-use-advisory-locks-postgresql/view) — Advisory lock best practices
-- [Race condition in Order::setInvoiceDetails · Issue #23356](https://github.com/PrestaShop/PrestaShop/issues/23356) — Real-world PO status race condition case
+### State Machine Migrations in Production Systems
+- PostgreSQL documentation on ALTER TYPE (adding enum values without table rewrite): transaction-safe since PostgreSQL 12, but triggers referencing the enum require explicit function update
+- QM System migration 053 (`validate_sor_line_item_status_transition`) — existing transition enforcement pattern
+- QM System migration 20260211102133 — real case study of fixing premature status transition, confirms trigger must be updated atomically with business rule change
 
-### PostgreSQL Triggers & State Machines
-- [PostgreSQL Triggers in 2026: Design, Performance, and Production Reality](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/) — Current trigger best practices
-- [Implementing State Machines in PostgreSQL](https://felixge.de/2017/07/27/implementing-state-machines-in-postgresql/) — State transition validation patterns
-- [PostgreSQL: Documentation: 18: Explicit Locking](https://www.postgresql.org/docs/current/explicit-locking.html) — Locking mechanisms and deadlock prevention
+### Concurrency and Locking
+- QM System migration 058 (`advisory_lock_stock_validation`) — existing advisory lock pattern with `hashtext()` key
+- QM System migration 059 (`row_lock_status_aggregation`) — existing `FOR UPDATE` pattern; source of deadlock risk when combined with new trigger chains
+- QM System migration 062 (`idempotency_constraint_execution`) — partial unique index pattern that governs execution idempotency; must not be broken by second-layer approval records
 
-### PostgreSQL Foreign Keys & Soft Deletes
-- [Soft Deletion Probably Isn't Worth It](https://brandur.org/soft-deletion) — Pitfalls of soft delete with foreign keys
-- [Cascade Deletes | Supabase Docs](https://supabase.com/docs/guides/database/postgres/cascade-deletes) — CASCADE behavior documentation
-- [Cascade Delete - EF Core](https://learn.microsoft.com/en-us/ef/core/saving/cascade-delete) — Foreign key cascade patterns
+### Pagination Architecture
+- QM System `/qmrl/page.tsx` lines 60-81 — documented `.limit(100)` + client-side slice pattern (the baseline anti-pattern)
+- QM System `/components/ui/pagination.tsx` — existing Pagination component; accepts `totalItems` and `totalPages` from caller; is agnostic to whether count is real or capped
+- Supabase PostgREST docs: `select('*', { count: 'exact' })` + `.range(from, to)` — server-side pagination with RLS-aware count
 
-### Supabase RLS & Performance
-- [Supabase RLS Performance and Best Practices](https://supabase.com/docs/guides/troubleshooting/rls-performance-and-best-practices-Z5Jjwv) — Avoiding recursion, performance optimization
-- [Infinite recursion when using users table for RLS · Discussion #1138](https://github.com/orgs/supabase/discussions/1138) — Real-world RLS recursion case
-- [Supabase Row Level Security (RLS): Complete Guide (2026)](https://designrevision.com/blog/supabase-row-level-security) — Current RLS patterns
+### Avatar Performance
+- React performance pattern: "lift data fetching" — components that receive data via props rather than fetching independently scale linearly
+- QM System `components/comments/comment-card.tsx` — existing pattern where avatar is just a static div with `<User />` icon (no fetch); confirms the system does not yet have a real avatar component
+- QM System `components/layout/header.tsx` `getInitials()` function — existing initials logic that should be extracted to shared utility for the avatar component
 
-### PDF Generation in Serverless
-- [Optimizing Puppeteer PDF generation](https://www.codepasta.com/2024/04/19/optimizing-puppeteer-pdf-generation) — Memory and performance optimization
-- [Generate HTML as PDF using Next.js & Puppeteer on Serverless](https://medium.com/@martin_danielson/generate-html-as-pdf-using-next-js-puppeteer-running-on-serverless-vercel-aws-lambda-ed3464f7a9b7) — Vercel serverless PDF patterns
-- [7 Tips for Generating PDFs with Puppeteer](https://apitemplate.io/blog/tips-for-generating-pdfs-with-puppeteer/) — Production best practices
-- [Best practice for PDF generation from Supabase Edge Functions · Discussion #38327](https://github.com/orgs/supabase/discussions/38327) — Supabase Edge Function PDF approach
+### Audit Log and User Display
+- QM System `025_audit_logs.sql` — `changed_by UUID` + `changed_by_name TEXT` dual-field design; `changed_by_name` is cached at write time for display without joins
+- QM System `components/history/history-tab.tsx` line 257 — current implementation uses `log.changed_by_name` text only, no avatar; confirms gap that the avatar feature must fill
 
-### Database Idempotency & Deduplication
-- [PostgreSQL Triggers in 2026: Idempotency](https://thelinuxcode.com/postgresql-triggers-in-2026-design-performance-and-production-reality/) — Idempotent trigger design
-- [Implementing Stripe-like Idempotency Keys in Postgres](https://brandur.org/idempotency-keys) — Idempotency patterns for financial operations
-- [Idempotency: Building Reliable & Predictable Systems (2026)](https://medium.com/@tnusraddinov/idempotency-building-reliable-predictable-systems-especially-for-financial-transactions-98e5e775d896) — Financial transaction idempotency
+### Two-Layer Approval Design
+- QM System existing three-table structure: `stock_out_requests`, `stock_out_line_items`, `stock_out_approvals` — the new warehouse layer must integrate without breaking idempotency constraint (`idx_unique_approval_execution` in migration 062)
+- PostgreSQL advisory lock semantics: same `pg_advisory_xact_lock(key)` call from two sessions with the same key serializes correctly; two sessions competing for the same `FOR UPDATE` row lock deadlock if acquired in different orders
 
-### Void/Cancel Cascades in ERP Systems
-- [Void transactions in Payables Management - Dynamics GP](https://learn.microsoft.com/en-us/troubleshoot/dynamics/gp/void-transactions-payables-management) — Void cascade patterns
-- [Difference between void and delete in Purchase Order Entry](https://learn.microsoft.com/en-us/troubleshoot/dynamics/gp/difference-between-void-and-delete-in-purchase-order-entry-windows) — Void vs delete semantics
-- [Dynamics GP SOP Orphaned Transactions](https://www.encorebusiness.com/blog/dynamics-gp-sop-orphaned-transactions-and-allocated-items/) — Orphaned records from improper cascades
-
-### Next.js & React PDF Server-Side
-- [We had a leak! Identifying and fixing Memory Leaks in Next.js](https://medium.com/john-lewis-software-engineering/we-had-a-leak-identifying-and-fixing-memory-leaks-in-next-js-622977876697) — Production memory leak patterns
-- [Memory Leak Prevention in Next.js](https://medium.com/@nextjs101/memory-leak-prevention-in-next-js-47b414907a43) — Prevention strategies
-- [Using React for Server-Side PDF Report Generation](https://medium.com/@sepehr.sabour/using-react-for-server-side-pdf-report-generation-de594015f19a) — @react-pdf/renderer patterns
+---
+*Pitfalls research for: Adding list view standardization, two-layer stock-out approval, user avatars, and pagination consistency to QM System*
+*Researched: 2026-02-17*

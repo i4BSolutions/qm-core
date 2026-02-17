@@ -1,280 +1,460 @@
 # Feature Landscape
 
-**Domain:** Purchase Order Lifecycle Management, Cancellation/Void Guards, and Receipt PDF Export
-**Researched:** 2026-02-12
+**Domain:** Internal Procurement & Inventory Management — UI Standardization & Workflow Enhancement
+**Researched:** 2026-02-17
+**Confidence:** HIGH (all findings verified against actual codebase)
 
-## Table Stakes
+---
 
-Features users expect. Missing = product feels incomplete.
+## Scope
+
+This milestone adds four feature areas to an existing, mature application. The codebase already has: card/list view toggle on QMHQ/PO/Invoice/SOR pages, single-layer stock-out approval (SOR -> line items -> approvals -> execution), audit logs with `changed_by_name` text, pagination component, and per-entity `avatar_url` field. This research maps what is already built, what is missing, and what the milestone should deliver in each area.
+
+---
+
+## Feature Area 1: Two-Layer Stock-Out Approval (Warehouse Assignment with Caps)
+
+### What Already Exists
+
+The current approval flow is:
+
+```
+SOR created (multi-item request)
+  -> Line items (pending)
+  -> Approver opens ApprovalDialog
+  -> Sets approved_quantity (capped at remaining_quantity), selects warehouse, enters conversion rate
+  -> Approval record inserted into stock_out_approvals
+  -> Pending inventory_transaction created (status = 'pending')
+  -> Inventory team executes via ExecutionDialog (confirms transaction, moves status to 'completed')
+```
+
+This is already a two-stage process (approve + execute). The approval dialog already fetches warehouse stock levels and shows a warning when approved qty exceeds available stock. Per-line-item approved quantity is already capped at `remaining_quantity`.
+
+### What Is Missing
+
+The milestone context says "two-layer approval workflow — qty approval then warehouse assignment with caps." After reading the actual `ApprovalDialog`, these two happen in the same dialog in one step. The missing capability is **separating** qty approval from warehouse assignment, or adding a **hard cap** enforced at the database level (currently only a UI warning, not a block).
+
+**Research finding:** The current approval dialog shows `showStockWarning` as a soft warning — it does NOT prevent submission when approved qty exceeds available warehouse stock. This is a gap. The approval will create a `pending` inventory_transaction that cannot be executed if stock is actually insufficient.
+
+### Table Stakes
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **6-State PO Status Engine** | Industry standard for procurement tracking (not_started, partially_invoiced, awaiting_delivery, partially_received, closed, cancelled) | Medium | Auto-calculated based on 3-way matching. Already in PRD but needs proper state machine implementation. |
-| **Status Priority Rules** | When PO has both invoicing and receiving progress, users need clear status | Low | "Partially Invoiced" wins over "Partially Received" per project requirements. Industry varies (some use "Open"), but conflict resolution is mandatory. |
-| **Lock Mechanism for Closed POs** | Closed = matched = no further changes allowed | Medium | Read-only state prevents data corruption. Admin-only unlock is table stakes. Jira, Salesforce use similar patterns. |
-| **Cannot Cancel PO with Invoices** | Once invoiced, cancellation would break financial chain | Low | Database trigger + UI validation. All enterprise systems (SAP, Oracle, Dynamics) enforce this. |
-| **Cannot Void Invoice with Stock-In** | Voiding invoice after goods received breaks inventory-finance alignment | Medium | Cascade validation: Invoice → Stock-In transactions. Sage, QuickBooks enforce this. Alternative: reversal instead of void. |
-| **Invoice Receipts (PDF)** | Users expect printable/emailable proof of financial transactions | Medium | Invoice = core financial document. Must include: invoice header, line items, totals, EUSD equivalent, supplier info, company branding. |
-| **GRN/Stock-In Receipts (PDF)** | Warehouse teams need proof of delivery for 3-way matching | Medium | Goods Received Note standard in procurement. Must include: item details, quantities, warehouse, PO reference, inspection notes, signature line. |
-| **Company Branding on PDFs** | Professional appearance, official documentation | Low | Logo, colors, fonts matching app UI. Standard in all invoice generators (Canva, Invoice Simple, Jotform). |
+| **Hard cap: approved qty cannot exceed warehouse stock** | Approval without stock is meaningless — creates phantom pending transactions | MEDIUM | Currently only a UI warning. Needs DB-level validation in `approve_stock_out_request()` function or trigger |
+| **Warehouse stock shown on line items in approval dialog** | Approver must see available qty per warehouse before setting approved qty | LOW | Already implemented — `fetchWarehouseStockForItem()` runs on dialog open |
+| **Approved qty capped at remaining line item qty** | Cannot approve more than was requested | LOW | Already implemented via `max={item.remaining_quantity}` on AmountInput |
+| **Approval record links to specific warehouse + inventory transaction** | Audit trail: who approved what qty from which warehouse | LOW | Already implemented — `stock_out_approvals` links to `stock_out_line_items` and `inventory_transactions` |
+| **Execution dialog shows stock availability at time of execution** | Stock may change between approval and execution | MEDIUM | `ExecutionDialog` fetches warehouse stock at open time. Needs explicit "available when approved" vs "available now" display |
 
-## Differentiators
-
-Features that set product apart. Not expected, but valued.
+### Differentiators
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Stock-Out Request Receipts (PDF)** | Internal requisition proof for audit trail | Low | Not common in basic procurement systems. Adds accountability for warehouse stock movements. Already have SOR flow in app. |
-| **QMHQ Money-Out Receipts (PDF)** | Expense reimbursement proof for requester | Low | Accounting systems have this (Expensify, Bill.com), but integrated procurement systems often skip it. Useful for petty cash tracking. |
-| **Real-time Status Updates** | UI auto-updates status when invoice/stock-in created | Medium-High | Requires database triggers + UI reactivity. Modern procurement platforms (Coupa, Ariba) have this. Elevates UX above manual refresh. |
-| **Audit Trail in PDF Footer** | PDF includes: created by, created at, export timestamp | Low | Tamper-evidence, compliance-friendly. Not standard in template libraries but easy to add. |
-| **Cascading Void Prevention** | UI shows WHY void is blocked with dependency chain | Low | Error messages like "Cannot void: 3 stock-in transactions exist". Better than generic "Cannot void". |
-| **Status History Timeline** | Visual representation of PO lifecycle progression | Medium | Already have History tab. Could add status-focused timeline with duration in each state. Useful for bottleneck analysis. |
-| **Balance in Hand Validation** | Block PO creation if insufficient balance (for PO route QMHQ) | Low | Already have balance_in_hand calculation. Adding UI validation prevents overspend. |
+| **Real-time stock cap enforcement (database-level)** | Prevents approval dialogs from creating invalid pending transactions | MEDIUM | Add check in `stock_out_approvals` insert trigger or RPC function. Follow advisory_lock pattern from migration 058 |
+| **Partial approval across multiple warehouses for one line item** | One line item can be fulfilled from Warehouse A (10 units) + Warehouse B (5 units) | HIGH | Requires schema change: multiple approvals per line item already exist, but UI currently one warehouse per line item. Out of scope unless explicitly requested |
+| **Automatic warehouse suggestion** | System suggests warehouse with highest stock for requested item | LOW | Sort warehouses by available_stock descending — already done in `fetchWarehouseStockForItem()` |
 
-## Anti-Features
-
-Features to explicitly NOT build.
+### Anti-Features
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Partially Cancel PO** | Complexity: tracking which line items cancelled vs active. Creates confusion with partially_invoiced status. | Close entire PO when complete. If need to reduce quantity, create adjustment workflow in V2. |
-| **Reopen Closed PO** | Breaks 3-way matching integrity. If reopened, what happens to closed invoices and stock-in? | Admin-only unlock for exceptional cases (e.g., data correction). Never allow requester/finance to reopen. |
-| **Delete Invoices** | Audit nightmare. Financial regulations require paper trail. | Void only. Already in PRD (INV-06). Voided invoices excluded from PO status calculations. |
-| **Edit Invoiced Quantities** | After invoice created, changing quantities breaks stock-in linkage. | No edit. Void and recreate if mistake. Or create credit memo in V2. |
-| **Stock-In Before Invoice** | PRD specifies invoice-first flow. Stock-in from invoice auto-populates quantities. | Maintain invoice → stock-in order. Manual stock-in exists but doesn't affect PO status. |
-| **Multi-Template PDF System** | Users selecting from 5 different invoice templates adds cognitive load. | Single consistent template matching app UI. Branding via config (logo, colors), not template selection. |
-| **PDF Download + Email in One Action** | Feature creep. Email requires SMTP config, recipient management, email templates. | Download PDF only. User handles email via their client. V2 can add email integration. |
+| **Fully separating qty approval from warehouse assignment into two screens** | Adds friction — approver must return to same request twice. The current single-dialog UX is better. | Keep combined. Enforce hard caps at save time, not by splitting screens |
+| **Auto-executing approved transactions** | Bypasses inventory team's physical verification step. Safety risk. | Keep the two-step approve-then-execute flow |
+| **Approving without a warehouse selection** | Creates incomplete approval records that block execution | Make warehouse mandatory (it already is in UI validation) |
 
-## Feature Dependencies
+### Dependencies
 
 ```
-PO Status Engine
-├─ Lock Mechanism (depends on status = 'closed')
-├─ Cancellation Guards (depends on status calculation)
-└─ Invoice Creation Block (depends on status != 'closed'|'cancelled')
-
-Void Guards
-├─ Invoice Void (depends on stock-in transaction check)
-└─ Cascading Void Prevention UI (depends on void guard logic)
-
-PDF Export
-├─ Invoice Receipt (independent, references invoice data)
-├─ GRN Receipt (independent, references stock-in data)
-├─ SOR Receipt (independent, references stock-out request data)
-├─ QMHQ Money-Out Receipt (independent, references financial transaction data)
-└─ Company Branding (config table or env vars)
+Two-Layer Approval Caps
+  └── requires --> stock_out_approvals table (already exists, migration 052)
+  └── requires --> inventory_transactions table (already exists, migration 023)
+  └── enhances --> ApprovalDialog UI (add error message instead of warning on stock exceed)
+  └── enhances --> approve RPC function (add stock validation with advisory lock)
 ```
 
-## MVP Recommendation
+### Complexity Assessment
 
-Prioritize:
+| Sub-Feature | Complexity | Risk |
+|-------------|------------|------|
+| Soft warning -> hard error in ApprovalDialog UI | LOW | Low — UI change only |
+| DB-level stock validation on approval insert | MEDIUM | Medium — advisory lock pattern required |
+| Execution stock re-check | LOW | Low — pattern already exists |
 
-1. **6-State PO Status Engine** - Core business logic. Must be correct before lock/guards work.
-2. **Lock Mechanism** - Prevents data corruption. Critical for closed POs.
-3. **Cannot Cancel PO with Invoices** - Financial integrity guard.
-4. **Cannot Void Invoice with Stock-In** - Inventory-finance integrity guard.
-5. **Invoice Receipt PDF** - Table stakes financial document.
-6. **GRN Receipt PDF** - Table stakes warehouse document.
+---
 
-Defer:
+## Feature Area 2: Auto-Generated User Avatars
 
-- **Stock-Out Request Receipts**: Nice-to-have. SOR workflow already exists without PDF.
-- **QMHQ Money-Out Receipts**: Nice-to-have. Manual expense tracking acceptable for V1.
-- **Real-time Status Updates**: UX polish. Page refresh works for MVP.
-- **Status History Timeline**: Analysis feature, not operational necessity.
-- **Audit Trail in PDF Footer**: Compliance enhancement for V2.
+### What Already Exists
 
-## Implementation Insights
+- `avatar_url TEXT | null` column on `users` table (verified in `types/database.ts` line 753)
+- `getInitials(name)` function in `components/layout/header.tsx` (extracts first 2 initials, uppercase)
+- `UserAvatar` in `components/flow-tracking/flow-qmrl-node.tsx` and `flow-qmhq-node.tsx` — shows `avatar_url` image if set, falls back to single first-letter initial in a `h-5 w-5` circle
+- Comments section uses a generic `User` icon (no initials, no real avatar)
+- History tab (`components/history/history-tab.tsx`) shows only `log.changed_by_name` text, no visual avatar
 
-### PO Status Engine
+### What Is Missing
 
-**Expected behavior:**
-- Status auto-calculates on every invoice create/void, stock-in create.
-- Database trigger or stored procedure pattern (already familiar from WAC calculation).
-- UI displays status badge with color-coding.
+There is **no shared, reusable UserAvatar component**. Avatar logic is duplicated across 3+ files with different sizes and fallback strategies. The history tab has no visual user indicator at all.
 
-**Edge cases:**
-- PO has 10 units ordered. Invoice 1 = 5 units, Invoice 2 (voided) = 3 units. Stock-in = 5 units.
-  - Expected: total_invoiced = 5 (excludes voided), total_received = 5, status = 'closed' if total_ordered = 5.
-- PO ordered 10 units. Invoiced 10 units. Received 7 units.
-  - Expected: status = 'partially_received' (not 'awaiting_delivery').
-- PO ordered 10 units. Invoiced 7 units. Received 7 units.
-  - Expected: status = 'partially_invoiced' (conflict resolution: invoicing wins).
+**Research finding on auto-generation:** The `avatar_url` field exists but users are invited via magic link — there is no avatar upload flow in the app. The database schema comment says "cached name for display without joins" for `changed_by_name`. A deterministic avatar can be generated from the user's name at render time without any backend calls.
 
-**User expectations:**
-- Status badge on PO list (card/list view).
-- Status badge on PO detail page.
-- Status NOT editable by user (calculated field).
-- Tooltip/help text explaining what each status means.
+### Table Stakes
 
-### Lock Mechanism
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| **Consistent user avatar display across all user-attribution points** | Seeing different avatar styles in different parts of the app feels unfinished | LOW | Requires a single shared `UserAvatar` component used everywhere |
+| **Initials-based fallback when no avatar_url** | Users without uploaded photos still need visual identity | LOW | `getInitials()` already exists in header.tsx — extract to shared util |
+| **Avatar in history tab entries** | Who made a change should be visually scannable, not just text | LOW | History tab has `changed_by_name` and `changed_by` UUID. Currently shows text only |
+| **Avatar in comments** | CommentsCard uses generic User icon — inconsistent with flow-tracking nodes | LOW | Replace User icon with UserAvatar component |
+| **Deterministic color per user** | Initials-only avatars should have a stable color (not random each render) | LOW | Hash the user's name or UUID to select from a palette of 8-10 colors |
 
-**Expected behavior:**
-- When status = 'closed', PO detail page shows lock icon.
-- All input fields disabled (read-only mode).
-- "Edit" button hidden or replaced with "Unlock (Admin Only)" button.
-- Linked invoices also read-only (cannot void if PO closed).
+### Differentiators
 
-**Edge cases:**
-- Admin unlocks PO. Status recalculates to 'partially_received' because user voids an invoice.
-  - Expected: PO auto-unlocks when status changes from 'closed'.
-- User tries to create new invoice for closed PO.
-  - Expected: UI hides closed POs from selection dropdown. Database trigger blocks insert (already in PRD).
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| **Avatar tooltip showing full name on hover** | Compact spaces show small avatars — tooltip reveals identity | LOW | Wrap with existing `TooltipProvider` pattern from codebase |
+| **Avatar group (stacked) for multi-user display** | List pages could show requester + assignee stacked with overlap | MEDIUM | Custom component — not warranted unless list views need it |
+| **Gravatar or external avatar integration** | Pulls real photos from email hash | MEDIUM | Requires network call, privacy concern. Not recommended for internal tool |
 
-**User expectations:**
-- Visual indicator (lock icon, "Closed" badge).
-- Explanation why locked ("Fully matched: PO = Invoice = Stock").
-- Admin-only unlock doesn't permanently disable lock (re-locks when status returns to 'closed').
+### Anti-Features
 
-### Cancellation Guards
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| **Avatar upload feature** | Scope creep — requires storage bucket, upload UI, cropping. Users are added by admin. | Use deterministic initials + color. If real photos needed, admin can set avatar_url directly in DB |
+| **Random color on each render** | Confusing — same user appears different colors | Hash name/id to stable color index from a fixed palette |
+| **Image loading without fallback** | If avatar_url 404s, shows broken image | Always show initials as fallback, only render img if avatar_url is set and loads |
 
-**Expected behavior:**
-- PO with 0 invoices → Cancel button visible.
-- PO with ≥1 invoice → Cancel button hidden or disabled with tooltip "Cannot cancel: invoices exist".
-- Cancel action sets status = 'cancelled', not soft delete (is_active = false).
-- Cancelled POs excluded from Balance in Hand calculation (already in PRD: total_po_committed excludes cancelled).
+### Implementation Pattern
 
-**Edge cases:**
-- PO has 1 invoice, then invoice is voided. Can PO be cancelled now?
-  - Industry standard: NO. Voided invoice still exists (audit trail). Use "Close" instead of "Cancel".
-  - QM System decision: Follow industry standard (cannot cancel if any invoices, even voided).
+```typescript
+// Deterministic color from name string
+function getAvatarColor(name: string): string {
+  const COLORS = [
+    "bg-amber-500/20 text-amber-400 border-amber-500/30",
+    "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+    "bg-purple-500/20 text-purple-400 border-purple-500/30",
+    "bg-rose-500/20 text-rose-400 border-rose-500/30",
+    "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
+    "bg-orange-500/20 text-orange-400 border-orange-500/30",
+    "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
+  ];
+  const hash = name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return COLORS[hash % COLORS.length];
+}
+```
 
-**User expectations:**
-- Clear error message if cancel blocked.
-- Option to "Close" PO instead (manually set to closed without full matching).
+### Dependencies
 
-### Void Guards
+```
+UserAvatar component
+  └── requires --> getInitials() utility (extract from header.tsx)
+  └── requires --> getAvatarColor() utility (new, simple hash)
+  └── enhances --> HistoryTab (add avatar next to changed_by_name)
+  └── enhances --> CommentCard (replace User icon with UserAvatar)
+  └── enhances --> flow-qmrl-node, flow-qmhq-node (replace inline UserAvatar)
+  └── enhances --> Header (replace inline initials logic)
+```
 
-**Expected behavior:**
-- Invoice with 0 stock-in transactions → Void button visible.
-- Invoice with ≥1 stock-in → Void button hidden or disabled with tooltip "Cannot void: goods received (3 transactions)".
-- Void sets is_voided = true, voided_at, voided_by, void_reason (already in PRD schema).
-- Voided invoices excluded from PO status calculation (already in PRD logic).
+### Complexity Assessment
 
-**Edge cases:**
-- Invoice has 3 line items. Stock-in created for 1 line item. Can invoice be voided?
-  - Expected: NO. Any stock-in blocks entire invoice void (not per-line-item void).
-- Stock-in transaction is manually deleted (admin action). Can invoice be voided now?
-  - Expected: YES. System re-checks stock-in count, allows void if count = 0.
+| Sub-Feature | Complexity | Risk |
+|-------------|------------|------|
+| Extract getInitials() to shared util | LOW | Low |
+| Create UserAvatar component (sm/md/lg sizes) | LOW | Low |
+| Apply to history tab | LOW | Low |
+| Apply to comments | LOW | Low |
+| Apply to flow-tracking nodes | LOW | Low |
 
-**User expectations:**
-- Void requires void_reason (free text or dropdown: "Duplicate", "Incorrect Amount", "Supplier Credit", "Other").
-- Voided invoices visually distinct (strikethrough, "VOIDED" watermark on detail page).
-- Void action is permanent (no "Unvoid"). Alternative: reversal invoice in V2.
+---
 
-### PDF Export
+## Feature Area 3: Standardized List Views
 
-**Expected behavior (Invoice Receipt):**
-- Download button on invoice detail page.
-- PDF filename: `INV-2025-00001_[Supplier Name]_[Date].pdf`
-- Content: Invoice header (invoice no, date, due date, supplier), line items table (item, qty, unit price, subtotal), totals (subtotal, tax if applicable, total in local currency, total in EUSD), company info (logo, name, address), footer (page numbers, export timestamp).
+### What Already Exists
 
-**Expected behavior (GRN Receipt):**
-- Download button on stock-in transaction detail or list.
-- PDF filename: `GRN-[Warehouse]-[Date]-[Reference].pdf`
-- Content: GRN header (date, warehouse, PO reference, invoice reference if from invoice), item table (item name, quantity, unit cost for WAC, condition notes), totals (total units, total value), signature lines (received by, verified by), footer (export timestamp).
+**Pages with card/list toggle:**
+- QMHQ list: `viewMode: "card" | "list"` — card view grouped by status group, list view renders rows
+- PO list: `viewMode: "card" | "list"` — card view grouped by status, list view renders table rows
+- Invoice list: `viewMode: "card" | "list"` — card view grouped by status, list view renders table rows
+- SOR list: `viewMode: "card" | "list"` — state exists but list view rendering may not be implemented
 
-**Edge cases:**
-- Invoice has 50 line items (multi-page PDF).
-  - Expected: Pagination with page numbers, repeated header/footer.
-- Company logo not uploaded yet.
-  - Expected: PDF still generates with company name text instead of logo.
-- EUSD calculation results in very long decimal (e.g., 1234.567890123).
-  - Expected: Round to 2 decimals for display (already PRD standard).
+**Pages WITHOUT list view:**
+- QMRL list: Only card view, grouped by status (to_do, in_progress, done). No `viewMode` state.
 
-**User expectations:**
-- PDF opens in new tab (not auto-download, gives user preview).
-- PDF styling matches app UI (colors, fonts, spacing).
-- Print-friendly (no dark backgrounds, high contrast).
-- Professional appearance (not template-looking).
+**Pagination:**
+- `Pagination` component exists at `components/ui/pagination.tsx` — fully featured (first/last/prev/next buttons, page numbers with ellipsis, page size selector)
+- QMRL, QMHQ, PO, Invoice pages all import and use `Pagination`
+- SOR list does NOT appear to use `Pagination` (not imported in stock-out-requests/page.tsx)
+- Pagination is client-side (slice on filtered array), not server-side
 
-## Technology Recommendations
+### What Is Missing
 
-### PO Status Engine
-- **Implementation:** PostgreSQL stored function `calculate_po_status(po_id UUID)` triggered on invoice/stock-in insert/update/delete.
-- **Rationale:** Already using triggers for WAC calculation. Consistent pattern. Performance: status calculation is fast (simple SUM queries).
+1. **QMRL list view is missing entirely** — only grouped card view exists
+2. **SOR list does not use `Pagination`** — loads all items, no pagination control
+3. **Inconsistent list view column schemas** — each page that has list view defines its own columns inline with no shared pattern
+4. **Page size persistence** — users cannot save their preferred page size; resets to 20 on navigation
+5. **Sorting on list view columns** — no column sort in any list view currently
 
-### Lock Mechanism
-- **Implementation:** React hook `usePOLockState(poStatus)` returns `{ isLocked, canUnlock }`. Conditional rendering based on lock state.
-- **Rationale:** Client-side lock (no DB flag). Lock is derived from status, not stored. Prevents stale lock state.
+### Table Stakes
 
-### Cancellation/Void Guards
-- **Implementation:** Database triggers + UI validation. Trigger: `BEFORE UPDATE` on purchase_orders checks invoice count. UI: Hide/disable buttons based on entity counts.
-- **Rationale:** Defense in depth. UI prevents user confusion. DB trigger prevents API bypass.
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| **QMRL list view (table/row format)** | QMRL is the primary entity. All other entity list pages have list toggle. Gap is obvious. | MEDIUM | Needs columns: ID, Title, Priority badge, Status badge, Category badge, Assigned user, Request date, Created at |
+| **SOR list pagination** | SOR page loads all records — performance degrades with volume | LOW | Add Pagination component following existing pattern from PO/QMHQ pages |
+| **Consistent toggle button placement and icons** | LayoutGrid + List icons already used in QMHQ/PO/Invoice — QMRL needs same | LOW | Add `viewMode` state and toggle buttons to QMRL page |
+| **List view shows same columns that card shows** | Users switching views should not lose information | LOW | Map card data to table columns |
+| **Empty state in both views** | No records should show informative empty state, not blank area | LOW | Pattern exists in codebase — replicate |
 
-### PDF Export
-- **Library:** `@react-pdf/renderer` (15,900 stars, 860K weekly downloads, React-first approach).
-- **Rationale:**
-  - Server-side rendering compatible with Next.js API routes.
-  - JSX-based templates (familiar for React devs).
-  - Styling similar to CSS (easier to match app UI than jsPDF's imperative API).
-  - Active maintenance (updated 2025).
-- **Alternative:** `jsPDF` if need to draw complex graphics. But for receipts (tables, text, logos), react-pdf is superior DX.
-- **Deployment:** Next.js API route `/api/pdf/invoice/[id]`, `/api/pdf/grn/[id]`. Client calls API, receives PDF blob, opens in new tab.
+### Differentiators
 
-### Company Branding
-- **Implementation:** Add `company_config` table or use existing Supabase storage for logo upload. Env vars for company name, address.
-- **Rationale:** Single source of truth for branding. PDF templates fetch from config. Admin page for updating logo/colors in V2.
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| **Column sorting in list view** | Power users scanning large lists need sort by date, priority, status | MEDIUM | Client-side sort using `useMemo`. No library needed. Add sort icon to column headers. |
+| **View mode persistence in localStorage** | User preference remembered across navigation | LOW | `localStorage.getItem("qmrl-view-mode")` on mount, save on change |
+| **Configurable columns (show/hide)** | Users can remove columns they don't use | HIGH | Complex UI. Not recommended for MVP of this milestone. |
+| **Sortable by clicking column header** | Standard UX for data tables | MEDIUM | Add `sortField` / `sortDirection` state, sort `filteredItems` in `useMemo` |
 
-## Complexity Assessment
+### Anti-Features
 
-| Feature | Complexity | Dev Time Estimate | Risk |
-|---------|------------|-------------------|------|
-| 6-State PO Status Engine | Medium | 2-3 days | Medium (edge cases in conflict resolution) |
-| Lock Mechanism | Low-Medium | 1-2 days | Low (derived from status) |
-| Cannot Cancel PO with Invoices | Low | 0.5 day | Low (simple check) |
-| Cannot Void Invoice with Stock-In | Low | 0.5 day | Low (simple check) |
-| Invoice Receipt PDF | Medium | 2-3 days | Low (well-documented library) |
-| GRN Receipt PDF | Medium | 2-3 days | Low (similar to invoice PDF) |
-| SOR Receipt PDF | Low | 1 day | Low (defer to V2 if time-constrained) |
-| QMHQ Money-Out Receipt PDF | Low | 1 day | Low (defer to V2 if time-constrained) |
-| Real-time Status Updates | Medium-High | 2-3 days | Medium (requires WebSocket or polling) |
-| Status History Timeline | Medium | 1-2 days | Low (UI component over existing audit data) |
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| **Server-side pagination** | Adds API complexity and latency for an internal tool with <1000 records per entity | Keep client-side. Apply `.limit(500)` on Supabase queries. |
+| **Drag-to-reorder columns** | Complex DnD implementation for low internal-tool value | Static column order. Hide/show toggle as future enhancement. |
+| **URL-synced pagination state** | Useful for sharing deep links, but QMRL/QMHQ don't have shareable filtered views | Keep pagination in component state. Simple. |
+| **Infinite scroll instead of pagination** | Confusing with filters active — where are you in the list? | Keep explicit page navigation with page numbers |
 
-**Total MVP estimate:** 8-12 days (excluding deferred features)
+### Column Schema Recommendations
+
+**QMRL list view columns (in order):**
+| Column | Display | Width | Notes |
+|--------|---------|-------|-------|
+| ID | `QMRL-2025-00001` | 140px | Fixed, monospace |
+| Title | Full text | flex-1 | Truncated with tooltip |
+| Priority | Pill badge | 80px | LOW/MED/HIGH/CRIT |
+| Status | Color badge | 140px | From status_config |
+| Category | Color badge | 120px | From categories |
+| Assigned | User name | 140px | Could show avatar |
+| Request Date | `Jan 15, 2025` | 110px | Short date |
+| Actions | Links | 80px | View button |
+
+**Consistent list view column pattern across all pages:**
+- ID (monospace, fixed)
+- Primary name/title (flex-1)
+- Status badge
+- Financial amounts (right-aligned, if applicable)
+- Dates
+- Actions column
+
+### Pagination Standardization
+
+The existing Pagination component is already well-built. Standardization needed:
+
+1. Apply to SOR list (missing)
+2. Ensure all pages use `pageSize` state with the same default (20)
+3. Use same `pageSizeOptions = [10, 20, 50, 100]` everywhere
+4. Reset `currentPage` to 1 on filter/search change (already done on PO/QMHQ — verify SOR)
+
+### Dependencies
+
+```
+List View Standardization
+  └── requires --> Pagination component (already exists, complete)
+  └── requires --> viewMode state pattern (already in QMHQ/PO/Invoice — replicate to QMRL, SOR)
+  └── enhances --> QMRL page (add list view)
+  └── enhances --> SOR page (add pagination)
+  └── no new dependencies
+
+Column Sorting (differentiator)
+  └── requires --> list view (must exist first)
+  └── no new dependencies (client-side useMemo sort)
+```
+
+### Complexity Assessment
+
+| Sub-Feature | Complexity | Risk |
+|-------------|------------|------|
+| Add list view to QMRL page | MEDIUM | Low — follow QMHQ pattern exactly |
+| Add pagination to SOR page | LOW | Low — copy from QMHQ page |
+| Standardize page size defaults across all pages | LOW | Low — change constants |
+| Column sorting on list views | MEDIUM | Low — client-side sort |
+| View mode persistence in localStorage | LOW | Low |
+
+---
+
+## Feature Area 4: Audit History with User Attribution and Avatars
+
+### What Already Exists
+
+The `HistoryTab` component (`components/history/history-tab.tsx`) is complete with:
+- Timeline layout with action-specific icons and colors
+- `changed_by_name` text display (cached in `audit_logs.changed_by_name`)
+- Expand/collapse for field-level change details
+- Relative time display ("2h ago") with full timestamp on hover
+- Supports all 9 action types: create, update, delete, status_change, assignment_change, void, approve, close, cancel
+- Void cascade detection via `changes_summary.includes('void of invoice')`
+
+The `audit_logs` table has both:
+- `changed_by UUID` — FK to users table (nullable due to `ON DELETE SET NULL`)
+- `changed_by_name TEXT` — cached name snapshot (no join needed for display)
+
+### What Is Missing
+
+1. **No avatar next to `changed_by_name`** — the history entry only shows the text name. No visual indicator of who made the change.
+2. **No avatar_url join in history query** — the current query fetches `audit_logs` with `select("*")`. The `changed_by` FK exists but `avatar_url` is not fetched (requires a join to `users`).
+3. **`changed_by` UUID can become `null`** if a user is deleted (ON DELETE SET NULL) — the cached `changed_by_name` survives but the UUID is gone. Avatar generation must gracefully handle null UUID.
+
+### Architecture Decision: Name-Based vs UUID-Based Avatar
+
+Two options for getting avatar color in history:
+
+**Option A: Deterministic from `changed_by_name`** (recommended)
+- No additional query needed — `changed_by_name` is always present
+- Hash the name string to pick a color from the palette
+- Initials from the name string
+- Survives user deletion (name is cached)
+- Consistent: same name always gets same color
+
+**Option B: Join to `users` to get `avatar_url`**
+- Requires changing `select("*")` to `select("*, changed_by_user:users(id, full_name, avatar_url)")`
+- Gets real photo if uploaded
+- Breaks when user is deleted (changed_by is null)
+- More expensive query
+
+**Recommendation: Option A** — use `changed_by_name` for deterministic initials and color. If `avatar_url` support is needed later, it can be fetched via Option B with a null-safe fallback.
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| **Avatar (initials circle) next to username in history entries** | Visual scanning: users can recognize who made changes without reading every name | LOW | Use shared `UserAvatar` component from Feature Area 2 |
+| **Deterministic avatar color per user in history** | Same user should always have same color across all history entries | LOW | Hash `changed_by_name` for stable color |
+| **Graceful handling of null changed_by** | System-generated changes (triggers) have no user | LOW | Show "System" with a gear icon avatar |
+| **Initials from full name in history** | Two-character initials more scannable than single letter | LOW | Use `getInitials()` from shared util |
+
+### Differentiators
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| **Avatar tooltip showing full name** | History avatars are small — tooltip confirms identity | LOW | Wrap avatar in existing TooltipProvider |
+| **Filter history by user** | "Show only changes by [User X]" in busy entities | MEDIUM | Add a user filter dropdown above timeline. Requires collecting unique users from `logs` array |
+| **Filter history by action type** | "Show only status changes" | MEDIUM | Add action filter. UI complication vs value depends on entity verbosity |
+| **Pagination for history entries** | Busy entities (POs) accumulate 100+ history entries | MEDIUM | Current: `.limit(50)`. Add "Load more" button or pagination |
+
+### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| **Real-time auto-refresh for history** | Internal tool, users don't watch history continuously | Provide manual refresh button if needed |
+| **Joining users table on every history entry for avatar_url** | Adds latency, fails on deleted users | Use deterministic initials from cached `changed_by_name` |
+| **Color-coding entries by user (entire entry background)** | Hard to read alongside action-color coding already in use | Color only the avatar circle, keep entry background neutral |
+
+### Dependencies
+
+```
+History Avatar Feature
+  └── requires --> UserAvatar component (Feature Area 2)
+  └── requires --> getInitials() utility (Feature Area 2)
+  └── requires --> getAvatarColor() utility (Feature Area 2)
+  └── enhances --> HistoryTab (add avatar before changed_by_name display)
+  └── no schema changes needed (changed_by_name already cached)
+```
+
+### Complexity Assessment
+
+| Sub-Feature | Complexity | Risk |
+|-------------|------------|------|
+| Add UserAvatar to history entries | LOW | Low — pure UI addition |
+| System/null changed_by fallback | LOW | Low — simple null check |
+| History entry user filter | MEDIUM | Low — client-side filter on loaded entries |
+| History pagination (load more) | MEDIUM | Low — cursor-based or offset on audit_logs query |
+
+---
+
+## Cross-Feature Dependencies
+
+```
+UserAvatar component (Feature 2)
+  ├── enables --> History avatars (Feature 4)
+  ├── enables --> List view user columns (Feature 3)
+  └── is foundational (build first)
+
+List View standardization (Feature 3)
+  ├── requires --> Pagination component (already exists)
+  └── can proceed independently of Features 1, 2, 4
+
+Two-Layer Approval caps (Feature 1)
+  └── can proceed independently (backend + dialog changes only)
+
+History avatars (Feature 4)
+  └── requires --> UserAvatar (Feature 2, must build first)
+```
+
+**Build order recommendation:**
+1. UserAvatar component + utilities (Feature 2 foundation)
+2. List view standardization — QMRL list view + SOR pagination (Feature 3)
+3. Approval hard caps — UI + DB validation (Feature 1)
+4. History avatars — apply UserAvatar to HistoryTab (Feature 4)
+
+---
+
+## MVP Definition
+
+### Launch With (this milestone)
+
+- [ ] `UserAvatar` component with initials fallback and deterministic color — foundational for all other features
+- [ ] QMRL list view (table format with card/list toggle matching QMHQ pattern)
+- [ ] SOR list pagination (apply existing Pagination component)
+- [ ] Approval dialog: hard error (not soft warning) when approved qty exceeds warehouse stock
+- [ ] History tab: avatar circle next to `changed_by_name` for every audit entry
+
+### Add After Validation (v-next)
+
+- [ ] Column sorting on list views — once list views are stable
+- [ ] View mode persistence in localStorage — low-effort quality improvement
+- [ ] History entry user filter — when entities accumulate many entries
+
+### Future Consideration (v2+)
+
+- [ ] Avatar upload flow — requires storage bucket, upload UI, admin tooling
+- [ ] Server-side pagination — only if record counts exceed 500+ per entity
+- [ ] Real-time history refresh — polling or WebSocket
+
+---
+
+## Feature Prioritization Matrix
+
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| UserAvatar component | HIGH | LOW | P1 — foundational |
+| QMRL list view | HIGH | MEDIUM | P1 — visible gap |
+| SOR pagination | MEDIUM | LOW | P1 — performance fix |
+| Approval hard cap | HIGH | MEDIUM | P1 — data integrity |
+| History avatars | MEDIUM | LOW | P1 — visual polish |
+| Column sorting | MEDIUM | MEDIUM | P2 — usability |
+| View mode persistence | LOW | LOW | P2 — convenience |
+| History user filter | LOW | MEDIUM | P3 — power users |
+| Approval multi-warehouse split | MEDIUM | HIGH | P3 — complex schema change |
+
+---
 
 ## Sources
 
-**Procurement Lifecycle:**
-- [Purchase Order Life Cycle - Oracle](https://docs.oracle.com/en/cloud/saas/procurement/25c/oaprc/purchase-order-life-cycle.html)
-- [Procurement Process Flow & How to Optimize (The 2026 Guide)](https://kissflow.com/procurement/procurement-process/)
-- [The 16 Stages of the Procurement Lifecycle - NetSuite](https://www.netsuite.com/portal/resource/articles/accounting/procurement-life-cycle.shtml)
+**Codebase verification (HIGH confidence):**
+- `/home/yaungni/qm-core/components/history/history-tab.tsx` — confirmed no avatar, confirmed `changed_by_name` cached field
+- `/home/yaungni/qm-core/components/stock-out-requests/approval-dialog.tsx` — confirmed soft warning (not hard error) on stock exceed
+- `/home/yaungni/qm-core/types/database.ts` line 753 — confirmed `avatar_url: string | null` on users table
+- `/home/yaungni/qm-core/components/layout/header.tsx` — confirmed `getInitials()` utility exists but is local
+- `/home/yaungni/qm-core/components/flow-tracking/flow-qmrl-node.tsx` — confirmed inline `UserAvatar` with single-letter fallback
+- `/home/yaungni/qm-core/components/ui/pagination.tsx` — confirmed Pagination component is complete and usable
+- `/home/yaungni/qm-core/app/(dashboard)/qmrl/page.tsx` — confirmed no `viewMode` state, no list view
+- `/home/yaungni/qm-core/app/(dashboard)/inventory/stock-out-requests/page.tsx` — confirmed no Pagination import
+- `/home/yaungni/qm-core/supabase/migrations/025_audit_logs.sql` — confirmed `changed_by UUID`, `changed_by_name TEXT` both present
 
-**PO Cancellation Rules:**
-- [Cancel a Purchase Requisition or Purchase Order (PO) - Stanford](https://fingate.stanford.edu/purchasing-contracts/how-to/cancel-purchase-requisition-or-purchase-order-po)
-- [Canceling a PO vs Closing a PO - Boston University](https://www.bu.edu/sourcing/canceling-a-po-vs-closing-a-po/)
-- [Approve and confirm purchase orders - Dynamics 365](https://learn.microsoft.com/en-us/dynamics365/supply-chain/procurement/purchase-order-approval-confirmation)
+**Implementation patterns verified in codebase:**
+- QMHQ page as reference for card/list toggle + pagination + filter bar pattern
+- PO page as reference for list view columns + status badge in list rows
+- Advisory lock pattern from migration 058 for stock validation
 
-**Invoice Void Validation:**
-- [Void or Reverse an Invoice - Agvance Help Center](https://helpcenter.agvance.net/home/void-reverse-invoice)
-- [What Are Reimbursement Receipts and How To Manage Them - Bill.com](https://www.bill.com/learning/reimbursement-receipts)
-
-**3-Way Matching:**
-- [What Is Three-Way Matching & Why Is It Important? - NetSuite](https://www.netsuite.com/portal/resource/articles/accounting/three-way-matching.shtml)
-- [What's a Three-Way Match in AP & Procurement? - Tradogram](https://www.tradogram.com/blog/three-way-match-accounts-payable)
-- [3-Way Invoice Matching in Accounts Payable - DocuWare](https://start.docuware.com/blog/document-management/3-way-invoice-matching)
-
-**Goods Received Notes:**
-- [What Is Goods Received Note (GRN): Importance & Best Practices - HighRadius](https://www.highradius.com/resources/Blog/goods-received-note/)
-- [Guide to Goods Received Note (GRN) in Procurement - Zycus](https://www.zycus.com/blog/source-to-pay/goods-received-note-procurement)
-- [Goods Received Note: Meaning, Importance, and Uses - Tipalti](https://tipalti.com/resources/learn/goods-received-note-explained/)
-
-**PDF Generation:**
-- [Top 6 Open-Source PDF Libraries for React Developers](https://blog.react-pdf.dev/6-open-source-pdf-generation-and-modification-libraries-every-react-dev-should-know-in-2025)
-- [Building a PDF generation service using Nextjs and React PDF - Medium](https://03balogun.medium.com/building-a-pdf-generation-service-using-nextjs-and-react-pdf-78d5931a13c7)
-- [How to Generate Invoice PDF with React.js - Expressa](https://www.expressa.io/blog/generate-invoice-pdf-reactjs)
-
-**Procurement Automation:**
-- [Procurement automation best practices for enterprises (2026) - Amazon Business](https://business.amazon.com/en/blog/procurement-automation)
-- [Procurement Management System: Complete Guide for 2026 - Zapro](https://zapro.ai/procurement/procurement-management-system/)
-- [Real-Time PO Matching - oAppsNet](https://www.oappsnet.com/2026/01/real-time-po-matching-closing-the-loop-between-procurement-and-payables/)
-
-**Status Management:**
-- [Purchase order overview - Dynamics 365](https://learn.microsoft.com/en-us/dynamics365/supply-chain/procurement/purchase-order-overview)
-- [What do the different PO statuses mean? - ProcurementExpress](https://faq.procurementexpress.com/po-statuses)
-- [iO Purchase Order and Invoice Statuses - Rice University](https://procurement.rice.edu/PO-invoice-statuses)
-
-**Locking and Immutability:**
-- [Disabling edits in closed issues for Jira tickets - Atlassian](https://support.atlassian.com/jira/kb/disabling-edits-in-closed-issues-for-jira-tickets/)
-- [How to automatically lock closed business meetings - Salesforce](https://arakan.blog/en/salesforce-lock-closed-opportunities/)
+---
+*Feature research for: QM System — list view standardization, two-layer approval caps, user avatars, audit history*
+*Researched: 2026-02-17*
