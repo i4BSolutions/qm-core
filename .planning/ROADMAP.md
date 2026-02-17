@@ -139,12 +139,12 @@ Plans:
   4. Every list and card page has an assigned person filter; selecting a person narrows the results
   5. Changing any filter (including assigned person) resets the page display to page 1
   6. User avatar chips appear next to assigned person names in all list view rows
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 56-01: QMRL list view with card/list toggle
-- [ ] 56-02: Standardized columns on QMHQ, PO, Invoice, Items list views
-- [ ] 56-03: Stock-out execution list view columns + pagination + assigned person filter across all pages
+- [ ] 56-01-PLAN.md -- Shared usePaginationParams hook + QMRL list view with card/list toggle, URL pagination, responsive behavior
+- [ ] 56-02-PLAN.md -- QMHQ, PO, Invoice, Items standardization: assigned filter, avatar columns, toolbar toggle, URL pagination
+- [ ] 56-03-PLAN.md -- Stock-out requests standardization + cross-page verification
 
 ### Phase 57: Two-Layer Approval UI + Execution Page
 **Goal**: Admins can approve stock-out quantities in Layer 1 and assign a warehouse in Layer 2; execution is blocked until both layers are complete; a dedicated execution page replaces the old stock-out sidebar link.
@@ -200,4 +200,4 @@ Plans:
 | 58. History + Comment Avatars | v1.12 | 0/2 | Not started | - |
 
 ---
-*Last updated: 2026-02-17 after v1.12 roadmap created*
+*Last updated: 2026-02-17 after Phase 56 plans created*
