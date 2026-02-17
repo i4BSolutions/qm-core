@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-17
+**Last Updated:** 2026-02-17 (56-02)
 
 ---
 
@@ -17,9 +17,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 56 (List View Standardization)
-Plan: 01 complete (usePaginationParams hook + QMRL reference implementation)
-Status: Phase 56 in progress — plan 01 done, plans 02 and 03 remaining
-Last activity: 2026-02-17 — 56-01 executed (URL pagination hook + QMRL list view)
+Plan: 02 complete (QMHQ, PO, Invoice, Items list view standardization)
+Status: Phase 56 in progress — plans 01 and 02 done, plan 03 remaining
+Last activity: 2026-02-17 — 56-02 executed (QMHQ, PO, Invoice, Items list views)
 
 Progress: [██████░░░░░░░░░░░░░░] 2/4 phases in v1.12 (Phase 55 + 56 plan 01 done)
 
@@ -54,7 +54,7 @@ Progress: [██████░░░░░░░░░░░░░░] 2/4 pha
 **v1.12 In Progress:**
 - 4 phases planned (55-58)
 - 25 requirements mapped
-- Phase 55 complete, Phase 56 plan 01 complete
+- Phase 55 complete, Phase 56 plans 01 and 02 complete
 
 ---
 
@@ -72,6 +72,9 @@ All decisions archived in PROJECT.md Key Decisions table.
 - boring-avatars@^2.0.4 chosen over dicebear (two packages) and external URL services (network dependency)
 - Phase 56 and Phase 57 are independent after Phase 55 ships — list views do not depend on approval UI changes
 - boring-avatars Beam variant with default color palette and circle shape (square=false) — no custom colors, no border ring
+- Invoice assigned filter uses created_by field (invoices have no assigned_to column)
+- PO assigned filter reads qmhq.assigned_to via extended QMHQ join — no Assigned Person column in PO list view (LIST-03 does not require it)
+- Items has no person association — no assigned filter on Items page (no person field in data model)
 - UserAvatar size defaults to 28px for list row inline usage; callers pass 32 for comment cards, 40 for header
 - usePaginationParams reads ?page and ?pageSize from URL; setPageSize automatically resets to page 1
 - Assignee filter uses raw Shadcn Select (not FilterBar.Select) in QMRL page to support avatar JSX in option labels
@@ -82,8 +85,8 @@ All decisions archived in PROJECT.md Key Decisions table.
 ### TODOs
 
 **Immediate Next Steps:**
-1. Phase 56 plan 01 complete — proceed to Phase 56 plan 02 (QMHQ list view standardization)
-2. Phase 56 plan 03 (PO/Invoice list views) after plan 02
+1. Phase 56 plan 02 complete — proceed to Phase 56 plan 03 (if exists) or next phase
+2. All 4 list pages standardized (QMRL, QMHQ, PO, Invoice, Items)
 
 ### Blockers
 
@@ -94,25 +97,19 @@ All decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 56 plan 01 executed:
-  - Created `lib/hooks/use-pagination-params.ts` — URL-driven pagination hook
-  - Added export to `lib/hooks/index.ts` barrel file
-  - Rewrote `app/(dashboard)/qmrl/page.tsx` as reference implementation:
-    - Card/list toggle (default: card, no persistence)
-    - List view: ID, Title, Status (solid badge), Assigned (avatar+tooltip), Request Date
-    - URL-driven pagination (replaced useState + useEffect)
-    - Filter handlers reset URL page to 1
-    - Responsive: auto-switch to card below 768px, filter collapse to Popover on mobile
-    - Assignee filter: raw Select with avatar+name per option
-  - Requirements completed: LIST-01, PAGE-01, PAGE-03, AVTR-03
+- Phase 56 plan 02 executed:
+  - Rewrote `app/(dashboard)/qmhq/page.tsx` — assigned filter with UserAvatar, avatar-only column with tooltip, toolbar toggle, URL pagination, colored status badges, router.push, responsive behavior (750 lines)
+  - Rewrote `app/(dashboard)/po/page.tsx` — assigned filter via QMHQ join, toolbar toggle, URL pagination, router.push, responsive behavior (669 lines)
+  - Rewrote `app/(dashboard)/invoice/page.tsx` — creator filter via created_by, toolbar toggle, URL pagination, router.push, responsive behavior (693 lines)
+  - Rebuilt `app/(dashboard)/item/page.tsx` — removed TanStack DataTable, added FilterBar with card/list toggle, card grid view, list table view (SKU/Name/Category/Unit/Price Ref), URL pagination, responsive behavior (662 lines)
+  - Requirements completed: LIST-02, LIST-03, LIST-04, LIST-05, PAGE-02
 
 **Context for Next Agent:**
-- `usePaginationParams` hook at `lib/hooks/use-pagination-params.ts` is the shared hook for Plans 02 and 03
-- QMRL page at `app/(dashboard)/qmrl/page.tsx` (688 lines) is the reference implementation
-- Phase 56 plan 02 applies same pattern to QMHQ, plan 03 applies to PO and Invoice
-- Phase 57 (L2 approval UI) is still independent and can proceed in parallel
+- All 5 list pages standardized: QMRL (plan 01), QMHQ+PO+Invoice+Items (plan 02)
+- Consistent pattern: usePaginationParams + handleXChange(setCurrentPage(1)) + hidden md:flex desktop filters + ml-auto toggle + responsive Popover on mobile
+- Phase 57 (L2 approval UI) is independent and can proceed
 
-**Resume at:** Phase 56 plan 02
+**Resume at:** Phase 56 plan 03 (if exists) or next phase
 
 ---
 
