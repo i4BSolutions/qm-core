@@ -125,8 +125,8 @@ Phases 47-54 delivered per-item standard unit management with admin CRUD, per-tr
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 55-01-PLAN.md -- Two-layer approval database migration with enum extension, trigger rewrites, and data backfill
-- [ ] 55-02-PLAN.md -- boring-avatars install and UserAvatar component
+- [x] 55-01-PLAN.md -- Two-layer approval database migration with enum extension, trigger rewrites, and data backfill
+- [x] 55-02-PLAN.md -- boring-avatars install and UserAvatar component
 
 ### Phase 56: List View Standardization
 **Goal**: Every major list page has a consistent list view with defined columns, working pagination, and an assigned person filter.
@@ -142,9 +142,9 @@ Plans:
 **Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 56-01-PLAN.md -- Shared usePaginationParams hook + QMRL list view with card/list toggle, URL pagination, responsive behavior
-- [ ] 56-02-PLAN.md -- QMHQ, PO, Invoice, Items standardization: assigned filter, avatar columns, toolbar toggle, URL pagination
-- [ ] 56-03-PLAN.md -- Stock-out requests standardization + cross-page verification
+- [x] 56-01-PLAN.md -- Shared usePaginationParams hook + QMRL list view with card/list toggle, URL pagination, responsive behavior
+- [x] 56-02-PLAN.md -- QMHQ, PO, Invoice, Items standardization: assigned filter, avatar columns, toolbar toggle, URL pagination
+- [x] 56-03-PLAN.md -- Stock-out requests standardization + cross-page verification
 
 ### Phase 57: Two-Layer Approval UI + Execution Page
 **Goal**: Admins can approve stock-out quantities in Layer 1 and assign a warehouse in Layer 2; execution is blocked until both layers are complete; a dedicated execution page replaces the old stock-out sidebar link.
@@ -160,9 +160,9 @@ Plans:
 **Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 57-01-PLAN.md -- L1 approval dialog, progress bar, per-row action buttons replacing batch selection
-- [ ] 57-02-PLAN.md -- L2 warehouse dialog with stock validation, Warehouse Assignments tab, expandable line item sections
-- [ ] 57-03-PLAN.md -- Dedicated execution page with warehouse/status filters, sidebar navigation update
+- [x] 57-01-PLAN.md -- L1 approval dialog, progress bar, per-row action buttons replacing batch selection
+- [x] 57-02-PLAN.md -- L2 warehouse dialog with stock validation, Warehouse Assignments tab, expandable line item sections
+- [x] 57-03-PLAN.md -- Dedicated execution page with warehouse/status filters, sidebar navigation update
 
 ### Phase 58: History Avatars + Comment Avatars
 **Goal**: Every place a user's name appears in audit history or comment cards shows their auto-generated avatar alongside the name.
@@ -194,9 +194,9 @@ Plans:
 | 41-43. PO Status -> Guards -> PDF | v1.9 | 8/8 | ✓ Complete | 2026-02-13 |
 | 44-46. PO Edit -> Flow Perf -> Type Safety | v1.10 | 3/3 | ✓ Complete | 2026-02-14 |
 | 47-54. Standard Units -> USD Lock | v1.11 | 17/17 | ✓ Complete | 2026-02-16 |
-| 55. DB Foundation + UserAvatar | v1.12 | Complete    | 2026-02-17 | - |
-| 56. List View Standardization | v1.12 | Complete    | 2026-02-17 | - |
-| 57. Two-Layer Approval + Execution | v1.12 | Complete    | 2026-02-17 | - |
+| 55. DB Foundation + UserAvatar | v1.12 | 2/2 | ✓ Complete | 2026-02-17 |
+| 56. List View Standardization | v1.12 | 3/3 | ✓ Complete | 2026-02-17 |
+| 57. Two-Layer Approval + Execution | v1.12 | 3/3 | ✓ Complete | 2026-02-17 |
 | 58. History + Comment Avatars | v1.12 | 0/2 | Not started | - |
 
 ---
