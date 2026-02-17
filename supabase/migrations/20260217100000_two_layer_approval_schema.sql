@@ -8,19 +8,9 @@
 -- Plan: 55-01
 -- Requirement: APPR-06
 
--- ============================================================================
--- STEP 1: ENUM EXTENSION (must run OUTSIDE transaction block)
--- PostgreSQL prohibits ALTER TYPE ... ADD VALUE inside a transaction when the
--- type already has live rows. This must precede any BEGIN; block.
--- Project precedent: migrations 017, 055.
--- ============================================================================
-
-ALTER TYPE public.sor_line_item_status ADD VALUE IF NOT EXISTS 'awaiting_admin';
-ALTER TYPE public.sor_line_item_status ADD VALUE IF NOT EXISTS 'fully_approved';
-
--- ============================================================================
--- STEP 2: SCHEMA CHANGES + TRIGGER REWRITES + BACKFILL (inside transaction)
--- ============================================================================
+-- NOTE: Enum extension (awaiting_admin, fully_approved) is in the preceding
+-- migration 20260217099999_two_layer_enum_extension.sql. PostgreSQL requires
+-- new enum values to be committed in a separate transaction before use.
 
 BEGIN;
 
