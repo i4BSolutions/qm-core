@@ -1,22 +1,49 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Image from "next/image";
-import { Plus, MoreHorizontal, Pencil, Trash2, Package, Tag, Box, ImageIcon, AlertCircle } from "lucide-react";
+import {
+  Plus,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Package,
+  Tag,
+  Box,
+  ImageIcon,
+  AlertCircle,
+  LayoutGrid,
+  List,
+  SlidersHorizontal,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/use-toast";
 import { ItemDialog } from "./item-dialog";
-import { PageHeader } from "@/components/composite";
-import type { ColumnDef } from "@tanstack/react-table";
+import { PageHeader, FilterBar } from "@/components/composite";
+import { usePaginationParams } from "@/lib/hooks";
 import type { Item, Category } from "@/types/database";
 
 // Extended item type with category relation
@@ -26,12 +53,52 @@ interface ItemWithCategory extends Item {
 }
 
 export default function ItemsPage() {
+  const router = useRouter();
   const [items, setItems] = useState<ItemWithCategory[]>([]);
+  const [categories, setCategories] = useState<Pick<Category, "id" | "name" | "color">[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"card" | "list">("card");
   const { toast } = useToast();
+
+  // URL-driven pagination
+  const {
+    page: currentPage,
+    pageSize,
+    setPage: setCurrentPage,
+    setPageSize,
+  } = usePaginationParams(20);
+
+  // Filter change handlers that reset page to 1
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
+      setCurrentPage(1);
+    },
+    [setCurrentPage]
+  );
+
+  const handleCategoryChange = useCallback(
+    (value: string) => {
+      setCategoryFilter(value);
+      setCurrentPage(1);
+    },
+    [setCurrentPage]
+  );
+
+  // Responsive auto-switch to card view below md breakpoint
+  useEffect(() => {
+    const checkBreakpoint = () => {
+      if (window.innerWidth < 768) setViewMode("card");
+    };
+    checkBreakpoint();
+    window.addEventListener("resize", checkBreakpoint);
+    return () => window.removeEventListener("resize", checkBreakpoint);
+  }, []);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -40,26 +107,40 @@ export default function ItemsPage() {
     try {
       const supabase = createClient();
 
-      const { data, error: queryError } = await supabase
-        .from("items")
-        .select(`
-          id, name, sku, photo_url, category_id, price_reference, standard_unit_id,
-          category_rel:categories(id, name, color),
-          standard_unit_rel:standard_units!items_standard_unit_id_fkey(id, name)
-        `)
-        .eq("is_active", true)
-        .order("name")
-        .limit(200);
+      const [itemsRes, categoriesRes] = await Promise.all([
+        supabase
+          .from("items")
+          .select(`
+            id, name, sku, photo_url, category_id, price_reference, standard_unit_id,
+            category_rel:categories(id, name, color),
+            standard_unit_rel:standard_units!items_standard_unit_id_fkey(id, name)
+          `)
+          .eq("is_active", true)
+          .order("name")
+          .limit(200),
+        supabase
+          .from("categories")
+          .select("id, name, color")
+          .eq("is_active", true)
+          .order("name"),
+      ]);
 
       // Check for errors
-      if (queryError) {
-        console.error('Items query error:', queryError);
-        throw new Error(queryError.message);
+      if (itemsRes.error) {
+        console.error('Items query error:', itemsRes.error);
+        throw new Error(itemsRes.error.message);
+      }
+      if (categoriesRes.error) {
+        console.error('Categories query error:', categoriesRes.error);
+        throw new Error(categoriesRes.error.message);
       }
 
       // Set data
-      if (data) {
-        setItems(data as unknown as ItemWithCategory[]);
+      if (itemsRes.data) {
+        setItems(itemsRes.data as unknown as ItemWithCategory[]);
+      }
+      if (categoriesRes.data) {
+        setCategories(categoriesRes.data);
       }
 
     } catch (err) {
@@ -119,137 +200,57 @@ export default function ItemsPage() {
     }
   };
 
-  const columns: ColumnDef<ItemWithCategory>[] = [
-    {
-      accessorKey: "photo_url",
-      header: "Photo",
-      cell: ({ row }) => {
-        const photoUrl = row.getValue("photo_url") as string | null;
-        return (
-          <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-700 bg-slate-800/50 flex items-center justify-center">
-            {photoUrl ? (
-              <Image
-                src={photoUrl}
-                alt="Item"
-                fill
-                className="object-cover"
-                sizes="40px"
-              />
-            ) : (
-              <ImageIcon className="h-4 w-4 text-slate-500" />
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      accessorKey: "sku",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Code" />
-      ),
-      cell: ({ row }) => (
-        <code className="rounded bg-slate-800 px-2 py-1 text-sm font-mono font-semibold text-brand-400">
-          {row.getValue("sku") || "---"}
-        </code>
-      ),
-    },
-    {
-      accessorKey: "name",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Name" />
-      ),
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Package className="h-4 w-4 text-slate-400" />
-          <span className="font-medium text-slate-200">
-            {row.getValue("name")}
-          </span>
+  // Client-side filtering
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          item.name?.toLowerCase().includes(query) ||
+          item.sku?.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
+      if (categoryFilter !== "all" && item.category_id !== categoryFilter) return false;
+      return true;
+    });
+  }, [items, searchQuery, categoryFilter]);
+
+  // Pagination calculations
+  const totalItems = filteredItems.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+
+  // Paginated items
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredItems.slice(start, end);
+  }, [filteredItems, currentPage, pageSize]);
+
+  // Count active filters
+  const activeFilterCount = [categoryFilter !== "all"].filter(Boolean).length;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-10 w-36" />
         </div>
-      ),
-    },
-    {
-      accessorKey: "standard_unit_rel",
-      header: "Unit",
-      cell: ({ row }) => {
-        const unit = row.original.standard_unit_rel;
-        return unit ? (
-          <span className="text-sm text-slate-300">{unit.name}</span>
-        ) : (
-          <span className="text-slate-500">—</span>
-        );
-      },
-    },
-    {
-      accessorKey: "price_reference",
-      header: "Price Reference",
-      cell: ({ row }) => {
-        const ref = row.getValue("price_reference") as string | null;
-        return ref ? (
-          <span className="text-sm text-slate-300 truncate max-w-[200px] block" title={ref}>
-            {ref}
-          </span>
-        ) : (
-          <span className="text-slate-500">-</span>
-        );
-      },
-    },
-    {
-      accessorKey: "category_rel",
-      header: "Category",
-      cell: ({ row }) => {
-        const category = row.original.category_rel as Category | null;
-        if (!category) {
-          return <span className="text-slate-500">-</span>;
-        }
-        return (
-          <Badge
-            variant="outline"
-            className="border-slate-600"
-            style={{
-              backgroundColor: `${category.color}20`,
-              color: category.color || "#9CA3AF",
-              borderColor: `${category.color}40`,
-            }}
-          >
-            <Tag className="mr-1 h-3 w-3" />
-            {category.name}
-          </Badge>
-        );
-      },
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => {
-        const item = row.original;
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleEdit(item)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleDelete(item.id)}
-                className="text-red-400 focus:text-red-400"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-      },
-    },
-  ];
+        <Skeleton className="h-12 w-full" />
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} className="h-48 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Subtle grid overlay */}
+      <div className="fixed inset-0 pointer-events-none grid-overlay opacity-50" />
+
       {/* Error Banner */}
       {error && (
         <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
@@ -268,7 +269,7 @@ export default function ItemsPage() {
 
       <PageHeader
         title="Items"
-        description={`${items.length} item${items.length !== 1 ? "s" : ""} in catalog`}
+        description={`${totalItems} item${totalItems !== items.length ? ` (of ${items.length} total)` : totalItems !== 1 ? "s" : ""} in catalog`}
         badge={
           <div className="flex items-center gap-2 px-3 py-1 rounded bg-blue-500/10 border border-blue-500/20">
             <Box className="h-4 w-4 text-blue-400" />
@@ -287,16 +288,369 @@ export default function ItemsPage() {
         }
       />
 
-      {/* Data Table */}
-      <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
-        <DataTable
-          columns={columns}
-          data={items}
-          searchKey="name"
-          searchPlaceholder="Search items..."
-          isLoading={isLoading}
+      {/* Filters Bar */}
+      <FilterBar>
+        {/* Search always visible */}
+        <FilterBar.Search
+          value={searchQuery}
+          onChange={handleSearchChange}
+          placeholder="Search items by name or SKU..."
         />
-      </div>
+
+        {/* Desktop filters */}
+        <div className="hidden md:flex items-center gap-4">
+          <Select value={categoryFilter} onValueChange={handleCategoryChange}>
+            <SelectTrigger className="w-[180px] bg-slate-800/50 border-slate-700">
+              <Tag className="mr-2 h-4 w-4 text-slate-400" />
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Mobile filters button */}
+        <div className="flex md:hidden">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="border-slate-700">
+                <SlidersHorizontal className="h-4 w-4 mr-2" />
+                Filters{activeFilterCount > 0 && ` (${activeFilterCount})`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 space-y-3" align="start">
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Category</p>
+                <Select value={categoryFilter} onValueChange={handleCategoryChange}>
+                  <SelectTrigger className="w-full bg-slate-800/50 border-slate-700">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Card/List toggle — pushed right */}
+        <div className="ml-auto flex items-center border border-slate-700 rounded-lg overflow-hidden">
+          <button
+            onClick={() => setViewMode("card")}
+            className={
+              viewMode === "card"
+                ? "p-2 bg-amber-500/20 text-amber-400"
+                : "p-2 bg-slate-800/50 text-slate-400 hover:text-slate-200"
+            }
+            aria-label="Card view"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setViewMode("list")}
+            className={
+              viewMode === "list"
+                ? "p-2 bg-amber-500/20 text-amber-400"
+                : "p-2 bg-slate-800/50 text-slate-400 hover:text-slate-200"
+            }
+            aria-label="List view"
+          >
+            <List className="h-4 w-4" />
+          </button>
+        </div>
+      </FilterBar>
+
+      {/* Card View */}
+      {viewMode === "card" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {paginatedItems.length === 0 ? (
+            <div className="col-span-full py-16 text-center text-slate-400">
+              No items found
+            </div>
+          ) : (
+            paginatedItems.map((item, index) => (
+              <div
+                key={item.id}
+                className="command-panel corner-accents animate-slide-up cursor-pointer hover:border-slate-600 transition-colors relative"
+                style={{ animationDelay: `${index * 30}ms` }}
+                onClick={() => router.push(`/item/${item.id}`)}
+              >
+                {/* Scan line effect */}
+                <div className="scan-overlay" />
+
+                {/* Photo / placeholder */}
+                <div className="relative w-full h-36 rounded-t-lg overflow-hidden bg-slate-800/50 border-b border-slate-700 flex items-center justify-center">
+                  {item.photo_url ? (
+                    <Image
+                      src={item.photo_url}
+                      alt={item.name}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    />
+                  ) : (
+                    <ImageIcon className="h-10 w-10 text-slate-600" />
+                  )}
+                </div>
+
+                <div className="p-4">
+                  {/* SKU badge */}
+                  {item.sku && (
+                    <div className="mb-2">
+                      <code className="rounded bg-slate-800 px-2 py-0.5 text-xs font-mono font-semibold text-amber-400">
+                        {item.sku}
+                      </code>
+                    </div>
+                  )}
+
+                  {/* Name */}
+                  <h3 className="font-semibold text-slate-200 mb-2 line-clamp-2 leading-snug">
+                    {item.name}
+                  </h3>
+
+                  {/* Category badge */}
+                  {item.category_rel && (
+                    <div className="mb-2">
+                      <Badge
+                        variant="outline"
+                        className="text-xs font-medium"
+                        style={{
+                          borderColor: item.category_rel.color || "rgb(100, 116, 139)",
+                          color: item.category_rel.color || "rgb(148, 163, 184)",
+                          backgroundColor: `${item.category_rel.color}10` || "transparent",
+                        }}
+                      >
+                        <Tag className="mr-1 h-3 w-3" />
+                        {item.category_rel.name}
+                      </Badge>
+                    </div>
+                  )}
+
+                  <div className="divider-accent" />
+
+                  <div className="flex items-center justify-between text-xs text-slate-400 mt-2">
+                    <div className="flex items-center gap-1">
+                      <Package className="h-3 w-3" />
+                      <span>{item.standard_unit_rel?.name || "—"}</span>
+                    </div>
+                    {item.price_reference && (
+                      <span className="truncate max-w-[120px]" title={item.price_reference}>
+                        {item.price_reference}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions — stop propagation so card click doesn't trigger */}
+                <div
+                  className="absolute top-3 right-3"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="h-7 w-7 p-0 bg-slate-800/80 hover:bg-slate-700"
+                      >
+                        <span className="sr-only">Open menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEdit(item)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDelete(item.id)}
+                        className="text-red-400 focus:text-red-400"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* List View */}
+      {viewMode === "list" && (
+        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-700">
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Photo
+                  </th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    SKU
+                  </th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Name
+                  </th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Category
+                  </th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Unit
+                  </th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Price Ref
+                  </th>
+                  <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400" />
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center text-slate-400 text-sm">
+                      No items found
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedItems.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer"
+                      onClick={() => router.push(`/item/${item.id}`)}
+                    >
+                      {/* Photo */}
+                      <td className="py-3 px-4">
+                        <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-700 bg-slate-800/50 flex items-center justify-center">
+                          {item.photo_url ? (
+                            <Image
+                              src={item.photo_url}
+                              alt="Item"
+                              fill
+                              className="object-cover"
+                              sizes="40px"
+                            />
+                          ) : (
+                            <ImageIcon className="h-4 w-4 text-slate-500" />
+                          )}
+                        </div>
+                      </td>
+
+                      {/* SKU */}
+                      <td className="py-3 px-4">
+                        <code className="rounded bg-slate-800 px-2 py-1 text-sm font-mono font-semibold text-amber-400">
+                          {item.sku || "—"}
+                        </code>
+                      </td>
+
+                      {/* Name */}
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                          <span className="font-medium text-slate-200">{item.name}</span>
+                        </div>
+                      </td>
+
+                      {/* Category */}
+                      <td className="py-3 px-4">
+                        {item.category_rel ? (
+                          <Badge
+                            variant="outline"
+                            className="border-slate-600"
+                            style={{
+                              backgroundColor: `${item.category_rel.color}20`,
+                              color: item.category_rel.color || "#9CA3AF",
+                              borderColor: `${item.category_rel.color}40`,
+                            }}
+                          >
+                            <Tag className="mr-1 h-3 w-3" />
+                            {item.category_rel.name}
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
+                      </td>
+
+                      {/* Unit */}
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-slate-300">
+                          {item.standard_unit_rel?.name || "—"}
+                        </span>
+                      </td>
+
+                      {/* Price Reference */}
+                      <td className="py-3 px-4">
+                        {item.price_reference ? (
+                          <span
+                            className="text-sm text-slate-300 truncate max-w-[200px] block"
+                            title={item.price_reference}
+                          >
+                            {item.price_reference}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td
+                        className="py-3 px-4 text-right"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(item)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(item.id)}
+                              className="text-red-400 focus:text-red-400"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalItems > 0 && (
+        <div className="command-panel mt-6">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
 
       <ItemDialog
         open={dialogOpen}
