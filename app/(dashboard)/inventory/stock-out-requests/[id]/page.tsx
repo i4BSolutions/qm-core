@@ -23,7 +23,7 @@ import { L2WarehouseDialog } from "@/components/stock-out-requests/l2-warehouse-
 import { RejectionDialog } from "@/components/stock-out-requests/rejection-dialog";
 import { ExecutionConfirmationDialog } from "@/components/stock-out-requests/execution-confirmation-dialog";
 import { WarehouseAssignmentsTab } from "@/components/stock-out-requests/warehouse-assignments-tab";
-import type { WarehouseAssignment } from "@/components/stock-out-requests/warehouse-assignments-tab";
+import type { WarehouseAssignment, PendingL1Approval } from "@/components/stock-out-requests/warehouse-assignments-tab";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
 import { DetailPageLayout } from "@/components/composite";
 import { toast } from "sonner";
@@ -145,6 +145,7 @@ export default function StockOutRequestDetailPage() {
   const [approvals, setApprovals] = useState<ApprovalWithUser[]>([]);
   const [inventoryTransactions, setInventoryTransactions] = useState<any[]>([]);
   const [warehouseAssignments, setWarehouseAssignments] = useState<WarehouseAssignment[]>([]);
+  const [pendingL1Approvals, setPendingL1Approvals] = useState<PendingL1Approval[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("line-items");
   const [isCancelling, setIsCancelling] = useState(false);
@@ -407,6 +408,55 @@ export default function StockOutRequestDetailPage() {
 
       setWarehouseAssignments(warehouseAssignmentsList);
 
+      // Build pending L1 approvals list for the Warehouse Assignments tab "Pending Assignment" section.
+      // An L1 approval is "pending" if its remaining unassigned qty > 0 AND the line item
+      // has status awaiting_admin (meaning it still needs warehouse assignment).
+      const pendingL1List: PendingL1Approval[] = [];
+
+      (lineItemsData || []).forEach((item: any) => {
+        // Only items in awaiting_admin status need warehouse assignment
+        if (item.status !== "awaiting_admin") return;
+
+        const approvalList = item.approvals || [];
+        const unitName = item.item?.standard_unit_rel?.name || undefined;
+
+        const l1Approvals = approvalList.filter(
+          (a: any) => a.decision === "approved" && a.layer === "quartermaster"
+        );
+
+        l1Approvals.forEach((l1: any) => {
+          // Sum L2 already assigned for this specific L1 approval
+          const l2Children = approvalList.filter(
+            (a: any) =>
+              a.decision === "approved" &&
+              a.layer === "admin" &&
+              a.parent_approval_id === l1.id
+          );
+          const totalL2ForThisL1 = l2Children.reduce(
+            (sum: number, l2: any) => sum + (l2.approved_quantity || 0),
+            0
+          );
+          const remainingToAssign = l1.approved_quantity - totalL2ForThisL1;
+
+          if (remainingToAssign > 0) {
+            pendingL1List.push({
+              l1_approval_id: l1.id,
+              line_item_id: item.id,
+              item_name: item.item_name || "Unknown Item",
+              item_sku: item.item_sku || null,
+              item_id: item.item_id,
+              l1_approved_quantity: l1.approved_quantity,
+              total_l2_assigned: totalL2ForThisL1,
+              remaining_to_assign: remainingToAssign,
+              conversion_rate: item.conversion_rate || 1,
+              unit_name: unitName,
+            });
+          }
+        });
+      });
+
+      setPendingL1Approvals(pendingL1List);
+
       // Fetch all approvals for Approvals tab (with layer and warehouse info)
       const { data: approvalsData, error: approvalsError } = await supabase
         .from("stock_out_approvals")
@@ -512,6 +562,23 @@ export default function StockOutRequestDetailPage() {
    */
   const handleDialogSuccess = async () => {
     await fetchData();
+  };
+
+  /**
+   * Handle "Assign Warehouse" from the Warehouse Assignments tab.
+   * Finds the matching lineItem from state and opens the L2 dialog.
+   */
+  const handleAssignWarehouseFromTab = (pending: PendingL1Approval) => {
+    const lineItem = lineItems.find((li) => li.id === pending.line_item_id);
+    if (!lineItem) return;
+    setL2DialogState({
+      lineItem,
+      l1Approval: {
+        id: pending.l1_approval_id,
+        approved_quantity: pending.l1_approved_quantity,
+        total_l2_assigned: pending.total_l2_assigned,
+      },
+    });
   };
 
   /**
@@ -837,9 +904,9 @@ export default function StockOutRequestDetailPage() {
           <TabsTrigger value="line-items">Line Items</TabsTrigger>
           <TabsTrigger value="warehouse-assignments">
             Warehouse Assignments
-            {warehouseAssignments.length > 0 && (
+            {(warehouseAssignments.length > 0 || pendingL1Approvals.length > 0) && (
               <Badge variant="secondary" className="ml-2 text-xs">
-                {warehouseAssignments.length}
+                {warehouseAssignments.length + pendingL1Approvals.length}
               </Badge>
             )}
           </TabsTrigger>
@@ -873,7 +940,6 @@ export default function StockOutRequestDetailPage() {
               canApprove={canApprove}
               onApproveItem={(item) => setL1DialogItem(item)}
               onRejectItem={(item) => setRejectionItem(item)}
-              onAssignWarehouse={(item, l1) => setL2DialogState({ lineItem: item, l1Approval: l1 })}
             />
           </div>
         </TabsContent>
@@ -896,7 +962,10 @@ export default function StockOutRequestDetailPage() {
             </div>
             <WarehouseAssignmentsTab
               assignments={warehouseAssignments}
+              pendingL1Approvals={pendingL1Approvals}
+              canAssign={canApprove}
               canExecute={canExecute}
+              onAssignWarehouse={handleAssignWarehouseFromTab}
               onExecute={handleExecuteAssignment}
               isExecuting={isExecuting}
             />

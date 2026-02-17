@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, ChevronDown, Warehouse } from "lucide-react";
+import { Check, X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LineItemProgressBar } from "./line-item-progress-bar";
 import type { Enums } from "@/types/database";
@@ -61,10 +61,6 @@ interface LineItemTableProps {
   canApprove: boolean;
   onApproveItem: (item: LineItemWithApprovals) => void;
   onRejectItem: (item: LineItemWithApprovals) => void;
-  onAssignWarehouse?: (
-    item: LineItemWithApprovals,
-    l1Approval: { id: string; approved_quantity: number; total_l2_assigned: number }
-  ) => void;
 }
 
 /**
@@ -151,10 +147,6 @@ function getRowAction(
   canApprove: boolean,
   onApprove: (item: LineItemWithApprovals) => void,
   onReject: (item: LineItemWithApprovals) => void,
-  onAssignWarehouse?: (
-    item: LineItemWithApprovals,
-    l1Approval: { id: string; approved_quantity: number; total_l2_assigned: number }
-  ) => void
 ): React.ReactNode {
   if (!canApprove) return null;
 
@@ -183,31 +175,19 @@ function getRowAction(
     );
   }
 
-  if (item.status === "awaiting_admin" && canApprove) {
-    // Find L1 approvals with remaining unassigned qty
-    const l1WithRemaining = (item.l1Approvals || []).find(
-      (l1) => l1.approved_quantity - l1.total_l2_assigned > 0
-    );
-
+  if (item.status === "awaiting_admin") {
+    // Warehouse assignment is handled exclusively from the Warehouse Assignments tab.
+    // Show an informational badge here indicating what action is needed.
     const unassignedL1 = item.total_approved_quantity - item.l2_assigned_quantity;
 
-    if (unassignedL1 > 0 && l1WithRemaining) {
+    if (unassignedL1 > 0) {
       return (
-        <Button
-          size="sm"
+        <Badge
           variant="outline"
-          className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300 text-xs h-7 px-2"
-          onClick={() =>
-            onAssignWarehouse?.(item, {
-              id: l1WithRemaining.id,
-              approved_quantity: l1WithRemaining.approved_quantity,
-              total_l2_assigned: l1WithRemaining.total_l2_assigned,
-            })
-          }
+          className="border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs font-mono"
         >
-          <Warehouse className="w-3 h-3 mr-1" />
-          Assign WH
-        </Button>
+          Assign in WH tab
+        </Badge>
       );
     }
 
@@ -273,7 +253,6 @@ export function LineItemTable({
   canApprove,
   onApproveItem,
   onRejectItem,
-  onAssignWarehouse,
 }: LineItemTableProps) {
   const [expandedItemIds, setExpandedItemIds] = useState<Set<string>>(new Set());
 
@@ -346,7 +325,6 @@ export function LineItemTable({
                 canApprove,
                 onApproveItem,
                 onRejectItem,
-                onAssignWarehouse
               );
               const isExpanded = expandedItemIds.has(item.id);
 
