@@ -9,19 +9,19 @@ Requirements for v1.12 List Views & Approval Workflow milestone. Each maps to ro
 
 ### Approval Workflow
 
-- [ ] **APPR-01**: Admin can approve stock-out line item quantities without selecting a warehouse (Layer 1)
-- [ ] **APPR-02**: Admin can assign a warehouse to a qty-approved line item as a second approval step (Layer 2)
-- [ ] **APPR-03**: Layer 2 warehouse approval quantity cannot exceed Layer 1 approved quantity
-- [ ] **APPR-04**: Layer 2 warehouse approval quantity cannot exceed available warehouse stock
-- [ ] **APPR-05**: Stock-out execution is blocked until both Layer 1 and Layer 2 approvals are complete
+- [x] **APPR-01**: Admin can approve stock-out line item quantities without selecting a warehouse (Layer 1)
+- [x] **APPR-02**: Admin can assign a warehouse to a qty-approved line item as a second approval step (Layer 2)
+- [x] **APPR-03**: Layer 2 warehouse approval quantity cannot exceed Layer 1 approved quantity
+- [x] **APPR-04**: Layer 2 warehouse approval quantity cannot exceed available warehouse stock
+- [x] **APPR-05**: Stock-out execution is blocked until both Layer 1 and Layer 2 approvals are complete
 - [ ] **APPR-06**: Existing approved stock-out records are migrated to work with the two-layer flow
 
 ### Stock-Out Execution Page
 
-- [ ] **EXEC-01**: User can view approved stock-out items ready for execution in card view and list view
-- [ ] **EXEC-02**: User can filter the stock-out execution page by warehouse
-- [ ] **EXEC-03**: User can create a new stock-out request from the execution page
-- [ ] **EXEC-04**: Stock-out sidebar navigation item links to the new execution page (replaces old stock-out link)
+- [x] **EXEC-01**: User can view approved stock-out items ready for execution in list view *(overridden: card view removed per user decision — list-only is clearer for task queue)*
+- [x] **EXEC-02**: User can filter the stock-out execution page by warehouse
+- [x] **EXEC-03**: ~~User can create a new stock-out request from the execution page~~ *(overridden: no new request button — execution page is execution-only per user decision)*
+- [x] **EXEC-04**: Stock-out sidebar navigation item links to the new execution page (replaces old stock-out link)
 
 ### List Views
 
@@ -76,16 +76,16 @@ Requirements for v1.12 List Views & Approval Workflow milestone. Each maps to ro
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| APPR-01 | Phase 57 | Pending |
-| APPR-02 | Phase 57 | Pending |
-| APPR-03 | Phase 57 | Pending |
-| APPR-04 | Phase 57 | Pending |
-| APPR-05 | Phase 57 | Pending |
+| APPR-01 | Phase 57 | Complete |
+| APPR-02 | Phase 57 | Complete |
+| APPR-03 | Phase 57 | Complete |
+| APPR-04 | Phase 57 | Complete |
+| APPR-05 | Phase 57 | Complete |
 | APPR-06 | Phase 55 | Pending |
-| EXEC-01 | Phase 57 | Pending |
-| EXEC-02 | Phase 57 | Pending |
-| EXEC-03 | Phase 57 | Pending |
-| EXEC-04 | Phase 57 | Pending |
+| EXEC-01 | Phase 57 | Complete (overridden: list-only) |
+| EXEC-02 | Phase 57 | Complete |
+| EXEC-03 | Phase 57 | Complete (overridden: no new request) |
+| EXEC-04 | Phase 57 | Complete |
 | LIST-01 | Phase 56 | Pending |
 | LIST-02 | Phase 56 | Pending |
 | LIST-03 | Phase 56 | Pending |

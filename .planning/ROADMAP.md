@@ -108,7 +108,7 @@ Phases 47-54 delivered per-item standard unit management with admin CRUD, per-tr
 
 - [x] **Phase 55: Database Foundation + UserAvatar** - Two-layer approval migration with backfill, boring-avatars install, UserAvatar component (completed 2026-02-17)
 - [x] **Phase 56: List View Standardization** - QMRL list view, standardized columns on all 6 list pages, pagination, assigned person filter (completed 2026-02-17)
-- [ ] **Phase 57: Two-Layer Approval UI + Execution Page** - Layer 1/2 approval dialogs, status machine UI, dedicated stock-out execution page
+- [x] **Phase 57: Two-Layer Approval UI + Execution Page** - Layer 1/2 approval dialogs, status machine UI, dedicated stock-out execution page (completed 2026-02-17)
 - [ ] **Phase 58: History Avatars + Comment Avatars** - UserAvatar in audit history entries, UserAvatar in comment cards, system action indicator
 
 ## Phase Details
@@ -157,7 +157,7 @@ Plans:
   4. The Execute button on a line item is disabled until both Layer 1 and Layer 2 approvals are in the `approved` state
   5. A dedicated stock-out execution page at `/inventory/stock-out` shows approved items ready for execution in list view, with a warehouse filter
   6. The sidebar navigation "Stock Out" link points to the new execution page; no new request button on execution page
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 57-01-PLAN.md -- L1 approval dialog, progress bar, per-row action buttons replacing batch selection
@@ -196,7 +196,7 @@ Plans:
 | 47-54. Standard Units -> USD Lock | v1.11 | 17/17 | ✓ Complete | 2026-02-16 |
 | 55. DB Foundation + UserAvatar | v1.12 | Complete    | 2026-02-17 | - |
 | 56. List View Standardization | v1.12 | Complete    | 2026-02-17 | - |
-| 57. Two-Layer Approval + Execution | v1.12 | 0/3 | Planned | - |
+| 57. Two-Layer Approval + Execution | v1.12 | Complete    | 2026-02-17 | - |
 | 58. History + Comment Avatars | v1.12 | 0/2 | Not started | - |
 
 ---
