@@ -6,22 +6,22 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-16)
+See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.12 List Views & Approval Workflow
+**Current Focus:** v1.12 List Views & Approval Workflow — Phase 55
 
 ---
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 55 (Database Foundation + UserAvatar)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-02-17 — Milestone v1.12 started
+Status: Roadmap created, ready to plan Phase 55
+Last activity: 2026-02-17 — v1.12 roadmap created
 
-Progress: [░░░░░░░░░░░░░░░░░░░░] 0/0 (0%)
+Progress: [░░░░░░░░░░░░░░░░░░░░] 0/4 phases (0%)
 
 ---
 
@@ -47,9 +47,16 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0/0 (0%
 - v1.11 Standard Unit System (8 phases, 17 plans) - 2026-02-16
 
 **Total Delivered:**
-- 57 phases
+- 54 phases (1-54)
 - 134 plans
 - 12 milestones shipped
+
+**v1.12 In Progress:**
+- 4 phases planned (55-58)
+- 25 requirements mapped
+- 0 phases complete
+
+---
 
 ## Accumulated Context
 
@@ -57,10 +64,18 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0/0 (0%
 
 All decisions archived in PROJECT.md Key Decisions table.
 
+**v1.12 Key Decisions:**
+- UserAvatar is data-passive: accepts `fullName: string` only, no internal fetch — prevents N+1 queries on list pages
+- Phase 55 must deploy before any approval UI changes — `layer` column and `awaiting_admin` enum must exist in DB first
+- Two-layer approval backfill: existing `approved` records get `layer = 'admin'` in the same migration that adds the schema (063)
+- Advisory lock pattern (pg_advisory_xact_lock) used in new trigger functions — not `SELECT ... FOR UPDATE` — to avoid deadlock with existing migration 059 row locks
+- boring-avatars@^2.0.4 chosen over dicebear (two packages) and external URL services (network dependency)
+- Phase 56 and Phase 57 are independent after Phase 55 ships — list views do not depend on approval UI changes
+
 ### TODOs
 
 **Immediate Next Steps:**
-1. Define v1.12 requirements and create roadmap
+1. Run `/gsd:plan-phase 55` to plan the DB migration + UserAvatar phase
 
 ### Blockers
 
@@ -71,17 +86,19 @@ All decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Started v1.12 milestone: List Views & Approval Workflow
-- Updated PROJECT.md with v1.12 goals and active requirements
-- Defining requirements and creating roadmap
+- v1.12 roadmap created with 4 phases (55-58)
+- 25 requirements mapped across phases (100% coverage)
+- ROADMAP.md, STATE.md, REQUIREMENTS.md updated
 
 **Context for Next Agent:**
-- v1.12 milestone started
-- Focus: QMRL list view, two-layer stock-out approval, new stock-out execution page, audit history user display, standardized list columns, consistent pagination, auto-generated avatars
-- Requirements and roadmap being defined
+- v1.12 milestone in progress — roadmap approved
+- Phase 55 is next: migration 063 (two-layer approval schema + backfill + trigger rewrite) + boring-avatars install + UserAvatar component
+- Phase 55 is the unblocking phase — phases 56, 57, 58 all depend on it
+- Critical pitfall: backfill all existing `stock_out_approvals` with `layer = 'admin'` WHERE `decision = 'approved'` in the same migration — no follow-up migration
+- Critical pitfall: use advisory lock pattern from migration 058, not `FOR UPDATE` on stock_out_requests (would deadlock with migration 059)
 
-**Resume at:** Continue requirements definition and roadmap creation
+**Resume at:** Plan Phase 55 — `/gsd:plan-phase 55`
 
 ---
 
-*State last updated: 2026-02-17 after v1.12 milestone started*
+*State last updated: 2026-02-17 after v1.12 roadmap created*

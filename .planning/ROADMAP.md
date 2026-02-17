@@ -14,6 +14,7 @@
 - ✅ **v1.9 PO Lifecycle, Cancellation Guards & PDF Export** - Phases 41-43 (shipped 2026-02-13)
 - ✅ **v1.10 Tech Debt Cleanup** - Phases 44-46 (shipped 2026-02-14)
 - ✅ **v1.11 Standard Unit System** - Phases 47-54 (shipped 2026-02-16)
+- 🚧 **v1.12 List Views & Approval Workflow** - Phases 55-58 (in progress)
 
 ## Phases
 
@@ -101,6 +102,82 @@ Phases 47-54 delivered per-item standard unit management with admin CRUD, per-tr
 
 </details>
 
+### 🚧 v1.12 List Views & Approval Workflow (In Progress)
+
+**Milestone Goal:** Standardize all list views with consistent columns and pagination, add two-layer stock-out approval with warehouse assignment, a dedicated stock-out execution page, and auto-generated user avatars throughout the UI.
+
+- [ ] **Phase 55: Database Foundation + UserAvatar** - Two-layer approval migration with backfill, boring-avatars install, UserAvatar component
+- [ ] **Phase 56: List View Standardization** - QMRL list view, standardized columns on all 6 list pages, pagination, assigned person filter
+- [ ] **Phase 57: Two-Layer Approval UI + Execution Page** - Layer 1/2 approval dialogs, status machine UI, dedicated stock-out execution page
+- [ ] **Phase 58: History Avatars + Comment Avatars** - UserAvatar in audit history entries, UserAvatar in comment cards, system action indicator
+
+## Phase Details
+
+### Phase 55: Database Foundation + UserAvatar
+**Goal**: The two-layer approval schema is in the database and a shared UserAvatar component is available for all downstream consumers.
+**Depends on**: Nothing (first phase of v1.12)
+**Requirements**: APPR-06, AVTR-01, AVTR-04
+**Success Criteria** (what must be TRUE):
+  1. Migration 063 is applied: `stock_out_approvals` has `layer` and `parent_approval_id` columns, and `sor_line_item_status` enum includes `awaiting_admin`
+  2. All existing `stock_out_approvals` records with `decision = 'approved'` have `layer = 'admin'` set (backfill complete, no NULL layer on approved records)
+  3. `boring-avatars` package is installed and importable in the project
+  4. `UserAvatar` component exists at `/components/ui/user-avatar.tsx`, accepts a `fullName` string, and renders the same deterministic SVG avatar for the same name on every page
+**Plans**: TBD
+
+Plans:
+- [ ] 55-01: Two-layer approval database migration with backfill and trigger rewrite
+- [ ] 55-02: boring-avatars install and UserAvatar component
+
+### Phase 56: List View Standardization
+**Goal**: Every major list page has a consistent list view with defined columns, working pagination, and an assigned person filter.
+**Depends on**: Phase 55 (UserAvatar needed for assigned person column chips)
+**Requirements**: LIST-01, LIST-02, LIST-03, LIST-04, LIST-05, LIST-06, AVTR-03, PAGE-01, PAGE-02, PAGE-03
+**Success Criteria** (what must be TRUE):
+  1. QMRL page has a card/list toggle; the list view shows ID, Title, Status, Assigned Person, and Request Date columns
+  2. QMHQ, PO, Invoice, Items, and Stock-out list views each show their specified columns (ID/Name, Route/Supplier/SKU, Status, Amount/Unit, relevant reference)
+  3. Every list and card page uses the same Pagination component; navigating to any list page and switching pages works consistently
+  4. Every list and card page has an assigned person filter; selecting a person narrows the results
+  5. Changing any filter (including assigned person) resets the page display to page 1
+  6. User avatar chips appear next to assigned person names in all list view rows
+**Plans**: TBD
+
+Plans:
+- [ ] 56-01: QMRL list view with card/list toggle
+- [ ] 56-02: Standardized columns on QMHQ, PO, Invoice, Items list views
+- [ ] 56-03: Stock-out execution list view columns + pagination + assigned person filter across all pages
+
+### Phase 57: Two-Layer Approval UI + Execution Page
+**Goal**: Admins can approve stock-out quantities in Layer 1 and assign a warehouse in Layer 2; execution is blocked until both layers are complete; a dedicated execution page replaces the old stock-out sidebar link.
+**Depends on**: Phase 55 (requires `layer` column and `awaiting_admin` enum value)
+**Requirements**: APPR-01, APPR-02, APPR-03, APPR-04, APPR-05, EXEC-01, EXEC-02, EXEC-03, EXEC-04
+**Success Criteria** (what must be TRUE):
+  1. Admin can approve a stock-out line item quantity without selecting a warehouse (Layer 1); after approval the line item shows "Awaiting Admin Approval" status
+  2. Admin can then select a warehouse and approve the assigned quantity as a second step (Layer 2); the Layer 2 quantity cannot exceed the Layer 1 approved quantity
+  3. Submitting a Layer 2 warehouse approval with a quantity exceeding available warehouse stock is blocked with a hard error (not just a warning)
+  4. The Execute button on a line item is disabled until both Layer 1 and Layer 2 approvals are in the `approved` state
+  5. A dedicated stock-out execution page at `/inventory/stock-out-requests` shows approved items ready for execution in card view and list view, with a warehouse filter
+  6. The sidebar navigation "Stock Out" link points to the new execution page; users can initiate a new stock-out request from that page
+**Plans**: TBD
+
+Plans:
+- [ ] 57-01: Layer 1 approval dialog update (qty-only, no warehouse)
+- [ ] 57-02: Layer 2 approval dialog (warehouse assignment, hard stock cap)
+- [ ] 57-03: Dedicated stock-out execution page with card/list view and warehouse filter
+
+### Phase 58: History Avatars + Comment Avatars
+**Goal**: Every place a user's name appears in audit history or comment cards shows their auto-generated avatar alongside the name.
+**Depends on**: Phase 55 (UserAvatar component)
+**Requirements**: HIST-01, HIST-02, AVTR-02
+**Success Criteria** (what must be TRUE):
+  1. Each entry in every audit history tab shows the acting user's avatar circle next to their name
+  2. System-generated history entries (no human actor) show a distinct "System" indicator instead of a user avatar
+  3. Each comment card shows the commenter's avatar next to their name, consistent with the avatar shown in list view rows
+**Plans**: TBD
+
+Plans:
+- [ ] 58-01: UserAvatar in history tab entries and system action indicator
+- [ ] 58-02: UserAvatar in comment cards
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -117,6 +194,10 @@ Phases 47-54 delivered per-item standard unit management with admin CRUD, per-tr
 | 41-43. PO Status -> Guards -> PDF | v1.9 | 8/8 | ✓ Complete | 2026-02-13 |
 | 44-46. PO Edit -> Flow Perf -> Type Safety | v1.10 | 3/3 | ✓ Complete | 2026-02-14 |
 | 47-54. Standard Units -> USD Lock | v1.11 | 17/17 | ✓ Complete | 2026-02-16 |
+| 55. DB Foundation + UserAvatar | v1.12 | 0/2 | Not started | - |
+| 56. List View Standardization | v1.12 | 0/3 | Not started | - |
+| 57. Two-Layer Approval + Execution | v1.12 | 0/3 | Not started | - |
+| 58. History + Comment Avatars | v1.12 | 0/2 | Not started | - |
 
 ---
-*Last updated: 2026-02-16 after v1.11 milestone shipped*
+*Last updated: 2026-02-17 after v1.12 roadmap created*

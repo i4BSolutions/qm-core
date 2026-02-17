@@ -76,37 +76,37 @@ Requirements for v1.12 List Views & Approval Workflow milestone. Each maps to ro
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| APPR-01 | TBD | Pending |
-| APPR-02 | TBD | Pending |
-| APPR-03 | TBD | Pending |
-| APPR-04 | TBD | Pending |
-| APPR-05 | TBD | Pending |
-| APPR-06 | TBD | Pending |
-| EXEC-01 | TBD | Pending |
-| EXEC-02 | TBD | Pending |
-| EXEC-03 | TBD | Pending |
-| EXEC-04 | TBD | Pending |
-| LIST-01 | TBD | Pending |
-| LIST-02 | TBD | Pending |
-| LIST-03 | TBD | Pending |
-| LIST-04 | TBD | Pending |
-| LIST-05 | TBD | Pending |
-| LIST-06 | TBD | Pending |
-| AVTR-01 | TBD | Pending |
-| AVTR-02 | TBD | Pending |
-| AVTR-03 | TBD | Pending |
-| AVTR-04 | TBD | Pending |
-| HIST-01 | TBD | Pending |
-| HIST-02 | TBD | Pending |
-| PAGE-01 | TBD | Pending |
-| PAGE-02 | TBD | Pending |
-| PAGE-03 | TBD | Pending |
+| APPR-01 | Phase 57 | Pending |
+| APPR-02 | Phase 57 | Pending |
+| APPR-03 | Phase 57 | Pending |
+| APPR-04 | Phase 57 | Pending |
+| APPR-05 | Phase 57 | Pending |
+| APPR-06 | Phase 55 | Pending |
+| EXEC-01 | Phase 57 | Pending |
+| EXEC-02 | Phase 57 | Pending |
+| EXEC-03 | Phase 57 | Pending |
+| EXEC-04 | Phase 57 | Pending |
+| LIST-01 | Phase 56 | Pending |
+| LIST-02 | Phase 56 | Pending |
+| LIST-03 | Phase 56 | Pending |
+| LIST-04 | Phase 56 | Pending |
+| LIST-05 | Phase 56 | Pending |
+| LIST-06 | Phase 56 | Pending |
+| AVTR-01 | Phase 55 | Pending |
+| AVTR-02 | Phase 58 | Pending |
+| AVTR-03 | Phase 56 | Pending |
+| AVTR-04 | Phase 55 | Pending |
+| HIST-01 | Phase 58 | Pending |
+| HIST-02 | Phase 58 | Pending |
+| PAGE-01 | Phase 56 | Pending |
+| PAGE-02 | Phase 56 | Pending |
+| PAGE-03 | Phase 56 | Pending |
 
 **Coverage:**
 - v1.12 requirements: 25 total
-- Mapped to phases: 0
-- Unmapped: 25
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-17*
-*Last updated: 2026-02-17 after initial definition*
+*Last updated: 2026-02-17 after v1.12 roadmap created (traceability complete)*
