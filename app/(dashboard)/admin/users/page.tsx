@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Plus, MoreHorizontal, Pencil, UserX, RotateCcw, Radio, Users, Shield, Mail, Lock } from "lucide-react";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/lib/hooks/use-permissions";
@@ -187,9 +188,7 @@ export default function UsersPage() {
         const isInactive = !row.original.is_active;
         return (
           <div className={`flex items-center gap-3 ${isInactive ? "opacity-50" : ""}`}>
-            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-sm font-medium text-slate-300">
-              {row.original.full_name?.charAt(0).toUpperCase() || "?"}
-            </div>
+            <UserAvatar fullName={row.original.full_name || "?"} size={32} />
             <div>
               <div className="flex items-center gap-2">
                 <p className="font-medium text-slate-200">{row.original.full_name}</p>
