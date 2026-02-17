@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft,
   Loader2,
   AlertTriangle,
   ExternalLink,
@@ -16,21 +15,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/components/providers/auth-provider";
-import { usePermissions } from "@/lib/hooks/use-permissions";
 import { HistoryTab } from "@/components/history/history-tab";
 import { LineItemTable } from "@/components/stock-out-requests/line-item-table";
 import type { LineItemWithApprovals } from "@/components/stock-out-requests/line-item-table";
-import { ApprovalDialog } from "@/components/stock-out-requests/approval-dialog";
+import { L1ApprovalDialog } from "@/components/stock-out-requests/l1-approval-dialog";
 import { RejectionDialog } from "@/components/stock-out-requests/rejection-dialog";
 import { ExecutionConfirmationDialog } from "@/components/stock-out-requests/execution-confirmation-dialog";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
 import { DetailPageLayout } from "@/components/composite";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Enums, Tables } from "@/types/database";
@@ -60,7 +52,7 @@ interface StockOutRequestWithRelations {
 }
 
 /**
- * Approval record with user relation
+ * Approval record with user relation (extended for two-layer display)
  */
 interface ApprovalWithUser {
   id: string;
@@ -71,15 +63,21 @@ interface ApprovalWithUser {
   decided_by: string;
   decided_at: string;
   line_item_id: string;
+  layer: string | null;
+  warehouse_id: string | null;
   decided_by_user?: Pick<User, "id" | "full_name"> | null;
   line_item?: {
     item_name: string | null;
     item_sku: string | null;
   } | null;
+  warehouse?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 /**
- * Status badge colors
+ * Status badge colors — updated for two-layer flow terminology
  */
 const REQUEST_STATUS_CONFIG: Record<
   SorRequestStatus,
@@ -91,12 +89,12 @@ const REQUEST_STATUS_CONFIG: Record<
     bgColor: "bg-amber-500/10 border-amber-500/30",
   },
   partially_approved: {
-    label: "Partially Approved",
+    label: "Awaiting Warehouse",
     color: "text-blue-400",
     bgColor: "bg-blue-500/10 border-blue-500/30",
   },
   approved: {
-    label: "Approved",
+    label: "Ready to Execute",
     color: "text-emerald-400",
     bgColor: "bg-emerald-500/10 border-emerald-500/30",
   },
@@ -124,12 +122,16 @@ const REQUEST_STATUS_CONFIG: Record<
 
 /**
  * Stock-Out Request Detail Page
+ *
+ * Two-layer approval flow:
+ * - L1 (quartermaster): qty-only approval via L1ApprovalDialog — per-row button
+ * - L2 (admin): warehouse assignment — coming in Plan 02
+ * - Execution: handled via Plan 02/03
  */
 export default function StockOutRequestDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const { can } = usePermissions();
   const requestId = params.id as string;
 
   const [request, setRequest] = useState<StockOutRequestWithRelations | null>(
@@ -140,10 +142,13 @@ export default function StockOutRequestDetailPage() {
   const [inventoryTransactions, setInventoryTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("details");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isCancelling, setIsCancelling] = useState(false);
-  const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
-  const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
+
+  // Per-row dialog state (replaces old batch selection)
+  const [l1DialogItem, setL1DialogItem] = useState<LineItemWithApprovals | null>(null);
+  const [rejectionItem, setRejectionItem] = useState<LineItemWithApprovals | null>(null);
+
+  // Execution dialog state (retained from old flow for legacy pending transactions)
   const [executionDialogState, setExecutionDialogState] = useState<{
     open: boolean;
     approvalId: string;
@@ -152,18 +157,14 @@ export default function StockOutRequestDetailPage() {
     warehouseName: string;
   } | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [optimisticExecutedIds, setOptimisticExecutedIds] = useState<Set<string>>(new Set());
-  const [approvalStockLevels, setApprovalStockLevels] = useState<Map<string, { available: number; needed: number }>>(new Map());
-
 
   // Permission checks (RBAC-15: stock-out approvals restricted to Admin only)
   const canApprove = user?.role === "admin";
-  const canExecute = user?.role === "admin";
   const isRequester = user?.id === request?.requester_id;
   const canCancel = isRequester && request?.status === "pending";
 
   /**
-   * Fetch request data with line items
+   * Fetch request data with two-layer-aware line item quantities
    */
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -200,8 +201,8 @@ export default function StockOutRequestDetailPage() {
 
       setRequest(requestData as StockOutRequestWithRelations);
 
-      // Fetch line items with approvals
-      const { data: lineItemsData, error: lineItemsError} = await supabase
+      // Fetch line items with layer-aware approvals
+      const { data: lineItemsData, error: lineItemsError } = await supabase
         .from("stock_out_line_items")
         .select(
           `
@@ -216,7 +217,10 @@ export default function StockOutRequestDetailPage() {
           approvals:stock_out_approvals(
             id,
             approved_quantity,
-            decision
+            decision,
+            layer,
+            warehouse_id,
+            parent_approval_id
           )
         `
         )
@@ -225,17 +229,62 @@ export default function StockOutRequestDetailPage() {
 
       if (lineItemsError) throw lineItemsError;
 
-      // Compute totals for each line item
+      // Collect all L2 approval IDs to query executed transactions
+      const allL2ApprovalIds: string[] = [];
+      (lineItemsData || []).forEach((item: any) => {
+        (item.approvals || []).forEach((a: any) => {
+          if (a.decision === "approved" && a.layer === "admin") {
+            allL2ApprovalIds.push(a.id);
+          }
+        });
+      });
+
+      // Fetch completed inventory transactions for L2 approvals
+      let executedQtyByLineItem: Record<string, number> = {};
+      if (allL2ApprovalIds.length > 0) {
+        const { data: completedTxData } = await supabase
+          .from("inventory_transactions")
+          .select("stock_out_approval_id, quantity, item_id")
+          .in("stock_out_approval_id", allL2ApprovalIds)
+          .eq("status", "completed")
+          .eq("is_active", true);
+
+        // Map L2 approval ID -> line item ID for aggregation
+        const approvalToLineItem: Record<string, string> = {};
+        (lineItemsData || []).forEach((item: any) => {
+          (item.approvals || []).forEach((a: any) => {
+            approvalToLineItem[a.id] = item.id;
+          });
+        });
+
+        (completedTxData || []).forEach((tx: any) => {
+          const lineItemId = approvalToLineItem[tx.stock_out_approval_id];
+          if (lineItemId) {
+            executedQtyByLineItem[lineItemId] =
+              (executedQtyByLineItem[lineItemId] || 0) + (tx.quantity || 0);
+          }
+        });
+      }
+
+      // Compute two-layer totals for each line item
       const itemsWithTotals: LineItemWithApprovals[] = (lineItemsData || []).map(
         (item: any) => {
-          const approvedApprovals = (item.approvals || []).filter(
-            (a: any) => a.decision === "approved"
+          const approvalList = item.approvals || [];
+
+          // L1: quartermaster layer approved
+          const l1Approvals = approvalList.filter(
+            (a: any) => a.decision === "approved" && a.layer === "quartermaster"
           );
-          const rejectedApprovals = (item.approvals || []).filter(
+          // Rejected
+          const rejectedApprovals = approvalList.filter(
             (a: any) => a.decision === "rejected"
           );
+          // L2: admin layer approved (warehouse assignments)
+          const l2Approvals = approvalList.filter(
+            (a: any) => a.decision === "approved" && a.layer === "admin"
+          );
 
-          const totalApprovedQuantity = approvedApprovals.reduce(
+          const totalApprovedQuantity = l1Approvals.reduce(
             (sum: number, a: any) => sum + (a.approved_quantity || 0),
             0
           );
@@ -243,11 +292,14 @@ export default function StockOutRequestDetailPage() {
             (sum: number, a: any) => sum + (a.approved_quantity || 0),
             0
           );
+          const l2AssignedQuantity = l2Approvals.reduce(
+            (sum: number, a: any) => sum + (a.approved_quantity || 0),
+            0
+          );
+          const executedQuantity = executedQtyByLineItem[item.id] || 0;
 
           const remainingQuantity =
             item.requested_quantity - totalApprovedQuantity - totalRejectedQuantity;
-
-          const assignedWarehouseName: string | null = null;
 
           return {
             id: item.id,
@@ -260,7 +312,9 @@ export default function StockOutRequestDetailPage() {
             total_approved_quantity: totalApprovedQuantity,
             total_rejected_quantity: totalRejectedQuantity,
             remaining_quantity: remainingQuantity,
-            assigned_warehouse_name: assignedWarehouseName,
+            l2_assigned_quantity: l2AssignedQuantity,
+            executed_quantity: executedQuantity,
+            assigned_warehouse_name: null,
             unit_name: item.item?.standard_unit_rel?.name || undefined,
           };
         }
@@ -268,7 +322,7 @@ export default function StockOutRequestDetailPage() {
 
       setLineItems(itemsWithTotals);
 
-      // Fetch all approvals for Approvals tab
+      // Fetch all approvals for Approvals tab (with layer and warehouse info)
       const { data: approvalsData, error: approvalsError } = await supabase
         .from("stock_out_approvals")
         .select(
@@ -281,8 +335,11 @@ export default function StockOutRequestDetailPage() {
           decided_by,
           decided_at,
           line_item_id,
+          layer,
+          warehouse_id,
           decided_by_user:users!stock_out_approvals_decided_by_fkey(id, full_name),
-          line_item:stock_out_line_items(item_name, item_sku)
+          line_item:stock_out_line_items(item_name, item_sku),
+          warehouse:warehouses!stock_out_approvals_warehouse_id_fkey(id, name)
         `
         )
         .in(
@@ -296,7 +353,7 @@ export default function StockOutRequestDetailPage() {
 
       setApprovals((approvalsData || []) as ApprovalWithUser[]);
 
-      // Fetch inventory transactions (completed stock-outs)
+      // Fetch all inventory transactions for Transactions tab
       const approvalIds = (approvalsData || []).map((a) => a.id);
       if (approvalIds.length > 0) {
         const { data: txData, error: txError } = await supabase
@@ -313,7 +370,6 @@ export default function StockOutRequestDetailPage() {
             warehouse_id,
             item_id,
             stock_out_approval_id,
-            conversion_rate,
             warehouses!inventory_transactions_warehouse_id_fkey(id, name),
             items(id, name, sku, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name))
           `
@@ -324,58 +380,9 @@ export default function StockOutRequestDetailPage() {
 
         if (!txError && txData) {
           setInventoryTransactions(txData);
-
-          // Calculate stock levels for each approved approval
-          const stockLevelsMap = new Map<string, { available: number; needed: number }>();
-
-          for (const approval of (approvalsData || [])) {
-            if (approval.decision === "approved") {
-              // Check if this approval has a completed transaction
-              const completedTx = txData.find(
-                (tx: any) => tx.stock_out_approval_id === approval.id && tx.status === "completed"
-              );
-
-              // Skip if already executed
-              if (completedTx) continue;
-
-              // Find pending transaction for this approval to get warehouse and item
-              const pendingTx = txData.find(
-                (tx: any) => tx.stock_out_approval_id === approval.id && tx.status === "pending"
-              );
-
-              if (pendingTx) {
-                const itemId = pendingTx.item_id;
-                const warehouseId = pendingTx.warehouse_id;
-                const neededQty = approval.approved_quantity;
-
-                // Calculate available stock for this warehouse + item
-                const { data: stockData } = await supabase
-                  .from("inventory_transactions")
-                  .select("movement_type, quantity")
-                  .eq("item_id", itemId)
-                  .eq("warehouse_id", warehouseId)
-                  .eq("is_active", true)
-                  .eq("status", "completed");
-
-                const availableStock = (stockData || []).reduce((sum: number, tx: any) => {
-                  if (tx.movement_type === "inventory_in") {
-                    return sum + (tx.quantity || 0);
-                  } else if (tx.movement_type === "inventory_out") {
-                    return sum - (tx.quantity || 0);
-                  }
-                  return sum;
-                }, 0);
-
-                stockLevelsMap.set(approval.id, {
-                  available: availableStock,
-                  needed: neededQty,
-                });
-              }
-            }
-          }
-
-          setApprovalStockLevels(stockLevelsMap);
         }
+      } else {
+        setInventoryTransactions([]);
       }
     } catch (error: any) {
       console.error("Error fetching request data:", error);
@@ -393,14 +400,15 @@ export default function StockOutRequestDetailPage() {
    * BroadcastChannel listener for cross-tab execution sync
    */
   useEffect(() => {
-    // Safari doesn't support BroadcastChannel
     if (typeof BroadcastChannel === "undefined") return;
 
     const channel = new BroadcastChannel("qm-stock-out-execution");
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.data.type === "APPROVAL_EXECUTED" && event.data.requestId === requestId) {
-        // Refetch data when another tab executes an approval
+      if (
+        event.data.type === "APPROVAL_EXECUTED" &&
+        event.data.requestId === requestId
+      ) {
         fetchData();
       }
     };
@@ -414,15 +422,22 @@ export default function StockOutRequestDetailPage() {
   }, [requestId, fetchData]);
 
   /**
-   * Handle opening execution confirmation dialog
+   * Handle successful dialog action (L1 approval or rejection) — refetch data
+   */
+  const handleDialogSuccess = async () => {
+    await fetchData();
+  };
+
+  /**
+   * Handle opening execution confirmation for pending transactions (legacy flow)
    */
   const handleExecuteApproval = (approvalId: string) => {
     const approval = approvals.find((a) => a.id === approvalId);
     if (!approval) return;
 
-    // Find the pending transaction for this approval to get warehouse info
     const pendingTx = inventoryTransactions.find(
-      (tx: any) => tx.stock_out_approval_id === approvalId && tx.status === "pending"
+      (tx: any) =>
+        tx.stock_out_approval_id === approvalId && tx.status === "pending"
     );
 
     if (!pendingTx) {
@@ -440,27 +455,18 @@ export default function StockOutRequestDetailPage() {
   };
 
   /**
-   * Confirm and execute the stock-out for a single approval
+   * Confirm and execute the stock-out for a single approval (legacy pending tx flow)
    */
   const confirmExecution = async () => {
     if (!executionDialogState) return;
 
     setIsExecuting(true);
     const { approvalId } = executionDialogState;
-
-    // Optimistic update
-    setOptimisticExecutedIds((prev) => {
-      const next = new Set(prev);
-      next.add(approvalId);
-      return next;
-    });
-
     const supabase = createClient();
 
     try {
       const now = new Date().toISOString();
 
-      // Update the pending transaction for this approval to completed
       const { error: updateError } = await supabase
         .from("inventory_transactions")
         .update({
@@ -472,10 +478,8 @@ export default function StockOutRequestDetailPage() {
 
       if (updateError) throw updateError;
 
-      // Success
       toast.success("Stock-out executed successfully");
 
-      // Broadcast to other tabs
       if (typeof BroadcastChannel !== "undefined") {
         try {
           const channel = new BroadcastChannel("qm-stock-out-execution");
@@ -486,50 +490,19 @@ export default function StockOutRequestDetailPage() {
             qmhqId: request?.qmhq_id,
           });
           channel.close();
-        } catch (error) {
-          // Ignore BroadcastChannel errors (Safari)
-          console.warn("BroadcastChannel not supported:", error);
+        } catch (err) {
+          console.warn("BroadcastChannel not supported:", err);
         }
       }
 
-      // Close dialog and refetch
       setExecutionDialogState(null);
       await fetchData();
     } catch (error: any) {
       console.error("Error executing stock-out:", error);
       toast.error(error.message || "Failed to execute stock-out");
-
-      // Rollback optimistic update
-      setOptimisticExecutedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(approvalId);
-        return next;
-      });
     } finally {
       setIsExecuting(false);
     }
-  };
-
-  /**
-   * Handle opening approval dialog
-   */
-  const handleApproveClick = () => {
-    setIsApprovalDialogOpen(true);
-  };
-
-  /**
-   * Handle opening rejection dialog
-   */
-  const handleRejectClick = () => {
-    setIsRejectionDialogOpen(true);
-  };
-
-  /**
-   * Handle successful approval/rejection - refetch data and clear selection
-   */
-  const handleDialogSuccess = async () => {
-    setSelectedIds(new Set());
-    await fetchData();
   };
 
   /**
@@ -547,7 +520,6 @@ export default function StockOutRequestDetailPage() {
     const supabase = createClient();
 
     try {
-      // Update all pending line items to cancelled
       const { error: updateError } = await supabase
         .from("stock_out_line_items")
         .update({ status: "cancelled" })
@@ -557,7 +529,7 @@ export default function StockOutRequestDetailPage() {
       if (updateError) throw updateError;
 
       toast.success("Request cancelled successfully");
-      await fetchData(); // Refresh data
+      await fetchData();
     } catch (error: any) {
       console.error("Error cancelling request:", error);
       toast.error(error.message || "Failed to cancel request");
@@ -629,7 +601,7 @@ export default function StockOutRequestDetailPage() {
               qmhq_reference: request.qmhq?.request_id || null,
               qmhq_line_name: request.qmhq?.line_name || null,
             }}
-            lineItems={lineItems.map(li => ({
+            lineItems={lineItems.map((li) => ({
               item_name: li.item_name || "Unknown Item",
               item_sku: li.item_sku,
               requested_quantity: li.requested_quantity,
@@ -638,8 +610,8 @@ export default function StockOutRequestDetailPage() {
               total_approved_quantity: li.total_approved_quantity,
               total_rejected_quantity: li.total_rejected_quantity,
             }))}
-            approvals={approvals.map(a => {
-              const lineItem = lineItems.find(li => li.id === a.line_item_id);
+            approvals={approvals.map((a) => {
+              const lineItem = lineItems.find((li) => li.id === a.line_item_id);
               return {
                 approval_number: a.approval_number,
                 item_name: a.line_item?.item_name || "Unknown",
@@ -676,80 +648,80 @@ export default function StockOutRequestDetailPage() {
       }
       kpiPanel={
         <div className="command-panel p-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <div className="text-xs font-medium text-slate-500 mb-1">
-              Reason
-            </div>
-            <Badge
-              variant="outline"
-              className={cn(
-                "border text-sm",
-                reasonConfig.bgColor,
-                reasonConfig.color
-              )}
-            >
-              {reasonConfig.label}
-            </Badge>
-          </div>
-
-          {request.qmhq_id && request.qmhq && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <div className="text-xs font-medium text-slate-500 mb-1">
-                QMHQ Reference
+                Reason
               </div>
-              <Link
-                href={`/qmhq/${request.qmhq_id}`}
-                className="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                <span className="font-mono text-sm">
-                  {request.qmhq.request_id}
-                </span>
-                {request.qmhq.line_name && (
-                  <span className="text-xs text-slate-400">
-                    ({request.qmhq.line_name})
-                  </span>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "border text-sm",
+                  reasonConfig.bgColor,
+                  reasonConfig.color
                 )}
-                <ExternalLink className="w-3 h-3" />
-              </Link>
+              >
+                {reasonConfig.label}
+              </Badge>
+            </div>
+
+            {request.qmhq_id && request.qmhq && (
+              <div>
+                <div className="text-xs font-medium text-slate-500 mb-1">
+                  QMHQ Reference
+                </div>
+                <Link
+                  href={`/qmhq/${request.qmhq_id}`}
+                  className="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  <span className="font-mono text-sm">
+                    {request.qmhq.request_id}
+                  </span>
+                  {request.qmhq.line_name && (
+                    <span className="text-xs text-slate-400">
+                      ({request.qmhq.line_name})
+                    </span>
+                  )}
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
+              </div>
+            )}
+
+            <div>
+              <div className="text-xs font-medium text-slate-500 mb-1">
+                Requester
+              </div>
+              <div className="text-sm text-slate-300">
+                {request.requester?.full_name || "Unknown"}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-medium text-slate-500 mb-1">
+                Created
+              </div>
+              <div className="text-sm text-slate-300">
+                {new Date(request.created_at).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
+            </div>
+          </div>
+
+          {request.notes && (
+            <div>
+              <div className="text-xs font-medium text-slate-500 mb-1">
+                Notes
+              </div>
+              <div className="text-sm text-slate-300 whitespace-pre-wrap">
+                {request.notes}
+              </div>
             </div>
           )}
-
-          <div>
-            <div className="text-xs font-medium text-slate-500 mb-1">
-              Requester
-            </div>
-            <div className="text-sm text-slate-300">
-              {request.requester?.full_name || "Unknown"}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs font-medium text-slate-500 mb-1">
-              Created
-            </div>
-            <div className="text-sm text-slate-300">
-              {new Date(request.created_at).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </div>
-          </div>
-        </div>
-
-        {request.notes && (
-          <div>
-            <div className="text-xs font-medium text-slate-500 mb-1">
-              Notes
-            </div>
-            <div className="text-sm text-slate-300 whitespace-pre-wrap">
-              {request.notes}
-            </div>
-          </div>
-        )}
         </div>
       }
     >
@@ -776,7 +748,7 @@ export default function StockOutRequestDetailPage() {
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
-        {/* Details Tab */}
+        {/* Details Tab — per-row action buttons (no batch selection) */}
         <TabsContent value="details" className="space-y-4">
           <div className="command-panel p-6">
             <h3 className="text-lg font-semibold text-slate-200 mb-4">
@@ -785,15 +757,13 @@ export default function StockOutRequestDetailPage() {
             <LineItemTable
               items={lineItems}
               canApprove={canApprove}
-              selectedIds={selectedIds}
-              onSelectionChange={setSelectedIds}
-              onApproveClick={handleApproveClick}
-              onRejectClick={handleRejectClick}
+              onApproveItem={(item) => setL1DialogItem(item)}
+              onRejectItem={(item) => setRejectionItem(item)}
             />
           </div>
         </TabsContent>
 
-        {/* Approvals Tab */}
+        {/* Approvals Tab — read-only approval history with layer badges */}
         <TabsContent value="approvals" className="space-y-4">
           <div className="command-panel p-6">
             <h3 className="text-lg font-semibold text-slate-200 mb-4">
@@ -805,156 +775,147 @@ export default function StockOutRequestDetailPage() {
                 No approvals yet
               </div>
             ) : (
-              <TooltipProvider>
-                <div className="space-y-4">
-                  {approvals.map((approval) => {
-                    // Check if this approval is executed
-                    const isExecuted =
-                      optimisticExecutedIds.has(approval.id) ||
-                      inventoryTransactions.some(
-                        (tx: any) =>
-                          tx.stock_out_approval_id === approval.id &&
-                          tx.status === "completed"
-                      );
+              <div className="space-y-4">
+                {approvals.map((approval) => {
+                  const isRejected = approval.decision === "rejected";
+                  const isL1 = approval.layer === "quartermaster";
+                  const isL2 = approval.layer === "admin";
 
-                    const isRejected = approval.decision === "rejected";
-                    const stockInfo = approvalStockLevels.get(approval.id);
-                    const hasInsufficientStock =
-                      stockInfo && stockInfo.available < stockInfo.needed;
-
-                    return (
-                      <div
-                        key={approval.id}
-                        className="border border-slate-700 rounded-lg p-4 space-y-2"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {approval.approval_number && (
-                              <div className="font-mono text-sm text-slate-300">
-                                {approval.approval_number}
-                              </div>
-                            )}
-                            {/* Status Badge or Execute Button */}
-                            {isRejected ? (
-                              <Badge
-                                variant="outline"
-                                className="text-xs border-red-500/30 bg-red-500/10 text-red-400"
-                              >
-                                Rejected
-                              </Badge>
-                            ) : isExecuted ? (
-                              <Badge
-                                variant="outline"
-                                className="text-xs border-slate-500/30 bg-slate-500/10 text-slate-400"
-                              >
-                                Executed
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="outline"
-                                className="text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                              >
-                                Approved
-                              </Badge>
-                            )}
-                            {/* Execute Button for approved, not-yet-executed approvals */}
-                            {canExecute &&
-                              approval.decision === "approved" &&
-                              !isExecuted && (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span>
-                                      <Button
-                                        size="sm"
-                                        onClick={() =>
-                                          handleExecuteApproval(approval.id)
-                                        }
-                                        disabled={
-                                          hasInsufficientStock || isExecuting
-                                        }
-                                        className="bg-emerald-600 hover:bg-emerald-500 text-xs"
-                                      >
-                                        <ArrowUpFromLine className="w-3 h-3 mr-1" />
-                                        Execute
-                                      </Button>
-                                    </span>
-                                  </TooltipTrigger>
-                                  {hasInsufficientStock && (
-                                    <TooltipContent>
-                                      Insufficient stock: Need {stockInfo.needed},
-                                      Available: {stockInfo.available}
-                                    </TooltipContent>
-                                  )}
-                                </Tooltip>
-                              )}
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            {new Date(approval.decided_at).toLocaleDateString(
-                              "en-US",
-                              {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <span className="text-slate-500">Item:</span>{" "}
-                            <span className="text-slate-300">
-                              {approval.line_item?.item_name || "Unknown"}
-                            </span>
-                            {approval.line_item?.item_sku && (
-                              <span className="text-slate-500 ml-2">
-                                ({approval.line_item.item_sku})
-                              </span>
-                            )}
-                          </div>
-
-                          {approval.decision === "approved" && (
-                            <div>
-                              <span className="text-slate-500">Quantity:</span>{" "}
-                              <span className="font-mono text-slate-300">
-                                {approval.approved_quantity}
-                              </span>
-                              {(() => {
-                                const lineItem = lineItems.find(li => li.id === approval.line_item_id);
-                                return lineItem?.unit_name && (
-                                  <div className="text-xs font-mono text-slate-400 mt-1">
-                                    {(approval.approved_quantity * (lineItem.conversion_rate || 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {lineItem.unit_name}
-                                  </div>
-                                );
-                              })()}
+                  return (
+                    <div
+                      key={approval.id}
+                      className="border border-slate-700 rounded-lg p-4 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {approval.approval_number && (
+                            <div className="font-mono text-sm text-slate-300">
+                              {approval.approval_number}
                             </div>
                           )}
 
-                          <div>
-                            <span className="text-slate-500">Decided by:</span>{" "}
-                            <span className="text-slate-300">
-                              {approval.decided_by_user?.full_name || "Unknown"}
+                          {/* Layer badge */}
+                          {isL1 && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-blue-500/30 bg-blue-500/10 text-blue-400"
+                            >
+                              L1 Qty Approval
+                            </Badge>
+                          )}
+                          {isL2 && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-purple-500/30 bg-purple-500/10 text-purple-400"
+                            >
+                              L2 Warehouse Assignment
+                            </Badge>
+                          )}
+
+                          {/* Decision badge */}
+                          {isRejected ? (
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-red-500/30 bg-red-500/10 text-red-400"
+                            >
+                              Rejected
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                            >
+                              Approved
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {new Date(approval.decided_at).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-slate-500">Item:</span>{" "}
+                          <span className="text-slate-300">
+                            {approval.line_item?.item_name || "Unknown"}
+                          </span>
+                          {approval.line_item?.item_sku && (
+                            <span className="text-slate-500 ml-2">
+                              ({approval.line_item.item_sku})
                             </span>
-                          </div>
+                          )}
                         </div>
 
-                        {approval.rejection_reason && (
-                          <div className="pt-2 border-t border-slate-700">
-                            <div className="text-xs text-slate-500 mb-1">
-                              Rejection Reason
-                            </div>
-                            <div className="text-sm text-red-400">
-                              {approval.rejection_reason}
-                            </div>
+                        {approval.decision === "approved" && (
+                          <div>
+                            <span className="text-slate-500">Quantity:</span>{" "}
+                            <span className="font-mono text-slate-300">
+                              {approval.approved_quantity}
+                            </span>
+                            {(() => {
+                              const lineItem = lineItems.find(
+                                (li) => li.id === approval.line_item_id
+                              );
+                              return (
+                                lineItem?.unit_name && (
+                                  <div className="text-xs font-mono text-slate-400 mt-1">
+                                    {(
+                                      approval.approved_quantity *
+                                      (lineItem.conversion_rate || 1)
+                                    ).toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}{" "}
+                                    {lineItem.unit_name}
+                                  </div>
+                                )
+                              );
+                            })()}
+                          </div>
+                        )}
+
+                        <div>
+                          <span className="text-slate-500">Decided by:</span>{" "}
+                          <span className="text-slate-300">
+                            {approval.decided_by_user?.full_name || "Unknown"}
+                          </span>
+                        </div>
+
+                        {/* Warehouse name for L2 approvals */}
+                        {isL2 && approval.warehouse && (
+                          <div>
+                            <span className="text-slate-500">Warehouse:</span>{" "}
+                            <span className="text-slate-300">
+                              {approval.warehouse.name}
+                            </span>
                           </div>
                         )}
                       </div>
-                    );
-                  })}
-                </div>
-              </TooltipProvider>
+
+                      {approval.rejection_reason && (
+                        <div className="pt-2 border-t border-slate-700">
+                          <div className="text-xs text-slate-500 mb-1">
+                            Rejection Reason
+                          </div>
+                          <div className="text-sm text-red-400">
+                            {approval.rejection_reason}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </TabsContent>
@@ -979,14 +940,22 @@ export default function StockOutRequestDetailPage() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-10 h-10 rounded-lg flex items-center justify-center",
-                          tx.status === "completed" ? "bg-emerald-500/20" : "bg-amber-500/20"
-                        )}>
-                          <ArrowUpFromLine className={cn(
-                            "w-5 h-5",
-                            tx.status === "completed" ? "text-emerald-400" : "text-amber-400"
-                          )} />
+                        <div
+                          className={cn(
+                            "w-10 h-10 rounded-lg flex items-center justify-center",
+                            tx.status === "completed"
+                              ? "bg-emerald-500/20"
+                              : "bg-amber-500/20"
+                          )}
+                        >
+                          <ArrowUpFromLine
+                            className={cn(
+                              "w-5 h-5",
+                              tx.status === "completed"
+                                ? "text-emerald-400"
+                                : "text-amber-400"
+                            )}
+                          />
                         </div>
                         <div>
                           <div className="font-medium text-slate-200">
@@ -998,7 +967,8 @@ export default function StockOutRequestDetailPage() {
                             </div>
                           )}
                           <div className="text-sm text-slate-400">
-                            From: {tx.warehouses?.name || "Unknown Warehouse"}
+                            From:{" "}
+                            {tx.warehouses?.name || "Unknown Warehouse"}
                           </div>
                         </div>
                       </div>
@@ -1008,7 +978,14 @@ export default function StockOutRequestDetailPage() {
                         </div>
                         {(tx.items as any)?.standard_unit_rel?.name && (
                           <div className="text-xs font-mono text-slate-400 mt-1">
-                            -{(tx.quantity * (tx.conversion_rate ?? 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {(tx.items as any).standard_unit_rel.name}
+                            -
+                            {(
+                              tx.quantity * (tx.conversion_rate ?? 1)
+                            ).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            {(tx.items as any).standard_unit_rel.name}
                           </div>
                         )}
                         <Badge
@@ -1025,16 +1002,15 @@ export default function StockOutRequestDetailPage() {
                       </div>
                     </div>
                     <div className="mt-2 text-xs text-slate-500">
-                      {new Date(tx.transaction_date || tx.created_at).toLocaleDateString(
-                        "en-US",
-                        {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }
-                      )}
+                      {new Date(
+                        tx.transaction_date || tx.created_at
+                      ).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </div>
                   </div>
                 ))}
@@ -1054,26 +1030,31 @@ export default function StockOutRequestDetailPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Approval Dialog */}
-      <ApprovalDialog
-        open={isApprovalDialogOpen}
-        onOpenChange={setIsApprovalDialogOpen}
-        lineItems={lineItems.filter((item) => selectedIds.has(item.id))}
-        requestId={requestId}
-        requestReason={request.reason}
-        qmhqId={request.qmhq_id}
-        onSuccess={handleDialogSuccess}
-      />
+      {/* L1 Approval Dialog — single item, qty-only, no warehouse */}
+      {l1DialogItem && (
+        <L1ApprovalDialog
+          open={!!l1DialogItem}
+          onOpenChange={(open) => {
+            if (!open) setL1DialogItem(null);
+          }}
+          lineItem={l1DialogItem}
+          onSuccess={handleDialogSuccess}
+        />
+      )}
 
-      {/* Rejection Dialog */}
-      <RejectionDialog
-        open={isRejectionDialogOpen}
-        onOpenChange={setIsRejectionDialogOpen}
-        lineItems={lineItems.filter((item) => selectedIds.has(item.id))}
-        onSuccess={handleDialogSuccess}
-      />
+      {/* Rejection Dialog — single item */}
+      {rejectionItem && (
+        <RejectionDialog
+          open={!!rejectionItem}
+          onOpenChange={(open) => {
+            if (!open) setRejectionItem(null);
+          }}
+          lineItems={[rejectionItem]}
+          onSuccess={handleDialogSuccess}
+        />
+      )}
 
-      {/* Execution Confirmation Dialog */}
+      {/* Execution Confirmation Dialog (for legacy pending transactions) */}
       {executionDialogState && (
         <ExecutionConfirmationDialog
           open={executionDialogState.open}
