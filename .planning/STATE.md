@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-17 (56-03)
+**Last Updated:** 2026-02-17 (57-01)
 
 ---
 
@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.12 List Views & Approval Workflow — Phase 56 complete
+**Current Focus:** v1.12 Two-Layer Approval UI — Phase 57 plan 01 complete
 
 ---
 
 ## Current Position
 
-Phase: 56 (List View Standardization)
-Plan: 03 complete — Phase 56 fully done
-Status: Phase 56 complete — all 3 plans executed
-Last activity: 2026-02-17 — 56-03 executed (stock-out requests list view standardization)
+Phase: 57 (Two-Layer Approval UI & Execution Page)
+Plan: 01 complete — Phase 57 plan 01 done
+Status: Phase 57 in progress — plan 01 executed (L1 per-row approval UI)
+Last activity: 2026-02-17 — 57-01 executed (L1 approval dialog, progress bar, line-item-table rewrite)
 
-Progress: [████████░░░░░░░░░░░░] 3/4 phases in v1.12 (Phase 55 + Phase 56 all 3 plans done)
+Progress: [█████████░░░░░░░░░░░] Phase 55+56 complete, Phase 57 plan 01 done
 
 ---
 
@@ -54,7 +54,7 @@ Progress: [████████░░░░░░░░░░░░] 3/4 pha
 **v1.12 In Progress:**
 - 4 phases planned (55-58)
 - 25 requirements mapped
-- Phase 55 complete, Phase 56 complete (all 3 plans)
+- Phase 55 complete, Phase 56 complete (all 3 plans), Phase 57 plan 01 complete
 
 ---
 
@@ -83,11 +83,17 @@ All decisions archived in PROJECT.md Key Decisions table.
 - Status badges in list view: colored background + white text (solid style, not outline variant)
 - Stock-out requests uses status dropdown (not tabs) in FilterBar — consistent with other 5 list pages
 - Card view groups paginatedRequests (not filteredRequests) — ensures card groups respect pagination boundary
+- L1 approval dialog inserts into stock_out_approvals without warehouse_id/parent_approval_id — layer auto-set by DB trigger to quartermaster
+- L1 dialog does not create inventory_transaction — warehouse unknown at L1; transaction created at L2
+- awaiting_admin badge shows "Qty Approved" (blue) when l2_assigned_quantity=0, or "Warehouse Assigned" (purple) when l2_assigned_quantity>0
+- Batch checkbox selection and floating action bar removed from SOR line item table — replaced with per-row action buttons
+- Approvals tab in SOR detail is now read-only history with L1/L2 layer badges — execute buttons deferred to Plan 02/03
+- REQUEST_STATUS_CONFIG: partially_approved renamed "Awaiting Warehouse", approved renamed "Ready to Execute"
 
 ### TODOs
 
 **Immediate Next Steps:**
-1. Phase 56 complete — proceed to Phase 57 (L2 approval UI) or Phase 58
+1. Phase 57 plan 01 complete — proceed to Phase 57 plan 02 (L2 warehouse assignment dialog)
 
 ### Blockers
 
@@ -98,18 +104,21 @@ All decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 56 plan 03 executed:
-  - Rewrote `app/(dashboard)/inventory/stock-out-requests/page.tsx` — replaced status tabs with FilterBar (status dropdown + requester filter with UserAvatar), URL pagination, LIST-06 columns (SOR ID/Item/Requester/Reason/QMHQ Ref/Status), router.push, responsive behavior
-  - Cross-page verification: all 6 list pages pass consistency checks (usePaginationParams, Pagination, router.push, FilterBar with ml-auto toggle, responsive useEffect)
-  - Requirements completed: LIST-06, PAGE-02 (final)
+- Phase 57 plan 01 executed:
+  - Created `components/stock-out-requests/l1-approval-dialog.tsx` — L1 qty-only approval dialog, single item, no warehouse, no inventory_transaction
+  - Created `components/stock-out-requests/line-item-progress-bar.tsx` — 3-segment bar (blue/purple/emerald) with tooltip
+  - Rewrote `components/stock-out-requests/line-item-table.tsx` — per-row action buttons, LineItemWithApprovals extended with l2_assigned_quantity/executed_quantity
+  - Rewrote `app/(dashboard)/inventory/stock-out-requests/[id]/page.tsx` — layer-aware fetching, L1 dialog wiring, Approvals tab read-only with L1/L2 badges, updated status labels
+  - Requirements completed: APPR-01, APPR-05
 
 **Context for Next Agent:**
-- All 6 list pages standardized: QMRL (plan 01), QMHQ+PO+Invoice+Items (plan 02), stock-out requests (plan 03)
-- Consistent pattern: usePaginationParams + handleXChange(setCurrentPage(1)) + hidden md:flex desktop filters + ml-auto toggle + responsive Popover on mobile
-- Phase 57 (L2 approval UI) is independent and can proceed
+- LineItemTable has a disabled "Assign WH" placeholder button for awaiting_admin rows — Plan 02 should wire the L2 dialog to this slot
+- l2_assigned_quantity and executed_quantity are computed in fetchData and passed to LineItemProgressBar
+- The old ApprovalDialog (approval-dialog.tsx) file still exists but is no longer imported anywhere — can be deleted or repurposed in Plan 02
+- stock_out_approvals query now fetches layer, warehouse_id, parent_approval_id fields
 
-**Resume at:** Phase 57 or Phase 58 (next in v1.12)
+**Resume at:** Phase 57 plan 02 (L2 warehouse assignment dialog)
 
 ---
 
-*State last updated: 2026-02-17 after Phase 56 plan 03 (stock-out requests list view + cross-page verification) complete*
+*State last updated: 2026-02-17 after Phase 57 plan 01 (L1 per-row approval UI + progress bar) complete*
