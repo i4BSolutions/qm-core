@@ -174,7 +174,7 @@ export function LineItemTable({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {items.map((item) => {
         const config = resolveStatusConfig(item);
         const conversion = formatConversion(
@@ -186,11 +186,11 @@ export function LineItemTable({
         return (
           <div
             key={item.id}
-            className="rounded-lg border border-slate-700/50 bg-slate-800/20 px-4 py-3 hover:bg-slate-800/40 transition-colors"
+            className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-4 hover:bg-slate-800/50 transition-colors"
           >
             {/* Row 1: Item name + Status + Progress + Actions */}
             <div className="flex items-center gap-3">
-              <div className="font-medium text-sm text-slate-200 min-w-0 truncate flex-shrink-0 max-w-[200px]">
+              <div className="font-medium text-slate-200 min-w-0 truncate flex-shrink-0 max-w-[280px]">
                 {item.item_name || "Unknown Item"}
               </div>
 
@@ -205,7 +205,7 @@ export function LineItemTable({
                 {config.label}
               </Badge>
 
-              <div className="flex-1 min-w-[100px] max-w-[200px]">
+              <div className="flex-1 min-w-[120px] max-w-[260px]">
                 <LineItemProgressBar
                   requestedQty={item.requested_quantity}
                   l1ApprovedQty={item.total_approved_quantity}
@@ -241,7 +241,7 @@ export function LineItemTable({
             </div>
 
             {/* Row 2: SKU + quantity summary */}
-            <div className="mt-1.5 flex items-center gap-1 text-xs text-slate-400 font-mono flex-wrap">
+            <div className="mt-2 flex items-center gap-1 text-sm text-slate-400 font-mono flex-wrap">
               {item.item_sku && (
                 <>
                   <span className="text-slate-500">{item.item_sku}</span>

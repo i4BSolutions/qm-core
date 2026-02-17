@@ -69,7 +69,7 @@ export function ReadyExecuteTab({
         <div key={lineItemId} className="space-y-2">
           {/* Group header */}
           <div className="flex items-center gap-2 pb-1 border-b border-slate-700">
-            <h5 className="font-medium text-slate-200 text-sm">
+            <h5 className="font-medium text-slate-200">
               {group.item_name || "Unknown Item"}
             </h5>
             {group.item_sku && (
@@ -87,19 +87,19 @@ export function ReadyExecuteTab({
             {group.assignments.map((assignment) => (
               <div
                 key={assignment.id}
-                className="flex items-center justify-between py-3 px-4 rounded-lg bg-slate-800/30 border border-slate-700/50"
+                className="flex items-center justify-between p-4 rounded-lg bg-slate-800/30 border border-slate-700/50"
               >
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   {/* Warehouse */}
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-slate-200 truncate">
+                    <div className="font-medium text-slate-200 truncate">
                       {assignment.warehouse_name}
                     </div>
                   </div>
 
                   {/* Qty */}
                   <div className="flex-shrink-0">
-                    <div className="font-mono text-sm text-slate-200">
+                    <div className="font-mono text-slate-200">
                       {assignment.approved_quantity}
                     </div>
                     {assignment.unit_name && assignment.conversion_rate > 1 && (

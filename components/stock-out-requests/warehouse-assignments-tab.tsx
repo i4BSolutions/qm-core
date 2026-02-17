@@ -118,7 +118,7 @@ export function WarehouseAssignmentsTab({
             <div key={lineItemId} className="space-y-2">
               {/* Group header with progress bar */}
               <div className="flex items-center gap-3 pb-1 border-b border-slate-700">
-                <h5 className="font-medium text-slate-200 text-sm flex-shrink-0">
+                <h5 className="font-medium text-slate-200 flex-shrink-0">
                   {group.item_name || "Unknown Item"}
                 </h5>
                 {group.item_sku && (
@@ -127,7 +127,7 @@ export function WarehouseAssignmentsTab({
                   </span>
                 )}
                 {progress && (
-                  <div className="flex-1 min-w-[100px] max-w-[200px]">
+                  <div className="flex-1 min-w-[120px] max-w-[260px]">
                     <LineItemProgressBar
                       requestedQty={progress.requestedQty}
                       l1ApprovedQty={progress.l1ApprovedQty}
@@ -143,13 +143,13 @@ export function WarehouseAssignmentsTab({
                 {group.items.map((pending) => (
                   <div
                     key={pending.l1_approval_id}
-                    className="flex items-center justify-between py-3 px-4 rounded-lg bg-slate-800/30 border border-slate-700/50"
+                    className="flex items-center justify-between p-4 rounded-lg bg-slate-800/30 border border-slate-700/50"
                   >
                     <div className="flex items-center gap-6 flex-1 min-w-0">
                       {/* L1 approved qty */}
                       <div className="flex-shrink-0">
                         <div className="text-xs text-slate-500 mb-0.5">L1 Approved</div>
-                        <div className="font-mono text-sm text-slate-200">
+                        <div className="font-mono text-slate-200">
                           {pending.l1_approved_quantity}
                           {pending.unit_name && pending.conversion_rate > 1 && (
                             <span className="text-slate-400 text-xs ml-1">
@@ -162,7 +162,7 @@ export function WarehouseAssignmentsTab({
                       {/* Already assigned */}
                       <div className="flex-shrink-0">
                         <div className="text-xs text-slate-500 mb-0.5">Assigned</div>
-                        <div className="font-mono text-sm text-purple-400">
+                        <div className="font-mono text-purple-400">
                           {pending.total_l2_assigned}
                         </div>
                       </div>
@@ -170,7 +170,7 @@ export function WarehouseAssignmentsTab({
                       {/* Remaining */}
                       <div className="flex-shrink-0">
                         <div className="text-xs text-slate-500 mb-0.5">Remaining</div>
-                        <div className="font-mono text-sm text-amber-400 font-medium">
+                        <div className="font-mono text-amber-400 font-medium">
                           {pending.remaining_to_assign}
                         </div>
                       </div>
