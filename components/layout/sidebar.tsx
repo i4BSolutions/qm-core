@@ -67,7 +67,7 @@ const allNavigation: NavItem[] = [
     children: [
       { label: "Dashboard", href: "/inventory" },
       { label: "Stock In", href: "/inventory/stock-in" },
-      { label: "Stock Out", href: "/inventory/stock-out" },
+      { label: "Execution Queue", href: "/inventory/stock-out" },
       { label: "Stock-Out Requests", href: "/inventory/stock-out-requests" },
     ],
   },
