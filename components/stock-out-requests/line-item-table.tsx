@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, ChevronDown } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LineItemProgressBar } from "./line-item-progress-bar";
 import type { Enums } from "@/types/database";
@@ -52,7 +51,7 @@ export interface LineItemWithApprovals {
   // Legacy / info fields:
   assigned_warehouse_name: string | null;
   unit_name?: string;
-  // L1 approvals with their L2 children (for expandable section and L2 dialog)
+  // L1 approvals with their L2 children (for L2 dialog)
   l1Approvals?: L1ApprovalData[];
 }
 
@@ -140,7 +139,7 @@ function resolveStatusConfig(item: LineItemWithApprovals): {
 
 /**
  * Determine the action button to render for a row.
- * Returns null if no action is available.
+ * L1 tab only: approve/reject for pending items, null for everything else.
  */
 function getRowAction(
   item: LineItemWithApprovals,
@@ -175,76 +174,14 @@ function getRowAction(
     );
   }
 
-  if (item.status === "awaiting_admin") {
-    // Warehouse assignment is handled exclusively from the Warehouse Assignments tab.
-    // Show an informational badge here indicating what action is needed.
-    const unassignedL1 = item.total_approved_quantity - item.l2_assigned_quantity;
-
-    if (unassignedL1 > 0) {
-      return (
-        <Badge
-          variant="outline"
-          className="border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs font-mono"
-        >
-          Assign in WH tab
-        </Badge>
-      );
-    }
-
-    // All L1 qty covered by L2 — show a static badge
-    return (
-      <Badge
-        variant="outline"
-        className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-mono"
-      >
-        Ready to Execute
-      </Badge>
-    );
-  }
-
-  if (item.status === "fully_approved") {
-    return (
-      <Badge
-        variant="outline"
-        className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-mono"
-      >
-        Ready to Execute
-      </Badge>
-    );
-  }
-
-  if (item.status === "executed") {
-    return (
-      <Badge
-        variant="outline"
-        className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-mono"
-      >
-        Executed
-      </Badge>
-    );
-  }
-
-  if (item.status === "rejected") {
-    return (
-      <Badge
-        variant="outline"
-        className="border-red-500/30 bg-red-500/10 text-red-400 text-xs font-mono"
-      >
-        Rejected
-      </Badge>
-    );
-  }
-
   return null;
 }
 
 /**
  * Line Item Table Component
  *
- * Shows stock-out request line items with per-row action buttons for
- * approval (L1 qty-only), rejection, and L2 warehouse assignment.
- *
- * Rows are expandable to show warehouse assignments per line item.
+ * Pure L1 Qty Approval tab — shows stock-out request line items with
+ * per-row Approve/Reject buttons for pending items only.
  *
  * Columns: Item | SKU | Requested | Approved | Rejected | Remaining | Status | Progress | Action
  */
@@ -254,28 +191,13 @@ export function LineItemTable({
   onApproveItem,
   onRejectItem,
 }: LineItemTableProps) {
-  const [expandedItemIds, setExpandedItemIds] = useState<Set<string>>(new Set());
-
-  const toggleExpanded = (itemId: string) => {
-    setExpandedItemIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(itemId)) {
-        next.delete(itemId);
-      } else {
-        next.add(itemId);
-      }
-      return next;
-    });
-  };
-
-  const colSpan = canApprove ? 10 : 9;
+  const colSpan = canApprove ? 9 : 8;
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-slate-700">
-            <th className="pb-3 w-8" />
             <th className="pb-3 text-left font-medium text-sm text-slate-400">
               Item
             </th>
@@ -326,220 +248,143 @@ export function LineItemTable({
                 onApproveItem,
                 onRejectItem,
               );
-              const isExpanded = expandedItemIds.has(item.id);
-
-              // Check if this item has any L2 assignments to show
-              const hasL2 =
-                (item.l1Approvals || []).some(
-                  (l1) => l1.l2_assignments.length > 0
-                );
 
               return (
-                <>
-                  <tr
-                    key={item.id}
-                    className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
-                  >
-                    {/* Expand toggle */}
-                    <td className="py-4 pr-1 w-8">
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(item.id)}
-                        className="text-slate-500 hover:text-slate-300 transition-colors p-1 rounded"
-                        aria-label={isExpanded ? "Collapse" : "Expand warehouse assignments"}
-                      >
-                        <ChevronDown
-                          className={cn(
-                            "w-4 h-4 transition-transform duration-200",
-                            isExpanded && "rotate-180"
-                          )}
-                        />
-                      </button>
-                    </td>
+                <tr
+                  key={item.id}
+                  className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
+                >
+                  {/* Item Name */}
+                  <td className="py-4">
+                    <div className="font-medium text-slate-200">
+                      {item.item_name || "Unknown Item"}
+                    </div>
+                  </td>
 
-                    {/* Item Name */}
-                    <td className="py-4">
-                      <div className="font-medium text-slate-200">
-                        {item.item_name || "Unknown Item"}
+                  {/* SKU */}
+                  <td className="py-4">
+                    <div className="font-mono text-sm text-slate-400">
+                      {item.item_sku || "\u2014"}
+                    </div>
+                  </td>
+
+                  {/* Requested */}
+                  <td className="py-4 text-right">
+                    <div className="font-mono text-slate-200">
+                      {item.requested_quantity}
+                    </div>
+                    {item.unit_name && (
+                      <div className="text-xs font-mono text-slate-400 mt-1">
+                        {(
+                          item.requested_quantity * item.conversion_rate
+                        ).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        {item.unit_name}
                       </div>
-                    </td>
-
-                    {/* SKU */}
-                    <td className="py-4">
-                      <div className="font-mono text-sm text-slate-400">
-                        {item.item_sku || "—"}
-                      </div>
-                    </td>
-
-                    {/* Requested */}
-                    <td className="py-4 text-right">
-                      <div className="font-mono text-slate-200">
-                        {item.requested_quantity}
-                      </div>
-                      {item.unit_name && (
-                        <div className="text-xs font-mono text-slate-400 mt-1">
-                          {(
-                            item.requested_quantity * item.conversion_rate
-                          ).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          {item.unit_name}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Approved (L1) */}
-                    <td className="py-4 text-right">
-                      <div className="font-mono text-slate-200">
-                        {item.total_approved_quantity}
-                      </div>
-                      {item.unit_name && (
-                        <div className="text-xs font-mono text-slate-400 mt-1">
-                          {(
-                            item.total_approved_quantity * item.conversion_rate
-                          ).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          {item.unit_name}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Rejected */}
-                    <td className="py-4 text-right">
-                      <div
-                        className={cn(
-                          "font-mono",
-                          item.total_rejected_quantity > 0
-                            ? "text-red-400"
-                            : "text-slate-500"
-                        )}
-                      >
-                        {item.total_rejected_quantity}
-                      </div>
-                      {item.unit_name && (
-                        <div className="text-xs font-mono text-slate-400 mt-1">
-                          {(
-                            item.total_rejected_quantity * item.conversion_rate
-                          ).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          {item.unit_name}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Remaining */}
-                    <td className="py-4 text-right">
-                      <div
-                        className={cn(
-                          "font-mono",
-                          item.remaining_quantity > 0
-                            ? "text-amber-400"
-                            : "text-slate-500"
-                        )}
-                      >
-                        {item.remaining_quantity}
-                      </div>
-                      {item.unit_name && (
-                        <div className="text-xs font-mono text-slate-400 mt-1">
-                          {(
-                            item.remaining_quantity * item.conversion_rate
-                          ).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          {item.unit_name}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Status Badge */}
-                    <td className="py-4">
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "border font-mono text-xs",
-                          config.bgColor,
-                          config.color
-                        )}
-                      >
-                        {config.label}
-                      </Badge>
-                    </td>
-
-                    {/* Progress Bar */}
-                    <td className="py-4 min-w-[120px] pr-4">
-                      <LineItemProgressBar
-                        requestedQty={item.requested_quantity}
-                        l1ApprovedQty={item.total_approved_quantity}
-                        l2AssignedQty={item.l2_assigned_quantity}
-                        executedQty={item.executed_quantity}
-                      />
-                    </td>
-
-                    {/* Action Column (only when canApprove) */}
-                    {canApprove && (
-                      <td className="py-4">
-                        {rowAction}
-                      </td>
                     )}
-                  </tr>
+                  </td>
 
-                  {/* Expandable warehouse assignments section */}
-                  {isExpanded && (
-                    <tr key={`${item.id}-expanded`} className="border-b border-slate-800">
-                      <td colSpan={colSpan} className="py-3 px-4 bg-slate-900/40">
-                        <div className="pl-6">
-                          <div className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wide">
-                            Warehouse Assignments
-                          </div>
-                          {!hasL2 ? (
-                            <div className="text-xs text-slate-500 italic">
-                              No warehouse assignments yet
-                            </div>
-                          ) : (
-                            <div className="space-y-1">
-                              {(item.l1Approvals || []).flatMap((l1) =>
-                                l1.l2_assignments.map((l2) => (
-                                  <div
-                                    key={l2.id}
-                                    className="flex items-center gap-3 text-xs text-slate-400"
-                                  >
-                                    <span className="font-medium text-slate-300">
-                                      {l2.warehouse_name}:
-                                    </span>
-                                    <span className="font-mono">
-                                      {l2.approved_quantity} units
-                                    </span>
-                                    {l2.is_executed ? (
-                                      <Badge
-                                        variant="outline"
-                                        className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs py-0 px-2"
-                                      >
-                                        Executed
-                                      </Badge>
-                                    ) : (
-                                      <Badge
-                                        variant="outline"
-                                        className="border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs py-0 px-2"
-                                      >
-                                        Pending
-                                      </Badge>
-                                    )}
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                  {/* Approved (L1) */}
+                  <td className="py-4 text-right">
+                    <div className="font-mono text-slate-200">
+                      {item.total_approved_quantity}
+                    </div>
+                    {item.unit_name && (
+                      <div className="text-xs font-mono text-slate-400 mt-1">
+                        {(
+                          item.total_approved_quantity * item.conversion_rate
+                        ).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        {item.unit_name}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Rejected */}
+                  <td className="py-4 text-right">
+                    <div
+                      className={cn(
+                        "font-mono",
+                        item.total_rejected_quantity > 0
+                          ? "text-red-400"
+                          : "text-slate-500"
+                      )}
+                    >
+                      {item.total_rejected_quantity}
+                    </div>
+                    {item.unit_name && (
+                      <div className="text-xs font-mono text-slate-400 mt-1">
+                        {(
+                          item.total_rejected_quantity * item.conversion_rate
+                        ).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        {item.unit_name}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Remaining */}
+                  <td className="py-4 text-right">
+                    <div
+                      className={cn(
+                        "font-mono",
+                        item.remaining_quantity > 0
+                          ? "text-amber-400"
+                          : "text-slate-500"
+                      )}
+                    >
+                      {item.remaining_quantity}
+                    </div>
+                    {item.unit_name && (
+                      <div className="text-xs font-mono text-slate-400 mt-1">
+                        {(
+                          item.remaining_quantity * item.conversion_rate
+                        ).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        {item.unit_name}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Status Badge */}
+                  <td className="py-4">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "border font-mono text-xs",
+                        config.bgColor,
+                        config.color
+                      )}
+                    >
+                      {config.label}
+                    </Badge>
+                  </td>
+
+                  {/* Progress Bar */}
+                  <td className="py-4 min-w-[120px] pr-4">
+                    <LineItemProgressBar
+                      requestedQty={item.requested_quantity}
+                      l1ApprovedQty={item.total_approved_quantity}
+                      l2AssignedQty={item.l2_assigned_quantity}
+                      executedQty={item.executed_quantity}
+                    />
+                  </td>
+
+                  {/* Action Column (only when canApprove) */}
+                  {canApprove && (
+                    <td className="py-4">
+                      {rowAction}
+                    </td>
                   )}
-                </>
+                </tr>
               );
             })
           )}

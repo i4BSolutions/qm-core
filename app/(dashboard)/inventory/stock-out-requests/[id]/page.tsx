@@ -24,6 +24,7 @@ import { RejectionDialog } from "@/components/stock-out-requests/rejection-dialo
 import { ExecutionConfirmationDialog } from "@/components/stock-out-requests/execution-confirmation-dialog";
 import { WarehouseAssignmentsTab } from "@/components/stock-out-requests/warehouse-assignments-tab";
 import type { WarehouseAssignment, PendingL1Approval } from "@/components/stock-out-requests/warehouse-assignments-tab";
+import { ReadyExecuteTab } from "@/components/stock-out-requests/ready-execute-tab";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
 import { DetailPageLayout } from "@/components/composite";
 import { toast } from "sonner";
@@ -147,7 +148,7 @@ export default function StockOutRequestDetailPage() {
   const [warehouseAssignments, setWarehouseAssignments] = useState<WarehouseAssignment[]>([]);
   const [pendingL1Approvals, setPendingL1Approvals] = useState<PendingL1Approval[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("line-items");
+  const [activeTab, setActiveTab] = useState("qty-approval");
   const [isCancelling, setIsCancelling] = useState(false);
 
   // Per-row dialog state
@@ -898,15 +899,23 @@ export default function StockOutRequestDetailPage() {
         </div>
       }
     >
-      {/* 5-Tab layout */}
+      {/* 6-Tab layout */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="line-items">Line Items</TabsTrigger>
-          <TabsTrigger value="warehouse-assignments">
-            Warehouse Assignments
-            {(warehouseAssignments.length > 0 || pendingL1Approvals.length > 0) && (
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="qty-approval">Qty Approval</TabsTrigger>
+          <TabsTrigger value="warehouse-assign">
+            WH Assign
+            {pendingL1Approvals.length > 0 && (
               <Badge variant="secondary" className="ml-2 text-xs">
-                {warehouseAssignments.length + pendingL1Approvals.length}
+                {pendingL1Approvals.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="ready-execute">
+            Ready Execute
+            {pendingAssignments.length > 0 && (
+              <Badge variant="secondary" className="ml-2 text-xs">
+                {pendingAssignments.length}
               </Badge>
             )}
           </TabsTrigger>
@@ -929,11 +938,11 @@ export default function StockOutRequestDetailPage() {
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
-        {/* Line Items Tab */}
-        <TabsContent value="line-items" className="space-y-4">
+        {/* Qty Approval Tab (L1) */}
+        <TabsContent value="qty-approval" className="space-y-4">
           <div className="command-panel p-6">
             <h3 className="text-lg font-semibold text-slate-200 mb-4">
-              Line Items
+              Qty Approval
             </h3>
             <LineItemTable
               items={lineItems}
@@ -944,12 +953,26 @@ export default function StockOutRequestDetailPage() {
           </div>
         </TabsContent>
 
-        {/* Warehouse Assignments Tab */}
-        <TabsContent value="warehouse-assignments" className="space-y-4">
+        {/* Warehouse Assignment Tab (L2) */}
+        <TabsContent value="warehouse-assign" className="space-y-4">
+          <div className="command-panel p-6">
+            <h3 className="text-lg font-semibold text-slate-200 mb-4">
+              Warehouse Assignment
+            </h3>
+            <WarehouseAssignmentsTab
+              pendingL1Approvals={pendingL1Approvals}
+              canAssign={canApprove}
+              onAssignWarehouse={handleAssignWarehouseFromTab}
+            />
+          </div>
+        </TabsContent>
+
+        {/* Ready Execute Tab (L3) */}
+        <TabsContent value="ready-execute" className="space-y-4">
           <div className="command-panel p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-slate-200">
-                Warehouse Assignments
+                Ready to Execute
               </h3>
               {pendingAssignments.length > 0 && (
                 <Badge
@@ -960,12 +983,9 @@ export default function StockOutRequestDetailPage() {
                 </Badge>
               )}
             </div>
-            <WarehouseAssignmentsTab
+            <ReadyExecuteTab
               assignments={warehouseAssignments}
-              pendingL1Approvals={pendingL1Approvals}
-              canAssign={canApprove}
               canExecute={canExecute}
-              onAssignWarehouse={handleAssignWarehouseFromTab}
               onExecute={handleExecuteAssignment}
               isExecuting={isExecuting}
             />
