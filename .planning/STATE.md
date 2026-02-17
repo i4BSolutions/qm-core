@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.12 List Views & Approval Workflow — Phase 55
+**Current Focus:** v1.12 List Views & Approval Workflow — Phase 56
 
 ---
 
 ## Current Position
 
-Phase: 55 (Database Foundation + UserAvatar)
-Plan: 01 + 02 complete (both plans done)
-Status: Phase 55 complete — migration 063 applied, UserAvatar component created
-Last activity: 2026-02-17 — 55-01 executed (two-layer approval schema migration)
+Phase: 56 (List View Standardization)
+Plan: 01 complete (usePaginationParams hook + QMRL reference implementation)
+Status: Phase 56 in progress — plan 01 done, plans 02 and 03 remaining
+Last activity: 2026-02-17 — 56-01 executed (URL pagination hook + QMRL list view)
 
-Progress: [█████░░░░░░░░░░░░░░░] 1/4 phases (25%)
+Progress: [██████░░░░░░░░░░░░░░] 2/4 phases in v1.12 (Phase 55 + 56 plan 01 done)
 
 ---
 
@@ -54,7 +54,7 @@ Progress: [█████░░░░░░░░░░░░░░░] 1/4 pha
 **v1.12 In Progress:**
 - 4 phases planned (55-58)
 - 25 requirements mapped
-- 1 phase complete (Phase 55)
+- Phase 55 complete, Phase 56 plan 01 complete
 
 ---
 
@@ -73,11 +73,17 @@ All decisions archived in PROJECT.md Key Decisions table.
 - Phase 56 and Phase 57 are independent after Phase 55 ships — list views do not depend on approval UI changes
 - boring-avatars Beam variant with default color palette and circle shape (square=false) — no custom colors, no border ring
 - UserAvatar size defaults to 28px for list row inline usage; callers pass 32 for comment cards, 40 for header
+- usePaginationParams reads ?page and ?pageSize from URL; setPageSize automatically resets to page 1
+- Assignee filter uses raw Shadcn Select (not FilterBar.Select) in QMRL page to support avatar JSX in option labels
+- Card/list toggle placed inside FilterBar as last child with ml-auto, per toolbar order decision
+- Toolbar order for pages without status filter dropdown: Search | Assignee | Category | [toggle]
+- Status badges in list view: colored background + white text (solid style, not outline variant)
 
 ### TODOs
 
 **Immediate Next Steps:**
-1. Phase 55 complete — proceed to Phase 56 (list views) or Phase 57 (L2 approval UI)
+1. Phase 56 plan 01 complete — proceed to Phase 56 plan 02 (QMHQ list view standardization)
+2. Phase 56 plan 03 (PO/Invoice list views) after plan 02
 
 ### Blockers
 
@@ -88,24 +94,26 @@ All decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 55 plan 01 executed: migration 063 created (two-layer approval schema)
-  - layer/parent_approval_id/warehouse_id columns on stock_out_approvals
-  - awaiting_admin/fully_approved added to sor_line_item_status enum
-  - 6 trigger functions rewritten for two-layer flow
-  - backfill: approved approvals get layer=admin, approved line items get fully_approved
-  - TypeScript types updated, STATUS_CONFIG in line-item-table.tsx auto-fixed
-- Phase 55 plan 02 already complete: boring-avatars@2.0.4 installed, UserAvatar component created
-- APPR-06, AVTR-01, AVTR-04 requirements all completed
-- Phase 55 is NOW COMPLETE — both plans done
+- Phase 56 plan 01 executed:
+  - Created `lib/hooks/use-pagination-params.ts` — URL-driven pagination hook
+  - Added export to `lib/hooks/index.ts` barrel file
+  - Rewrote `app/(dashboard)/qmrl/page.tsx` as reference implementation:
+    - Card/list toggle (default: card, no persistence)
+    - List view: ID, Title, Status (solid badge), Assigned (avatar+tooltip), Request Date
+    - URL-driven pagination (replaced useState + useEffect)
+    - Filter handlers reset URL page to 1
+    - Responsive: auto-switch to card below 768px, filter collapse to Popover on mobile
+    - Assignee filter: raw Select with avatar+name per option
+  - Requirements completed: LIST-01, PAGE-01, PAGE-03, AVTR-03
 
 **Context for Next Agent:**
-- v1.12 milestone in progress — Phase 55 complete
-- Phase 56 (list views) and Phase 57 (L2 approval UI) are now unblocked
-- layer column, awaiting_admin/fully_approved enum values, and warehouse_id column all live in DB
-- Phase 56 and 57 can proceed in parallel per roadmap decision
+- `usePaginationParams` hook at `lib/hooks/use-pagination-params.ts` is the shared hook for Plans 02 and 03
+- QMRL page at `app/(dashboard)/qmrl/page.tsx` (688 lines) is the reference implementation
+- Phase 56 plan 02 applies same pattern to QMHQ, plan 03 applies to PO and Invoice
+- Phase 57 (L2 approval UI) is still independent and can proceed in parallel
 
-**Resume at:** Phase 56 or 57 (parallel, independent)
+**Resume at:** Phase 56 plan 02
 
 ---
 
-*State last updated: 2026-02-17 after Phase 55 plan 01 (migration 063) complete*
+*State last updated: 2026-02-17 after Phase 56 plan 01 (usePaginationParams hook + QMRL list view) complete*
