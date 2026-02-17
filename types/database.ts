@@ -529,6 +529,9 @@ export type Database = {
           rejection_reason: string | null
           decided_by: string
           decided_at: string
+          layer: string | null
+          parent_approval_id: string | null
+          warehouse_id: string | null
           is_active: boolean | null
           created_by: string | null
           updated_by: string | null
@@ -544,6 +547,9 @@ export type Database = {
           rejection_reason?: string | null
           decided_by: string
           decided_at?: string
+          layer?: string | null
+          parent_approval_id?: string | null
+          warehouse_id?: string | null
           is_active?: boolean | null
           created_by?: string | null
           updated_by?: string | null
@@ -559,6 +565,9 @@ export type Database = {
           rejection_reason?: string | null
           decided_by?: string
           decided_at?: string
+          layer?: string | null
+          parent_approval_id?: string | null
+          warehouse_id?: string | null
           is_active?: boolean | null
           created_by?: string | null
           updated_by?: string | null
@@ -592,6 +601,20 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_out_approvals_parent_approval_id_fkey"
+            columns: ["parent_approval_id"]
+            isOneToOne: false
+            referencedRelation: "stock_out_approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_out_approvals_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
@@ -2043,6 +2066,8 @@ export type Database = {
       sor_line_item_status:
         | "pending"
         | "approved"
+        | "awaiting_admin"
+        | "fully_approved"
         | "rejected"
         | "cancelled"
         | "partially_executed"

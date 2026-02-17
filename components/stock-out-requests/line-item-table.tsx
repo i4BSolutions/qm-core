@@ -56,6 +56,16 @@ const STATUS_CONFIG: Record<
     color: "text-emerald-400",
     bgColor: "bg-emerald-500/10 border-emerald-500/30",
   },
+  awaiting_admin: {
+    label: "Awaiting Admin",
+    color: "text-blue-400",
+    bgColor: "bg-blue-500/10 border-blue-500/30",
+  },
+  fully_approved: {
+    label: "Fully Approved",
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-500/10 border-emerald-500/30",
+  },
   rejected: {
     label: "Rejected",
     color: "text-red-400",
