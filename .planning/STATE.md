@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-17 (57-02)
+**Last Updated:** 2026-02-17 (57-03)
 
 ---
 
@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.12 Two-Layer Approval UI — Phase 57 plan 02 complete
+**Current Focus:** v1.12 Two-Layer Approval UI — Phase 57 all 3 plans complete
 
 ---
 
 ## Current Position
 
 Phase: 57 (Two-Layer Approval UI & Execution Page)
-Plan: 02 complete — Phase 57 plan 02 done
-Status: Phase 57 in progress — plans 01 and 02 executed (L1 + L2 approval UI complete)
-Last activity: 2026-02-17 — 57-02 executed (L2 warehouse dialog, warehouse assignments tab, expandable line items, execution with before/after stock)
+Plan: 03 complete — Phase 57 all plans done
+Status: Phase 57 complete — L1 approval UI, L2 warehouse dialog, and execution page all delivered
+Last activity: 2026-02-17 — 57-03 executed (stock-out execution page + sidebar rename to "Execution Queue")
 
-Progress: [█████████░░░░░░░░░░░] Phase 55+56 complete, Phase 57 plan 01 done
+Progress: [████████████░░░░░░░░] Phase 55+56+57 complete
 
 ---
 
@@ -47,14 +47,14 @@ Progress: [█████████░░░░░░░░░░░] Phase 5
 - v1.11 Standard Unit System (8 phases, 17 plans) - 2026-02-16
 
 **Total Delivered:**
-- 54 phases (1-54)
-- 134 plans
+- 57 phases (1-57)
+- 137 plans
 - 12 milestones shipped
 
 **v1.12 In Progress:**
 - 4 phases planned (55-58)
 - 25 requirements mapped
-- Phase 55 complete, Phase 56 complete (all 3 plans), Phase 57 plans 01 and 02 complete
+- Phase 55 complete, Phase 56 complete (all 3 plans), Phase 57 complete (all 3 plans)
 
 ---
 
@@ -94,11 +94,15 @@ All decisions archived in PROJECT.md Key Decisions table.
 - warehouseAssignments array built from L2 approvals in fetchData, grouped by line_item_id in WarehouseAssignmentsTab
 - handleExecuteAssignment fetches current stock before opening dialog to show before/after impact
 - SOR detail page "Details" tab renamed to "Line Items"; new 5th tab "Warehouse Assignments" added between Line Items and Approvals
+- SOR ID is display-only plain text on execution page (not a link) — per CONTEXT.md decision
+- Sidebar "Stock Out" renamed to "Execution Queue" at same URL /inventory/stock-out — label reflects new page purpose
+- Execution page default filter is "Pending Execution" — shows task queue of what needs to be done
+- Insufficient stock on execution: assignment stays pending, user gets descriptive toast message
 
 ### TODOs
 
 **Immediate Next Steps:**
-1. Phase 57 plan 02 complete — proceed to Phase 57 plan 03 (execution page) if it exists
+1. Phase 57 complete — proceed to Phase 58 (final v1.12 phase)
 
 ### Blockers
 
@@ -109,20 +113,23 @@ All decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 57 plan 02 executed:
-  - Created `components/stock-out-requests/l2-warehouse-dialog.tsx` — L2 warehouse dialog with real-time stock validation, hard qty cap at min(remaining, stock), pending inventory_transaction creation
-  - Created `components/stock-out-requests/warehouse-assignments-tab.tsx` — grouped by line item, Execute buttons, Pending/Executed badges
-  - Updated `components/stock-out-requests/line-item-table.tsx` — L1ApprovalData/L2AssignmentData types, expandable rows with ChevronDown, real Assign WH button
-  - Updated `components/stock-out-requests/execution-confirmation-dialog.tsx` — optional currentStock/afterStock for before/after display
-  - Updated `app/(dashboard)/inventory/stock-out-requests/[id]/page.tsx` — 5 tabs, L2 dialog wiring, warehouse assignments data pipeline, execution with stock fetch
-  - Requirements completed: APPR-02, APPR-03, APPR-04, APPR-05
+- Phase 57 plan 03 executed:
+  - Rewrote `app/(dashboard)/inventory/stock-out/page.tsx` — task-queue execution page showing all L2-approved warehouse assignments. Status/warehouse filters, per-row Execute button, simple confirmation dialog (ExecutionConfirmationDialog), in-place row update (optimistic), BroadcastChannel cross-tab sync.
+  - Updated `components/layout/sidebar.tsx` — renamed "Stock Out" to "Execution Queue" in Inventory children. Same URL (/inventory/stock-out), clearer label.
+  - Requirements completed: EXEC-01, EXEC-02, EXEC-03, EXEC-04
 
 **Context for Next Agent:**
-- approval-dialog.tsx still exists but is no longer imported — can be deleted
-- The full L1 -> L2 -> Execute lifecycle works from SOR detail page
-- warehouseAssignments array built from L2 approvals in fetchData, is_executed determined by inventory_transaction.status
+- Phase 57 is fully complete: L1 approval (Plan 01), L2 warehouse assignment (Plan 02), execution queue (Plan 03)
+- Execution page queries stock_out_approvals with layer='admin' and decision='approved' — this is the L2 approval tier
+- Row updates optimistically (in-place state update) — no full refetch on execution
+- BroadcastChannel "stock-out-execution" channel used for cross-tab sync
+- approval-dialog.tsx still exists but is no longer imported — can be deleted in future cleanup
 
-**Resume at:** Phase 57 plan 03 (if exists — dedicated execution page)
+**Resume at:** Phase 58
+
+---
+
+*State last updated: 2026-02-17 after Phase 57 plan 03 (stock-out execution page + sidebar) complete*
 
 ---
 
