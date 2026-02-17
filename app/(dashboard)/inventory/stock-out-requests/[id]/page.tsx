@@ -23,7 +23,7 @@ import { L2WarehouseDialog } from "@/components/stock-out-requests/l2-warehouse-
 import { RejectionDialog } from "@/components/stock-out-requests/rejection-dialog";
 import { ExecutionConfirmationDialog } from "@/components/stock-out-requests/execution-confirmation-dialog";
 import { WarehouseAssignmentsTab } from "@/components/stock-out-requests/warehouse-assignments-tab";
-import type { WarehouseAssignment, PendingL1Approval } from "@/components/stock-out-requests/warehouse-assignments-tab";
+import type { WarehouseAssignment, PendingL1Approval, LineItemProgress } from "@/components/stock-out-requests/warehouse-assignments-tab";
 import { ReadyExecuteTab } from "@/components/stock-out-requests/ready-execute-tab";
 import { STOCK_OUT_REASON_CONFIG } from "@/lib/utils/inventory";
 import { DetailPageLayout } from "@/components/composite";
@@ -901,47 +901,31 @@ export default function StockOutRequestDetailPage() {
       }
     >
       {/* 6-Tab layout */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="qty-approval">Qty Approval</TabsTrigger>
-          <TabsTrigger value="warehouse-assign">
-            WH Assign
-            {pendingL1Approvals.length > 0 && (
-              <Badge variant="secondary" className="ml-2 text-xs">
-                {pendingL1Approvals.length}
-              </Badge>
-            )}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="animate-slide-up" style={{ animationDelay: "200ms" }}>
+        <TabsList className="bg-slate-800/50 border border-slate-700">
+          <TabsTrigger value="qty-approval" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+            Qty Approval
           </TabsTrigger>
-          <TabsTrigger value="ready-execute">
-            Ready Execute
-            {pendingAssignments.length > 0 && (
-              <Badge variant="secondary" className="ml-2 text-xs">
-                {pendingAssignments.length}
-              </Badge>
-            )}
+          <TabsTrigger value="warehouse-assign" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+            WH Assign{pendingL1Approvals.length > 0 ? ` (${pendingL1Approvals.length})` : ""}
           </TabsTrigger>
-          <TabsTrigger value="approvals">
-            Approvals
-            {approvals.length > 0 && (
-              <Badge variant="secondary" className="ml-2 text-xs">
-                {approvals.length}
-              </Badge>
-            )}
+          <TabsTrigger value="ready-execute" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+            Ready Execute{pendingAssignments.length > 0 ? ` (${pendingAssignments.length})` : ""}
           </TabsTrigger>
-          <TabsTrigger value="transactions">
-            Transactions
-            {inventoryTransactions.length > 0 && (
-              <Badge variant="secondary" className="ml-2 text-xs">
-                {inventoryTransactions.length}
-              </Badge>
-            )}
+          <TabsTrigger value="approvals" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+            Approvals{approvals.length > 0 ? ` (${approvals.length})` : ""}
           </TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="transactions" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+            Transactions{inventoryTransactions.length > 0 ? ` (${inventoryTransactions.length})` : ""}
+          </TabsTrigger>
+          <TabsTrigger value="history" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
+            History
+          </TabsTrigger>
         </TabsList>
 
         {/* Qty Approval Tab (L1) */}
-        <TabsContent value="qty-approval" className="space-y-4">
-          <div className="command-panel p-6">
+        <TabsContent value="qty-approval" className="mt-6 space-y-6">
+          <div className="command-panel corner-accents">
             <h3 className="text-lg font-semibold text-slate-200 mb-4">
               Qty Approval
             </h3>
@@ -955,8 +939,8 @@ export default function StockOutRequestDetailPage() {
         </TabsContent>
 
         {/* Warehouse Assignment Tab (L2) */}
-        <TabsContent value="warehouse-assign" className="space-y-4">
-          <div className="command-panel p-6">
+        <TabsContent value="warehouse-assign" className="mt-6 space-y-6">
+          <div className="command-panel corner-accents">
             <h3 className="text-lg font-semibold text-slate-200 mb-4">
               Warehouse Assignment
             </h3>
@@ -964,13 +948,22 @@ export default function StockOutRequestDetailPage() {
               pendingL1Approvals={pendingL1Approvals}
               canAssign={canApprove}
               onAssignWarehouse={handleAssignWarehouseFromTab}
+              lineItemProgress={lineItems.reduce<Record<string, { requestedQty: number; l1ApprovedQty: number; l2AssignedQty: number; executedQty: number }>>((acc, li) => {
+                acc[li.id] = {
+                  requestedQty: li.requested_quantity,
+                  l1ApprovedQty: li.total_approved_quantity,
+                  l2AssignedQty: li.l2_assigned_quantity,
+                  executedQty: li.executed_quantity,
+                };
+                return acc;
+              }, {})}
             />
           </div>
         </TabsContent>
 
         {/* Ready Execute Tab (L3) */}
-        <TabsContent value="ready-execute" className="space-y-4">
-          <div className="command-panel p-6">
+        <TabsContent value="ready-execute" className="mt-6 space-y-6">
+          <div className="command-panel corner-accents">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-slate-200">
                 Ready to Execute
@@ -994,8 +987,8 @@ export default function StockOutRequestDetailPage() {
         </TabsContent>
 
         {/* Approvals Tab — read-only approval history with layer badges */}
-        <TabsContent value="approvals" className="space-y-4">
-          <div className="command-panel p-6">
+        <TabsContent value="approvals" className="mt-6 space-y-6">
+          <div className="command-panel corner-accents">
             <h3 className="text-lg font-semibold text-slate-200 mb-4">
               Approval History
             </h3>
@@ -1151,8 +1144,8 @@ export default function StockOutRequestDetailPage() {
         </TabsContent>
 
         {/* Transactions Tab */}
-        <TabsContent value="transactions" className="space-y-4">
-          <div className="command-panel p-6">
+        <TabsContent value="transactions" className="mt-6 space-y-6">
+          <div className="command-panel corner-accents">
             <h3 className="text-lg font-semibold text-slate-200 mb-4">
               Stock-Out Transactions
             </h3>
@@ -1250,8 +1243,8 @@ export default function StockOutRequestDetailPage() {
         </TabsContent>
 
         {/* History Tab */}
-        <TabsContent value="history">
-          <div className="command-panel p-6">
+        <TabsContent value="history" className="mt-6">
+          <div className="command-panel corner-accents">
             <HistoryTab
               entityType="stock_out_request"
               entityId={requestId}

@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Warehouse } from "lucide-react";
+import { LineItemProgressBar } from "./line-item-progress-bar";
 
 export interface WarehouseAssignment {
   id: string; // L2 approval id
@@ -36,10 +37,18 @@ export interface PendingL1Approval {
   unit_name?: string;
 }
 
+export interface LineItemProgress {
+  requestedQty: number;
+  l1ApprovedQty: number;
+  l2AssignedQty: number;
+  executedQty: number;
+}
+
 interface WarehouseAssignmentsTabProps {
   pendingL1Approvals: PendingL1Approval[];
   canAssign: boolean;
   onAssignWarehouse: (pending: PendingL1Approval) => void;
+  lineItemProgress?: Record<string, LineItemProgress>;
 }
 
 /**
@@ -54,6 +63,7 @@ export function WarehouseAssignmentsTab({
   pendingL1Approvals,
   canAssign,
   onAssignWarehouse,
+  lineItemProgress,
 }: WarehouseAssignmentsTabProps) {
   if (pendingL1Approvals.length === 0) {
     return (
@@ -96,82 +106,96 @@ export function WarehouseAssignmentsTab({
           groups.get(key)!.items.push(p);
         }
 
-        return Array.from(groups.entries()).map(([lineItemId, group]) => (
-          <div key={lineItemId} className="space-y-2">
-            {/* Group header */}
-            <div className="flex items-center gap-2 pb-1 border-b border-slate-700">
-              <h5 className="font-medium text-slate-200 text-sm">
-                {group.item_name || "Unknown Item"}
-              </h5>
-              {group.item_sku && (
-                <span className="font-mono text-xs text-slate-500">
-                  ({group.item_sku})
-                </span>
-              )}
-            </div>
+        return Array.from(groups.entries()).map(([lineItemId, group]) => {
+          const progress = lineItemProgress?.[lineItemId];
 
-            {/* One row per L1 approval record */}
-            <div className="space-y-2">
-              {group.items.map((pending) => (
-                <div
-                  key={pending.l1_approval_id}
-                  className="flex items-center justify-between py-3 px-4 rounded-lg bg-amber-950/20 border border-amber-800/30"
-                >
-                  <div className="flex items-center gap-6 flex-1 min-w-0">
-                    {/* L1 approved qty */}
-                    <div className="flex-shrink-0">
-                      <div className="text-xs text-slate-500 mb-0.5">L1 Approved</div>
-                      <div className="font-mono text-sm text-slate-200">
-                        {pending.l1_approved_quantity}
-                        {pending.unit_name && pending.conversion_rate > 1 && (
-                          <span className="text-slate-400 text-xs ml-1">
-                            ({(pending.l1_approved_quantity * pending.conversion_rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {pending.unit_name})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Already assigned */}
-                    <div className="flex-shrink-0">
-                      <div className="text-xs text-slate-500 mb-0.5">Assigned</div>
-                      <div className="font-mono text-sm text-purple-400">
-                        {pending.total_l2_assigned}
-                      </div>
-                    </div>
-
-                    {/* Remaining */}
-                    <div className="flex-shrink-0">
-                      <div className="text-xs text-slate-500 mb-0.5">Remaining</div>
-                      <div className="font-mono text-sm text-amber-400 font-medium">
-                        {pending.remaining_to_assign}
-                      </div>
-                    </div>
+          return (
+            <div key={lineItemId} className="space-y-2">
+              {/* Group header with progress bar */}
+              <div className="flex items-center gap-3 pb-1 border-b border-slate-700">
+                <h5 className="font-medium text-slate-200 text-sm flex-shrink-0">
+                  {group.item_name || "Unknown Item"}
+                </h5>
+                {group.item_sku && (
+                  <span className="font-mono text-xs text-slate-500 flex-shrink-0">
+                    ({group.item_sku})
+                  </span>
+                )}
+                {progress && (
+                  <div className="flex-1 min-w-[100px] max-w-[200px]">
+                    <LineItemProgressBar
+                      requestedQty={progress.requestedQty}
+                      l1ApprovedQty={progress.l1ApprovedQty}
+                      l2AssignedQty={progress.l2AssignedQty}
+                      executedQty={progress.executedQty}
+                    />
                   </div>
+                )}
+              </div>
 
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <Badge
-                      variant="outline"
-                      className="border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs"
-                    >
-                      Awaiting Assignment
-                    </Badge>
+              {/* One row per L1 approval record */}
+              <div className="space-y-2">
+                {group.items.map((pending) => (
+                  <div
+                    key={pending.l1_approval_id}
+                    className="flex items-center justify-between py-3 px-4 rounded-lg bg-amber-950/20 border border-amber-800/30"
+                  >
+                    <div className="flex items-center gap-6 flex-1 min-w-0">
+                      {/* L1 approved qty */}
+                      <div className="flex-shrink-0">
+                        <div className="text-xs text-slate-500 mb-0.5">L1 Approved</div>
+                        <div className="font-mono text-sm text-slate-200">
+                          {pending.l1_approved_quantity}
+                          {pending.unit_name && pending.conversion_rate > 1 && (
+                            <span className="text-slate-400 text-xs ml-1">
+                              ({(pending.l1_approved_quantity * pending.conversion_rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {pending.unit_name})
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-                    {canAssign && (
-                      <Button
-                        size="sm"
-                        onClick={() => onAssignWarehouse(pending)}
-                        className="bg-purple-600 hover:bg-purple-500 text-white text-xs h-7 px-3"
+                      {/* Already assigned */}
+                      <div className="flex-shrink-0">
+                        <div className="text-xs text-slate-500 mb-0.5">Assigned</div>
+                        <div className="font-mono text-sm text-purple-400">
+                          {pending.total_l2_assigned}
+                        </div>
+                      </div>
+
+                      {/* Remaining */}
+                      <div className="flex-shrink-0">
+                        <div className="text-xs text-slate-500 mb-0.5">Remaining</div>
+                        <div className="font-mono text-sm text-amber-400 font-medium">
+                          {pending.remaining_to_assign}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <Badge
+                        variant="outline"
+                        className="border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs"
                       >
-                        <Warehouse className="w-3 h-3 mr-1" />
-                        Assign Warehouse
-                      </Button>
-                    )}
+                        Awaiting Assignment
+                      </Badge>
+
+                      {canAssign && (
+                        <Button
+                          size="sm"
+                          onClick={() => onAssignWarehouse(pending)}
+                          className="bg-purple-600 hover:bg-purple-500 text-white text-xs h-7 px-3"
+                        >
+                          <Warehouse className="w-3 h-3 mr-1" />
+                          Assign Warehouse
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        ));
+          );
+        });
       })()}
     </div>
   );

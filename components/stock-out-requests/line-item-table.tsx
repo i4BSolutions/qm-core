@@ -138,52 +138,22 @@ function resolveStatusConfig(item: LineItemWithApprovals): {
 }
 
 /**
- * Determine the action button to render for a row.
- * L1 tab only: approve/reject for pending items, null for everything else.
+ * Format a unit conversion line, e.g. "= 5,000.00 kg"
  */
-function getRowAction(
-  item: LineItemWithApprovals,
-  canApprove: boolean,
-  onApprove: (item: LineItemWithApprovals) => void,
-  onReject: (item: LineItemWithApprovals) => void,
-): React.ReactNode {
-  if (!canApprove) return null;
-
-  if (item.status === "pending") {
-    return (
-      <div className="flex items-center gap-1">
-        <Button
-          size="sm"
-          variant="outline"
-          className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 text-xs h-7 px-2"
-          onClick={() => onApprove(item)}
-        >
-          <Check className="w-3 h-3 mr-1" />
-          Approve Qty
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300 h-7 w-7 p-0"
-          onClick={() => onReject(item)}
-          aria-label="Reject"
-        >
-          <X className="w-3 h-3" />
-        </Button>
-      </div>
-    );
-  }
-
-  return null;
+function formatConversion(qty: number, rate: number, unitName?: string): string | null {
+  if (!unitName || rate <= 1) return null;
+  return `${(qty * rate).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} ${unitName}`;
 }
 
 /**
- * Line Item Table Component
+ * Line Item Table Component — Two-Row Compact Layout
  *
- * Pure L1 Qty Approval tab — shows stock-out request line items with
- * per-row Approve/Reject buttons for pending items only.
- *
- * Columns: Item | SKU | Requested | Approved | Rejected | Remaining | Status | Progress | Action
+ * Each item renders as a card-like row block:
+ * Row 1: Item name | Status badge | Progress bar | Action buttons
+ * Row 2: SKU · Req: N · App: N · Rej: N · Rem: N [· = X unit]
  */
 export function LineItemTable({
   items,
@@ -191,205 +161,114 @@ export function LineItemTable({
   onApproveItem,
   onRejectItem,
 }: LineItemTableProps) {
-  const colSpan = canApprove ? 9 : 8;
+  if (items.length === 0) {
+    return (
+      <div className="text-center py-8 text-slate-500">
+        No line items found
+      </div>
+    );
+  }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-slate-700">
-            <th className="pb-3 text-left font-medium text-sm text-slate-400">
-              Item
-            </th>
-            <th className="pb-3 text-left font-medium text-sm text-slate-400">
-              SKU
-            </th>
-            <th className="pb-3 text-right font-medium text-sm text-slate-400">
-              Requested
-            </th>
-            <th className="pb-3 text-right font-medium text-sm text-slate-400">
-              Approved
-            </th>
-            <th className="pb-3 text-right font-medium text-sm text-slate-400">
-              Rejected
-            </th>
-            <th className="pb-3 text-right font-medium text-sm text-slate-400">
-              Remaining
-            </th>
-            <th className="pb-3 text-left font-medium text-sm text-slate-400">
-              Status
-            </th>
-            <th className="pb-3 text-left font-medium text-sm text-slate-400 min-w-[120px]">
-              Progress
-            </th>
-            {canApprove && (
-              <th className="pb-3 text-left font-medium text-sm text-slate-400">
-                Action
-              </th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {items.length === 0 ? (
-            <tr>
-              <td
-                colSpan={colSpan}
-                className="py-8 text-center text-slate-500"
+    <div className="space-y-2">
+      {items.map((item) => {
+        const config = resolveStatusConfig(item);
+        const conversion = formatConversion(
+          item.requested_quantity,
+          item.conversion_rate,
+          item.unit_name
+        );
+
+        return (
+          <div
+            key={item.id}
+            className="rounded-lg border border-slate-700/50 bg-slate-800/20 px-4 py-3 hover:bg-slate-800/40 transition-colors"
+          >
+            {/* Row 1: Item name + Status + Progress + Actions */}
+            <div className="flex items-center gap-3">
+              <div className="font-medium text-sm text-slate-200 min-w-0 truncate flex-shrink-0 max-w-[200px]">
+                {item.item_name || "Unknown Item"}
+              </div>
+
+              <Badge
+                variant="outline"
+                className={cn(
+                  "border font-mono text-xs flex-shrink-0",
+                  config.bgColor,
+                  config.color
+                )}
               >
-                No line items found
-              </td>
-            </tr>
-          ) : (
-            items.map((item) => {
-              const config = resolveStatusConfig(item);
-              const rowAction = getRowAction(
-                item,
-                canApprove,
-                onApproveItem,
-                onRejectItem,
-              );
+                {config.label}
+              </Badge>
 
-              return (
-                <tr
-                  key={item.id}
-                  className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
-                >
-                  {/* Item Name */}
-                  <td className="py-4">
-                    <div className="font-medium text-slate-200">
-                      {item.item_name || "Unknown Item"}
-                    </div>
-                  </td>
+              <div className="flex-1 min-w-[100px] max-w-[200px]">
+                <LineItemProgressBar
+                  requestedQty={item.requested_quantity}
+                  l1ApprovedQty={item.total_approved_quantity}
+                  l2AssignedQty={item.l2_assigned_quantity}
+                  executedQty={item.executed_quantity}
+                />
+              </div>
 
-                  {/* SKU */}
-                  <td className="py-4">
-                    <div className="font-mono text-sm text-slate-400">
-                      {item.item_sku || "\u2014"}
-                    </div>
-                  </td>
-
-                  {/* Requested */}
-                  <td className="py-4 text-right">
-                    <div className="font-mono text-slate-200">
-                      {item.requested_quantity}
-                    </div>
-                    {item.unit_name && (
-                      <div className="text-xs font-mono text-slate-400 mt-1">
-                        {(
-                          item.requested_quantity * item.conversion_rate
-                        ).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {item.unit_name}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Approved (L1) */}
-                  <td className="py-4 text-right">
-                    <div className="font-mono text-slate-200">
-                      {item.total_approved_quantity}
-                    </div>
-                    {item.unit_name && (
-                      <div className="text-xs font-mono text-slate-400 mt-1">
-                        {(
-                          item.total_approved_quantity * item.conversion_rate
-                        ).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {item.unit_name}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Rejected */}
-                  <td className="py-4 text-right">
-                    <div
-                      className={cn(
-                        "font-mono",
-                        item.total_rejected_quantity > 0
-                          ? "text-red-400"
-                          : "text-slate-500"
-                      )}
-                    >
-                      {item.total_rejected_quantity}
-                    </div>
-                    {item.unit_name && (
-                      <div className="text-xs font-mono text-slate-400 mt-1">
-                        {(
-                          item.total_rejected_quantity * item.conversion_rate
-                        ).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {item.unit_name}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Remaining */}
-                  <td className="py-4 text-right">
-                    <div
-                      className={cn(
-                        "font-mono",
-                        item.remaining_quantity > 0
-                          ? "text-amber-400"
-                          : "text-slate-500"
-                      )}
-                    >
-                      {item.remaining_quantity}
-                    </div>
-                    {item.unit_name && (
-                      <div className="text-xs font-mono text-slate-400 mt-1">
-                        {(
-                          item.remaining_quantity * item.conversion_rate
-                        ).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {item.unit_name}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Status Badge */}
-                  <td className="py-4">
-                    <Badge
+              <div className="ml-auto flex-shrink-0">
+                {canApprove && item.status === "pending" && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
                       variant="outline"
-                      className={cn(
-                        "border font-mono text-xs",
-                        config.bgColor,
-                        config.color
-                      )}
+                      className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 text-xs h-7 px-2"
+                      onClick={() => onApproveItem(item)}
                     >
-                      {config.label}
-                    </Badge>
-                  </td>
+                      <Check className="w-3 h-3 mr-1" />
+                      Approve Qty
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300 h-7 w-7 p-0"
+                      onClick={() => onRejectItem(item)}
+                      aria-label="Reject"
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
 
-                  {/* Progress Bar */}
-                  <td className="py-4 min-w-[120px] pr-4">
-                    <LineItemProgressBar
-                      requestedQty={item.requested_quantity}
-                      l1ApprovedQty={item.total_approved_quantity}
-                      l2AssignedQty={item.l2_assigned_quantity}
-                      executedQty={item.executed_quantity}
-                    />
-                  </td>
-
-                  {/* Action Column (only when canApprove) */}
-                  {canApprove && (
-                    <td className="py-4">
-                      {rowAction}
-                    </td>
-                  )}
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
+            {/* Row 2: SKU + quantity summary */}
+            <div className="mt-1.5 flex items-center gap-1 text-xs text-slate-400 font-mono flex-wrap">
+              {item.item_sku && (
+                <>
+                  <span className="text-slate-500">{item.item_sku}</span>
+                  <span className="text-slate-600 mx-1">&middot;</span>
+                </>
+              )}
+              <span>
+                Req: <span className="text-slate-300">{item.requested_quantity}</span>
+              </span>
+              <span className="text-slate-600 mx-1">&middot;</span>
+              <span>
+                App: <span className="text-slate-300">{item.total_approved_quantity}</span>
+              </span>
+              <span className="text-slate-600 mx-1">&middot;</span>
+              <span>
+                Rej: <span className={item.total_rejected_quantity > 0 ? "text-red-400" : "text-slate-500"}>{item.total_rejected_quantity}</span>
+              </span>
+              <span className="text-slate-600 mx-1">&middot;</span>
+              <span>
+                Rem: <span className={item.remaining_quantity > 0 ? "text-amber-400" : "text-slate-500"}>{item.remaining_quantity}</span>
+              </span>
+              {conversion && (
+                <>
+                  <span className="text-slate-600 mx-1">&middot;</span>
+                  <span className="text-slate-500">= {conversion}</span>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
