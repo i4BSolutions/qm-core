@@ -163,8 +163,12 @@ export function LineItemTable({
 }: LineItemTableProps) {
   if (items.length === 0) {
     return (
-      <div className="text-center py-8 text-slate-500">
-        No line items found
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+          <Check className="h-8 w-8 text-slate-500" />
+        </div>
+        <h3 className="text-lg font-medium text-slate-300 mb-2">No Line Items</h3>
+        <p className="text-sm text-slate-400">This request has no line items.</p>
       </div>
     );
   }

@@ -67,19 +67,24 @@ export function WarehouseAssignmentsTab({
 }: WarehouseAssignmentsTabProps) {
   if (pendingL1Approvals.length === 0) {
     return (
-      <div className="text-center py-12 text-slate-500">
-        No pending warehouse assignments. Once quantities are approved,
-        admins can assign warehouses to each approval record here.
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+          <Warehouse className="h-8 w-8 text-slate-500" />
+        </div>
+        <h3 className="text-lg font-medium text-slate-300 mb-2">No Pending Assignments</h3>
+        <p className="text-sm text-slate-400 max-w-md">
+          Once quantities are approved, admins can assign warehouses to each approval record here.
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 pb-1">
-        <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
+      <div className="flex items-center gap-3 mb-4">
+        <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
           Pending Warehouse Assignment
-        </h4>
+        </p>
         <Badge
           variant="outline"
           className="border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs"
@@ -138,7 +143,7 @@ export function WarehouseAssignmentsTab({
                 {group.items.map((pending) => (
                   <div
                     key={pending.l1_approval_id}
-                    className="flex items-center justify-between py-3 px-4 rounded-lg bg-amber-950/20 border border-amber-800/30"
+                    className="flex items-center justify-between py-3 px-4 rounded-lg bg-slate-800/30 border border-slate-700/50"
                   >
                     <div className="flex items-center gap-6 flex-1 min-w-0">
                       {/* L1 approved qty */}

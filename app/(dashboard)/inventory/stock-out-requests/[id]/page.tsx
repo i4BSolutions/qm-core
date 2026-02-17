@@ -9,6 +9,12 @@ import {
   ExternalLink,
   Ban,
   ArrowUpFromLine,
+  ArrowLeft,
+  FileText,
+  Clock,
+  CalendarDays,
+  User,
+  Package,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -714,18 +720,25 @@ export default function StockOutRequestDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+      <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+          <p className="text-sm text-slate-400 font-mono uppercase tracking-wider">
+            Loading request data...
+          </p>
+        </div>
       </div>
     );
   }
 
   if (!request) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <AlertTriangle className="w-12 h-12 text-amber-400" />
-        <p className="text-slate-400">Request not found</p>
-        <Button onClick={() => router.push("/inventory/stock-out-requests")}>
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <AlertTriangle className="h-12 w-12 text-amber-500" />
+        <h2 className="text-xl font-semibold text-slate-200">Request Not Found</h2>
+        <p className="text-slate-400">The requested stock-out request could not be found.</p>
+        <Button variant="outline" className="border-slate-700" onClick={() => router.push("/inventory/stock-out-requests")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
           Back to List
         </Button>
       </div>
@@ -741,15 +754,8 @@ export default function StockOutRequestDetailPage() {
       backHref="/inventory/stock-out-requests"
       header={
         <div>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <h1 className="text-2xl font-mono font-bold text-slate-100">
-                {request.request_number}
-              </h1>
-              <p className="text-sm text-slate-400">
-                Requested by {request.requester?.full_name || "Unknown"}
-              </p>
-            </div>
+          {/* Status Badge */}
+          <div className="flex items-center gap-3 mb-2">
             <Badge
               variant="outline"
               className={cn(
@@ -761,6 +767,32 @@ export default function StockOutRequestDetailPage() {
               {statusConfig.label}
             </Badge>
           </div>
+
+          {/* Request Number */}
+          <div className="request-id-badge mb-2">
+            <code className="text-lg">{request.request_number}</code>
+          </div>
+
+          {/* Requester info */}
+          <p className="text-sm text-slate-400 mt-1">
+            Requested by{" "}
+            <span className="text-slate-300">{request.requester?.full_name || "Unknown"}</span>
+          </p>
+
+          {/* QMHQ Link */}
+          {request.qmhq_id && request.qmhq && (
+            <Link
+              href={`/qmhq/${request.qmhq_id}`}
+              className="inline-flex items-center gap-2 mt-2 text-sm text-slate-400 hover:text-amber-400 transition-colors"
+            >
+              <span>From:</span>
+              <code className="text-amber-400">{request.qmhq.request_id}</code>
+              {request.qmhq.line_name && (
+                <span className="truncate max-w-[200px]">{request.qmhq.line_name}</span>
+              )}
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+          )}
         </div>
       }
       actions={
@@ -822,12 +854,10 @@ export default function StockOutRequestDetailPage() {
         </>
       }
       kpiPanel={
-        <div className="command-panel p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="command-panel corner-accents animate-slide-up" style={{ animationDelay: "100ms" }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <div className="text-xs font-medium text-slate-500 mb-1">
-                Reason
-              </div>
+              <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">Reason</p>
               <Badge
                 variant="outline"
                 className={cn(
@@ -840,61 +870,38 @@ export default function StockOutRequestDetailPage() {
               </Badge>
             </div>
 
-            {request.qmhq_id && request.qmhq && (
-              <div>
-                <div className="text-xs font-medium text-slate-500 mb-1">
-                  QMHQ Reference
-                </div>
-                <Link
-                  href={`/qmhq/${request.qmhq_id}`}
-                  className="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  <span className="font-mono text-sm">
-                    {request.qmhq.request_id}
-                  </span>
-                  {request.qmhq.line_name && (
-                    <span className="text-xs text-slate-400">
-                      ({request.qmhq.line_name})
-                    </span>
-                  )}
-                  <ExternalLink className="w-3 h-3" />
-                </Link>
-              </div>
-            )}
-
             <div>
-              <div className="text-xs font-medium text-slate-500 mb-1">
-                Requester
-              </div>
-              <div className="text-sm text-slate-300">
+              <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">Requester</p>
+              <p className="text-sm text-slate-200">
                 {request.requester?.full_name || "Unknown"}
-              </div>
+              </p>
             </div>
 
             <div>
-              <div className="text-xs font-medium text-slate-500 mb-1">
-                Created
-              </div>
-              <div className="text-sm text-slate-300">
+              <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">Items</p>
+              <p className="text-xl font-mono font-bold text-slate-200">
+                {lineItems.length}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">Created</p>
+              <p className="text-sm text-slate-200">
                 {new Date(request.created_at).toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "short",
                   day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
                 })}
-              </div>
+              </p>
             </div>
           </div>
 
           {request.notes && (
-            <div>
-              <div className="text-xs font-medium text-slate-500 mb-1">
-                Notes
-              </div>
-              <div className="text-sm text-slate-300 whitespace-pre-wrap">
+            <div className="mt-4 pt-4 border-t border-slate-700">
+              <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Notes</p>
+              <p className="text-sm text-slate-300 whitespace-pre-wrap">
                 {request.notes}
-              </div>
+              </p>
             </div>
           )}
         </div>
@@ -926,9 +933,10 @@ export default function StockOutRequestDetailPage() {
         {/* Qty Approval Tab (L1) */}
         <TabsContent value="qty-approval" className="mt-6 space-y-6">
           <div className="command-panel corner-accents">
-            <h3 className="text-lg font-semibold text-slate-200 mb-4">
-              Qty Approval
-            </h3>
+            <div className="section-header">
+              <Package className="h-4 w-4 text-amber-500" />
+              <h2>L1 Quantity Approval</h2>
+            </div>
             <LineItemTable
               items={lineItems}
               canApprove={canApprove}
@@ -941,9 +949,10 @@ export default function StockOutRequestDetailPage() {
         {/* Warehouse Assignment Tab (L2) */}
         <TabsContent value="warehouse-assign" className="mt-6 space-y-6">
           <div className="command-panel corner-accents">
-            <h3 className="text-lg font-semibold text-slate-200 mb-4">
-              Warehouse Assignment
-            </h3>
+            <div className="section-header">
+              <ArrowUpFromLine className="h-4 w-4 text-purple-400" />
+              <h2>L2 Warehouse Assignment</h2>
+            </div>
             <WarehouseAssignmentsTab
               pendingL1Approvals={pendingL1Approvals}
               canAssign={canApprove}
@@ -964,10 +973,11 @@ export default function StockOutRequestDetailPage() {
         {/* Ready Execute Tab (L3) */}
         <TabsContent value="ready-execute" className="mt-6 space-y-6">
           <div className="command-panel corner-accents">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-200">
-                Ready to Execute
-              </h3>
+            <div className="flex items-center justify-between mb-6">
+              <div className="section-header mb-0">
+                <ArrowUpFromLine className="h-4 w-4 text-emerald-400" />
+                <h2>L3 Ready to Execute</h2>
+              </div>
               {pendingAssignments.length > 0 && (
                 <Badge
                   variant="outline"
@@ -989,13 +999,20 @@ export default function StockOutRequestDetailPage() {
         {/* Approvals Tab — read-only approval history with layer badges */}
         <TabsContent value="approvals" className="mt-6 space-y-6">
           <div className="command-panel corner-accents">
-            <h3 className="text-lg font-semibold text-slate-200 mb-4">
-              Approval History
-            </h3>
+            <div className="section-header">
+              <FileText className="h-4 w-4 text-amber-500" />
+              <h2>Approval History</h2>
+            </div>
 
             {approvals.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
-                No approvals yet
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+                  <FileText className="h-8 w-8 text-slate-500" />
+                </div>
+                <h3 className="text-lg font-medium text-slate-300 mb-2">No Approvals Yet</h3>
+                <p className="text-sm text-slate-400 max-w-md">
+                  Approval records will appear here once quantities are reviewed.
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1007,7 +1024,7 @@ export default function StockOutRequestDetailPage() {
                   return (
                     <div
                       key={approval.id}
-                      className="border border-slate-700 rounded-lg p-4 space-y-2"
+                      className="p-4 rounded-lg border border-slate-700 bg-slate-800/30 space-y-2"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-wrap">
@@ -1146,13 +1163,20 @@ export default function StockOutRequestDetailPage() {
         {/* Transactions Tab */}
         <TabsContent value="transactions" className="mt-6 space-y-6">
           <div className="command-panel corner-accents">
-            <h3 className="text-lg font-semibold text-slate-200 mb-4">
-              Stock-Out Transactions
-            </h3>
+            <div className="section-header">
+              <ArrowUpFromLine className="h-4 w-4 text-red-400" />
+              <h2>Stock-Out Transactions</h2>
+            </div>
 
             {inventoryTransactions.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
-                No inventory transactions yet
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+                  <ArrowUpFromLine className="h-8 w-8 text-slate-500" />
+                </div>
+                <h3 className="text-lg font-medium text-slate-300 mb-2">No Transactions Yet</h3>
+                <p className="text-sm text-slate-400 max-w-md">
+                  Inventory transactions will appear here once warehouse assignments are executed.
+                </p>
               </div>
             ) : (
               <div className="space-y-3">

@@ -448,32 +448,31 @@ export default function StockOutExecutionPage() {
 
       {/* Content */}
       {paginatedAssignments.length === 0 ? (
-        <div className="command-panel">
-          <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+        <div className="command-panel corner-accents">
+          <div className="flex flex-col items-center justify-center py-12 text-center">
             {statusFilter === "pending_execution" ? (
               <>
-                <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                  <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+                <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-400" />
                 </div>
-                <div>
-                  <p className="text-slate-200 font-medium">All assignments have been executed</p>
-                  <p className="text-sm text-slate-400 mt-1">
-                    No pending execution items. Check back when new approvals arrive.
-                  </p>
-                </div>
+                <h3 className="text-lg font-medium text-slate-300 mb-2">All Caught Up</h3>
+                <p className="text-sm text-slate-400 max-w-md">
+                  All assignments have been executed. Check back when new approvals arrive.
+                </p>
               </>
             ) : (
               <>
-                <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center">
-                  <Package className="h-6 w-6 text-slate-400" />
+                <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+                  <Package className="h-8 w-8 text-slate-500" />
                 </div>
-                <p className="text-slate-400">No assignments found</p>
+                <h3 className="text-lg font-medium text-slate-300 mb-2">No Assignments Found</h3>
+                <p className="text-sm text-slate-400">No assignments match the current filters.</p>
               </>
             )}
           </div>
         </div>
       ) : (
-        <div className="command-panel">
+        <div className="command-panel corner-accents">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -520,7 +519,7 @@ export default function StockOutExecutionPage() {
                     >
                       {/* SOR ID — display-only text, NOT a link */}
                       <td className="py-3 px-4">
-                        <span className="text-sm font-mono text-slate-300">{sorId}</span>
+                        <code className="text-sm font-mono text-amber-400">{sorId}</code>
                       </td>
 
                       {/* Item */}
@@ -558,15 +557,15 @@ export default function StockOutExecutionPage() {
                       <td className="py-3 px-4">
                         {isExecuted ? (
                           <Badge
-                            className="text-xs text-white"
-                            style={{ backgroundColor: "#10b981", border: "none" }}
+                            variant="outline"
+                            className="text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                           >
                             Executed
                           </Badge>
                         ) : (
                           <Badge
-                            className="text-xs text-white"
-                            style={{ backgroundColor: "#f59e0b", border: "none" }}
+                            variant="outline"
+                            className="text-xs border-amber-500/30 bg-amber-500/10 text-amber-400"
                           >
                             Pending Execution
                           </Badge>
@@ -596,7 +595,7 @@ export default function StockOutExecutionPage() {
 
       {/* Pagination */}
       {totalItems > 0 && (
-        <div className="command-panel mt-6">
+        <div className="command-panel corner-accents mt-6">
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
