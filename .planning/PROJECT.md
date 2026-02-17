@@ -8,6 +8,19 @@ An internal ticket, expense, and inventory management platform serving as a Sing
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
+## Current Milestone: v1.12 List Views & Approval Workflow
+
+**Goal:** Standardize all list views with consistent columns/pagination, add two-layer stock-out approval with warehouse assignment, auto-generated user avatars, and audit history user attribution.
+
+**Target features:**
+- QMRL list view (table format)
+- Two-layer stock-out approval (qty approval → warehouse assignment)
+- New stock-out execution page (replaces sidebar item)
+- Audit history with user avatars
+- Standardized list view columns across 6 pages
+- Consistent pagination and assigned person filter
+- Auto-generated user profile avatars via icon library
+
 ## Current State (v1.11 Shipped)
 
 **Tech Stack:**
@@ -191,7 +204,13 @@ Users can reliably create purchase orders, receive inventory, and track request 
 
 ### Active
 
-(None — awaiting next milestone definition)
+- [ ] QMRL list view with table columns (ID, Title, Status, Assigned Person, Request Date)
+- [ ] Two-layer stock-out approval: Layer 1 approves qty, Layer 2 assigns warehouse
+- [ ] New stock-out execution page with card/list view, warehouse filter
+- [ ] Audit history shows user avatar + name on each action
+- [ ] Standardized list view columns across QMRL, QMHQ, PO, Invoice, Items, Stock-out
+- [ ] Consistent pagination UI and assigned person filter on all list/card pages
+- [ ] Auto-generated user profile avatars shown everywhere users appear
 
 ### Out of Scope
 
@@ -373,4 +392,4 @@ Users can reliably create purchase orders, receive inventory, and track request 
   - Execution is a dialog modal, not a standalone page
 
 ---
-*Last updated: 2026-02-16 after v1.11 milestone*
+*Last updated: 2026-02-17 after v1.12 milestone started*

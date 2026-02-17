@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-16
+**Last Updated:** 2026-02-17
 
 ---
 
@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** Planning next milestone
+**Current Focus:** v1.12 List Views & Approval Workflow
 
 ---
 
 ## Current Position
 
-Phase: 54 of 54 (all complete)
-Plan: N/A — milestone complete
-Status: v1.11 shipped
-Last activity: 2026-02-16 — Archived v1.11 milestone
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-17 — Milestone v1.12 started
 
-Progress: [█████████████████████] 134/134 (100%)
+Progress: [░░░░░░░░░░░░░░░░░░░░] 0/0 (0%)
 
 ---
 
@@ -60,7 +60,7 @@ All decisions archived in PROJECT.md Key Decisions table.
 ### TODOs
 
 **Immediate Next Steps:**
-1. Run `/gsd:new-milestone` to define v1.12 goals
+1. Define v1.12 requirements and create roadmap
 
 ### Blockers
 
@@ -71,21 +71,17 @@ All decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Archived v1.11 Standard Unit System milestone
-- All 14 requirements satisfied, all 8 phases complete (17 plans)
-- Archived ROADMAP, REQUIREMENTS, and AUDIT to milestones/
-- Updated PROJECT.md with v1.11 validated features and key decisions
-- Reorganized ROADMAP.md with v1.11 collapsed
+- Started v1.12 milestone: List Views & Approval Workflow
+- Updated PROJECT.md with v1.12 goals and active requirements
+- Defining requirements and creating roadmap
 
 **Context for Next Agent:**
-- v1.11 SHIPPED — all artifacts archived to .planning/milestones/
-- REQUIREMENTS.md deleted (fresh one needed for next milestone)
-- PROJECT.md updated to v1.11 current state
-- ROADMAP.md reorganized with 12 shipped milestones
-- Ready for `/gsd:new-milestone`
+- v1.12 milestone started
+- Focus: QMRL list view, two-layer stock-out approval, new stock-out execution page, audit history user display, standardized list columns, consistent pagination, auto-generated avatars
+- Requirements and roadmap being defined
 
-**Resume at:** `/gsd:new-milestone` for v1.12
+**Resume at:** Continue requirements definition and roadmap creation
 
 ---
 
-*State last updated: 2026-02-16 after v1.11 milestone archived*
+*State last updated: 2026-02-17 after v1.12 milestone started*
