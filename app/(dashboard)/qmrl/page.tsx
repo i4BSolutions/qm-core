@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { Plus, Calendar, User, Tag, AlertCircle, Radio, ChevronRight } from "lucide-react";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -357,7 +358,7 @@ export default function QMRLPage() {
                   )}
                   {qmrl.assigned_user && (
                     <span className="flex items-center gap-1 max-w-[100px] truncate">
-                      <User className="h-3 w-3 flex-shrink-0" />
+                      <UserAvatar fullName={qmrl.assigned_user.full_name} size={14} />
                       {qmrl.assigned_user.full_name.split(" ")[0]}
                     </span>
                   )}

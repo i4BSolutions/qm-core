@@ -6,6 +6,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
 import { Search, Bell, User, LogOut, Settings, ChevronDown, Radio, Shield } from "lucide-react";
 import { Skeleton } from "@/components/ui";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 // Format role for display
 function formatRole(role: string): string {
@@ -102,9 +103,13 @@ export function Header() {
                 isProfileOpen && "bg-slate-800"
               )}
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-amber-600 to-amber-700 text-white font-semibold text-sm border border-amber-500/30">
-                {user ? getInitials(user.full_name) : <User className="h-4 w-4" />}
-              </div>
+              {user ? (
+                <UserAvatar fullName={user.full_name} size={36} />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-amber-600 to-amber-700 text-white font-semibold text-sm border border-amber-500/30">
+                  <User className="h-4 w-4" />
+                </div>
+              )}
               <div className="hidden text-left lg:block">
                 <p className="text-sm font-medium text-slate-200">
                   {user?.full_name ?? "Guest"}
@@ -134,9 +139,7 @@ export function Header() {
               <div className="absolute right-0 z-50 mt-2 w-64 animate-slide-up rounded-lg border border-slate-800 bg-slate-900 py-1 shadow-xl shadow-black/50">
                 <div className="border-b border-slate-800 px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-amber-600 to-amber-700 text-white font-semibold border border-amber-500/30">
-                      {getInitials(user.full_name)}
-                    </div>
+                    <UserAvatar fullName={user.full_name} size={40} />
                     <div>
                       <p className="text-sm font-medium text-slate-200">
                         {user.full_name}

@@ -51,6 +51,7 @@ import { QmhqLinkedTransactions } from "@/components/qmhq/qmhq-linked-transactio
 import { FulfillmentMetrics } from "@/components/qmhq/fulfillment-metrics";
 import { DetailPageLayout } from "@/components/composite";
 import { MoneyOutPDFButton } from "@/components/qmhq/money-out-pdf-button";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import type {
   QMHQ,
   StatusConfig,
@@ -841,9 +842,13 @@ export default function QMHQDetailPage() {
 
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                    <User className="h-5 w-5 text-amber-400" />
-                  </div>
+                  {qmhq.assigned_user ? (
+                    <UserAvatar fullName={qmhq.assigned_user.full_name} size={40} />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                      <User className="h-5 w-5 text-amber-400" />
+                    </div>
+                  )}
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wider">Assigned To</p>
                     <p className="text-slate-200 font-medium">

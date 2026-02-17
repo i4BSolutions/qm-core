@@ -38,6 +38,7 @@ import { usePermissions } from "@/lib/hooks/use-permissions";
 import { useToast } from "@/components/ui/use-toast";
 import { CommentsSection } from "@/components/comments";
 import { DetailPageLayout } from "@/components/composite";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 interface QMRLWithRelations extends QMRL {
   status?: StatusConfig | null;
@@ -426,9 +427,13 @@ export default function QMRLDetailPage() {
                   <div>
                     <p className="data-label mb-1">Assigned To</p>
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
-                        <User className="h-4 w-4 text-amber-500" />
-                      </div>
+                      {qmrl.assigned_user ? (
+                        <UserAvatar fullName={qmrl.assigned_user.full_name} size={32} />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                          <User className="h-4 w-4 text-amber-500" />
+                        </div>
+                      )}
                       <div>
                         <p className="data-value">{qmrl.assigned_user?.full_name || "Unassigned"}</p>
                         {qmrl.assigned_user?.role && (
@@ -441,9 +446,13 @@ export default function QMRLDetailPage() {
                   <div>
                     <p className="data-label mb-1">Requester</p>
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center">
-                        <User className="h-4 w-4 text-slate-400" />
-                      </div>
+                      {qmrl.requester ? (
+                        <UserAvatar fullName={qmrl.requester.full_name} size={32} />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center">
+                          <User className="h-4 w-4 text-slate-400" />
+                        </div>
+                      )}
                       <div>
                         <p className="data-value">{qmrl.requester?.full_name || "—"}</p>
                         {qmrl.requester?.role && (

@@ -1,8 +1,9 @@
 "use client";
 
 import { format } from "date-fns";
-import { User, Reply, Trash2 } from "lucide-react";
+import { Reply, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   Tooltip,
   TooltipContent,
@@ -32,9 +33,7 @@ export function CommentCard({
     <div className="rounded-lg border border-slate-700 bg-slate-800/30 p-4 shadow-soft">
       <div className="flex items-start gap-3">
         {/* User Avatar */}
-        <div className="h-8 w-8 flex-shrink-0 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
-          <User className="h-4 w-4 text-amber-500" />
-        </div>
+        <UserAvatar fullName={comment.author.full_name} size={32} />
 
         <div className="flex-1 min-w-0">
           {/* Author name and timestamp */}
