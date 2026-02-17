@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-17 (56-02)
+**Last Updated:** 2026-02-17 (56-03)
 
 ---
 
@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.12 List Views & Approval Workflow — Phase 56
+**Current Focus:** v1.12 List Views & Approval Workflow — Phase 56 complete
 
 ---
 
 ## Current Position
 
 Phase: 56 (List View Standardization)
-Plan: 02 complete (QMHQ, PO, Invoice, Items list view standardization)
-Status: Phase 56 in progress — plans 01 and 02 done, plan 03 remaining
-Last activity: 2026-02-17 — 56-02 executed (QMHQ, PO, Invoice, Items list views)
+Plan: 03 complete — Phase 56 fully done
+Status: Phase 56 complete — all 3 plans executed
+Last activity: 2026-02-17 — 56-03 executed (stock-out requests list view standardization)
 
-Progress: [██████░░░░░░░░░░░░░░] 2/4 phases in v1.12 (Phase 55 + 56 plan 01 done)
+Progress: [████████░░░░░░░░░░░░] 3/4 phases in v1.12 (Phase 55 + Phase 56 all 3 plans done)
 
 ---
 
@@ -54,7 +54,7 @@ Progress: [██████░░░░░░░░░░░░░░] 2/4 pha
 **v1.12 In Progress:**
 - 4 phases planned (55-58)
 - 25 requirements mapped
-- Phase 55 complete, Phase 56 plans 01 and 02 complete
+- Phase 55 complete, Phase 56 complete (all 3 plans)
 
 ---
 
@@ -81,12 +81,13 @@ All decisions archived in PROJECT.md Key Decisions table.
 - Card/list toggle placed inside FilterBar as last child with ml-auto, per toolbar order decision
 - Toolbar order for pages without status filter dropdown: Search | Assignee | Category | [toggle]
 - Status badges in list view: colored background + white text (solid style, not outline variant)
+- Stock-out requests uses status dropdown (not tabs) in FilterBar — consistent with other 5 list pages
+- Card view groups paginatedRequests (not filteredRequests) — ensures card groups respect pagination boundary
 
 ### TODOs
 
 **Immediate Next Steps:**
-1. Phase 56 plan 02 complete — proceed to Phase 56 plan 03 (if exists) or next phase
-2. All 4 list pages standardized (QMRL, QMHQ, PO, Invoice, Items)
+1. Phase 56 complete — proceed to Phase 57 (L2 approval UI) or Phase 58
 
 ### Blockers
 
@@ -97,20 +98,18 @@ All decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 56 plan 02 executed:
-  - Rewrote `app/(dashboard)/qmhq/page.tsx` — assigned filter with UserAvatar, avatar-only column with tooltip, toolbar toggle, URL pagination, colored status badges, router.push, responsive behavior (750 lines)
-  - Rewrote `app/(dashboard)/po/page.tsx` — assigned filter via QMHQ join, toolbar toggle, URL pagination, router.push, responsive behavior (669 lines)
-  - Rewrote `app/(dashboard)/invoice/page.tsx` — creator filter via created_by, toolbar toggle, URL pagination, router.push, responsive behavior (693 lines)
-  - Rebuilt `app/(dashboard)/item/page.tsx` — removed TanStack DataTable, added FilterBar with card/list toggle, card grid view, list table view (SKU/Name/Category/Unit/Price Ref), URL pagination, responsive behavior (662 lines)
-  - Requirements completed: LIST-02, LIST-03, LIST-04, LIST-05, PAGE-02
+- Phase 56 plan 03 executed:
+  - Rewrote `app/(dashboard)/inventory/stock-out-requests/page.tsx` — replaced status tabs with FilterBar (status dropdown + requester filter with UserAvatar), URL pagination, LIST-06 columns (SOR ID/Item/Requester/Reason/QMHQ Ref/Status), router.push, responsive behavior
+  - Cross-page verification: all 6 list pages pass consistency checks (usePaginationParams, Pagination, router.push, FilterBar with ml-auto toggle, responsive useEffect)
+  - Requirements completed: LIST-06, PAGE-02 (final)
 
 **Context for Next Agent:**
-- All 5 list pages standardized: QMRL (plan 01), QMHQ+PO+Invoice+Items (plan 02)
+- All 6 list pages standardized: QMRL (plan 01), QMHQ+PO+Invoice+Items (plan 02), stock-out requests (plan 03)
 - Consistent pattern: usePaginationParams + handleXChange(setCurrentPage(1)) + hidden md:flex desktop filters + ml-auto toggle + responsive Popover on mobile
 - Phase 57 (L2 approval UI) is independent and can proceed
 
-**Resume at:** Phase 56 plan 03 (if exists) or next phase
+**Resume at:** Phase 57 or Phase 58 (next in v1.12)
 
 ---
 
-*State last updated: 2026-02-17 after Phase 56 plan 01 (usePaginationParams hook + QMRL list view) complete*
+*State last updated: 2026-02-17 after Phase 56 plan 03 (stock-out requests list view + cross-page verification) complete*
