@@ -155,14 +155,14 @@ Plans:
   2. Admin can then select a warehouse and approve the assigned quantity as a second step (Layer 2); the Layer 2 quantity cannot exceed the Layer 1 approved quantity
   3. Submitting a Layer 2 warehouse approval with a quantity exceeding available warehouse stock is blocked with a hard error (not just a warning)
   4. The Execute button on a line item is disabled until both Layer 1 and Layer 2 approvals are in the `approved` state
-  5. A dedicated stock-out execution page at `/inventory/stock-out-requests` shows approved items ready for execution in card view and list view, with a warehouse filter
-  6. The sidebar navigation "Stock Out" link points to the new execution page; users can initiate a new stock-out request from that page
-**Plans**: TBD
+  5. A dedicated stock-out execution page at `/inventory/stock-out` shows approved items ready for execution in list view, with a warehouse filter
+  6. The sidebar navigation "Stock Out" link points to the new execution page; no new request button on execution page
+**Plans:** 3 plans
 
 Plans:
-- [ ] 57-01: Layer 1 approval dialog update (qty-only, no warehouse)
-- [ ] 57-02: Layer 2 approval dialog (warehouse assignment, hard stock cap)
-- [ ] 57-03: Dedicated stock-out execution page with card/list view and warehouse filter
+- [ ] 57-01-PLAN.md -- L1 approval dialog, progress bar, per-row action buttons replacing batch selection
+- [ ] 57-02-PLAN.md -- L2 warehouse dialog with stock validation, Warehouse Assignments tab, expandable line item sections
+- [ ] 57-03-PLAN.md -- Dedicated execution page with warehouse/status filters, sidebar navigation update
 
 ### Phase 58: History Avatars + Comment Avatars
 **Goal**: Every place a user's name appears in audit history or comment cards shows their auto-generated avatar alongside the name.
@@ -196,8 +196,8 @@ Plans:
 | 47-54. Standard Units -> USD Lock | v1.11 | 17/17 | ✓ Complete | 2026-02-16 |
 | 55. DB Foundation + UserAvatar | v1.12 | Complete    | 2026-02-17 | - |
 | 56. List View Standardization | v1.12 | Complete    | 2026-02-17 | - |
-| 57. Two-Layer Approval + Execution | v1.12 | 0/3 | Not started | - |
+| 57. Two-Layer Approval + Execution | v1.12 | 0/3 | Planned | - |
 | 58. History + Comment Avatars | v1.12 | 0/2 | Not started | - |
 
 ---
-*Last updated: 2026-02-17 after Phase 56 plans created*
+*Last updated: 2026-02-17 after Phase 57 plans created*
