@@ -770,7 +770,11 @@ export default function QMHQDetailPage() {
           {qmhq.route_type === "item" && (
             <TabsTrigger value="stock-out" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
               <ArrowUpFromLine className="mr-2 h-4 w-4" />
-              Stock Out ({stockOutTransactions.length})
+              Stock Out ({stockOutTransactions.length > 0
+                ? stockOutTransactions.length
+                : stockOutRequest
+                  ? (stockOutRequest.line_items?.length ?? 0)
+                  : 0})
             </TabsTrigger>
           )}
           {(qmhq.route_type === "expense" || qmhq.route_type === "po") && (
@@ -1054,17 +1058,35 @@ export default function QMHQDetailPage() {
                   <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
                     <ArrowUpFromLine className="h-8 w-8 text-slate-500" />
                   </div>
-                  <h3 className="text-lg font-medium text-slate-300 mb-2">No Items Issued Yet</h3>
-                  <p className="text-sm text-slate-400 max-w-md mb-4">
-                    Stock-out transactions will appear here once a stock-out request is approved and executed.
-                  </p>
-                  {!stockOutRequest && can("create", "stock_out_requests") && (
-                    <Link href={`/inventory/stock-out-requests/new?qmhq=${qmhqId}`}>
-                      <Button variant="outline" className="border-slate-700">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Request Stock-Out
-                      </Button>
-                    </Link>
+                  {stockOutRequest ? (
+                    <>
+                      <h3 className="text-lg font-medium text-slate-300 mb-2">Awaiting Execution</h3>
+                      <p className="text-sm text-slate-400 max-w-md">
+                        Stock-out request{" "}
+                        <Link
+                          href={`/inventory/stock-out-requests/${stockOutRequest.id}`}
+                          className="font-mono text-amber-400 hover:text-amber-300"
+                        >
+                          {stockOutRequest.request_number}
+                        </Link>{" "}
+                        is in progress. Executed transactions will appear here once items are issued from the warehouse.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-lg font-medium text-slate-300 mb-2">No Items Issued Yet</h3>
+                      <p className="text-sm text-slate-400 max-w-md mb-4">
+                        Stock-out transactions will appear here once a stock-out request is approved and executed.
+                      </p>
+                      {can("create", "stock_out_requests") && (
+                        <Link href={`/inventory/stock-out-requests/new?qmhq=${qmhqId}`}>
+                          <Button variant="outline" className="border-slate-700">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Request Stock-Out
+                          </Button>
+                        </Link>
+                      )}
+                    </>
                   )}
                 </div>
               ) : (
@@ -1089,6 +1111,7 @@ export default function QMHQDetailPage() {
               <QmhqLinkedTransactions
                 qmhqId={qmhqId}
                 qmhqRequestId={qmhq.request_id}
+                hasPendingSor={!!stockOutRequest}
               />
             </div>
           </TabsContent>

@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 interface QmhqLinkedTransactionsProps {
   qmhqId: string;
   qmhqRequestId: string;
+  /** When true, show a pending-SOR message instead of the generic empty state */
+  hasPendingSor?: boolean;
 }
 
 interface LinkedTransaction {
@@ -38,6 +40,7 @@ interface LinkedTransaction {
 export function QmhqLinkedTransactions({
   qmhqId,
   qmhqRequestId,
+  hasPendingSor = false,
 }: QmhqLinkedTransactionsProps) {
   const [transactions, setTransactions] = useState<LinkedTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,6 +89,23 @@ export function QmhqLinkedTransactions({
   }
 
   if (transactions.length === 0) {
+    if (hasPendingSor) {
+      // SOR exists but no inventory_transactions yet — L1/L2 stage, awaiting execution
+      return (
+        <div className="command-panel corner-accents p-6">
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Package className="h-10 w-10 text-amber-500/50 mb-3" />
+            <h3 className="text-base font-medium text-slate-400 mb-1">
+              Awaiting Execution
+            </h3>
+            <p className="text-sm text-slate-500 max-w-sm">
+              A stock-out request is in progress. Executed transactions will appear here once items are issued from the warehouse.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="command-panel corner-accents p-6">
         <div className="flex flex-col items-center justify-center py-12 text-center">
