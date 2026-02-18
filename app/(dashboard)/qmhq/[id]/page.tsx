@@ -494,18 +494,16 @@ export default function QMHQDetailPage() {
             l2Assigned += l2Approvals.reduce((sum: number, a: any) => sum + (a.approved_quantity || 0), 0);
             rejected += rejectedApprovals.reduce((sum: number, a: any) => sum + (a.approved_quantity || 0), 0);
 
-            // Calculate standard quantities using the item's conversion rate (from qmhq_items).
-            // All standard-unit columns must use the same rate as standardRequested for consistency.
-            // stock_out_approvals.conversion_rate defaults to 1.0 (never explicitly set) so it
-            // cannot be used here; inventory_transactions.conversion_rate is the actual rate but
-            // varies per transaction. Using itemConversionRate keeps all columns on the same scale.
+            // Calculate standard quantities using approval conversion_rate
             standardL1Approved += l1Approvals.reduce((sum: number, a: any) => {
               const qty = a.approved_quantity || 0;
-              return sum + (qty * itemConversionRate);
+              const rate = a.conversion_rate ?? 1;
+              return sum + (qty * rate);
             }, 0);
             standardL2Assigned += l2Approvals.reduce((sum: number, a: any) => {
               const qty = a.approved_quantity || 0;
-              return sum + (qty * itemConversionRate);
+              const rate = a.conversion_rate ?? 1;
+              return sum + (qty * rate);
             }, 0);
           }
         }
@@ -516,17 +514,13 @@ export default function QMHQDetailPage() {
         .filter(t => t.item_id === item.item_id && t.status === 'completed')
         .reduce((sum, t) => sum + (t.quantity || 0), 0);
 
-      // Calculate standard executed using the item's conversion rate (from qmhq_items).
-      // inventory_transactions.conversion_rate holds the real unit rate and is correct for
-      // WAC calculations, but for display consistency with the other standard-unit columns
-      // (standardRequested, standardL1Approved, standardL2Assigned) we must use the same
-      // itemConversionRate. Using per-transaction conversion_rate would give 30x the value
-      // when the item has a conversion factor (e.g. 300 boxes * 30 = 9,000 instead of 300).
+      // Calculate standard executed using transaction conversion_rate
       const standardExecuted = stockOutTransactions
         .filter(t => t.item_id === item.item_id && t.status === 'completed')
         .reduce((sum, t) => {
           const qty = t.quantity || 0;
-          return sum + (qty * itemConversionRate);
+          const rate = (t as any).conversion_rate ?? 1;
+          return sum + (qty * rate);
         }, 0);
 
       return {
