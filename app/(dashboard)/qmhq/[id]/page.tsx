@@ -47,7 +47,6 @@ import { CommentsSection } from "@/components/comments";
 import { SORTransactionGroup } from "@/components/qmhq/sor-transaction-group";
 import { ItemsSummaryProgress } from "@/components/qmhq/items-summary-progress";
 import type { ItemProgressData } from "@/components/qmhq/items-summary-progress";
-import { QmhqLinkedTransactions } from "@/components/qmhq/qmhq-linked-transactions";
 import { FulfillmentMetrics } from "@/components/qmhq/fulfillment-metrics";
 import { DetailPageLayout } from "@/components/composite";
 import { MoneyOutPDFButton } from "@/components/qmhq/money-out-pdf-button";
@@ -1086,14 +1085,6 @@ export default function QMHQDetailPage() {
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* Linked Transactions Table */}
-            <div className="mt-6">
-              <QmhqLinkedTransactions
-                qmhqId={qmhqId}
-                qmhqRequestId={qmhq.request_id}
-              />
             </div>
           </TabsContent>
         )}
