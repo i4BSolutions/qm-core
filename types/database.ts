@@ -527,11 +527,13 @@ export type Database = {
           approved_quantity: number
           decision: string
           rejection_reason: string | null
+          notes: string | null
           decided_by: string
           decided_at: string
           layer: string | null
           parent_approval_id: string | null
           warehouse_id: string | null
+          conversion_rate: number | null
           is_active: boolean | null
           created_by: string | null
           updated_by: string | null
@@ -545,11 +547,13 @@ export type Database = {
           approved_quantity: number
           decision: string
           rejection_reason?: string | null
+          notes?: string | null
           decided_by: string
           decided_at?: string
           layer?: string | null
           parent_approval_id?: string | null
           warehouse_id?: string | null
+          conversion_rate?: number | null
           is_active?: boolean | null
           created_by?: string | null
           updated_by?: string | null
@@ -563,11 +567,13 @@ export type Database = {
           approved_quantity?: number
           decision?: string
           rejection_reason?: string | null
+          notes?: string | null
           decided_by?: string
           decided_at?: string
           layer?: string | null
           parent_approval_id?: string | null
           warehouse_id?: string | null
+          conversion_rate?: number | null
           is_active?: boolean | null
           created_by?: string | null
           updated_by?: string | null
