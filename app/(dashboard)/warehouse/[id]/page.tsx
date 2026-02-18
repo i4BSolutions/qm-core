@@ -257,6 +257,10 @@ export default function WarehouseDetailPage() {
       ),
       cell: ({ row }) => {
         const isZeroStock = row.original.current_stock <= 0;
+        // Suppress unit text for base items (conversion_rate <= 1 / no real conversion)
+        if (!row.original.has_standard_conversion) {
+          return <span className="text-slate-500">—</span>;
+        }
         return (
           <span className={`text-sm ${isZeroStock ? "text-slate-500" : "text-slate-400"}`}>
             {row.getValue("item_unit") || "—"}
