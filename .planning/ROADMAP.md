@@ -172,11 +172,10 @@ Plans:
   1. Each entry in every audit history tab shows the acting user's avatar circle next to their name
   2. System-generated history entries (no human actor) show a distinct "System" indicator instead of a user avatar
   3. Each comment card shows the commenter's avatar next to their name, consistent with the avatar shown in list view rows
-**Plans**: TBD
+**Plans:** 1 plan (AVTR-02 already satisfied in comment-card.tsx; consolidated to single plan)
 
 Plans:
-- [ ] 58-01: UserAvatar in history tab entries and system action indicator
-- [ ] 58-02: UserAvatar in comment cards
+- [ ] 58-01-PLAN.md -- UserAvatar in history entries, system Bot indicator, AVTR-02 verification
 
 ## Progress
 
@@ -197,7 +196,7 @@ Plans:
 | 55. DB Foundation + UserAvatar | v1.12 | 2/2 | ✓ Complete | 2026-02-17 |
 | 56. List View Standardization | v1.12 | 3/3 | ✓ Complete | 2026-02-17 |
 | 57. Two-Layer Approval + Execution | v1.12 | 3/3 | ✓ Complete | 2026-02-17 |
-| 58. History + Comment Avatars | v1.12 | 0/2 | Not started | - |
+| 58. History + Comment Avatars | v1.12 | 0/1 | Not started | - |
 
 ---
-*Last updated: 2026-02-17 after Phase 57 plans created*
+*Last updated: 2026-02-18 after Phase 58 plans created*
