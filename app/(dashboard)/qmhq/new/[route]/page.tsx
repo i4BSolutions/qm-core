@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
-import Link from "next/link";
 import {
   ArrowLeft,
   Loader2,
@@ -19,8 +18,22 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { FormSection, FormField, PageHeader } from "@/components/composite";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/components/providers/auth-provider";
+import { QmrlContextPanel } from "@/components/qmhq/qmrl-context-panel";
+import { CategoryItemSelector } from "@/components/forms/category-item-selector";
+import { ItemDialog } from "@/app/(dashboard)/item/item-dialog";
+import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
+import { AmountInput } from "@/components/ui/amount-input";
+import { ConversionRateInput } from "@/components/ui/conversion-rate-input";
+import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import {
   Select,
   SelectContent,
@@ -28,12 +41,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
-import { useAuth } from "@/components/providers/auth-provider";
-import { QmrlContextPanel } from "@/components/qmhq/qmrl-context-panel";
-import { formatCurrency, handleQuantityKeyDown } from "@/lib/utils";
-import { AmountInput } from "@/components/ui/amount-input";
-import { ExchangeRateInput } from "@/components/ui/exchange-rate-input";
 import type { Item } from "@/types/database";
 
 // Route configuration
@@ -52,6 +59,15 @@ const currencies = [
   { value: "SGD", label: "SGD - Singapore Dollar" },
 ];
 
+type AvailableItem = {
+  id: string;
+  name: string;
+  sku: string | null;
+  default_unit: string | null;
+  price_reference: string | null;
+  standard_unit_rel?: { name: string } | null;
+};
+
 type DraftData = {
   line_name: string;
   description: string;
@@ -66,8 +82,15 @@ type DraftData = {
 
 type SelectedItem = {
   id: string;  // Client-side key (crypto.randomUUID())
+  category_id: string | null;
   item_id: string;
-  quantity: string;  // String for controlled input
+  item_name: string;
+  item_sku: string;
+  item_unit: string;
+  item_price_reference: string;
+  item_standard_unit: string;
+  quantity: number;
+  conversion_rate: string;
 };
 
 export default function QMHQRouteDetailsPage() {
@@ -84,10 +107,12 @@ export default function QMHQRouteDetailsPage() {
   const [draftData, setDraftData] = useState<DraftData | null>(null);
 
   // Item route state
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<AvailableItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([
-    { id: crypto.randomUUID(), item_id: '', quantity: '' }
+    { id: crypto.randomUUID(), category_id: null, item_id: '', item_name: '', item_sku: '', item_unit: '', item_price_reference: '', item_standard_unit: '', quantity: 1, conversion_rate: '' }
   ]);
+  const [createItemDialogOpen, setCreateItemDialogOpen] = useState(false);
+  const [pendingLineId, setPendingLineId] = useState<string | null>(null);
 
   // Expense/PO route state
   const [amount, setAmount] = useState("");
@@ -148,7 +173,19 @@ export default function QMHQRouteDetailsPage() {
         if (routeData.route === route) {
           // Restore item route data
           if (route === "item" && routeData.selectedItems) {
-            setSelectedItems(routeData.selectedItems);
+            // Restore with defaults for any missing fields from older sessions
+            setSelectedItems(routeData.selectedItems.map((si: SelectedItem) => ({
+              category_id: si.category_id ?? null,
+              item_id: si.item_id ?? '',
+              item_name: si.item_name ?? '',
+              item_sku: si.item_sku ?? '',
+              item_unit: si.item_unit ?? '',
+              item_price_reference: si.item_price_reference ?? '',
+              item_standard_unit: si.item_standard_unit ?? '',
+              quantity: typeof si.quantity === 'number' ? si.quantity : (parseFloat(si.quantity as unknown as string) || 1),
+              conversion_rate: si.conversion_rate ?? '',
+              id: si.id,
+            })));
           }
           // Restore expense/po route data
           if (route === "expense" || route === "po") {
@@ -173,11 +210,11 @@ export default function QMHQRouteDetailsPage() {
     if (route === "item") {
       const { data: itemsData } = await supabase
         .from("items")
-        .select("id, name, sku, default_unit, description")
+        .select("id, name, sku, default_unit, price_reference, description, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)")
         .eq("is_active", true)
         .order("name")
         .limit(200);
-      if (itemsData) setItems(itemsData as Item[]);
+      if (itemsData) setItems(itemsData as unknown as AvailableItem[]);
     }
 
     setIsLoading(false);
@@ -194,7 +231,7 @@ export default function QMHQRouteDetailsPage() {
   const handleAddItem = () => {
     setSelectedItems([
       ...selectedItems,
-      { id: crypto.randomUUID(), item_id: '', quantity: '' }
+      { id: crypto.randomUUID(), category_id: null, item_id: '', item_name: '', item_sku: '', item_unit: '', item_price_reference: '', item_standard_unit: '', quantity: 1, conversion_rate: '' }
     ]);
   };
 
@@ -203,10 +240,50 @@ export default function QMHQRouteDetailsPage() {
     setSelectedItems(selectedItems.filter(item => item.id !== id));
   };
 
-  const handleUpdateItem = (id: string, field: keyof Omit<SelectedItem, 'id'>, value: string) => {
+  const handleUpdateItem = (id: string, field: keyof Omit<SelectedItem, 'id'>, value: unknown) => {
     setSelectedItems(selectedItems.map(item =>
       item.id === id ? { ...item, [field]: value } : item
     ));
+  };
+
+  const handleItemCreatedInline = (newItem: Item) => {
+    if (pendingLineId) {
+      setSelectedItems(prev => prev.map(item =>
+        item.id === pendingLineId
+          ? {
+              ...item,
+              item_id: newItem.id,
+              item_name: newItem.name,
+              item_sku: newItem.sku || '',
+              item_unit: newItem.default_unit || '',
+              item_price_reference: newItem.price_reference || '',
+            }
+          : item
+      ));
+    }
+    // Also add to local items list
+    setItems(prev => [
+      ...prev,
+      {
+        id: newItem.id,
+        name: newItem.name,
+        sku: newItem.sku || null,
+        default_unit: newItem.default_unit || null,
+        price_reference: newItem.price_reference || null,
+        standard_unit_rel: null,
+      },
+    ]);
+    setCreateItemDialogOpen(false);
+    setPendingLineId(null);
+  };
+
+  const handleCreateDialogClose = (_refresh?: boolean, newItem?: Item) => {
+    if (newItem) {
+      handleItemCreatedInline(newItem);
+    } else {
+      setCreateItemDialogOpen(false);
+      setPendingLineId(null);
+    }
   };
 
   const handleSubmit = async () => {
@@ -223,7 +300,7 @@ export default function QMHQRouteDetailsPage() {
     if (route === "item") {
       // Validate at least one item with quantity
       const validItems = selectedItems.filter(
-        item => item.item_id && parseFloat(item.quantity) > 0
+        item => item.item_id && item.quantity > 0
       );
       if (validItems.length === 0) {
         toast({
@@ -302,7 +379,7 @@ export default function QMHQRouteDetailsPage() {
 
         // Insert items into junction table
         const validItems = selectedItems.filter(
-          item => item.item_id && parseFloat(item.quantity) > 0
+          item => item.item_id && item.quantity > 0
         );
 
         const { error: itemsError } = await supabase
@@ -311,7 +388,8 @@ export default function QMHQRouteDetailsPage() {
             validItems.map(item => ({
               qmhq_id: qmhqData.id,
               item_id: item.item_id,
-              quantity: parseFloat(item.quantity),
+              quantity: item.quantity,
+              conversion_rate: parseFloat(item.conversion_rate) > 0 ? parseFloat(item.conversion_rate) : 1,
               created_by: user.id,
             }))
           );
@@ -473,77 +551,201 @@ export default function QMHQRouteDetailsPage() {
                   icon={<Package className={`h-4 w-4 ${colors.icon}`} />}
                   animationDelay="100ms"
                 >
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {selectedItems.map((selectedItem, index) => (
-                      <div key={selectedItem.id} className="grid grid-cols-12 gap-3 p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
-                        {/* Item Number */}
-                        <div className="col-span-12 sm:col-span-1 flex items-center">
-                          <span className="text-xs font-mono text-slate-500 uppercase">#{index + 1}</span>
-                        </div>
-
-                        {/* Item Select */}
-                        <div className="col-span-12 sm:col-span-7 space-y-1">
-                          <Label className="data-label text-xs">Item</Label>
-                          <Select
-                            value={selectedItem.item_id}
-                            onValueChange={(value) => handleUpdateItem(selectedItem.id, 'item_id', value)}
-                          >
-                            <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                              <SelectValue placeholder="Select item" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {items.map((item) => (
-                                <SelectItem key={item.id} value={item.id}>
-                                  <div className="flex items-center gap-2">
-                                    {item.sku && (
-                                      <code className="text-amber-400 text-xs">{item.sku}</code>
+                      <div
+                        key={selectedItem.id}
+                        className="rounded-lg border border-slate-700 bg-slate-800/30 p-4 space-y-3"
+                      >
+                        {/* Row 1: Item selector + actions */}
+                        <div className="flex items-start gap-2">
+                          <span className="text-xs font-mono text-slate-500 mt-2.5 shrink-0 w-5">
+                            {index + 1}.
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            {selectedItem.item_id ? (
+                              <div className="flex items-center gap-2">
+                                <TooltipProvider delayDuration={300}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm cursor-default">
+                                        <code className="font-mono text-amber-400 mr-2">
+                                          {selectedItem.item_sku || "---"}
+                                        </code>
+                                        <span className="text-slate-400 mr-2">-</span>
+                                        <span className="text-slate-200">{selectedItem.item_name}</span>
+                                      </div>
+                                    </TooltipTrigger>
+                                    {selectedItem.item_price_reference && (
+                                      <TooltipContent side="top" className="max-w-xs">
+                                        <p className="text-xs">
+                                          <span className="text-slate-400">Price Ref: </span>
+                                          <span className="text-slate-200">{selectedItem.item_price_reference}</span>
+                                        </p>
+                                      </TooltipContent>
                                     )}
-                                    <span className="text-slate-200">{item.name}</span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Quantity */}
-                        <div className="col-span-6 sm:col-span-3 space-y-1">
-                          <Label className="data-label text-xs">Quantity</Label>
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            value={selectedItem.quantity}
-                            onChange={(e) => handleUpdateItem(selectedItem.id, 'quantity', e.target.value)}
-                            onKeyDown={handleQuantityKeyDown}
-                            className="bg-slate-800/50 border-slate-700 focus:border-blue-500/50 text-slate-200 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                        </div>
-
-                        {/* Remove Button */}
-                        <div className="col-span-6 sm:col-span-1 flex items-end justify-end sm:justify-center">
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    handleUpdateItem(selectedItem.id, "category_id", null);
+                                    handleUpdateItem(selectedItem.id, "item_id", "");
+                                    handleUpdateItem(selectedItem.id, "item_name", "");
+                                    handleUpdateItem(selectedItem.id, "item_sku", "");
+                                    handleUpdateItem(selectedItem.id, "item_unit", "");
+                                    handleUpdateItem(selectedItem.id, "item_price_reference", "");
+                                    handleUpdateItem(selectedItem.id, "item_standard_unit", "");
+                                  }}
+                                  className="h-8 px-2 text-slate-400 hover:text-slate-200"
+                                >
+                                  Change
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-2">
+                                <div className="flex-1">
+                                  <CategoryItemSelector
+                                    categoryId={selectedItem.category_id || ""}
+                                    itemId=""
+                                    onCategoryChange={(catId) => {
+                                      handleUpdateItem(selectedItem.id, "category_id", catId);
+                                    }}
+                                    onItemChange={(itmId) => {
+                                      const found = items.find(i => i.id === itmId);
+                                      if (found) {
+                                        handleUpdateItem(selectedItem.id, "item_id", itmId);
+                                        handleUpdateItem(selectedItem.id, "item_name", found.name);
+                                        handleUpdateItem(selectedItem.id, "item_sku", found.sku || "");
+                                        handleUpdateItem(selectedItem.id, "item_unit", found.default_unit || "");
+                                        handleUpdateItem(selectedItem.id, "item_price_reference", found.price_reference || "");
+                                        handleUpdateItem(selectedItem.id, "item_standard_unit", found.standard_unit_rel?.name || "");
+                                      }
+                                    }}
+                                  />
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    setPendingLineId(selectedItem.id);
+                                    setCreateItemDialogOpen(true);
+                                  }}
+                                  className="shrink-0 border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 self-start"
+                                  title="Create new item"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                           <Button
-                            type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() => handleRemoveItem(selectedItem.id)}
-                            disabled={selectedItems.length === 1}
-                            className="h-9 w-9 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                            disabled={selectedItems.length <= 1}
+                            className="h-8 w-8 text-slate-400 hover:text-red-400 hover:bg-red-500/10 shrink-0"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
+
+                        {/* Row 2: Qty stepper, Conv. Rate, Std Qty display */}
+                        <div className="flex items-end gap-3 pl-7">
+                          <div>
+                            <label className="text-xs text-slate-500 block mb-1">Qty</label>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() =>
+                                  handleUpdateItem(
+                                    selectedItem.id,
+                                    "quantity",
+                                    Math.max(1, selectedItem.quantity - 1)
+                                  )
+                                }
+                                disabled={selectedItem.quantity <= 1}
+                                className="h-8 w-8 border-slate-700 hover:bg-slate-700"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                value={selectedItem.quantity === 0 ? "" : selectedItem.quantity}
+                                onChange={(e) =>
+                                  handleUpdateItem(
+                                    selectedItem.id,
+                                    "quantity",
+                                    Math.max(1, Math.floor(parseInt(e.target.value) || 1))
+                                  )
+                                }
+                                onKeyDown={handleQuantityKeyDown}
+                                className="w-16 text-center font-mono bg-slate-800 border-slate-700"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() =>
+                                  handleUpdateItem(
+                                    selectedItem.id,
+                                    "quantity",
+                                    selectedItem.quantity + 1
+                                  )
+                                }
+                                className="h-8 w-8 border-slate-700 hover:bg-slate-700"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-500 block mb-1">Conv. Rate</label>
+                            <ConversionRateInput
+                              value={selectedItem.conversion_rate}
+                              onValueChange={(val) => handleUpdateItem(selectedItem.id, "conversion_rate", val)}
+                              className="w-28 text-right bg-slate-800 border-slate-700"
+                            />
+                          </div>
+                          {selectedItem.conversion_rate && parseFloat(selectedItem.conversion_rate) > 1 && selectedItem.quantity > 0 && selectedItem.item_standard_unit && (
+                            <div className="pb-2">
+                              <span className="text-xs font-mono text-slate-400">
+                                = {(selectedItem.quantity * parseFloat(selectedItem.conversion_rate)).toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}{" "}
+                                {selectedItem.item_standard_unit}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
+
+                    {/* Subtotal row (item count) */}
+                    <div className="flex items-center justify-end gap-4 pt-2 border-t border-slate-600">
+                      <span className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+                        Total Items
+                      </span>
+                      <span className="text-lg font-mono font-bold text-blue-400">
+                        {selectedItems.filter(i => i.item_id && i.quantity > 0).length}
+                      </span>
+                    </div>
 
                     {/* Add Item Button */}
                     <Button
                       type="button"
                       variant="outline"
                       onClick={handleAddItem}
-                      className="w-full border-dashed border-slate-600 text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-blue-500/5"
+                      className="border-dashed border-slate-600 text-slate-400 hover:border-blue-500/50 hover:text-blue-400"
                     >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Another Item
+                      + Add Line Item
                     </Button>
                   </div>
                 </FormSection>
@@ -561,6 +763,13 @@ export default function QMHQRouteDetailsPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Item creation dialog */}
+                <ItemDialog
+                  open={createItemDialogOpen}
+                  onClose={handleCreateDialogClose}
+                  item={null}
+                />
               </>
             )}
 
