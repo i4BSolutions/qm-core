@@ -241,7 +241,7 @@ export default function QMHQRouteDetailsPage() {
   };
 
   const handleUpdateItem = (id: string, field: keyof Omit<SelectedItem, 'id'>, value: unknown) => {
-    setSelectedItems(selectedItems.map(item =>
+    setSelectedItems(prev => prev.map(item =>
       item.id === id ? { ...item, [field]: value } : item
     ));
   };
