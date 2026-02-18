@@ -25,12 +25,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import { formatCurrency } from "@/lib/utils";
-import { CurrencyDisplay } from "@/components/ui/currency-display";
 import {
   MOVEMENT_TYPE_CONFIG,
   STOCK_OUT_REASON_CONFIG,
   formatStockQuantity,
-  formatWAC,
 } from "@/lib/utils/inventory";
 import type { ColumnDef } from "@tanstack/react-table";
 import { HistoryTab } from "@/components/history";
@@ -306,26 +304,22 @@ export default function WarehouseDetailPage() {
       meta: { className: "text-right" },
       header: ({ column }) => (
         <div className="flex justify-end">
-          <DataTableColumnHeader column={column} title="WAC" className="-ml-0 -mr-3" />
+          <DataTableColumnHeader column={column} title="WAC (EUSD)" className="-ml-0 -mr-3" />
         </div>
       ),
       cell: ({ row }) => {
-        const { wac_amount, wac_currency, wac_amount_eusd, current_stock } = row.original;
+        const { wac_amount_eusd, current_stock } = row.original;
         const isZeroStock = current_stock <= 0;
 
-        if (wac_amount === null || wac_amount === undefined) {
+        if (wac_amount_eusd === null || wac_amount_eusd === undefined) {
           return <div className="text-right"><span className="text-slate-500">—</span></div>;
         }
 
         return (
-          <div className={isZeroStock ? "opacity-50" : ""}>
-            <CurrencyDisplay
-              amount={wac_amount}
-              currency={wac_currency || "USD"}
-              amountEusd={wac_amount_eusd}
-              size="sm"
-              align="right"
-            />
+          <div className={`text-right ${isZeroStock ? "opacity-50" : ""}`}>
+            <span className="font-mono text-sm text-slate-200">
+              {formatCurrency(wac_amount_eusd)} EUSD
+            </span>
           </div>
         );
       },
@@ -335,26 +329,22 @@ export default function WarehouseDetailPage() {
       meta: { className: "text-right" },
       header: ({ column }) => (
         <div className="flex justify-end">
-          <DataTableColumnHeader column={column} title="Total Value" className="-ml-0 -mr-3" />
+          <DataTableColumnHeader column={column} title="Total Value (EUSD)" className="-ml-0 -mr-3" />
         </div>
       ),
       cell: ({ row }) => {
-        const { total_value, total_value_eusd, wac_currency, current_stock } = row.original;
+        const { total_value_eusd, current_stock } = row.original;
         const isZeroStock = current_stock <= 0;
 
-        if (total_value === 0 || total_value === null) {
+        if (total_value_eusd === null || total_value_eusd === undefined || total_value_eusd === 0) {
           return <div className="text-right"><span className="text-slate-500">—</span></div>;
         }
 
         return (
-          <div className={isZeroStock ? "opacity-50" : ""}>
-            <CurrencyDisplay
-              amount={total_value}
-              currency={wac_currency || "USD"}
-              amountEusd={total_value_eusd}
-              size="sm"
-              align="right"
-            />
+          <div className={`text-right ${isZeroStock ? "opacity-50" : ""}`}>
+            <span className="font-mono text-sm text-slate-200">
+              {formatCurrency(total_value_eusd)} EUSD
+            </span>
           </div>
         );
       },

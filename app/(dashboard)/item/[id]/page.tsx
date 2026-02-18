@@ -25,13 +25,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import { formatCurrency } from "@/lib/utils";
-import { CurrencyDisplay } from "@/components/ui/currency-display";
 import {
   MOVEMENT_TYPE_CONFIG,
   STOCK_OUT_REASON_CONFIG,
   formatStockQuantity,
-  formatWAC,
-  formatExchangeRate,
 } from "@/lib/utils/inventory";
 import type { ColumnDef } from "@tanstack/react-table";
 import { HistoryTab } from "@/components/history";
@@ -223,19 +220,21 @@ export default function ItemDetailPage() {
       ),
     },
     {
-      accessorKey: "total_value",
+      accessorKey: "total_value_eusd",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Value at WAC" />
+        <DataTableColumnHeader column={column} title="Value at WAC (EUSD)" />
       ),
-      cell: ({ row }) => (
-        <CurrencyDisplay
-          amount={row.getValue("total_value")}
-          currency={item?.wac_currency || "USD"}
-          amountEusd={row.original.total_value_eusd}
-          size="sm"
-          align="right"
-        />
-      ),
+      cell: ({ row }) => {
+        const totalValueEusd = row.original.total_value_eusd;
+        if (totalValueEusd === null || totalValueEusd === undefined || totalValueEusd === 0) {
+          return <span className="text-slate-500">—</span>;
+        }
+        return (
+          <span className="font-mono text-sm text-slate-200">
+            {formatCurrency(totalValueEusd)} EUSD
+          </span>
+        );
+      },
     },
   ];
 
@@ -474,27 +473,26 @@ export default function ItemDetailPage() {
               <p className="text-xs text-amber-400 uppercase tracking-wider mb-2">
                 WAC (Per Unit)
               </p>
-              <CurrencyDisplay
-                amount={item.wac_amount}
-                currency={item.wac_currency || "USD"}
-                exchangeRate={item.wac_exchange_rate || 1}
-                amountEusd={item.wac_amount_eusd}
-                size="md"
-                showDashForEmpty
-              />
+              {item.wac_amount_eusd != null ? (
+                <p className="font-mono text-base font-semibold text-slate-200">
+                  {formatCurrency(item.wac_amount_eusd)} EUSD
+                </p>
+              ) : (
+                <p className="font-mono text-base text-slate-400">—</p>
+              )}
             </div>
 
             <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 flex flex-col items-center">
               <p className="text-xs text-blue-400 uppercase tracking-wider mb-2">
                 Total Value
               </p>
-              <CurrencyDisplay
-                amount={totals.totalValue}
-                currency={item.wac_currency || "USD"}
-                amountEusd={totals.totalValueEusd}
-                size="md"
-                showDashForEmpty
-              />
+              {totals.totalValueEusd > 0 ? (
+                <p className="font-mono text-base font-semibold text-slate-200">
+                  {formatCurrency(totals.totalValueEusd)} EUSD
+                </p>
+              ) : (
+                <p className="font-mono text-base text-slate-400">—</p>
+              )}
             </div>
           </div>
         </div>
@@ -599,22 +597,25 @@ export default function ItemDetailPage() {
                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">
                       WAC (Per Unit)
                     </p>
-                    <CurrencyDisplay
-                      amount={item.wac_amount}
-                      currency={item.wac_currency || "USD"}
-                      exchangeRate={item.wac_exchange_rate || 1}
-                      amountEusd={item.wac_amount_eusd}
-                      size="lg"
-                      showDashForEmpty
-                    />
+                    {item.wac_amount_eusd != null ? (
+                      <p className="font-mono text-lg font-semibold text-slate-200">
+                        {formatCurrency(item.wac_amount_eusd)} EUSD
+                      </p>
+                    ) : (
+                      <p className="font-mono text-lg text-slate-400">—</p>
+                    )}
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
-                      Exchange Rate
+                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">
+                      Total Value
                     </p>
-                    <p className="font-mono text-slate-200">
-                      {formatExchangeRate(item.wac_exchange_rate)}
-                    </p>
+                    {totals.totalValueEusd > 0 ? (
+                      <p className="font-mono text-lg font-semibold text-slate-200">
+                        {formatCurrency(totals.totalValueEusd)} EUSD
+                      </p>
+                    ) : (
+                      <p className="font-mono text-lg text-slate-400">—</p>
+                    )}
                   </div>
                 </div>
 
