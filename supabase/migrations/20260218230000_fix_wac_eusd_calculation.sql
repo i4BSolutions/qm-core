@@ -227,18 +227,19 @@ DECLARE
   item_rec RECORD;
   txn_rec  RECORD;
 
-  -- Running state
-  running_qty      DECIMAL(15,2);
-  running_wac      DECIMAL(15,2);
-  running_wac_eusd DECIMAL(15,4);
+  -- Running state — use NUMERIC (unbounded) to avoid overflow when multiplying
+  -- large quantities by large unit costs during intermediate calculations.
+  running_qty      NUMERIC;
+  running_wac      NUMERIC;
+  running_wac_eusd NUMERIC;
 
-  -- Intermediates
-  txn_ex_val      DECIMAL(15,2);
-  txn_ex_val_eusd DECIMAL(15,4);
-  txn_new_val     DECIMAL(15,2);
-  txn_new_val_eusd DECIMAL(15,4);
-  txn_total_qty   DECIMAL(15,2);
-  txn_eusd_cost   DECIMAL(15,8);
+  -- Intermediates — NUMERIC avoids DECIMAL(15,x) overflow on qty * wac products
+  txn_ex_val       NUMERIC;
+  txn_ex_val_eusd  NUMERIC;
+  txn_new_val      NUMERIC;
+  txn_new_val_eusd NUMERIC;
+  txn_total_qty    NUMERIC;
+  txn_eusd_cost    NUMERIC;
 BEGIN
   -- Process every item that appears in inventory_transactions
   FOR item_rec IN
