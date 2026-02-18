@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-17 (57-03)
+**Last Updated:** 2026-02-18 (58-01)
 
 ---
 
@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.12 Two-Layer Approval UI — Phase 57 all 3 plans complete
+**Current Focus:** v1.12 Avatar Integration — Phase 58 plan 01 complete (final v1.12 phase)
 
 ---
 
 ## Current Position
 
-Phase: 57 (Two-Layer Approval UI & Execution Page)
-Plan: 03 complete — Phase 57 all plans done
-Status: Phase 57 complete — L1 approval UI, L2 warehouse dialog, and execution page all delivered
-Last activity: 2026-02-17 — 57-03 executed (stock-out execution page + sidebar rename to "Execution Queue")
+Phase: 58 (History Avatars & Comment Avatars)
+Plan: 01 complete — Phase 58 all plans done
+Status: Phase 58 complete — history entry avatars (UserAvatar + Bot system indicator) delivered, AVTR-02 confirmed pre-satisfied
+Last activity: 2026-02-18 — 58-01 executed (UserAvatar in HistoryEntry + system Bot indicator)
 
-Progress: [████████████░░░░░░░░] Phase 55+56+57 complete
+Progress: [████████████████░░░░] Phase 55+56+57+58 complete
 
 ---
 
@@ -51,10 +51,10 @@ Progress: [████████████░░░░░░░░] Phase 5
 - 137 plans
 - 12 milestones shipped
 
-**v1.12 In Progress:**
-- 4 phases planned (55-58)
+**v1.12 Complete:**
+- 4 phases delivered (55-58)
 - 25 requirements mapped
-- Phase 55 complete, Phase 56 complete (all 3 plans), Phase 57 complete (all 3 plans)
+- Phase 55 complete, Phase 56 complete (all 3 plans), Phase 57 complete (all 3 plans), Phase 58 complete (1 plan)
 
 ---
 
@@ -63,6 +63,11 @@ Progress: [████████████░░░░░░░░] Phase 5
 ### Decisions Made
 
 All decisions archived in PROJECT.md Key Decisions table.
+
+**v1.12 Key Decisions (58-01 additions):**
+- History avatar detection uses changed_by UUID null check (authoritative), not changed_by_name string comparison (fragile)
+- System indicator is a hand-crafted slate-700 circle with Bot icon — visually distinct from colorful boring-avatars output
+- HistoryEntrySkeleton not modified — 20px avatar too small to warrant a dedicated skeleton placeholder
 
 **v1.12 Key Decisions:**
 - UserAvatar is data-passive: accepts `fullName: string` only, no internal fetch — prevents N+1 queries on list pages
@@ -102,7 +107,7 @@ All decisions archived in PROJECT.md Key Decisions table.
 ### TODOs
 
 **Immediate Next Steps:**
-1. Phase 57 complete — proceed to Phase 58 (final v1.12 phase)
+1. v1.12 complete — all 4 phases (55-58) delivered. Plan next milestone.
 
 ### Blockers
 
@@ -113,24 +118,18 @@ All decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 57 plan 03 executed:
-  - Rewrote `app/(dashboard)/inventory/stock-out/page.tsx` — task-queue execution page showing all L2-approved warehouse assignments. Status/warehouse filters, per-row Execute button, simple confirmation dialog (ExecutionConfirmationDialog), in-place row update (optimistic), BroadcastChannel cross-tab sync.
-  - Updated `components/layout/sidebar.tsx` — renamed "Stock Out" to "Execution Queue" in Inventory children. Same URL (/inventory/stock-out), clearer label.
-  - Requirements completed: EXEC-01, EXEC-02, EXEC-03, EXEC-04
+- Phase 58 plan 01 executed:
+  - Modified `components/history/history-tab.tsx` — added `UserAvatar` import and `Bot` lucide icon import; replaced static user name span in HistoryEntry with conditional rendering: non-null `changed_by` UUID shows 20px UserAvatar + name, null `changed_by` shows Bot icon in slate-700 circle with muted "System" text.
+  - Verified `components/comments/comment-card.tsx` — AVTR-02 already satisfied: `UserAvatar fullName={comment.author.full_name} size={32}` on line 36.
+  - Requirements completed: HIST-01, HIST-02, AVTR-02
 
 **Context for Next Agent:**
-- Phase 57 is fully complete: L1 approval (Plan 01), L2 warehouse assignment (Plan 02), execution queue (Plan 03)
-- Execution page queries stock_out_approvals with layer='admin' and decision='approved' — this is the L2 approval tier
-- Row updates optimistically (in-place state update) — no full refetch on execution
-- BroadcastChannel "stock-out-execution" channel used for cross-tab sync
+- v1.12 is fully complete: Phase 55 (schema), Phase 56 (list avatars), Phase 57 (approval UI + execution), Phase 58 (history + comment avatars)
+- History tab avatar detection uses `changed_by` UUID null check — not name string comparison
 - approval-dialog.tsx still exists but is no longer imported — can be deleted in future cleanup
 
-**Resume at:** Phase 58
+**Resume at:** Next milestone planning (v1.12 complete)
 
 ---
 
-*State last updated: 2026-02-17 after Phase 57 plan 03 (stock-out execution page + sidebar) complete*
-
----
-
-*State last updated: 2026-02-17 after Phase 57 plan 02 (L2 warehouse dialog + warehouse assignments tab + execution) complete*
+*State last updated: 2026-02-18 after Phase 58 plan 01 (history entry UserAvatar + system Bot indicator) complete*

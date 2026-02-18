@@ -109,7 +109,7 @@ Phases 47-54 delivered per-item standard unit management with admin CRUD, per-tr
 - [x] **Phase 55: Database Foundation + UserAvatar** - Two-layer approval migration with backfill, boring-avatars install, UserAvatar component (completed 2026-02-17)
 - [x] **Phase 56: List View Standardization** - QMRL list view, standardized columns on all 6 list pages, pagination, assigned person filter (completed 2026-02-17)
 - [x] **Phase 57: Two-Layer Approval UI + Execution Page** - Layer 1/2 approval dialogs, status machine UI, dedicated stock-out execution page (completed 2026-02-17)
-- [ ] **Phase 58: History Avatars + Comment Avatars** - UserAvatar in audit history entries, UserAvatar in comment cards, system action indicator
+- [x] **Phase 58: History Avatars + Comment Avatars** - UserAvatar in audit history entries, UserAvatar in comment cards, system action indicator (completed 2026-02-18)
 
 ## Phase Details
 
@@ -172,7 +172,7 @@ Plans:
   1. Each entry in every audit history tab shows the acting user's avatar circle next to their name
   2. System-generated history entries (no human actor) show a distinct "System" indicator instead of a user avatar
   3. Each comment card shows the commenter's avatar next to their name, consistent with the avatar shown in list view rows
-**Plans:** 1 plan (AVTR-02 already satisfied in comment-card.tsx; consolidated to single plan)
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 58-01-PLAN.md -- UserAvatar in history entries, system Bot indicator, AVTR-02 verification
@@ -196,7 +196,7 @@ Plans:
 | 55. DB Foundation + UserAvatar | v1.12 | 2/2 | ✓ Complete | 2026-02-17 |
 | 56. List View Standardization | v1.12 | 3/3 | ✓ Complete | 2026-02-17 |
 | 57. Two-Layer Approval + Execution | v1.12 | 3/3 | ✓ Complete | 2026-02-17 |
-| 58. History + Comment Avatars | v1.12 | 0/1 | Not started | - |
+| 58. History + Comment Avatars | 1/1 | Complete   | 2026-02-18 | - |
 
 ---
 *Last updated: 2026-02-18 after Phase 58 plans created*

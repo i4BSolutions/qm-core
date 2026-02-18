@@ -35,14 +35,14 @@ Requirements for v1.12 List Views & Approval Workflow milestone. Each maps to ro
 ### User Avatars
 
 - [ ] **AVTR-01**: User profile avatars are auto-generated using boring-avatars library when displayed
-- [ ] **AVTR-02**: User avatar appears next to user name in comment cards
+- [x] **AVTR-02**: User avatar appears next to user name in comment cards
 - [ ] **AVTR-03**: User avatar appears next to assigned person in list view rows
 - [ ] **AVTR-04**: User avatar is consistent (same user always gets same avatar) across all pages
 
 ### Audit History
 
-- [ ] **HIST-01**: Each audit history entry shows the user avatar next to the user name who performed the action
-- [ ] **HIST-02**: System-generated actions (no user) show a distinct "System" indicator
+- [x] **HIST-01**: Each audit history entry shows the user avatar next to the user name who performed the action
+- [x] **HIST-02**: System-generated actions (no user) show a distinct "System" indicator
 
 ### Pagination & Filters
 
@@ -93,11 +93,11 @@ Requirements for v1.12 List Views & Approval Workflow milestone. Each maps to ro
 | LIST-05 | Phase 56 | Pending |
 | LIST-06 | Phase 56 | Pending |
 | AVTR-01 | Phase 55 | Pending |
-| AVTR-02 | Phase 58 | Pending |
+| AVTR-02 | Phase 58 | Complete |
 | AVTR-03 | Phase 56 | Pending |
 | AVTR-04 | Phase 55 | Pending |
-| HIST-01 | Phase 58 | Pending |
-| HIST-02 | Phase 58 | Pending |
+| HIST-01 | Phase 58 | Complete |
+| HIST-02 | Phase 58 | Complete |
 | PAGE-01 | Phase 56 | Pending |
 | PAGE-02 | Phase 56 | Pending |
 | PAGE-03 | Phase 56 | Pending |
