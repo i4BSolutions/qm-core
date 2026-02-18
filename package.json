@@ -10,7 +10,8 @@
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -58,6 +59,7 @@
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.5.12",
     "eslint-config-prettier": "^9.1.0",
+    "patch-package": "^8.0.1",
     "postcss": "^8.4.47",
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.6",

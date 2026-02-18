@@ -1,0 +1,65 @@
+diff --git a/node_modules/fontkit/dist/browser-module.mjs b/node_modules/fontkit/dist/browser-module.mjs
+index 4d0a389..b717571 100644
+--- a/node_modules/fontkit/dist/browser-module.mjs
++++ b/node_modules/fontkit/dist/browser-module.mjs
+@@ -9602,6 +9602,8 @@ const $102b6fe50f1d50b4$var$SHAPERS = {
+     lana: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
+     tavt: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
+     takr: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
++    mym2: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
++    mymr: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
+     tibt: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
+     tfng: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
+     tirh: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
+diff --git a/node_modules/fontkit/dist/browser.cjs b/node_modules/fontkit/dist/browser.cjs
+index a5fa901..12ceec4 100644
+--- a/node_modules/fontkit/dist/browser.cjs
++++ b/node_modules/fontkit/dist/browser.cjs
+@@ -9619,6 +9619,8 @@ const $fdb4471fc82bc2c2$var$SHAPERS = {
+     lana: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
+     tavt: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
+     takr: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
++    mym2: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
++    mymr: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
+     tibt: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
+     tfng: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
+     tirh: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
+diff --git a/node_modules/fontkit/dist/main.cjs b/node_modules/fontkit/dist/main.cjs
+index 851b2d2..e76b407 100644
+--- a/node_modules/fontkit/dist/main.cjs
++++ b/node_modules/fontkit/dist/main.cjs
+@@ -9640,6 +9640,8 @@ const $fdb4471fc82bc2c2$var$SHAPERS = {
+     lana: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
+     tavt: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
+     takr: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
++    mym2: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
++    mymr: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
+     tibt: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
+     tfng: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
+     tirh: (0, $9b772791ccede8a5$export$2e2bcd8739ae039),
+diff --git a/node_modules/fontkit/dist/module.mjs b/node_modules/fontkit/dist/module.mjs
+index fde88fc..6d13b7b 100644
+--- a/node_modules/fontkit/dist/module.mjs
++++ b/node_modules/fontkit/dist/module.mjs
+@@ -9623,6 +9623,8 @@ const $102b6fe50f1d50b4$var$SHAPERS = {
+     lana: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
+     tavt: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
+     takr: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
++    mym2: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
++    mymr: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
+     tibt: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
+     tfng: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
+     tirh: (0, $7ab494fe977143c6$export$2e2bcd8739ae039),
+diff --git a/node_modules/fontkit/src/opentype/shapers/index.js b/node_modules/fontkit/src/opentype/shapers/index.js
+index b22ebdd..805033f 100644
+--- a/node_modules/fontkit/src/opentype/shapers/index.js
++++ b/node_modules/fontkit/src/opentype/shapers/index.js
+@@ -78,6 +78,8 @@ const SHAPERS = {
+   lana: UniversalShaper, // Tai Tham
+   tavt: UniversalShaper, // Tai Viet
+   takr: UniversalShaper, // Takri
++  mym2: UniversalShaper, // Myanmar (new script tag)
++  mymr: UniversalShaper, // Myanmar (legacy script tag)
+   tibt: UniversalShaper, // Tibetan
+   tfng: UniversalShaper, // Tifinagh
+   tirh: UniversalShaper, // Tirhuta
