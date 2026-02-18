@@ -56,10 +56,7 @@ interface WarehouseInventoryItem {
   standard_unit_name: string | null;
   /** Whether this item has a real unit conversion (conversion_rate > 1). False for base/atom items. */
   has_standard_conversion: boolean;
-  wac_amount: number | null;
-  wac_currency: string | null;
   wac_amount_eusd: number | null;
-  total_value: number;
   total_value_eusd: number;
 }
 
@@ -108,7 +105,7 @@ export default function WarehouseDetailPage() {
         .from("inventory_transactions")
         .select(`
           *,
-          item:items!inventory_transactions_item_id_fkey(id, name, sku, default_unit, wac_amount, wac_currency, wac_amount_eusd, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)),
+          item:items!inventory_transactions_item_id_fkey(id, name, sku, default_unit, wac_amount_eusd, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)),
           destination_warehouse:warehouses!inventory_transactions_destination_warehouse_id_fkey(id, name),
           conversion_rate,
           standard_qty
@@ -144,10 +141,7 @@ export default function WarehouseDetailPage() {
               standard_stock: 0,
               standard_unit_name: (item as any).standard_unit_rel?.name || null,
               has_standard_conversion: false, // will be updated below if any transaction has conversion_rate > 1
-              wac_amount: item.wac_amount,
-              wac_currency: item.wac_currency,
               wac_amount_eusd: item.wac_amount_eusd,
-              total_value: 0,
               total_value_eusd: 0,
             });
           }
@@ -170,7 +164,6 @@ export default function WarehouseDetailPage() {
         const inventoryList = Array.from(inventoryMap.values())
           .map((inv) => ({
             ...inv,
-            total_value: inv.current_stock * (inv.wac_amount || 0),
             total_value_eusd: inv.current_stock * (inv.wac_amount_eusd || 0),
           }));
 

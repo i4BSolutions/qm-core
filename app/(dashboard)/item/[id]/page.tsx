@@ -53,7 +53,6 @@ interface WarehouseStock {
   warehouse_name: string;
   warehouse_location: string;
   current_stock: number;
-  total_value: number;
   total_value_eusd: number;
 }
 
@@ -130,7 +129,6 @@ export default function ItemDetailPage() {
             warehouse_name: wh.name,
             warehouse_location: wh.location,
             current_stock: 0,
-            total_value: 0,
             total_value_eusd: 0,
           });
         }
@@ -143,15 +141,13 @@ export default function ItemDetailPage() {
         }
       });
 
-      // Calculate values and filter
-      const wac = itemData?.wac_amount || 0;
+      // Calculate values and filter (EUSD WAC only)
       const wacEusd = itemData?.wac_amount_eusd || 0;
 
       const stockList = Array.from(stockMap.values())
         .filter((s) => s.current_stock > 0)
         .map((s) => ({
           ...s,
-          total_value: s.current_stock * wac,
           total_value_eusd: s.current_stock * wacEusd,
         }));
 
@@ -170,9 +166,8 @@ export default function ItemDetailPage() {
   // Calculate totals
   const totals = useMemo(() => {
     const totalStock = warehouseStock.reduce((sum, wh) => sum + wh.current_stock, 0);
-    const totalValue = warehouseStock.reduce((sum, wh) => sum + wh.total_value, 0);
     const totalValueEusd = warehouseStock.reduce((sum, wh) => sum + wh.total_value_eusd, 0);
-    return { totalStock, totalValue, totalValueEusd };
+    return { totalStock, totalValueEusd };
   }, [warehouseStock]);
 
   const formatDate = (dateStr: string | null | undefined) => {

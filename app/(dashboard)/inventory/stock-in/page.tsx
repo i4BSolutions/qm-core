@@ -188,7 +188,7 @@ function StockInContent() {
     // Fetch items
     const { data: itemsData } = await supabase
       .from("items")
-      .select("id, name, sku, default_unit, wac_amount, wac_currency")
+      .select("id, name, sku, default_unit")
       .eq("is_active", true)
       .order("name");
 
