@@ -225,7 +225,7 @@ export default function InvoicePDF({
         <Text style={{ fontFamily: "Courier", fontSize: 9, color: "#F8FAFC" }}>
           {formatAmount(li.quantity * (li.conversion_rate ?? 1))}
         </Text>
-        {li.unit_name && (
+        {li.unit_name && (li.conversion_rate ?? 1) > 1 && (
           <Text style={{ fontFamily: "Courier", fontSize: 7, color: "#94A3B8", marginTop: 2 }}>
             {li.unit_name}
           </Text>

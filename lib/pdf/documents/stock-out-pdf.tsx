@@ -100,7 +100,8 @@ export function StockOutPDF({ request, lineItems, approvals }: StockOutPDFProps)
   const lineItemData = lineItems.map((item, index) => {
     const statusColor = LINE_STATUS_COLORS[item.status] || "#94A3B8";
     const conversionRate = item.conversion_rate || 1;
-    const unitName = item.unit_name || '';
+    // Only show unit name when there is a real standard unit conversion (conversion_rate > 1)
+    const unitName = (item.unit_name && conversionRate > 1) ? item.unit_name : '';
 
     return {
       index: (index + 1).toString(),
@@ -265,7 +266,7 @@ export function StockOutPDF({ request, lineItems, approvals }: StockOutPDFProps)
                         <Text style={{ fontSize: 10, fontFamily: "Courier", color: "#E2E8F0" }}>
                           {approval.approved_quantity}
                         </Text>
-                        {approval.unit_name && approval.conversion_rate && (
+                        {approval.unit_name && approval.conversion_rate && approval.conversion_rate > 1 && (
                           <Text style={{ fontSize: 8, color: "#94A3B8", fontFamily: "Courier", marginTop: 2 }}>
                             {(approval.approved_quantity * approval.conversion_rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {approval.unit_name}
                           </Text>
