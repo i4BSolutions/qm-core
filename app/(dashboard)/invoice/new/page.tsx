@@ -697,14 +697,14 @@ function InvoiceCreateContent() {
                                   className="w-24 text-right bg-slate-800 border-slate-700"
                                 />
                               </div>
-                              {item.conversion_rate && parseFloat(item.conversion_rate) > 0 && item.quantity > 0 && (
+                              {item.conversion_rate && parseFloat(item.conversion_rate) > 1 && item.quantity > 0 && item.unit_name && (
                                 <div className="pb-2">
                                   <span className="text-xs font-mono text-slate-400">
                                     = {(item.quantity * parseFloat(item.conversion_rate)).toLocaleString(undefined, {
                                       minimumFractionDigits: 2,
                                       maximumFractionDigits: 2,
                                     })}{" "}
-                                    {item.unit_name || ""}
+                                    {item.unit_name}
                                   </span>
                                 </div>
                               )}

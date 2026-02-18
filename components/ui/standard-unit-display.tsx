@@ -32,14 +32,20 @@ export function StandardUnitDisplay({
   // Calculate standard quantity
   const standardQty = displayQuantity * conversionRate;
 
-  // Format both quantities with thousand separators and 2 decimal places
-  const formatter = new Intl.NumberFormat("en-US", {
+  // Primary quantity (base units): always integer — no decimal places
+  const intFormatter = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+
+  // Standard quantity (converted units): 2 decimal places
+  const stdFormatter = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
-  const formattedOriginalQty = formatter.format(displayQuantity);
-  const formattedStandardQty = formatter.format(standardQty);
+  const formattedOriginalQty = intFormatter.format(displayQuantity);
+  const formattedStandardQty = stdFormatter.format(standardQty);
 
   // Size-based styling (matching CurrencyDisplay exactly)
   const sizeStyles = {
@@ -60,8 +66,8 @@ export function StandardUnitDisplay({
   const styles = sizeStyles[size];
 
   // Determine if we should show the second line
-  // Hide if unit name is not provided or empty
-  const showSecondLine = unitName && unitName.trim() !== "";
+  // Hide if unit name is not provided, empty, or conversion rate is 1 (base/atom unit — no real conversion)
+  const showSecondLine = unitName && unitName.trim() !== "" && conversionRate > 1;
 
   return (
     <div className={cn("flex flex-col min-w-0", align === "right" && "items-end", className)}>

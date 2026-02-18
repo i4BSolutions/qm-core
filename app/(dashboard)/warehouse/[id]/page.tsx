@@ -55,6 +55,8 @@ interface WarehouseInventoryItem {
   current_stock: number;
   standard_stock: number;
   standard_unit_name: string | null;
+  /** Whether this item has a real unit conversion (conversion_rate > 1). False for base/atom items. */
+  has_standard_conversion: boolean;
   wac_amount: number | null;
   wac_currency: string | null;
   wac_amount_eusd: number | null;
@@ -142,6 +144,7 @@ export default function WarehouseDetailPage() {
               current_stock: 0,
               standard_stock: 0,
               standard_unit_name: (item as any).standard_unit_rel?.name || null,
+              has_standard_conversion: false, // will be updated below if any transaction has conversion_rate > 1
               wac_amount: item.wac_amount,
               wac_currency: item.wac_currency,
               wac_amount_eusd: item.wac_amount_eusd,
@@ -151,6 +154,10 @@ export default function WarehouseDetailPage() {
           }
 
           const inv = inventoryMap.get(item.id)!;
+          // Track whether any transaction has a real conversion rate (> 1)
+          if ((t.conversion_rate ?? 1) > 1) {
+            inv.has_standard_conversion = true;
+          }
           if (t.movement_type === "inventory_in") {
             inv.current_stock += t.quantity;
             inv.standard_stock += (t.standard_qty ?? t.quantity);
@@ -279,7 +286,7 @@ export default function WarehouseDetailPage() {
             <span className={`font-mono ${colorClass}`}>
               {formatStockQuantity(stock, unit)}
             </span>
-            {row.original.standard_unit_name && (
+            {row.original.standard_unit_name && row.original.has_standard_conversion && (
               <div className="text-xs font-mono text-slate-400 mt-1">
                 {standardStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {row.original.standard_unit_name}
               </div>
@@ -407,7 +414,7 @@ export default function WarehouseDetailPage() {
         return (
           <div className={type === "inventory_in" ? "text-emerald-400" : "text-red-400"}>
             <span className="font-mono">{prefix}{qty}</span>
-            {standardUnitName && (
+            {standardUnitName && conversionRate > 1 && (
               <div className="text-xs font-mono text-slate-400 mt-1">
                 {prefix}{(qty * conversionRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {standardUnitName}
               </div>

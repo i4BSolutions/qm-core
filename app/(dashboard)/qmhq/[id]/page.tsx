@@ -539,7 +539,8 @@ export default function QMHQDetailPage() {
         standardApproved: standardL1Approved,
         standardL2Assigned,
         standardExecuted,
-        standardUnitName: (item.item as any)?.standard_unit_rel?.name || undefined,
+        // Only show standard unit name when conversion rate is > 1 (real conversion, not base "Atom")
+        standardUnitName: itemConversionRate > 1 ? ((item.item as any)?.standard_unit_rel?.name || undefined) : undefined,
       };
     });
   }, [qmhqItems, stockOutRequest, stockOutTransactions]);
@@ -929,9 +930,9 @@ export default function QMHQDetailPage() {
                             <span className="text-xs text-slate-400 ml-1">{item.item.default_unit}</span>
                           )}
                         </div>
-                        {(item.item as any)?.standard_unit_rel?.name && item.quantity != null && (
+                        {(item.item as any)?.standard_unit_rel?.name && item.quantity != null && (item as any).conversion_rate > 1 && (
                           <div className="text-xs font-mono text-slate-400">
-                            {(item.quantity || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {(item.item as any).standard_unit_rel.name}
+                            {((item.quantity || 0) * ((item as any).conversion_rate || 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {(item.item as any).standard_unit_rel.name}
                           </div>
                         )}
                       </div>

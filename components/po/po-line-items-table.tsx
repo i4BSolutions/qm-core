@@ -269,14 +269,14 @@ export function EditableLineItemsTable({
                 disabled={disabled}
               />
             </div>
-            {item.conversion_rate && parseFloat(item.conversion_rate) > 0 && item.quantity > 0 && (
+            {item.conversion_rate && parseFloat(item.conversion_rate) > 1 && item.quantity > 0 && item.item_standard_unit && (
               <div className="pb-2">
                 <span className="text-xs font-mono text-slate-400">
                   = {(item.quantity * parseFloat(item.conversion_rate)).toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}{" "}
-                  {item.item_standard_unit || ""}
+                  {item.item_standard_unit}
                 </span>
               </div>
             )}

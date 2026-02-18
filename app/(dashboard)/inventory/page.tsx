@@ -509,7 +509,7 @@ export default function InventoryPage() {
                           <td className="px-4 py-4 text-sm font-medium text-foreground">
                             <div>
                               <div>{transaction.quantity.toLocaleString()}</div>
-                              {(transaction.item as any)?.standard_unit_rel?.name && transaction.conversion_rate && (
+                              {(transaction.item as any)?.standard_unit_rel?.name && transaction.conversion_rate && transaction.conversion_rate > 1 && (
                                 <div className="text-xs font-mono text-muted-foreground">
                                   {(transaction.quantity * transaction.conversion_rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {(transaction.item as any).standard_unit_rel.name}
                                 </div>
