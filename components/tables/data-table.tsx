@@ -120,7 +120,12 @@ export function DataTable<TData, TValue>({
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      key={header.id}
+                      className={cn(
+                        (header.column.columnDef.meta as { className?: string } | undefined)?.className
+                      )}
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -281,7 +286,7 @@ export function DataTableColumnHeader<TData, TValue>({
     <Button
       variant="ghost"
       size="sm"
-      className="-ml-3 h-8 data-[state=open]:bg-sidebar-accent"
+      className={cn("-ml-3 h-8 data-[state=open]:bg-sidebar-accent", className)}
       onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
     >
       <span>{title}</span>

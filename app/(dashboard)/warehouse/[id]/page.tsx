@@ -270,8 +270,11 @@ export default function WarehouseDetailPage() {
     },
     {
       accessorKey: "current_stock",
+      meta: { className: "text-right" },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Stock" />
+        <div className="flex justify-end">
+          <DataTableColumnHeader column={column} title="Stock" className="-ml-0 -mr-3" />
+        </div>
       ),
       cell: ({ row }) => {
         const stock = row.getValue("current_stock") as number;
@@ -300,8 +303,11 @@ export default function WarehouseDetailPage() {
     },
     {
       accessorKey: "wac_amount_eusd",
+      meta: { className: "text-right" },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="WAC" />
+        <div className="flex justify-end">
+          <DataTableColumnHeader column={column} title="WAC" className="-ml-0 -mr-3" />
+        </div>
       ),
       cell: ({ row }) => {
         const { wac_amount, wac_currency, wac_amount_eusd, current_stock } = row.original;
@@ -326,8 +332,11 @@ export default function WarehouseDetailPage() {
     },
     {
       accessorKey: "total_value_eusd",
+      meta: { className: "text-right" },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Total Value" />
+        <div className="flex justify-end">
+          <DataTableColumnHeader column={column} title="Total Value" className="-ml-0 -mr-3" />
+        </div>
       ),
       cell: ({ row }) => {
         const { total_value, total_value_eusd, wac_currency, current_stock } = row.original;
