@@ -276,7 +276,6 @@ export default function WarehouseDetailPage() {
       cell: ({ row }) => {
         const stock = row.getValue("current_stock") as number;
         const standardStock = row.original.standard_stock;
-        const unit = row.original.item_unit;
         let colorClass = "text-emerald-400";
 
         if (stock <= 0) {
@@ -288,7 +287,7 @@ export default function WarehouseDetailPage() {
         return (
           <div className="text-right">
             <span className={`font-mono ${colorClass}`}>
-              {formatStockQuantity(stock, row.original.has_standard_conversion ? unit : undefined)}
+              {formatStockQuantity(stock)}
             </span>
             {row.original.standard_unit_name && row.original.has_standard_conversion && (
               <div className="text-xs font-mono text-slate-400 mt-1">
