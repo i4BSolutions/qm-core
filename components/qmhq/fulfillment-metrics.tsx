@@ -10,7 +10,8 @@ interface FulfillmentMetricsProps {
 
 interface Metrics {
   requested: number;
-  approved: number;
+  l1Approved: number;
+  l2Assigned: number;
   rejected: number;
   executed: number;
 }
@@ -24,7 +25,7 @@ export function FulfillmentMetrics({ qmhqId }: FulfillmentMetricsProps) {
     const supabase = createClient();
 
     try {
-      // Fetch stock-out request with nested line items and approvals
+      // Fetch stock-out request with nested line items and layer-aware approvals
       const { data: sorData, error: sorError } = await supabase
         .from("stock_out_requests")
         .select(`
@@ -35,7 +36,8 @@ export function FulfillmentMetrics({ qmhqId }: FulfillmentMetricsProps) {
             status,
             approvals:stock_out_approvals(
               approved_quantity,
-              decision
+              decision,
+              layer
             )
           )
         `)
@@ -52,18 +54,23 @@ export function FulfillmentMetrics({ qmhqId }: FulfillmentMetricsProps) {
 
       // Calculate requested: sum of all line_item.requested_quantity
       let requested = 0;
-      let approved = 0;
+      // L1 (quartermaster) approved quantity
+      let l1Approved = 0;
+      // L2 (admin) warehouse-assigned quantity
+      let l2Assigned = 0;
       let rejected = 0;
 
       if (sorData.line_items && Array.isArray(sorData.line_items)) {
         for (const lineItem of sorData.line_items) {
           requested += lineItem.requested_quantity || 0;
 
-          // Calculate approved and rejected from approvals
+          // Calculate L1, L2, and rejected from layer-aware approvals
           if (lineItem.approvals && Array.isArray(lineItem.approvals)) {
             for (const approval of lineItem.approvals) {
-              if (approval.decision === "approved") {
-                approved += approval.approved_quantity || 0;
+              if (approval.decision === "approved" && approval.layer === "quartermaster") {
+                l1Approved += approval.approved_quantity || 0;
+              } else if (approval.decision === "approved" && approval.layer === "admin") {
+                l2Assigned += approval.approved_quantity || 0;
               } else if (approval.decision === "rejected") {
                 rejected += approval.approved_quantity || 0;
               }
@@ -85,7 +92,8 @@ export function FulfillmentMetrics({ qmhqId }: FulfillmentMetricsProps) {
 
       setMetrics({
         requested,
-        approved,
+        l1Approved,
+        l2Assigned,
         rejected,
         executed,
       });
@@ -162,17 +170,25 @@ export function FulfillmentMetrics({ qmhqId }: FulfillmentMetricsProps) {
           )}
         </span>
       </div>
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         {/* Requested */}
         <div className="space-y-1">
           <p className="text-xs text-slate-500 uppercase tracking-wider">Requested</p>
           <p className="font-mono text-xl text-slate-200">{metrics.requested}</p>
         </div>
 
-        {/* Approved */}
+        {/* L1 Approved (quartermaster) */}
         <div className="space-y-1">
-          <p className="text-xs text-slate-500 uppercase tracking-wider">Approved</p>
-          <p className="font-mono text-xl text-emerald-400">{metrics.approved}</p>
+          <p className="text-xs text-slate-500 uppercase tracking-wider">L1 Approved</p>
+          <p className="font-mono text-xl text-blue-400">{metrics.l1Approved}</p>
+          <p className="text-xs text-slate-500">Quartermaster</p>
+        </div>
+
+        {/* L2 Assigned (admin warehouse) */}
+        <div className="space-y-1">
+          <p className="text-xs text-slate-500 uppercase tracking-wider">L2 Assigned</p>
+          <p className="font-mono text-xl text-purple-400">{metrics.l2Assigned}</p>
+          <p className="text-xs text-slate-500">Warehouse</p>
         </div>
 
         {/* Rejected */}
@@ -181,10 +197,10 @@ export function FulfillmentMetrics({ qmhqId }: FulfillmentMetricsProps) {
           <p className="font-mono text-xl text-red-400">{metrics.rejected}</p>
         </div>
 
-        {/* Executed */}
+        {/* Executed (L3) */}
         <div className="space-y-1">
           <p className="text-xs text-slate-500 uppercase tracking-wider">Executed</p>
-          <p className="font-mono text-xl text-blue-400">{metrics.executed}</p>
+          <p className="font-mono text-xl text-emerald-400">{metrics.executed}</p>
         </div>
       </div>
     </div>

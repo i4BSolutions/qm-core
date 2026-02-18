@@ -5,11 +5,17 @@ export interface ItemProgressData {
   itemName: string;
   itemSku: string | null;
   requested: number;
+  /** L1 (quartermaster) approved quantity */
   approved: number;
+  /** L2 (admin) warehouse-assigned quantity */
+  l2Assigned?: number;
   executed: number;
   rejected: number;
   standardRequested?: number;
+  /** Standard units for L1 approval */
   standardApproved?: number;
+  /** Standard units for L2 warehouse assignment */
+  standardL2Assigned?: number;
   standardExecuted?: number;
   standardUnitName?: string;
 }
@@ -26,11 +32,18 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
       </h3>
       <div className="space-y-4">
         {items.map((item) => {
-          const pending = Math.max(0, item.approved - item.executed);
+          const l2Assigned = item.l2Assigned ?? 0;
+          // Pending L2 assignment: L1 approved but not yet warehouse-assigned
+          const pendingL2 = Math.max(0, item.approved - l2Assigned);
+          // Pending execution: L2 assigned but not yet executed
+          const pendingExecution = Math.max(0, l2Assigned - item.executed);
 
           // Cap percentages to prevent overflow
           const approvedPercent = item.requested > 0
             ? Math.min(100, (item.approved / item.requested) * 100)
+            : 0;
+          const l2AssignedPercent = item.requested > 0
+            ? Math.min(100, (l2Assigned / item.requested) * 100)
             : 0;
           const executedPercent = item.requested > 0
             ? Math.min(100, (item.executed / item.requested) * 100)
@@ -61,7 +74,7 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
                 </span>
               </div>
 
-              {/* Stepped progress bar */}
+              {/* 4-layer stepped progress bar: Requested > L1 Approved > L2 Assigned > Executed */}
               <div className="h-6 w-full bg-slate-800/50 rounded-lg overflow-hidden relative">
                 {/* Requested baseline (full width) */}
                 <div
@@ -75,22 +88,28 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
                     style={{ width: `${rejectedPercent}%` }}
                   />
                 )}
-                {/* Approved segment */}
+                {/* L1 Approved segment (quartermaster decision) */}
                 <div
                   className="absolute inset-y-0 left-0 bg-blue-500/40 transition-all duration-500"
                   style={{ width: `${approvedPercent}%` }}
                 />
-                {/* Executed segment */}
+                {/* L2 Assigned segment (admin warehouse assignment) */}
+                <div
+                  className="absolute inset-y-0 left-0 bg-purple-500/60 transition-all duration-500"
+                  style={{ width: `${l2AssignedPercent}%` }}
+                />
+                {/* Executed segment (L3 execution) */}
                 <div
                   className="absolute inset-y-0 left-0 bg-emerald-500 transition-all duration-500"
                   style={{ width: `${executedPercent}%` }}
                 />
               </div>
 
-              {/* Legend row */}
-              <div className="flex items-center gap-4 text-xs">
-                <div className="flex items-center text-slate-400">
-                  <span className="w-2 h-2 rounded-full bg-slate-600 inline-block mr-1" />
+              {/* Legend row — shows all 4 layers */}
+              <div className="flex flex-wrap items-start gap-x-4 gap-y-1 text-xs">
+                {/* Requested */}
+                <div className="flex items-start text-slate-400">
+                  <span className="w-2 h-2 rounded-full bg-slate-600 inline-block mr-1 mt-0.5 flex-shrink-0" />
                   <div>
                     <div>Requested: {item.requested}</div>
                     {item.standardUnitName && item.standardRequested != null && (
@@ -100,10 +119,12 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center text-blue-400">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 inline-block mr-1" />
+
+                {/* L1 Approved (quartermaster) */}
+                <div className="flex items-start text-blue-400">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 inline-block mr-1 mt-0.5 flex-shrink-0" />
                   <div>
-                    <div>Approved: {item.approved}</div>
+                    <div>L1 Approved: {item.approved}</div>
                     {item.standardUnitName && item.standardApproved != null && (
                       <div className="text-blue-500/60 font-mono">
                         {item.standardApproved.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {item.standardUnitName}
@@ -111,8 +132,25 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center text-emerald-400">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1" />
+
+                {/* L2 Assigned (admin warehouse) — always shown when approved > 0 */}
+                {item.approved > 0 && (
+                  <div className="flex items-start text-purple-400">
+                    <span className="w-2 h-2 rounded-full bg-purple-500 inline-block mr-1 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div>L2 Assigned: {l2Assigned}</div>
+                      {item.standardUnitName && item.standardL2Assigned != null && (
+                        <div className="text-purple-500/60 font-mono">
+                          {item.standardL2Assigned.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {item.standardUnitName}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Executed (L3) */}
+                <div className="flex items-start text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1 mt-0.5 flex-shrink-0" />
                   <div>
                     <div>Executed: {item.executed}</div>
                     {item.standardUnitName && item.standardExecuted != null && (
@@ -122,16 +160,28 @@ export function ItemsSummaryProgress({ items }: ItemsSummaryProgressProps) {
                     )}
                   </div>
                 </div>
+
+                {/* Rejected */}
                 {item.rejected > 0 && (
                   <div className="flex items-center text-red-400">
-                    <span className="w-2 h-2 rounded-full bg-red-500 inline-block mr-1" />
+                    <span className="w-2 h-2 rounded-full bg-red-500 inline-block mr-1 flex-shrink-0" />
                     Rejected: {item.rejected}
                   </div>
                 )}
-                {pending > 0 && (
+
+                {/* Pending L2 assignment */}
+                {pendingL2 > 0 && (
                   <div className="flex items-center text-amber-400">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 inline-block mr-1" />
-                    Pending: {pending}
+                    <span className="w-2 h-2 rounded-full bg-amber-500 inline-block mr-1 flex-shrink-0" />
+                    Awaiting Assignment: {pendingL2}
+                  </div>
+                )}
+
+                {/* Pending execution */}
+                {pendingExecution > 0 && (
+                  <div className="flex items-center text-cyan-400">
+                    <span className="w-2 h-2 rounded-full bg-cyan-500 inline-block mr-1 flex-shrink-0" />
+                    Awaiting Execution: {pendingExecution}
                   </div>
                 )}
               </div>

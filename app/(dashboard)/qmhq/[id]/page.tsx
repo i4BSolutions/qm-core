@@ -276,8 +276,8 @@ export default function QMHQDetailPage() {
         .select(`
           id, request_number, status,
           line_items:stock_out_line_items(
-            id, item_id, requested_quantity, status,
-            approvals:stock_out_approvals(approved_quantity, decision)
+            id, item_id, requested_quantity, conversion_rate, status,
+            approvals:stock_out_approvals(approved_quantity, decision, layer, warehouse_id, parent_approval_id, conversion_rate)
           )
         `)
         .eq('qmhq_id', qmhqData.id)
@@ -476,19 +476,32 @@ export default function QMHQDetailPage() {
       // Calculate standard requested
       const standardRequested = requested * itemConversionRate;
 
-      // Calculate approved qty from SOR line items
-      let approved = 0;
+      // Calculate L1 (quartermaster) approved, L2 (admin warehouse assigned), and rejected qty from SOR line items
+      let l1Approved = 0;
+      let l2Assigned = 0;
       let rejected = 0;
-      let standardApproved = 0;
+      let standardL1Approved = 0;
+      let standardL2Assigned = 0;
       if (stockOutRequest?.line_items) {
         for (const li of stockOutRequest.line_items) {
           if (li.item_id === item.item_id) {
-            const approvedApprovals = li.approvals?.filter((a: any) => a.decision === 'approved') || [];
+            // L1: quartermaster layer approved quantities
+            const l1Approvals = li.approvals?.filter((a: any) => a.decision === 'approved' && a.layer === 'quartermaster') || [];
+            // L2: admin layer approved quantities (warehouse assignments)
+            const l2Approvals = li.approvals?.filter((a: any) => a.decision === 'approved' && a.layer === 'admin') || [];
             const rejectedApprovals = li.approvals?.filter((a: any) => a.decision === 'rejected') || [];
-            approved += approvedApprovals.reduce((sum: number, a: any) => sum + (a.approved_quantity || 0), 0);
+
+            l1Approved += l1Approvals.reduce((sum: number, a: any) => sum + (a.approved_quantity || 0), 0);
+            l2Assigned += l2Approvals.reduce((sum: number, a: any) => sum + (a.approved_quantity || 0), 0);
             rejected += rejectedApprovals.reduce((sum: number, a: any) => sum + (a.approved_quantity || 0), 0);
-            // Calculate standard approved using approval conversion_rate
-            standardApproved += approvedApprovals.reduce((sum: number, a: any) => {
+
+            // Calculate standard quantities using approval conversion_rate
+            standardL1Approved += l1Approvals.reduce((sum: number, a: any) => {
+              const qty = a.approved_quantity || 0;
+              const rate = a.conversion_rate ?? 1;
+              return sum + (qty * rate);
+            }, 0);
+            standardL2Assigned += l2Approvals.reduce((sum: number, a: any) => {
               const qty = a.approved_quantity || 0;
               const rate = a.conversion_rate ?? 1;
               return sum + (qty * rate);
@@ -516,11 +529,16 @@ export default function QMHQDetailPage() {
         itemName: item.item?.name || 'Unknown Item',
         itemSku: item.item?.sku || null,
         requested,
-        approved,
+        // "approved" field: L1 quartermaster approved (how many units are cleared at L1)
+        approved: l1Approved,
+        // l2Assigned: warehouse-specific quantities from L2 admin assignment
+        l2Assigned,
         executed,
         rejected,
         standardRequested,
-        standardApproved,
+        // standardApproved: standard units for L1 approval
+        standardApproved: standardL1Approved,
+        standardL2Assigned,
         standardExecuted,
         standardUnitName: (item.item as any)?.standard_unit_rel?.name || undefined,
       };
