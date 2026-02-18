@@ -926,7 +926,7 @@ export default function QMHQDetailPage() {
                       <div className="text-right">
                         <div>
                           <span className="text-lg font-mono text-blue-400">{item.quantity}</span>
-                          {item.item?.default_unit && (
+                          {item.item?.default_unit && (item as any).conversion_rate > 1 && (
                             <span className="text-xs text-slate-400 ml-1">{item.item.default_unit}</span>
                           )}
                         </div>

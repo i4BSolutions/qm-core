@@ -651,7 +651,7 @@ function InvoiceCreateContent() {
                               {item.item_sku && (
                                 <code className="text-xs text-amber-400">{item.item_sku}</code>
                               )}
-                              {item.item_unit && (
+                              {item.item_unit && parseFloat(item.conversion_rate) > 1 && (
                                 <span className="text-xs text-slate-500">Unit: {item.item_unit}</span>
                               )}
                             </div>

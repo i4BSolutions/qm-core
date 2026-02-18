@@ -121,7 +121,7 @@ export function EditableInvoiceLineItemsTable({
                     >
                       {item.available_quantity}
                     </span>
-                    {item.item_unit && (
+                    {item.item_unit && parseFloat(item.conversion_rate) > 1 && (
                       <span className="text-xs text-slate-400 ml-1">
                         {item.item_unit}
                       </span>

@@ -845,7 +845,7 @@ function StockInContent() {
                                     {line.item_sku}
                                   </code>
                                 )}
-                                {line.item_unit && (
+                                {line.item_unit && parseFloat(line.conversion_rate) > 1 && (
                                   <span className="text-xs text-slate-500">
                                     Unit: {line.item_unit}
                                   </span>
@@ -974,7 +974,7 @@ function StockInContent() {
                 onKeyDown={handleQuantityKeyDown}
                 className="bg-slate-800/50 border-slate-700 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
-              {selectedManualItem?.default_unit && (
+              {selectedManualItem?.default_unit && parseFloat(manualConversionRate) > 1 && (
                 <p className="text-xs text-slate-500 mt-1">
                   Unit: {selectedManualItem.default_unit}
                 </p>

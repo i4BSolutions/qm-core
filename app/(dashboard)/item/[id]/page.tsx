@@ -218,7 +218,7 @@ export default function ItemDetailPage() {
       ),
       cell: ({ row }) => (
         <span className="font-mono text-emerald-400">
-          {formatStockQuantity(row.getValue("current_stock"), item?.default_unit)}
+          {formatStockQuantity(row.getValue("current_stock"))}
         </span>
       ),
     },
@@ -457,7 +457,7 @@ export default function ItemDetailPage() {
                 Total Stock
               </p>
               <p className="text-2xl font-mono font-bold text-emerald-400">
-                {formatStockQuantity(totals.totalStock, item.default_unit)}
+                {formatStockQuantity(totals.totalStock)}
               </p>
             </div>
 

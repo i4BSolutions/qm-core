@@ -284,7 +284,7 @@ export default function WarehouseDetailPage() {
         return (
           <div className="text-right">
             <span className={`font-mono ${colorClass}`}>
-              {formatStockQuantity(stock, unit)}
+              {formatStockQuantity(stock, row.original.has_standard_conversion ? unit : undefined)}
             </span>
             {row.original.standard_unit_name && row.original.has_standard_conversion && (
               <div className="text-xs font-mono text-slate-400 mt-1">

@@ -458,7 +458,7 @@ export function L2WarehouseDialog({
           <div className="space-y-2">
             <Label htmlFor="l2-conversion-rate">
               Conversion Rate
-              {lineItem.unit_name && (
+              {lineItem.unit_name && lineItem.conversion_rate > 1 && (
                 <span className="text-slate-500 font-normal ml-1 text-xs">
                   (boxes to {lineItem.unit_name})
                 </span>
