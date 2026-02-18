@@ -463,6 +463,9 @@ export default function PODetailPage() {
             invoicedPercent={progress.invoicedPercent}
             receivedPercent={progress.receivedPercent}
             showLabels={true}
+            totalQty={totalQty}
+            invoicedQty={invoicedQty}
+            receivedQty={receivedQty}
           />
         </div>
         </div>

@@ -337,24 +337,47 @@ function POLineItemProgress({ ordered, invoiced, received }: {
         </span>
       </div>
 
-      {/* Stepped progress bar */}
-      <div className="h-5 w-full bg-slate-800/50 rounded-md overflow-hidden relative">
-        {/* Ordered baseline (full width, gray) */}
-        <div
-          className="absolute inset-y-0 left-0 bg-slate-600/30 transition-all duration-500"
-          style={{ width: "100%" }}
-        />
-        {/* Invoiced segment (blue) */}
-        <div
-          className="absolute inset-y-0 left-0 bg-blue-500/40 transition-all duration-500"
-          style={{ width: `${invoicedPercent}%` }}
-        />
-        {/* Received segment (green, overlays invoiced) */}
-        <div
-          className="absolute inset-y-0 left-0 bg-emerald-500 transition-all duration-500"
-          style={{ width: `${receivedPercent}%` }}
-        />
-      </div>
+      {/* Stepped progress bar — wrapped in tooltip for quantity breakdown */}
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="h-5 w-full bg-slate-800/50 rounded-md overflow-hidden relative cursor-default">
+              {/* Ordered baseline (full width, gray) */}
+              <div
+                className="absolute inset-y-0 left-0 bg-slate-600/30 transition-all duration-500"
+                style={{ width: "100%" }}
+              />
+              {/* Invoiced segment (blue) */}
+              <div
+                className="absolute inset-y-0 left-0 bg-blue-500/40 transition-all duration-500"
+                style={{ width: `${invoicedPercent}%` }}
+              />
+              {/* Received segment (green, overlays invoiced) */}
+              <div
+                className="absolute inset-y-0 left-0 bg-emerald-500 transition-all duration-500"
+                style={{ width: `${receivedPercent}%` }}
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-slate-600 shrink-0" />
+              <span className="text-slate-400">Ordered:</span>
+              <span className="font-mono text-slate-200 ml-auto pl-3">{ordered}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+              <span className="text-slate-400">Invoiced:</span>
+              <span className="font-mono text-blue-300 ml-auto pl-3">{invoiced}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+              <span className="text-slate-400">Received:</span>
+              <span className="font-mono text-emerald-300 ml-auto pl-3">{received}</span>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       {/* Legend row with colored dots */}
       <div className="flex items-center gap-3 text-[10px]">
