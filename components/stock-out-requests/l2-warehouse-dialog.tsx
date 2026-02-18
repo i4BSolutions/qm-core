@@ -449,7 +449,7 @@ export function L2WarehouseDialog({
             {/* Standard unit conversion */}
             {showConversion && convertedQty && (
               <p className="text-xs text-slate-400">
-                {assignedQtyNum} boxes = {convertedQty} {lineItem.unit_name}
+                = {convertedQty} {lineItem.unit_name}
               </p>
             )}
           </div>
@@ -460,7 +460,7 @@ export function L2WarehouseDialog({
               Conversion Rate
               {lineItem.unit_name && lineItem.conversion_rate > 1 && (
                 <span className="text-slate-500 font-normal ml-1 text-xs">
-                  (boxes to {lineItem.unit_name})
+                  (to {lineItem.unit_name})
                 </span>
               )}
             </Label>

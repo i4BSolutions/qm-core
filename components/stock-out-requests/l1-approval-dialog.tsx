@@ -110,7 +110,7 @@ setQtyError(null);
     }
   };
 
-  // Standard unit conversion display: e.g., "40 boxes = 480 pieces"
+  // Standard unit conversion display: e.g., "= 480 pieces"
   const approvedQtyNum = parseInt(approvedQuantity, 10);
   const showConversion =
     lineItem.unit_name &&
@@ -197,7 +197,7 @@ setQtyError(null);
             {/* Standard unit conversion display */}
             {showConversion && convertedQty && (
               <p className="text-xs text-slate-400">
-                {approvedQtyNum} boxes = {convertedQty} {lineItem.unit_name}
+                = {convertedQty} {lineItem.unit_name}
               </p>
             )}
           </div>
