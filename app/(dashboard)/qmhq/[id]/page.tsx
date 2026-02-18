@@ -22,7 +22,6 @@ import {
   TrendingDown,
   AlertTriangle,
   Paperclip,
-  ArrowUpFromLine,
   CheckCircle2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -44,10 +43,8 @@ import type { FileAttachmentWithUploader } from "@/lib/actions/files";
 import { ClickableStatusBadge } from "@/components/status/clickable-status-badge";
 import { FulfillmentProgressBar } from "@/components/qmhq/fulfillment-progress-bar";
 import { CommentsSection } from "@/components/comments";
-import { SORTransactionGroup } from "@/components/qmhq/sor-transaction-group";
 import { ItemsSummaryProgress } from "@/components/qmhq/items-summary-progress";
 import type { ItemProgressData } from "@/components/qmhq/items-summary-progress";
-import { QmhqLinkedTransactions } from "@/components/qmhq/qmhq-linked-transactions";
 import { FulfillmentMetrics } from "@/components/qmhq/fulfillment-metrics";
 import { DetailPageLayout } from "@/components/composite";
 import { MoneyOutPDFButton } from "@/components/qmhq/money-out-pdf-button";
@@ -400,72 +397,6 @@ export default function QMHQDetailPage() {
     });
   };
 
-  // Calculate if all items are fully issued (for item route)
-  // Must be before early returns per React hooks rules
-  const allItemsFullyIssued = useMemo(() => {
-    if (qmhqItems.length === 0) return false;
-    return qmhqItems.every((item) => {
-      const issuedQty = stockOutTransactions
-        .filter(t => t.item_id === item.item_id)
-        .reduce((sum, t) => sum + (t.quantity || 0), 0);
-      return issuedQty >= item.quantity;
-    });
-  }, [qmhqItems, stockOutTransactions]);
-
-  const sorGroupedTransactions = useMemo(() => {
-    const groups: Record<string, {
-      sorId: string;
-      sorNumber: string;
-      sorStatus: string;
-      totalQty: number;
-      transactions: Array<{
-        id: string;
-        quantity: number;
-        status: string;
-        created_at: string;
-        transaction_date?: string | null;
-        reason?: string | null;
-        notes?: string | null;
-        approval_number?: string | null;
-        qmhq?: { id: string; request_id: string } | null;
-        item?: { id: string; name: string; sku: string | null } | null;
-        warehouse?: { id: string; name: string } | null;
-      }>;
-    }> = {};
-
-    stockOutTransactions.forEach((tx) => {
-      const sor = tx.stock_out_approval?.line_item?.request;
-      const sorKey = sor?.request_number || '_ungrouped';
-
-      if (!groups[sorKey]) {
-        groups[sorKey] = {
-          sorId: sor?.id || '',
-          sorNumber: sor?.request_number || 'Unknown',
-          sorStatus: sor?.status || 'unknown',
-          totalQty: 0,
-          transactions: [],
-        };
-      }
-
-      // Map transaction to match expected type (ensure status is always string)
-      groups[sorKey].transactions.push({
-        id: tx.id,
-        quantity: tx.quantity || 0,
-        status: tx.status || 'pending',
-        created_at: tx.created_at || '',
-        transaction_date: tx.transaction_date,
-        reason: tx.reason,
-        notes: tx.notes,
-        approval_number: tx.stock_out_approval?.approval_number || null,
-        qmhq: (tx as any).qmhq || null,
-        item: tx.item,
-        warehouse: tx.warehouse,
-      });
-      groups[sorKey].totalQty += tx.quantity || 0;
-    });
-
-    return Object.values(groups);
-  }, [stockOutTransactions]);
 
   const itemsProgressData = useMemo((): ItemProgressData[] => {
     return qmhqItems.map((item) => {
@@ -767,12 +698,6 @@ export default function QMHQDetailPage() {
           <TabsTrigger value="details" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
             Details
           </TabsTrigger>
-          {qmhq.route_type === "item" && (
-            <TabsTrigger value="stock-out" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
-              <ArrowUpFromLine className="mr-2 h-4 w-4" />
-              Stock Out ({stockOutTransactions.length})
-            </TabsTrigger>
-          )}
           {(qmhq.route_type === "expense" || qmhq.route_type === "po") && (
             <TabsTrigger value="transactions" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
               Transactions ({transactions.length})
@@ -1020,79 +945,6 @@ export default function QMHQDetailPage() {
             </div>
           </div>
         </TabsContent>
-
-        {/* Stock Out Tab */}
-        {qmhq.route_type === "item" && (
-          <TabsContent value="stock-out" className="mt-6">
-            <div className="command-panel corner-accents">
-              {/* Header with Request Stock-Out button */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="section-header mb-0">
-                  <ArrowUpFromLine className="h-4 w-4 text-red-400" />
-                  <h2>Stock Out Transactions</h2>
-                </div>
-                {!stockOutRequest && can("create", "stock_out_requests") && (
-                  <Link href={`/inventory/stock-out-requests/new?qmhq=${qmhqId}`}>
-                    <Button className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Request Stock-Out
-                    </Button>
-                  </Link>
-                )}
-              </div>
-
-              {/* Items Summary with Stepped Progress Bar */}
-              {qmhqItems.length > 0 && (
-                <div className="mb-6">
-                  <ItemsSummaryProgress items={itemsProgressData} />
-                </div>
-              )}
-
-              {/* SOR-Grouped Transactions or Empty State */}
-              {stockOutTransactions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
-                    <ArrowUpFromLine className="h-8 w-8 text-slate-500" />
-                  </div>
-                  <h3 className="text-lg font-medium text-slate-300 mb-2">No Items Issued Yet</h3>
-                  <p className="text-sm text-slate-400 max-w-md mb-4">
-                    Stock-out transactions will appear here once a stock-out request is approved and executed.
-                  </p>
-                  {!stockOutRequest && can("create", "stock_out_requests") && (
-                    <Link href={`/inventory/stock-out-requests/new?qmhq=${qmhqId}`}>
-                      <Button variant="outline" className="border-slate-700">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Request Stock-Out
-                      </Button>
-                    </Link>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {sorGroupedTransactions.map((group) => (
-                    <SORTransactionGroup
-                      key={group.sorId || group.sorNumber}
-                      sorId={group.sorId}
-                      sorNumber={group.sorNumber}
-                      sorStatus={group.sorStatus}
-                      totalQty={group.totalQty}
-                      currentQmhqId={qmhqId}
-                      transactions={group.transactions}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Linked Transactions Table */}
-            <div className="mt-6">
-              <QmhqLinkedTransactions
-                qmhqId={qmhqId}
-                qmhqRequestId={qmhq.request_id}
-              />
-            </div>
-          </TabsContent>
-        )}
 
         {/* Transactions Tab */}
         {(qmhq.route_type === "expense" || qmhq.route_type === "po") && (
