@@ -1,18 +1,21 @@
 import { Font, StyleSheet } from "@react-pdf/renderer";
 
-// Register Noto Sans Myanmar font for Myanmar script support (U+1000-U+109F)
-// This font also covers Latin characters, serving as the full default font.
-// Using Google Fonts static TTF URLs which are accessible at PDF generation time.
+// Register Pyidaungsu font for Myanmar script support (U+1000-U+109F)
+// Pyidaungsu is the official Myanmar Unicode font from Myanmar Computer Federation (MCF).
+// Served from /public/fonts/ as a local asset — more reliable than Google Fonts CDN URLs.
+// Font files: public/fonts/Pyidaungsu-Regular.ttf and public/fonts/Pyidaungsu-Bold.ttf
+// Myanmar shaping requires fontkit patch (patches/fontkit+2.0.4.patch) which maps
+// mym2/mymr script tags to UniversalShaper, enabling GSUB features (abvs, blwf, blws, etc).
 Font.register({
-  family: "NotoSansMyanmar",
+  family: "Pyidaungsu",
   fonts: [
     {
-      src: "https://fonts.gstatic.com/s/notosansmyanmar/v27/AlZU_y1ZtY3ymOryg38hOCSdOnFq0FP9_gnYM_ME0QeqLzz8-kqmtY3KLEbEGTOZltU.ttf",
+      src: "/fonts/Pyidaungsu-Regular.ttf",
       fontWeight: "normal",
       fontStyle: "normal",
     },
     {
-      src: "https://fonts.gstatic.com/s/notosansmyanmar/v27/AlZU_y1ZtY3ymOryg38hOCSdOnFq0FP9_gnYM_ME0QeqLzz8-kqmtY3KLEbEGdSeltU.ttf",
+      src: "/fonts/Pyidaungsu-Bold.ttf",
       fontWeight: "bold",
       fontStyle: "normal",
     },
@@ -27,7 +30,7 @@ export const darkThemeStyles = StyleSheet.create({
     color: "#F8FAFC", // slate-50
     padding: 40,
     fontSize: 10,
-    fontFamily: "NotoSansMyanmar",
+    fontFamily: "Pyidaungsu",
   },
 
   // Header
