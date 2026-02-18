@@ -30,6 +30,7 @@ import {
   STOCK_OUT_REASON_CONFIG,
   formatStockQuantity,
 } from "@/lib/utils/inventory";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 import type { ColumnDef } from "@tanstack/react-table";
 import { HistoryTab } from "@/components/history";
 import { DetailPageLayout } from "@/components/composite";
@@ -448,11 +449,52 @@ export default function WarehouseDetailPage() {
     {
       accessorKey: "unit_cost",
       header: "Unit Cost",
-      cell: ({ row }) => (
-        <span className="font-mono text-slate-300">
-          {row.getValue("unit_cost") ? formatCurrency(row.getValue("unit_cost")) : "—"}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const unitCost = row.original.unit_cost;
+        const currency = row.original.currency;
+        const exchangeRate = row.original.exchange_rate;
+        const unitCostEusd = row.original.unit_cost_eusd;
+
+        if (!unitCost || !currency) {
+          return <span className="text-slate-500">—</span>;
+        }
+
+        return (
+          <CurrencyDisplay
+            amount={unitCost}
+            currency={currency}
+            exchangeRate={exchangeRate ?? 1}
+            amountEusd={unitCostEusd ?? undefined}
+            size="sm"
+            showDashForEmpty
+          />
+        );
+      },
+    },
+    {
+      accessorKey: "total_cost",
+      header: "Total Cost",
+      cell: ({ row }) => {
+        const totalCost = row.original.total_cost;
+        const currency = row.original.currency;
+        const exchangeRate = row.original.exchange_rate;
+        const totalCostEusd = row.original.total_cost_eusd;
+
+        if (!totalCost || !currency) {
+          return <span className="text-slate-500">—</span>;
+        }
+
+        return (
+          <CurrencyDisplay
+            amount={totalCost}
+            currency={currency}
+            exchangeRate={exchangeRate ?? 1}
+            amountEusd={totalCostEusd ?? undefined}
+            size="sm"
+            showDashForEmpty
+          />
+        );
+      },
     },
     {
       accessorKey: "notes",
