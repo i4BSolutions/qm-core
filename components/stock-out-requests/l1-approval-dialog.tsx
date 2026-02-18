@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Loader2, Check, Package } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -44,7 +43,6 @@ export function L1ApprovalDialog({
 }: L1ApprovalDialogProps) {
   const { user } = useAuth();
   const [approvedQuantity, setApprovedQuantity] = useState<string>("");
-  const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [qtyError, setQtyError] = useState<string | null>(null);
 
@@ -52,8 +50,7 @@ export function L1ApprovalDialog({
   useEffect(() => {
     if (!open) return;
     setApprovedQuantity(lineItem.remaining_quantity.toString());
-    setNotes("");
-    setQtyError(null);
+setQtyError(null);
   }, [open, lineItem]);
 
   const validate = (): boolean => {
@@ -97,7 +94,6 @@ export function L1ApprovalDialog({
         decision: "approved",
         decided_by: user.id,
         created_by: user.id,
-        ...(notes.trim() ? { notes: notes.trim() } : {}),
       });
 
       if (error) throw error;
@@ -206,17 +202,6 @@ export function L1ApprovalDialog({
             )}
           </div>
 
-          {/* Optional Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="l1-approval-notes">Notes (Optional)</Label>
-            <Textarea
-              id="l1-approval-notes"
-              placeholder="Add any notes about this approval..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-            />
-          </div>
         </div>
 
         <DialogFooter>
