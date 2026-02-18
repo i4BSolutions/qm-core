@@ -8,6 +8,7 @@ import {
   ArrowRightLeft,
   UserPlus,
   Ban,
+  Bot,
   Check,
   Lock,
   XCircle,
@@ -20,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import type { AuditLog, AuditAction } from "@/types/database";
 
 /**
@@ -253,10 +255,22 @@ function HistoryEntry({ log, isLast }: HistoryEntryProps) {
 
             {/* User and time */}
             <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
-              <span className="flex items-center gap-1">
-                <span className="font-medium text-slate-300">
-                  {log.changed_by_name || "System"}
-                </span>
+              <span className="flex items-center gap-1.5">
+                {log.changed_by ? (
+                  <>
+                    <UserAvatar fullName={log.changed_by_name || "Unknown"} size={20} />
+                    <span className="font-medium text-slate-300">
+                      {log.changed_by_name}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-700">
+                      <Bot className="h-3 w-3 text-slate-400" />
+                    </span>
+                    <span className="font-medium text-slate-500">System</span>
+                  </>
+                )}
               </span>
               <span className="flex items-center gap-1" title={formatFullTime(log.changed_at)}>
                 <Clock className="h-3 w-3" />
