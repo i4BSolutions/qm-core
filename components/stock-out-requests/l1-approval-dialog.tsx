@@ -106,8 +106,9 @@ export function L1ApprovalDialog({
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Error creating L1 approval:", error);
-      toast.error(error.message || "Failed to approve quantity");
+      console.error("Error creating L1 approval:", JSON.stringify(error));
+      const msg = error?.message || error?.details || error?.hint || "Failed to approve quantity";
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }
