@@ -2,6 +2,12 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
 
+// Routes that each role is NOT allowed to access (direct navigation blocked)
+const ROLE_BLOCKED_ROUTES: Record<string, string[]> = {
+  qmrl: ["/qmhq", "/po", "/invoice", "/inventory", "/warehouse", "/admin"],
+  qmhq: ["/po", "/invoice", "/inventory", "/warehouse", "/admin"],
+};
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -51,11 +57,11 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If user exists and route is protected, check if user is still active
+  // If user exists and route is protected, check if user is still active and enforce RBAC
   if (user && !isPublicRoute) {
     const { data: profile } = await supabase
       .from("users")
-      .select("is_active")
+      .select("is_active, role")
       .eq("id", user.id)
       .single();
 
@@ -66,6 +72,20 @@ export async function updateSession(request: NextRequest) {
       url.pathname = "/login";
       url.searchParams.set("reason", "deactivated");
       return NextResponse.redirect(url);
+    }
+
+    // Enforce role-based route access
+    if (profile && profile.role) {
+      const blockedRoutes = ROLE_BLOCKED_ROUTES[profile.role as string] ?? [];
+      const pathname = request.nextUrl.pathname;
+      const isBlocked = blockedRoutes.some((blocked) =>
+        pathname === blocked || pathname.startsWith(blocked + "/")
+      );
+      if (isBlocked) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
     }
   }
 

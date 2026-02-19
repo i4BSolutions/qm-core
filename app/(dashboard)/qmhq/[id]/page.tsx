@@ -1099,13 +1099,15 @@ export default function QMHQDetailPage() {
                   <DollarSign className="h-4 w-4 text-amber-500" />
                   <h2>Financial Transactions</h2>
                 </div>
-                <Button
-                  onClick={() => setIsTransactionDialogOpen(true)}
-                  className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Transaction
-                </Button>
+                {can("create", "financial_transactions") && (
+                  <Button
+                    onClick={() => setIsTransactionDialogOpen(true)}
+                    className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Transaction
+                  </Button>
+                )}
               </div>
 
               {transactions.length === 0 ? (
@@ -1225,22 +1227,24 @@ export default function QMHQDetailPage() {
                   <ShoppingCart className="h-4 w-4 text-amber-500" />
                   <h2>Purchase Orders ({purchaseOrders.length})</h2>
                 </div>
-{(qmhq.balance_in_hand ?? 0) > 0 ? (
-                  <Link href={`/po/new?qmhq=${qmhqId}`}>
-                    <Button className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400">
+                {can("create", "purchase_orders") && (
+                  (qmhq.balance_in_hand ?? 0) > 0 ? (
+                    <Link href={`/po/new?qmhq=${qmhqId}`}>
+                      <Button className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create PO
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      disabled
+                      className="bg-slate-600 cursor-not-allowed"
+                      title="Balance in Hand is 0"
+                    >
                       <Plus className="mr-2 h-4 w-4" />
                       Create PO
                     </Button>
-                  </Link>
-                ) : (
-                  <Button
-                    disabled
-                    className="bg-slate-600 cursor-not-allowed"
-                    title="Balance in Hand is 0"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create PO
-                  </Button>
+                  )
                 )}
               </div>
 

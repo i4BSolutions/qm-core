@@ -37,18 +37,18 @@ export type PermissionResource =
  * | Users | CRUD | - | - |
  * | QMRL | CRUD | CRU | R |
  * | QMHQ | CRUD | - | CRUD |
- * | Financial Trans. | CRUD | - | CRUD |
+ * | Financial Trans. | CRUD | - | R (view in QMHQ tabs only) |
  * | Inventory Trans. | CRUD | - | R |
- * | POs | CRUD | - | CRUD |
- * | Invoices | CRUD | - | CRUD |
+ * | POs | CRUD | - | R (view in QMHQ tabs only) |
+ * | Invoices | CRUD | - | R (view in QMHQ tabs only) |
  * | Items | CRUD | R | RU |
- * | Warehouses | CRUD | R | RU |
- * | Suppliers | CRUD | R | CRUD |
+ * | Warehouses | CRUD | - | R (view in QMHQ tabs only) |
+ * | Suppliers | CRUD | - | R |
  * | Contact Persons | CRUD | CRU | CRUD |
  * | Departments | CRUD | R | R |
  * | Categories | CRUD | R | CR |
  * | Statuses | CRUD | R | CR |
- * | Stock-Out Requests | CRUD | R | CR |
+ * | Stock-Out Requests | CRUD | - | R |
  */
 
 type PermissionMatrix = {
@@ -76,7 +76,7 @@ const permissionMatrix: PermissionMatrix = {
   financial_transactions: {
     admin: ["create", "read", "update", "delete"],
     qmrl: [],
-    qmhq: ["create", "read", "update", "delete"],
+    qmhq: ["read"],
   },
   inventory_transactions: {
     admin: ["create", "read", "update", "delete"],
@@ -86,12 +86,12 @@ const permissionMatrix: PermissionMatrix = {
   purchase_orders: {
     admin: ["create", "read", "update", "delete"],
     qmrl: [],
-    qmhq: ["create", "read", "update", "delete"],
+    qmhq: ["read"],
   },
   invoices: {
     admin: ["create", "read", "update", "delete"],
     qmrl: [],
-    qmhq: ["create", "read", "update", "delete"],
+    qmhq: ["read"],
   },
   items: {
     admin: ["create", "read", "update", "delete"],
@@ -100,13 +100,13 @@ const permissionMatrix: PermissionMatrix = {
   },
   warehouses: {
     admin: ["create", "read", "update", "delete"],
-    qmrl: ["read"],
-    qmhq: ["read", "update"],
+    qmrl: [],
+    qmhq: ["read"],
   },
   suppliers: {
     admin: ["create", "read", "update", "delete"],
-    qmrl: ["read"],
-    qmhq: ["create", "read", "update", "delete"],
+    qmrl: [],
+    qmhq: ["read"],
   },
   contact_persons: {
     admin: ["create", "read", "update", "delete"],
@@ -130,8 +130,8 @@ const permissionMatrix: PermissionMatrix = {
   },
   stock_out_requests: {
     admin: ["create", "read", "update", "delete"],
-    qmrl: ["read"],
-    qmhq: ["create", "read"],
+    qmrl: [],
+    qmhq: ["read"],
   },
 };
 
@@ -225,10 +225,6 @@ export const roleNavigation: Record<UserRole, string[]> = {
     "/dashboard",
     "/qmrl",
     "/qmhq",
-    "/po",
-    "/invoice",
-    "/inventory/stock-out-requests",
-    "/warehouse",
     "/item",
   ],
 };

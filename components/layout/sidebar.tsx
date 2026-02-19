@@ -52,13 +52,13 @@ const allNavigation: NavItem[] = [
     label: "Purchase Orders",
     href: "/po",
     icon: ShoppingCart,
-    roles: ["admin", "qmhq"],
+    roles: ["admin"],
   },
   {
     label: "Invoices",
     href: "/invoice",
     icon: FileSpreadsheet,
-    roles: ["admin", "qmhq"],
+    roles: ["admin"],
   },
   {
     label: "Inventory",
@@ -75,7 +75,7 @@ const allNavigation: NavItem[] = [
     label: "Warehouses",
     href: "/warehouse",
     icon: Warehouse,
-    roles: ["admin", "qmhq"],
+    roles: ["admin"],
   },
   {
     label: "Items",

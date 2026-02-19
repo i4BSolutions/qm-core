@@ -115,21 +115,25 @@ export default function QMRLDetailPage() {
 
     setQmrl(data as QMRLWithRelations);
 
-    // Fetch related QMHQ records
-    const { data: qmhqData } = await supabase
-      .from("qmhq")
-      .select(`
-        *,
-        status:status_config(*),
-        category:categories(*),
-        assigned_user:users!qmhq_assigned_to_fkey(id, full_name)
-      `)
-      .eq("qmrl_id", id)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false });
+    // Fetch related QMHQ records only for roles with qmhq read access
+    // (admin and qmhq roles only - qmrl role has zero visibility into QMHQ)
+    // The RLS policy also enforces this at the database level
+    if (user && user.role !== "qmrl") {
+      const { data: qmhqData } = await supabase
+        .from("qmhq")
+        .select(`
+          *,
+          status:status_config(*),
+          category:categories(*),
+          assigned_user:users!qmhq_assigned_to_fkey(id, full_name)
+        `)
+        .eq("qmrl_id", id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
 
-    if (qmhqData) {
-      setRelatedQmhq(qmhqData as unknown as QMHQWithRelations[]);
+      if (qmhqData) {
+        setRelatedQmhq(qmhqData as unknown as QMHQWithRelations[]);
+      }
     }
 
     // Fetch file count for tab badge
@@ -143,7 +147,7 @@ export default function QMRLDetailPage() {
     setFileCount(filesCount ?? 0);
 
     setIsLoading(false);
-  }, [router]);
+  }, [router, user]);
 
   useEffect(() => {
     if (params.id) {
@@ -309,12 +313,14 @@ export default function QMRLDetailPage() {
               </Button>
             </Link>
           )}
-          <Link href={`/qmhq/new?qmrl=${qmrl.id}`}>
-            <Button className="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400">
-              <Plus className="mr-2 h-4 w-4" />
-              Add QMHQ
-            </Button>
-          </Link>
+          {can("create", "qmhq") && (
+            <Link href={`/qmhq/new?qmrl=${qmrl.id}`}>
+              <Button className="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400">
+                <Plus className="mr-2 h-4 w-4" />
+                Add QMHQ
+              </Button>
+            </Link>
+          )}
         </>
       }
     >
@@ -325,10 +331,12 @@ export default function QMRLDetailPage() {
             <FileText className="mr-2 h-4 w-4" />
             Details
           </TabsTrigger>
-          <TabsTrigger value="qmhq" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
-            <ExternalLink className="mr-2 h-4 w-4" />
-            QMHQ ({relatedQmhq.length})
-          </TabsTrigger>
+          {can("read", "qmhq") && (
+            <TabsTrigger value="qmhq" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              QMHQ ({relatedQmhq.length})
+            </TabsTrigger>
+          )}
           <TabsTrigger value="history" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
             <History className="mr-2 h-4 w-4" />
             History
@@ -520,7 +528,8 @@ export default function QMRLDetailPage() {
           </div>
         </TabsContent>
 
-        {/* QMHQ Tab */}
+        {/* QMHQ Tab - only visible to roles with qmhq read access */}
+        {can("read", "qmhq") && (
         <TabsContent value="qmhq">
           <div className="command-panel corner-accents animate-slide-up">
             <div className="flex items-center justify-between mb-6">
@@ -528,12 +537,14 @@ export default function QMRLDetailPage() {
                 <ExternalLink className="h-4 w-4 text-amber-500" />
                 <h3>QMHQ</h3>
               </div>
-              <Link href={`/qmhq/new?qmrl=${qmrl.id}`}>
-                <Button size="sm" className="bg-gradient-to-r from-amber-600 to-amber-500">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Line
-                </Button>
-              </Link>
+              {can("create", "qmhq") && (
+                <Link href={`/qmhq/new?qmrl=${qmrl.id}`}>
+                  <Button size="sm" className="bg-gradient-to-r from-amber-600 to-amber-500">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Line
+                  </Button>
+                </Link>
+              )}
             </div>
 
             {relatedQmhq.length === 0 ? (
@@ -541,7 +552,9 @@ export default function QMRLDetailPage() {
                 <div className="text-center">
                   <ExternalLink className="h-8 w-8 text-slate-400 mx-auto mb-2" />
                   <p className="text-sm text-slate-400">No QMHQ yet</p>
-                  <p className="text-xs text-slate-400 mt-1">Click "Add Line" to create one</p>
+                  {can("create", "qmhq") && (
+                    <p className="text-xs text-slate-400 mt-1">Click "Add Line" to create one</p>
+                  )}
                 </div>
               </div>
             ) : (
@@ -633,6 +646,7 @@ export default function QMRLDetailPage() {
             )}
           </div>
         </TabsContent>
+        )}
 
         {/* History Tab */}
         <TabsContent value="history">
