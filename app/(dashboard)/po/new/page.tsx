@@ -135,10 +135,21 @@ function POCreateContent() {
         .order("name"),
     ]);
 
-    if (qmhqRes.data) setQmhqs(qmhqRes.data as QMHQWithBalance[]);
+    const loadedQmhqs = (qmhqRes.data as QMHQWithBalance[]) || [];
+    setQmhqs(loadedQmhqs);
     if (suppliersRes.data) setSuppliers(suppliersRes.data);
     if (itemsRes.data) setItems(itemsRes.data);
     if (contactRes.data) setContactPersons(contactRes.data);
+
+    // Sync currency immediately for preselected QMHQ (before first render of form)
+    if (preselectedQmhqId) {
+      const qmhq = loadedQmhqs.find((q) => q.id === preselectedQmhqId);
+      if (qmhq) {
+        const c = qmhq.currency || "MMK";
+        setCurrency(c);
+        setExchangeRate(c === "USD" ? "1" : String(qmhq.exchange_rate || 1));
+      }
+    }
 
     setIsLoading(false);
   };
@@ -504,7 +515,7 @@ function POCreateContent() {
                 disabled={!!selectedQmhqId}
               >
                 <SelectTrigger className={`bg-slate-800/50 border-slate-700 ${selectedQmhqId ? 'opacity-80 cursor-not-allowed' : ''}`}>
-                  <SelectValue placeholder={selectedQmhqId ? currency || "..." : "Select currency..."} />
+                  <SelectValue placeholder="Select currency..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MMK">MMK</SelectItem>
