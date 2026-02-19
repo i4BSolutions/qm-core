@@ -378,7 +378,16 @@ function POCreateContent() {
           >
             <Select
               value={selectedQmhqId}
-              onValueChange={setSelectedQmhqId}
+              onValueChange={(value) => {
+                setSelectedQmhqId(value);
+                // Sync currency + exchange rate immediately on selection
+                const qmhq = qmhqs.find((q) => q.id === value);
+                if (qmhq) {
+                  const c = qmhq.currency || "MMK";
+                  setCurrency(c);
+                  setExchangeRate(c === "USD" ? "1" : String(qmhq.exchange_rate || 1));
+                }
+              }}
               disabled={!!preselectedQmhqId}
             >
               <SelectTrigger className={`bg-slate-800/50 border-slate-700 ${preselectedQmhqId ? 'opacity-70 cursor-not-allowed' : ''}`}>
@@ -495,7 +504,7 @@ function POCreateContent() {
                 disabled={!!selectedQmhqId}
               >
                 <SelectTrigger className={`bg-slate-800/50 border-slate-700 ${selectedQmhqId ? 'opacity-80 cursor-not-allowed' : ''}`}>
-                  <SelectValue placeholder="Select currency..." />
+                  <SelectValue placeholder={selectedQmhqId ? currency || "..." : "Select currency..."} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MMK">MMK</SelectItem>
