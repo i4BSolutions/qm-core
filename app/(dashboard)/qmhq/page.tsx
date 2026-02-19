@@ -338,7 +338,7 @@ export default function QMHQPage() {
 
       {/* Page Header */}
       <PageHeader
-        title="QMHQ Lines"
+        title="QMHQ"
         description={`${totalItems} line${totalItems !== 1 ? "s" : ""} found${totalItems !== qmhqs.length ? ` (of ${qmhqs.length} total)` : ""}`}
         badge={
           <div className="flex items-center gap-2 px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
@@ -642,7 +642,7 @@ export default function QMHQPage() {
                   {paginatedQmhqs.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-slate-400">
-                        No QMHQ lines found
+                        No QMHQ found
                       </td>
                     </tr>
                   ) : (

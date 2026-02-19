@@ -52,7 +52,7 @@ export function SiblingQmhqList({ siblings, isLoading }: SiblingQmhqListProps) {
   if (siblings.length === 0) {
     return (
       <p className="text-sm text-slate-500 italic text-center py-8">
-        No QMHQ lines created yet
+        No QMHQ created yet
       </p>
     );
   }

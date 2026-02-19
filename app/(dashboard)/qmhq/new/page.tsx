@@ -834,7 +834,7 @@ function NewQMHQContent() {
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="details">QMRL Details</TabsTrigger>
                 <TabsTrigger value="siblings">
-                  QMHQ Lines
+                  QMHQ
                   {siblingQmhq.length > 0 && (
                     <Badge variant="outline" className="ml-1.5 text-[10px] px-1.5 py-0">{siblingQmhq.length}</Badge>
                   )}

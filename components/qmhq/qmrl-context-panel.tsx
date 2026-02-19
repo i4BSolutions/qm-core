@@ -456,13 +456,13 @@ export function QmrlContextPanel({ qmrlId }: QmrlContextPanelProps) {
                 )}
               </div>
 
-              {/* Existing QMHQ Lines */}
+              {/* Existing QMHQ */}
               <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <ExternalLink className="h-4 w-4 text-amber-500" />
                     <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                      Existing QMHQ Lines
+                      Existing QMHQ
                     </span>
                   </div>
                   <span className="text-lg font-mono font-bold text-amber-400">

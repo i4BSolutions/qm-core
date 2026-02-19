@@ -327,7 +327,7 @@ export default function QMRLDetailPage() {
           </TabsTrigger>
           <TabsTrigger value="qmhq" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
             <ExternalLink className="mr-2 h-4 w-4" />
-            QMHQ Lines ({relatedQmhq.length})
+            QMHQ ({relatedQmhq.length})
           </TabsTrigger>
           <TabsTrigger value="history" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
             <History className="mr-2 h-4 w-4" />
@@ -520,13 +520,13 @@ export default function QMRLDetailPage() {
           </div>
         </TabsContent>
 
-        {/* QMHQ Lines Tab */}
+        {/* QMHQ Tab */}
         <TabsContent value="qmhq">
           <div className="command-panel corner-accents animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <div className="section-header mb-0">
                 <ExternalLink className="h-4 w-4 text-amber-500" />
-                <h3>QMHQ Lines</h3>
+                <h3>QMHQ</h3>
               </div>
               <Link href={`/qmhq/new?qmrl=${qmrl.id}`}>
                 <Button size="sm" className="bg-gradient-to-r from-amber-600 to-amber-500">
@@ -540,7 +540,7 @@ export default function QMRLDetailPage() {
               <div className="flex h-40 items-center justify-center border border-dashed border-sidebar-border rounded-lg bg-slate-900/30">
                 <div className="text-center">
                   <ExternalLink className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                  <p className="text-sm text-slate-400">No QMHQ lines yet</p>
+                  <p className="text-sm text-slate-400">No QMHQ yet</p>
                   <p className="text-xs text-slate-400 mt-1">Click "Add Line" to create one</p>
                 </div>
               </div>
