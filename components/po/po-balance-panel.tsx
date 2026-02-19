@@ -5,25 +5,31 @@ import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 interface POBalancePanelProps {
+  /** Available balance in EUSD */
   availableBalance: number;
+  /** PO total in EUSD */
   poTotal: number;
-  currency?: string;
-  /** PO total in original currency (before EUSD conversion) */
+  /** PO total in original currency */
   originalPoTotal?: number;
   /** Original currency code (e.g., "MMK", "THB") */
   originalCurrency?: string;
+  /** Exchange rate to convert EUSD → original currency */
+  exchangeRate?: number;
 }
 
 export function POBalancePanel({
   availableBalance,
   poTotal,
-  currency = "EUSD",
   originalPoTotal,
   originalCurrency,
+  exchangeRate = 1,
 }: POBalancePanelProps) {
   const remainingAfterPO = availableBalance - poTotal;
   const exceedsBalance = poTotal > availableBalance;
   const isValid = poTotal > 0 && !exceedsBalance;
+  const cur = originalCurrency || "USD";
+  const isUsd = cur === "USD";
+  const rate = exchangeRate || 1;
 
   return (
     <div
@@ -68,9 +74,9 @@ export function POBalancePanel({
                 Available Balance
               </p>
               <p className="text-lg font-mono font-bold text-purple-400">
-                {formatCurrency(availableBalance)}
+                {formatCurrency(availableBalance * rate)} <span className="text-xs font-normal text-slate-500">{cur}</span>
               </p>
-              <p className="text-xs text-slate-500">{currency}</p>
+              {!isUsd && <p className="text-xs text-slate-500 font-mono">{formatCurrency(availableBalance)} EUSD</p>}
             </div>
 
             {/* PO Total */}
@@ -84,14 +90,9 @@ export function POBalancePanel({
                   exceedsBalance ? "text-red-400" : "text-amber-400"
                 )}
               >
-                {formatCurrency(poTotal)}
+                {formatCurrency(originalPoTotal ?? poTotal * rate)} <span className="text-xs font-normal text-slate-500">{cur}</span>
               </p>
-              <p className="text-xs text-slate-500">{currency}</p>
-              {originalPoTotal != null && originalCurrency && originalCurrency !== "USD" && (
-                <p className="text-xs text-slate-500 font-mono mt-0.5">
-                  {formatCurrency(originalPoTotal)} {originalCurrency}
-                </p>
-              )}
+              {!isUsd && <p className="text-xs text-slate-500 font-mono">{formatCurrency(poTotal)} EUSD</p>}
             </div>
 
             {/* Remaining */}
@@ -105,9 +106,9 @@ export function POBalancePanel({
                   remainingAfterPO < 0 ? "text-red-400" : "text-emerald-400"
                 )}
               >
-                {formatCurrency(remainingAfterPO)}
+                {formatCurrency(remainingAfterPO * rate)} <span className="text-xs font-normal text-slate-500">{cur}</span>
               </p>
-              <p className="text-xs text-slate-500">{currency}</p>
+              {!isUsd && <p className="text-xs text-slate-500 font-mono">{formatCurrency(remainingAfterPO)} EUSD</p>}
             </div>
           </div>
 
@@ -115,7 +116,7 @@ export function POBalancePanel({
             <p className="text-sm text-red-400/80">
               The PO total exceeds the available balance by{" "}
               <span className="font-mono font-semibold">
-                {formatCurrency(Math.abs(remainingAfterPO))} {currency}
+                {formatCurrency(Math.abs(remainingAfterPO) * rate)} {cur}
               </span>
               . Please reduce line items or add more funds to the QMHQ.
             </p>

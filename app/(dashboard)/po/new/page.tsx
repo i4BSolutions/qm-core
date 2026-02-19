@@ -429,28 +429,37 @@ function POCreateContent() {
             </Select>
           </FormField>
 
-            {selectedQmhq && (
+            {selectedQmhq && (() => {
+              const qmhqRate = selectedQmhq.exchange_rate || 1;
+              const qmhqCur = selectedQmhq.currency || "MMK";
+              const isUsd = qmhqCur === "USD";
+              return (
               <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700">
                 <div className="grid grid-cols-4 gap-4 text-center">
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Budget</p>
-                    <p className="font-mono text-slate-200">{formatCurrency(selectedQmhq.amount_eusd ?? 0)} <span className="text-xs text-slate-500">EUSD</span></p>
+                    <p className="font-mono text-slate-200">{formatCurrency((selectedQmhq.amount_eusd ?? 0) * qmhqRate)} <span className="text-xs text-slate-500">{qmhqCur}</span></p>
+                    {!isUsd && <p className="text-xs text-slate-500 font-mono">{formatCurrency(selectedQmhq.amount_eusd ?? 0)} EUSD</p>}
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Money In</p>
-                    <p className="font-mono text-emerald-400">{formatCurrency(selectedQmhq.total_money_in ?? 0)} <span className="text-xs text-slate-500">EUSD</span></p>
+                    <p className="font-mono text-emerald-400">{formatCurrency((selectedQmhq.total_money_in ?? 0) * qmhqRate)} <span className="text-xs text-slate-500">{qmhqCur}</span></p>
+                    {!isUsd && <p className="text-xs text-slate-500 font-mono">{formatCurrency(selectedQmhq.total_money_in ?? 0)} EUSD</p>}
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">PO Committed</p>
-                    <p className="font-mono text-amber-400">{formatCurrency(selectedQmhq.total_po_committed ?? 0)} <span className="text-xs text-slate-500">EUSD</span></p>
+                    <p className="font-mono text-amber-400">{formatCurrency((selectedQmhq.total_po_committed ?? 0) * qmhqRate)} <span className="text-xs text-slate-500">{qmhqCur}</span></p>
+                    {!isUsd && <p className="text-xs text-slate-500 font-mono">{formatCurrency(selectedQmhq.total_po_committed ?? 0)} EUSD</p>}
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Available</p>
-                    <p className="font-mono text-purple-400 font-bold">{formatCurrency(availableBalance)} <span className="text-xs font-normal text-slate-500">EUSD</span></p>
+                    <p className="font-mono text-purple-400 font-bold">{formatCurrency(availableBalance * qmhqRate)} <span className="text-xs font-normal text-slate-500">{qmhqCur}</span></p>
+                    {!isUsd && <p className="text-xs text-slate-500 font-mono">{formatCurrency(availableBalance)} EUSD</p>}
                   </div>
                 </div>
               </div>
-            )}
+              );
+            })()}
         </FormSection>
 
         {/* PO Header */}
@@ -629,9 +638,9 @@ function POCreateContent() {
             <POBalancePanel
               availableBalance={availableBalance}
               poTotal={poTotalEusd}
-              currency="EUSD"
               originalPoTotal={poTotal}
               originalCurrency={currency}
+              exchangeRate={rate}
             />
           </div>
         )}
