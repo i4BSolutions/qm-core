@@ -50,7 +50,7 @@ interface LineItemFormData {
 }
 
 // QMHQ with balance info
-interface QMHQWithBalance extends Pick<QMHQ, "id" | "request_id" | "line_name" | "balance_in_hand" | "amount_eusd" | "total_money_in" | "total_po_committed"> {}
+interface QMHQWithBalance extends Pick<QMHQ, "id" | "request_id" | "line_name" | "balance_in_hand" | "amount_eusd" | "total_money_in" | "total_po_committed" | "currency"> {}
 
 function POCreateContent() {
   const router = useRouter();
@@ -87,6 +87,19 @@ function POCreateContent() {
     fetchReferenceData();
   }, []);
 
+  // Sync currency from selected QMHQ - currency is locked to QMHQ currency
+  useEffect(() => {
+    if (selectedQmhqId && qmhqs.length > 0) {
+      const qmhq = qmhqs.find((q) => q.id === selectedQmhqId);
+      if (qmhq?.currency) {
+        setCurrency(qmhq.currency);
+        if (qmhq.currency === "USD") {
+          setExchangeRate("1");
+        }
+      }
+    }
+  }, [selectedQmhqId, qmhqs]);
+
   const fetchReferenceData = async () => {
     setIsLoading(true);
     const supabase = createClient();
@@ -95,7 +108,7 @@ function POCreateContent() {
       // Only fetch QMHQ with PO route and positive balance
       supabase
         .from("qmhq")
-        .select("id, request_id, line_name, balance_in_hand, amount_eusd, total_money_in, total_po_committed")
+        .select("id, request_id, line_name, balance_in_hand, amount_eusd, total_money_in, total_po_committed, currency")
         .eq("route_type", "po")
         .eq("is_active", true)
         .gt("balance_in_hand", 0)
@@ -452,9 +465,27 @@ function POCreateContent() {
               />
             </FormField>
 
-            <FormField label="Currency" htmlFor="currency" required>
-              <Select value={currency} onValueChange={handleCurrencyChange}>
-                <SelectTrigger className="bg-slate-800/50 border-slate-700">
+            <FormField
+              label={
+                <span className="flex items-center gap-2">
+                  Currency
+                  {selectedQmhqId && (
+                    <span className="flex items-center gap-1 text-xs text-amber-500 font-normal">
+                      <Lock className="h-3 w-3" />
+                      Locked from QMHQ
+                    </span>
+                  )}
+                </span>
+              }
+              htmlFor="currency"
+              required
+            >
+              <Select
+                value={currency}
+                onValueChange={handleCurrencyChange}
+                disabled={!!selectedQmhqId}
+              >
+                <SelectTrigger className={`bg-slate-800/50 border-slate-700 ${selectedQmhqId ? 'opacity-70 cursor-not-allowed' : ''}`}>
                   <SelectValue placeholder="Select currency..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -464,6 +495,12 @@ function POCreateContent() {
                   <SelectItem value="CNY">CNY</SelectItem>
                 </SelectContent>
               </Select>
+              {selectedQmhqId && (
+                <p className="text-xs text-amber-500/70 mt-1 flex items-center gap-1">
+                  <Lock className="h-3 w-3" />
+                  Currency is inherited from the QMHQ and cannot be changed
+                </p>
+              )}
             </FormField>
 
             <FormField label="Exchange Rate (to EUSD)" htmlFor="exchange_rate">
