@@ -50,12 +50,13 @@ const routeConfig: Record<string, { icon: typeof Package; label: string; color: 
   po: { icon: ShoppingCart, label: "PO Route", color: "purple" },
 };
 
-// Currency options
+// Currency options — must match purchase_orders and invoices currency constraints
 const currencies = [
   { value: "MMK", label: "MMK - Myanmar Kyat" },
   { value: "USD", label: "USD - US Dollar" },
-  { value: "EUR", label: "EUR - Euro" },
+  { value: "CNY", label: "CNY - Chinese Yuan" },
   { value: "THB", label: "THB - Thai Baht" },
+  { value: "EUR", label: "EUR - Euro" },
   { value: "SGD", label: "SGD - Singapore Dollar" },
 ];
 

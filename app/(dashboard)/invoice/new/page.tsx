@@ -551,8 +551,10 @@ function InvoiceCreateContent() {
                       <SelectContent>
                         <SelectItem value="MMK">MMK</SelectItem>
                         <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="THB">THB</SelectItem>
                         <SelectItem value="CNY">CNY</SelectItem>
+                        <SelectItem value="THB">THB</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                        <SelectItem value="SGD">SGD</SelectItem>
                       </SelectContent>
                     </Select>
                   </FormField>
