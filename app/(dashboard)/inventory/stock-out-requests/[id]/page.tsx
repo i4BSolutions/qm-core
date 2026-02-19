@@ -374,8 +374,8 @@ export default function StockOutRequestDetailPage() {
             l2_assigned_quantity: l2AssignedQuantity,
             executed_quantity: executedQuantity,
             assigned_warehouse_name: null,
-            // Only expose unit_name when conversion_rate > 1 (real unit conversion, not base "Atom")
-            unit_name: (item.conversion_rate || 1) > 1 ? (item.item?.standard_unit_rel?.name || undefined) : undefined,
+            // Only expose unit_name when conversion_rate !== 1 (real unit conversion, not identity/base "Atom")
+            unit_name: (item.conversion_rate || 1) !== 1 ? (item.item?.standard_unit_rel?.name || undefined) : undefined,
             l1Approvals: l1ApprovalData,
           };
         }
@@ -393,7 +393,7 @@ export default function StockOutRequestDetailPage() {
         );
 
         const unitName =
-          (item.conversion_rate || 1) > 1 ? (item.item?.standard_unit_rel?.name || undefined) : undefined;
+          (item.conversion_rate || 1) !== 1 ? (item.item?.standard_unit_rel?.name || undefined) : undefined;
 
         l2Apprs.forEach((l2: any) => {
           const tx = txByApprovalId[l2.id];
@@ -427,7 +427,7 @@ export default function StockOutRequestDetailPage() {
         if (!["pending", "awaiting_admin"].includes(item.status)) return;
 
         const approvalList = item.approvals || [];
-        const unitName = (item.conversion_rate || 1) > 1 ? (item.item?.standard_unit_rel?.name || undefined) : undefined;
+        const unitName = (item.conversion_rate || 1) !== 1 ? (item.item?.standard_unit_rel?.name || undefined) : undefined;
 
         const l1Approvals = approvalList.filter(
           (a: any) => a.decision === "approved" && a.layer === "quartermaster"
@@ -1108,7 +1108,7 @@ export default function StockOutRequestDetailPage() {
                                 (li) => li.id === approval.line_item_id
                               );
                               return (
-                                lineItem?.unit_name && lineItem.conversion_rate > 1 && (
+                                lineItem?.unit_name && lineItem.conversion_rate !== 1 && lineItem.conversion_rate > 0 && (
                                   <div className="text-xs font-mono text-slate-400 mt-1">
                                     {(
                                       approval.approved_quantity *
@@ -1224,7 +1224,7 @@ export default function StockOutRequestDetailPage() {
                         <div className="text-lg font-mono font-bold text-red-400">
                           -{tx.quantity}
                         </div>
-                        {(tx.items as any)?.standard_unit_rel?.name && (tx.conversion_rate ?? 1) > 1 && (
+                        {(tx.items as any)?.standard_unit_rel?.name && (tx.conversion_rate ?? 1) !== 1 && (tx.conversion_rate ?? 1) > 0 && (
                           <div className="text-xs font-mono text-slate-400 mt-1">
                             -
                             {(

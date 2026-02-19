@@ -926,11 +926,11 @@ export default function QMHQDetailPage() {
                       <div className="text-right">
                         <div>
                           <span className="text-lg font-mono text-blue-400">{item.quantity}</span>
-                          {item.item?.default_unit && (item as any).conversion_rate > 1 && (
+                          {item.item?.default_unit && (item as any).conversion_rate !== 1 && (item as any).conversion_rate > 0 && (
                             <span className="text-xs text-slate-400 ml-1">{item.item.default_unit}</span>
                           )}
                         </div>
-                        {(item.item as any)?.standard_unit_rel?.name && item.quantity != null && (item as any).conversion_rate > 1 && (
+                        {(item.item as any)?.standard_unit_rel?.name && item.quantity != null && (item as any).conversion_rate !== 1 && (item as any).conversion_rate > 0 && (
                           <div className="text-xs font-mono text-slate-400">
                             {((item.quantity || 0) * ((item as any).conversion_rate || 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {(item.item as any).standard_unit_rel.name}
                           </div>

@@ -151,7 +151,7 @@ export function WarehouseAssignmentsTab({
                         <div className="text-xs text-slate-500 mb-0.5">L1 Approved</div>
                         <div className="font-mono text-slate-200">
                           {pending.l1_approved_quantity}
-                          {pending.unit_name && pending.conversion_rate > 1 && (
+                          {pending.unit_name && pending.conversion_rate !== 1 && pending.conversion_rate > 0 && (
                             <span className="text-slate-400 text-xs ml-1">
                               ({(pending.l1_approved_quantity * pending.conversion_rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {pending.unit_name})
                             </span>

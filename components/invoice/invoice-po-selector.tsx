@@ -252,7 +252,7 @@ export function InvoicePOSelector({
                         <span className="font-mono text-slate-300">
                           {item.quantity}
                         </span>
-                        {item.item_unit && (item.conversion_rate ?? 1) > 1 && (
+                        {item.item_unit && (item.conversion_rate ?? 1) !== 1 && (item.conversion_rate ?? 1) > 0 && (
                           <span className="text-xs text-slate-400 ml-1">
                             {item.item_unit}
                           </span>

@@ -67,7 +67,7 @@ export function StandardUnitDisplay({
 
   // Determine if we should show the second line
   // Hide if unit name is not provided, empty, or conversion rate is 1 (base/atom unit — no real conversion)
-  const showSecondLine = unitName && unitName.trim() !== "" && conversionRate > 1;
+  const showSecondLine = unitName && unitName.trim() !== "" && conversionRate !== 1 && conversionRate > 0;
 
   return (
     <div className={cn("flex flex-col min-w-0", align === "right" && "items-end", className)}>

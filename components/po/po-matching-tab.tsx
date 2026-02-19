@@ -90,7 +90,7 @@ export function POMatchingTab({ lineItems, invoices }: POMatchingTabProps) {
                     </td>
                     <td className="py-3 px-3 text-right">
                       <span className="font-mono text-slate-200">{row.ordered}</span>
-                      {row.unit && row.conversionRate > 1 && <span className="text-xs text-slate-400 ml-1">{row.unit}</span>}
+                      {row.unit && row.conversionRate !== 1 && row.conversionRate > 0 && <span className="text-xs text-slate-400 ml-1">{row.unit}</span>}
                     </td>
                     <td className={cn(
                       "py-3 px-3 text-right font-mono",

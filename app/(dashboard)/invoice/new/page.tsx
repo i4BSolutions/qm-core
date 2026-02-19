@@ -651,7 +651,7 @@ function InvoiceCreateContent() {
                               {item.item_sku && (
                                 <code className="text-xs text-amber-400">{item.item_sku}</code>
                               )}
-                              {item.item_unit && parseFloat(item.conversion_rate) > 1 && (
+                              {item.item_unit && parseFloat(item.conversion_rate) !== 1 && parseFloat(item.conversion_rate) > 0 && (
                                 <span className="text-xs text-slate-500">Unit: {item.item_unit}</span>
                               )}
                             </div>
@@ -697,7 +697,7 @@ function InvoiceCreateContent() {
                                   className="w-24 text-right bg-slate-800 border-slate-700"
                                 />
                               </div>
-                              {item.conversion_rate && parseFloat(item.conversion_rate) > 1 && item.quantity > 0 && item.unit_name && (
+                              {item.conversion_rate && parseFloat(item.conversion_rate) !== 1 && parseFloat(item.conversion_rate) > 0 && item.quantity > 0 && item.unit_name && (
                                 <div className="pb-2">
                                   <span className="text-xs font-mono text-slate-400">
                                     = {(item.quantity * parseFloat(item.conversion_rate)).toLocaleString(undefined, {

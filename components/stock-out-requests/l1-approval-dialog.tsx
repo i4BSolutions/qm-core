@@ -114,7 +114,8 @@ setQtyError(null);
   const approvedQtyNum = parseInt(approvedQuantity, 10);
   const showConversion =
     lineItem.unit_name &&
-    lineItem.conversion_rate > 1 &&
+    lineItem.conversion_rate !== 1 &&
+    lineItem.conversion_rate > 0 &&
     !isNaN(approvedQtyNum) &&
     approvedQtyNum > 0;
 

@@ -713,7 +713,7 @@ export default function QMHQRouteDetailsPage() {
                               className="w-28 text-right bg-slate-800 border-slate-700"
                             />
                           </div>
-                          {selectedItem.conversion_rate && parseFloat(selectedItem.conversion_rate) > 1 && selectedItem.quantity > 0 && selectedItem.item_standard_unit && (
+                          {selectedItem.conversion_rate && parseFloat(selectedItem.conversion_rate) !== 1 && parseFloat(selectedItem.conversion_rate) > 0 && selectedItem.quantity > 0 && selectedItem.item_standard_unit && (
                             <div className="pb-2">
                               <span className="text-xs font-mono text-slate-400">
                                 = {(selectedItem.quantity * parseFloat(selectedItem.conversion_rate)).toLocaleString(undefined, {

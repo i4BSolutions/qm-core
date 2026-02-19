@@ -292,7 +292,8 @@ export function L2WarehouseDialog({
   const assignedQtyNum = parseInt(assignedQty, 10);
   const showConversion =
     lineItem.unit_name &&
-    lineItem.conversion_rate > 1 &&
+    lineItem.conversion_rate !== 1 &&
+    lineItem.conversion_rate > 0 &&
     !isNaN(assignedQtyNum) &&
     assignedQtyNum > 0;
 
@@ -458,7 +459,7 @@ export function L2WarehouseDialog({
           <div className="space-y-2">
             <Label htmlFor="l2-conversion-rate">
               Conversion Rate
-              {lineItem.unit_name && lineItem.conversion_rate > 1 && (
+              {lineItem.unit_name && lineItem.conversion_rate !== 1 && lineItem.conversion_rate > 0 && (
                 <span className="text-slate-500 font-normal ml-1 text-xs">
                   (to {lineItem.unit_name})
                 </span>

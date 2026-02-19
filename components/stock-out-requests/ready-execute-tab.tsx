@@ -102,7 +102,7 @@ export function ReadyExecuteTab({
                     <div className="font-mono text-slate-200">
                       {assignment.approved_quantity}
                     </div>
-                    {assignment.unit_name && assignment.conversion_rate > 1 && (
+                    {assignment.unit_name && assignment.conversion_rate !== 1 && assignment.conversion_rate > 0 && (
                       <div className="text-xs font-mono text-slate-400">
                         {(
                           assignment.approved_quantity * assignment.conversion_rate

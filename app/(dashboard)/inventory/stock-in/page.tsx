@@ -845,7 +845,7 @@ function StockInContent() {
                                     {line.item_sku}
                                   </code>
                                 )}
-                                {line.item_unit && parseFloat(line.conversion_rate) > 1 && (
+                                {line.item_unit && parseFloat(line.conversion_rate) !== 1 && parseFloat(line.conversion_rate) > 0 && (
                                   <span className="text-xs text-slate-500">
                                     Unit: {line.item_unit}
                                   </span>

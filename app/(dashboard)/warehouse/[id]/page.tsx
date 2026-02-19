@@ -54,7 +54,7 @@ interface WarehouseInventoryItem {
   current_stock: number;
   standard_stock: number;
   standard_unit_name: string | null;
-  /** Whether this item has a real unit conversion (conversion_rate > 1). False for base/atom items. */
+  /** Whether this item has a real unit conversion (conversion_rate !== 1). False for base/atom items. */
   has_standard_conversion: boolean;
   wac_amount_eusd: number | null;
   total_value_eusd: number;
@@ -140,7 +140,7 @@ export default function WarehouseDetailPage() {
               current_stock: 0,
               standard_stock: 0,
               standard_unit_name: (item as any).standard_unit_rel?.name || null,
-              has_standard_conversion: false, // will be updated below if any transaction has conversion_rate > 1
+              has_standard_conversion: false, // will be updated below if any transaction has a meaningful conversion (conversion_rate !== 1)
               wac_amount_eusd: item.wac_amount_eusd,
               total_value_eusd: 0,
             });
@@ -148,7 +148,7 @@ export default function WarehouseDetailPage() {
 
           const inv = inventoryMap.get(item.id)!;
           // Track whether any transaction has a real conversion rate (> 1)
-          if ((t.conversion_rate ?? 1) > 1) {
+          if ((t.conversion_rate ?? 1) !== 1 && (t.conversion_rate ?? 1) > 0) {
             inv.has_standard_conversion = true;
           }
           if (t.movement_type === "inventory_in") {
@@ -410,7 +410,7 @@ export default function WarehouseDetailPage() {
         return (
           <div className={type === "inventory_in" ? "text-emerald-400" : "text-red-400"}>
             <span className="font-mono">{prefix}{qty}</span>
-            {standardUnitName && conversionRate > 1 && (
+            {standardUnitName && conversionRate !== 1 && conversionRate > 0 && (
               <div className="text-xs font-mono text-slate-400 mt-1">
                 {prefix}{(qty * conversionRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {standardUnitName}
               </div>
