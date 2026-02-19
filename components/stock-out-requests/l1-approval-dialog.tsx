@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { AmountInput } from "@/components/ui/amount-input";
-import { Loader2, Check, Package } from "lucide-react";
+import { Loader2, Check, Package, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
@@ -34,6 +34,9 @@ interface L1ApprovalDialogProps {
  *
  * Inserts into stock_out_approvals with decision='approved'.
  * The DB trigger auto-sets layer='quartermaster'.
+ *
+ * Stock availability is shown as an informational warning only — it does NOT
+ * block L1 approval. L1 is a quantity decision; warehouse sourcing is L2's responsibility.
  */
 export function L1ApprovalDialog({
   open,
@@ -46,11 +49,45 @@ export function L1ApprovalDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [qtyError, setQtyError] = useState<string | null>(null);
 
+  // Stock info — informational only, does NOT block approval
+  const [totalStock, setTotalStock] = useState<number | null>(null);
+  const [isLoadingStock, setIsLoadingStock] = useState(false);
+
   // Initialize form when dialog opens
   useEffect(() => {
     if (!open) return;
     setApprovedQuantity(lineItem.remaining_quantity.toString());
-setQtyError(null);
+    setQtyError(null);
+    setTotalStock(null);
+
+    // Fetch total stock across all warehouses for informational display
+    const fetchStock = async () => {
+      if (!lineItem.item_id) return;
+      setIsLoadingStock(true);
+      const supabase = createClient();
+
+      const { data: transactions, error } = await supabase
+        .from("inventory_transactions")
+        .select("movement_type, quantity")
+        .eq("item_id", lineItem.item_id)
+        .eq("status", "completed")
+        .eq("is_active", true);
+
+      if (!error && transactions) {
+        let stock = 0;
+        transactions.forEach((tx: any) => {
+          if (tx.movement_type === "inventory_in") {
+            stock += tx.quantity || 0;
+          } else if (tx.movement_type === "inventory_out") {
+            stock -= tx.quantity || 0;
+          }
+        });
+        setTotalStock(Math.max(0, stock));
+      }
+      setIsLoadingStock(false);
+    };
+
+    fetchStock();
   }, [open, lineItem]);
 
   const validate = (): boolean => {
@@ -126,6 +163,15 @@ setQtyError(null);
       })
     : null;
 
+  // Show low-stock warning when total stock is below the quantity being approved.
+  // This is informational only — approval is NOT blocked.
+  const approvedQty = parseInt(approvedQuantity, 10);
+  const showStockWarning =
+    totalStock !== null &&
+    !isNaN(approvedQty) &&
+    approvedQty > 0 &&
+    approvedQty > totalStock;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -174,6 +220,32 @@ setQtyError(null);
               </div>
             </div>
           </div>
+
+          {/* Stock availability info (informational, non-blocking) */}
+          {isLoadingStock ? (
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Checking stock levels...
+            </div>
+          ) : totalStock !== null && (
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span>Total stock across all warehouses:</span>
+              <span className={totalStock > 0 ? "font-mono text-emerald-400" : "font-mono text-slate-500"}>
+                {totalStock} unit{totalStock !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
+
+          {/* Low-stock warning — informational only, approval is not blocked */}
+          {showStockWarning && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <span>
+                Insufficient stock across all warehouses ({totalStock} available, {approvedQty} requested).
+                You can still approve — warehouse sourcing will be resolved at the next step (L2 assignment).
+              </span>
+            </div>
+          )}
 
           {/* Approved Quantity Input */}
           <div className="space-y-2">
