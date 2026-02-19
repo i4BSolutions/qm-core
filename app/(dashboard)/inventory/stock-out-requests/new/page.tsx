@@ -674,63 +674,64 @@ export default function NewStockOutRequestPage() {
                       )}
                     </div>
 
-                    {/* Quantity */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Quantity *
-                        {qmhqId && (
-                          <Badge
-                            variant="outline"
-                            className="ml-2 border-slate-600 bg-slate-700/50 text-slate-400"
-                          >
-                            <Lock className="h-3 w-3 mr-1" />
-                            Locked
-                          </Badge>
-                        )}
-                      </label>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        value={item.quantity}
-                        onChange={(e) =>
-                          handleLineItemChange(item.id, "quantity", e.target.value)
-                        }
-                        onKeyDown={handleQuantityKeyDown}
-                        disabled={!!qmhqId}
-                        placeholder="Enter quantity"
-                        className="font-mono"
-                      />
-                    </div>
+                    {/* Quantity + Conversion Rate side by side */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Quantity *
+                          {qmhqId && (
+                            <Badge
+                              variant="outline"
+                              className="ml-2 border-slate-600 bg-slate-700/50 text-slate-400"
+                            >
+                              <Lock className="h-3 w-3 mr-1" />
+                              Locked
+                            </Badge>
+                          )}
+                        </label>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          value={item.quantity}
+                          onChange={(e) =>
+                            handleLineItemChange(item.id, "quantity", e.target.value)
+                          }
+                          onKeyDown={handleQuantityKeyDown}
+                          disabled={!!qmhqId}
+                          placeholder="Enter quantity"
+                          className="font-mono"
+                        />
+                      </div>
 
-                    {/* Conversion Rate */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Conversion Rate *
-                      </label>
-                      <ConversionRateInput
-                        value={item.conversionRate}
-                        onValueChange={(val) =>
-                          handleLineItemChange(item.id, "conversionRate", val)
-                        }
-                        placeholder="1.0000"
-                        className="bg-slate-800/50 border-slate-700"
-                      />
-                      {item.standardUnit &&
-                        item.conversionRate &&
-                        parseFloat(item.conversionRate) !== 1 &&
-                        parseFloat(item.conversionRate) > 0 &&
-                        parseFloat(item.quantity) > 0 ? (
-                        <p className="text-xs font-mono text-slate-400 mt-1">
-                          = {(parseFloat(item.quantity) * parseFloat(item.conversionRate)).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })} {item.standardUnit}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-slate-500 mt-1">
-                          To standard unit{item.standardUnit ? ` (${item.standardUnit})` : ""}
-                        </p>
-                      )}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Conversion Rate *
+                        </label>
+                        <ConversionRateInput
+                          value={item.conversionRate}
+                          onValueChange={(val) =>
+                            handleLineItemChange(item.id, "conversionRate", val)
+                          }
+                          placeholder="1.0000"
+                          className="bg-slate-800/50 border-slate-700"
+                        />
+                        {item.standardUnit &&
+                          item.conversionRate &&
+                          parseFloat(item.conversionRate) !== 1 &&
+                          parseFloat(item.conversionRate) > 0 &&
+                          parseFloat(item.quantity) > 0 ? (
+                          <p className="text-xs font-mono text-slate-400 mt-1">
+                            = {(parseFloat(item.quantity) * parseFloat(item.conversionRate)).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })} {item.standardUnit}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-slate-500 mt-1">
+                            To standard unit{item.standardUnit ? ` (${item.standardUnit})` : ""}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
 
