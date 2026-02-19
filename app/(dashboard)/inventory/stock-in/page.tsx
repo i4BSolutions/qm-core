@@ -60,7 +60,9 @@ interface InvoiceWithPO extends Invoice {
 }
 
 interface InvoiceLineItemWithItem extends InvoiceLineItem {
-  item?: Pick<Item, "id" | "name" | "sku" | "default_unit"> | null;
+  item?: (Pick<Item, "id" | "name" | "sku" | "default_unit"> & {
+    standard_unit_rel?: { name: string | null } | null;
+  }) | null;
 }
 
 // Form data for stock in line items
@@ -71,6 +73,7 @@ interface StockInLineItem {
   item_name: string;
   item_sku?: string;
   item_unit?: string;
+  item_standard_unit?: string;
   quantity: number;
   max_quantity: number;
   unit_cost: number;
@@ -219,7 +222,7 @@ function StockInContent() {
       .select(
         `
         *,
-        item:items(id, name, sku, default_unit)
+        item:items(id, name, sku, default_unit, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name))
       `
       )
       .eq("invoice_id", invoiceId)
@@ -237,6 +240,7 @@ function StockInContent() {
             0,
             (li.quantity ?? 0) - (li.received_quantity ?? 0)
           );
+          const itemWithUnit = li.item as (typeof li.item & { standard_unit_rel?: { name: string | null } | null }) | undefined;
           return {
             id: li.id,
             invoice_line_item_id: li.id,
@@ -244,6 +248,7 @@ function StockInContent() {
             item_name: li.item_name || li.item?.name || "Unknown",
             item_sku: li.item_sku || li.item?.sku || undefined,
             item_unit: li.item_unit || li.item?.default_unit || undefined,
+            item_standard_unit: itemWithUnit?.standard_unit_rel?.name || undefined,
             quantity: availableQty,
             max_quantity: availableQty,
             unit_cost: li.unit_price ?? 0,
@@ -914,6 +919,22 @@ function StockInContent() {
                                     }
                                     className="w-24 text-right bg-slate-800 border-slate-700"
                                   />
+                                  {line.item_standard_unit &&
+                                    line.conversion_rate &&
+                                    parseFloat(line.conversion_rate) !== 1 &&
+                                    parseFloat(line.conversion_rate) > 0 &&
+                                    line.quantity > 0 ? (
+                                    <p className="text-xs font-mono text-slate-400 mt-1 w-24 text-right">
+                                      = {(line.quantity * parseFloat(line.conversion_rate)).toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })} {line.item_standard_unit}
+                                    </p>
+                                  ) : (
+                                    <p className="text-xs text-slate-500 mt-1 w-24 text-right">
+                                      {line.item_standard_unit ? `→ ${line.item_standard_unit}` : ""}
+                                    </p>
+                                  )}
                                 </div>
                                 <div>
                                   <label className="text-xs text-slate-500 block mb-1">

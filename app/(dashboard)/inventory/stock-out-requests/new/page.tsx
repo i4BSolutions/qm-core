@@ -46,6 +46,7 @@ interface QMHQData {
     name: string;
     sku: string | null;
     category_id: string | null;
+    standard_unit_rel?: { name: string | null } | null;
   } | null;
   qmhq_items?: Array<{
     item_id: string;
@@ -55,6 +56,7 @@ interface QMHQData {
       name: string;
       sku: string | null;
       category_id: string | null;
+      standard_unit_rel?: { name: string | null } | null;
     };
   }>;
 }
@@ -117,8 +119,8 @@ export default function NewStockOutRequestPage() {
           .from("qmhq")
           .select(`
             id, request_id, line_name, item_id, quantity, route_type, qmrl_id,
-            item:items!qmhq_item_id_fkey(id, name, sku, category_id),
-            qmhq_items(item_id, quantity, item:items(id, name, sku, category_id))
+            item:items!qmhq_item_id_fkey(id, name, sku, category_id, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)),
+            qmhq_items(item_id, quantity, item:items(id, name, sku, category_id, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)))
           `)
           .eq("id", qmhqId)
           .single();
@@ -132,33 +134,34 @@ export default function NewStockOutRequestPage() {
           throw new Error("QMHQ not found");
         }
 
-        setQmhqData(data as QMHQData);
+        const qmhqTyped = data as unknown as QMHQData;
+        setQmhqData(qmhqTyped);
 
         // Pre-fill line item from QMHQ
         // Use qmhq_items if available (multi-item), else fall back to qmhq.item_id (legacy)
-        if (data.qmhq_items && data.qmhq_items.length > 0) {
+        if (qmhqTyped.qmhq_items && qmhqTyped.qmhq_items.length > 0) {
           setLineItems(
-            data.qmhq_items.map((qmhqItem) => ({
+            qmhqTyped.qmhq_items.map((qmhqItem) => ({
               id: crypto.randomUUID(),
               categoryId: qmhqItem.item.category_id || "_uncategorized",
               itemId: qmhqItem.item_id,
               itemName: qmhqItem.item.name,
               itemSku: qmhqItem.item.sku || "",
-              standardUnit: "",
+              standardUnit: qmhqItem.item.standard_unit_rel?.name || "",
               quantity: String(qmhqItem.quantity || 0),
               conversionRate: "",
             }))
           );
-        } else if (data.item_id && data.quantity && data.item) {
+        } else if (qmhqTyped.item_id && qmhqTyped.quantity && qmhqTyped.item) {
           setLineItems([
             {
               id: crypto.randomUUID(),
-              categoryId: data.item.category_id || "_uncategorized",
-              itemId: data.item_id,
-              itemName: data.item.name,
-              itemSku: data.item.sku || "",
-              standardUnit: "",
-              quantity: String(data.quantity),
+              categoryId: qmhqTyped.item.category_id || "_uncategorized",
+              itemId: qmhqTyped.item_id,
+              itemName: qmhqTyped.item.name,
+              itemSku: qmhqTyped.item.sku || "",
+              standardUnit: qmhqTyped.item.standard_unit_rel?.name || "",
+              quantity: String(qmhqTyped.quantity),
               conversionRate: "",
             },
           ]);
