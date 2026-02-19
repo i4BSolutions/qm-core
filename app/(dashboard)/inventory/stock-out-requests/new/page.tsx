@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Plus, X, Lock, AlertCircle, Info } from "lucide-react";
+import { ArrowLeft, Plus, X, Lock, AlertCircle, Info, Pencil } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
@@ -63,6 +63,8 @@ interface LineItem {
   id: string; // temporary client-side ID
   categoryId: string;
   itemId: string;
+  itemName: string;
+  itemSku: string;
   quantity: string;
   conversionRate: string;
 }
@@ -82,7 +84,7 @@ export default function NewStockOutRequestPage() {
 
   // Form state
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { id: crypto.randomUUID(), categoryId: "", itemId: "", quantity: "", conversionRate: "" },
+    { id: crypto.randomUUID(), categoryId: "", itemId: "", itemName: "", itemSku: "", quantity: "", conversionRate: "" },
   ]);
   const [reason, setReason] = useState<StockOutReason>("request");
   const [notes, setNotes] = useState("");
@@ -139,6 +141,8 @@ export default function NewStockOutRequestPage() {
               id: crypto.randomUUID(),
               categoryId: qmhqItem.item.category_id || "_uncategorized",
               itemId: qmhqItem.item_id,
+              itemName: qmhqItem.item.name,
+              itemSku: qmhqItem.item.sku || "",
               quantity: String(qmhqItem.quantity || 0),
               conversionRate: "",
             }))
@@ -149,6 +153,8 @@ export default function NewStockOutRequestPage() {
               id: crypto.randomUUID(),
               categoryId: data.item.category_id || "_uncategorized",
               itemId: data.item_id,
+              itemName: data.item.name,
+              itemSku: data.item.sku || "",
               quantity: String(data.quantity),
               conversionRate: "",
             },
@@ -355,15 +361,17 @@ export default function NewStockOutRequestPage() {
   };
 
   const handleAddLineItem = () => {
-    setLineItems([
-      ...lineItems,
-      { id: crypto.randomUUID(), categoryId: "", itemId: "", quantity: "", conversionRate: "" },
+    setLineItems((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), categoryId: "", itemId: "", itemName: "", itemSku: "", quantity: "", conversionRate: "" },
     ]);
   };
 
   const handleRemoveLineItem = (id: string) => {
-    if (lineItems.length === 1) return; // Keep at least one
-    setLineItems(lineItems.filter((item) => item.id !== id));
+    setLineItems((prev) => {
+      if (prev.length === 1) return prev; // Keep at least one
+      return prev.filter((item) => item.id !== id);
+    });
   };
 
   const handleLineItemChange = (
@@ -609,17 +617,54 @@ export default function NewStockOutRequestPage() {
                           </Badge>
                         )}
                       </label>
-                      <CategoryItemSelector
-                        categoryId={item.categoryId}
-                        itemId={item.itemId}
-                        onCategoryChange={(categoryId) =>
-                          handleLineItemChange(item.id, "categoryId", categoryId)
-                        }
-                        onItemChange={(itemId) =>
-                          handleLineItemChange(item.id, "itemId", itemId)
-                        }
-                        disabled={!!qmhqId}
-                      />
+                      {item.itemId ? (
+                        /* Selected item display — same pattern as QMHQ/PO */
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm">
+                            {item.itemSku && (
+                              <code className="font-mono text-amber-400 mr-2">
+                                {item.itemSku}
+                              </code>
+                            )}
+                            {item.itemSku && <span className="text-slate-400 mr-2">-</span>}
+                            <span className="text-slate-200">{item.itemName}</span>
+                          </div>
+                          {!qmhqId && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                handleLineItemChange(item.id, "categoryId", "");
+                                handleLineItemChange(item.id, "itemId", "");
+                                handleLineItemChange(item.id, "itemName", "");
+                                handleLineItemChange(item.id, "itemSku", "");
+                              }}
+                              className="h-8 px-2 text-slate-400 hover:text-slate-200"
+                            >
+                              <Pencil className="h-3 w-3 mr-1" />
+                              Change
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        /* Selector shown only when no item selected */
+                        <CategoryItemSelector
+                          categoryId={item.categoryId}
+                          itemId=""
+                          onCategoryChange={(categoryId) =>
+                            handleLineItemChange(item.id, "categoryId", categoryId)
+                          }
+                          onItemChange={(itemId) =>
+                            handleLineItemChange(item.id, "itemId", itemId)
+                          }
+                          onItemSelect={(selected) => {
+                            handleLineItemChange(item.id, "itemName", selected.name);
+                            handleLineItemChange(item.id, "itemSku", selected.sku || "");
+                          }}
+                          disabled={!!qmhqId}
+                        />
+                      )}
                     </div>
 
                     {/* Quantity */}

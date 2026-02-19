@@ -35,6 +35,12 @@ interface CategoryItemSelectorProps {
   onCategoryChange: (categoryId: string) => void;
   /** Callback when item selection changes */
   onItemChange: (itemId: string) => void;
+  /**
+   * Optional callback fired when an item is selected, passing the full item object.
+   * Use this when the parent needs item metadata (name, sku, etc.) for display
+   * without relying on CategoryItemSelector's internal items state.
+   */
+  onItemSelect?: (item: ItemOption) => void;
   /** Whether the entire selector is disabled */
   disabled?: boolean;
   /** Optional: preloaded categories (skips initial fetch) */
@@ -58,6 +64,7 @@ export function CategoryItemSelector({
   itemId,
   onCategoryChange,
   onItemChange,
+  onItemSelect,
   disabled = false,
   initialCategories,
   initialItems,
@@ -234,6 +241,10 @@ export function CategoryItemSelector({
 
   const handleItemSelect = (itmId: string) => {
     onItemChange(itmId);
+    if (onItemSelect) {
+      const item = items.find((i) => i.id === itmId);
+      if (item) onItemSelect(item);
+    }
     setItemOpen(false);
     setItemSearch("");
   };
