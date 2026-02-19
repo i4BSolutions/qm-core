@@ -36,6 +36,12 @@ import {
   ImageIcon,
   Lock,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Currency options
 const currencies = [
@@ -379,12 +385,16 @@ export function TransactionDialog({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="currency" className="text-slate-300 flex items-center gap-2">
+              <Label htmlFor="currency" className="text-slate-300 flex items-center gap-1.5">
                 Currency
-                <span className="flex items-center gap-1 text-xs text-amber-500 font-normal">
-                  <Lock className="h-3 w-3" />
-                  Inherited
-                </span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Lock className="h-3 w-3 text-amber-500 cursor-default" />
+                    </TooltipTrigger>
+                    <TooltipContent>Inherited from QMHQ</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </Label>
               <Select value={currency} onValueChange={() => {}} disabled={true}>
                 <SelectTrigger className="bg-slate-800/50 border-slate-700 opacity-70 cursor-not-allowed">
@@ -398,7 +408,6 @@ export function TransactionDialog({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-slate-400">Currency is set by the parent QMHQ</p>
             </div>
 
             <div className="grid gap-2">

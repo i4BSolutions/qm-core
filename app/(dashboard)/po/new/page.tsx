@@ -14,6 +14,12 @@ import {
   Save,
   Lock,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -467,13 +473,17 @@ function POCreateContent() {
 
             <FormField
               label={
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5">
                   Currency
                   {selectedQmhqId && (
-                    <span className="flex items-center gap-1 text-xs text-amber-500 font-normal">
-                      <Lock className="h-3 w-3" />
-                      Locked from QMHQ
-                    </span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Lock className="h-3 w-3 text-amber-500 cursor-default" />
+                        </TooltipTrigger>
+                        <TooltipContent>Inherited from QMHQ</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
                 </span>
               }
@@ -495,12 +505,6 @@ function POCreateContent() {
                   <SelectItem value="CNY">CNY</SelectItem>
                 </SelectContent>
               </Select>
-              {selectedQmhqId && (
-                <p className="text-xs text-amber-500/70 mt-1 flex items-center gap-1">
-                  <Lock className="h-3 w-3" />
-                  Currency is inherited from the QMHQ and cannot be changed
-                </p>
-              )}
             </FormField>
 
             <FormField label="Exchange Rate (to EUSD)" htmlFor="exchange_rate">
