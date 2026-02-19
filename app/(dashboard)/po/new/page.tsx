@@ -56,7 +56,7 @@ interface LineItemFormData {
 }
 
 // QMHQ with balance info
-interface QMHQWithBalance extends Pick<QMHQ, "id" | "request_id" | "line_name" | "balance_in_hand" | "amount_eusd" | "total_money_in" | "total_po_committed" | "currency"> {}
+interface QMHQWithBalance extends Pick<QMHQ, "id" | "request_id" | "line_name" | "balance_in_hand" | "amount_eusd" | "total_money_in" | "total_po_committed" | "currency" | "exchange_rate"> {}
 
 function POCreateContent() {
   const router = useRouter();
@@ -93,15 +93,14 @@ function POCreateContent() {
     fetchReferenceData();
   }, []);
 
-  // Sync currency from selected QMHQ - currency is locked to QMHQ currency
+  // Sync currency + exchange rate from selected QMHQ (locked, like money in/out)
   useEffect(() => {
     if (selectedQmhqId && qmhqs.length > 0) {
       const qmhq = qmhqs.find((q) => q.id === selectedQmhqId);
-      if (qmhq?.currency) {
-        setCurrency(qmhq.currency);
-        if (qmhq.currency === "USD") {
-          setExchangeRate("1");
-        }
+      if (qmhq) {
+        const inheritedCurrency = qmhq.currency || "MMK";
+        setCurrency(inheritedCurrency);
+        setExchangeRate(inheritedCurrency === "USD" ? "1" : String(qmhq.exchange_rate || 1));
       }
     }
   }, [selectedQmhqId, qmhqs]);
@@ -114,7 +113,7 @@ function POCreateContent() {
       // Only fetch QMHQ with PO route and positive balance
       supabase
         .from("qmhq")
-        .select("id, request_id, line_name, balance_in_hand, amount_eusd, total_money_in, total_po_committed, currency")
+        .select("id, request_id, line_name, balance_in_hand, amount_eusd, total_money_in, total_po_committed, currency, exchange_rate")
         .eq("route_type", "po")
         .eq("is_active", true)
         .gt("balance_in_hand", 0)
