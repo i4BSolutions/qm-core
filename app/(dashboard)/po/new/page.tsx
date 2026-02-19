@@ -473,7 +473,7 @@ function POCreateContent() {
 
             <FormField
               label={
-                <span className="flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5">
                   Currency
                   {selectedQmhqId && (
                     <TooltipProvider>
@@ -495,7 +495,7 @@ function POCreateContent() {
                 onValueChange={handleCurrencyChange}
                 disabled={!!selectedQmhqId}
               >
-                <SelectTrigger className={`bg-slate-800/50 border-slate-700 ${selectedQmhqId ? 'opacity-70 cursor-not-allowed' : ''}`}>
+                <SelectTrigger className={`bg-slate-800/50 border-slate-700 ${selectedQmhqId ? 'opacity-80 cursor-not-allowed' : ''}`}>
                   <SelectValue placeholder="Select currency..." />
                 </SelectTrigger>
                 <SelectContent>

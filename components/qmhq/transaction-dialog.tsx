@@ -397,7 +397,7 @@ export function TransactionDialog({
                 </TooltipProvider>
               </Label>
               <Select value={currency} onValueChange={() => {}} disabled={true}>
-                <SelectTrigger className="bg-slate-800/50 border-slate-700 opacity-70 cursor-not-allowed">
+                <SelectTrigger className="bg-slate-800/50 border-slate-700 opacity-80 cursor-not-allowed">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
