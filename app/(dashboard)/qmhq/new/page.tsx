@@ -501,7 +501,7 @@ function NewQMHQContent() {
               </Button>
             </Link>
             <PageHeader
-              title="Create QMHQ Line"
+              title="Create QMHQ"
               description="Basic information and route selection"
               badge={
                 <div className="flex items-center gap-2 px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
@@ -527,7 +527,7 @@ function NewQMHQContent() {
                   id="line_name"
                   value={formData.line_name}
                   onChange={(e) => setFormData({ ...formData, line_name: e.target.value })}
-                  placeholder="Enter a descriptive name for this QMHQ line"
+                  placeholder="Enter a descriptive name for this QMHQ"
                   className="bg-slate-800/50 border-slate-700 focus:border-amber-500/50 text-slate-200"
                 />
               </FormField>
@@ -721,7 +721,7 @@ function NewQMHQContent() {
               animationDelay="400ms"
             >
               <p className="text-sm text-slate-400 -mt-2 mb-4">
-                Choose how this QMHQ line will be processed. This determines the workflow and fields available.
+                Choose how this QMHQ will be processed. This determines the workflow and fields available.
               </p>
 
               <div className="grid gap-4 md:grid-cols-3">

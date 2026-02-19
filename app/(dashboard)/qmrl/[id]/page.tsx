@@ -312,7 +312,7 @@ export default function QMRLDetailPage() {
           <Link href={`/qmhq/new?qmrl=${qmrl.id}`}>
             <Button className="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400">
               <Plus className="mr-2 h-4 w-4" />
-              Add QMHQ Line
+              Add QMHQ
             </Button>
           </Link>
         </>

@@ -402,7 +402,7 @@ export default function QMHQRouteDetailsPage() {
 
         toast({
           title: "Success",
-          description: "QMHQ line created successfully.",
+          description: "QMHQ created successfully.",
           variant: "success",
         });
 
@@ -432,7 +432,7 @@ export default function QMHQRouteDetailsPage() {
 
       toast({
         title: "Success",
-        description: "QMHQ line created successfully.",
+        description: "QMHQ created successfully.",
         variant: "success",
       });
 
@@ -440,7 +440,7 @@ export default function QMHQRouteDetailsPage() {
     } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create QMHQ line.",
+        description: error instanceof Error ? error.message : "Failed to create QMHQ.",
         variant: "destructive",
       });
       setIsSubmitting(false);

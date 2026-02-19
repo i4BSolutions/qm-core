@@ -563,7 +563,7 @@ export default function QMHQDetailPage() {
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <AlertTriangle className="h-12 w-12 text-amber-500" />
         <h2 className="text-xl font-semibold text-slate-200">QMHQ Not Found</h2>
-        <p className="text-slate-400">The requested QMHQ line could not be found.</p>
+        <p className="text-slate-400">The requested QMHQ could not be found.</p>
         <Link href="/qmhq">
           <Button variant="outline" className="border-slate-700">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -1115,7 +1115,7 @@ export default function QMHQDetailPage() {
                   </div>
                   <h3 className="text-lg font-medium text-slate-300 mb-2">No Transactions Yet</h3>
                   <p className="text-sm text-slate-400 max-w-md">
-                    Record Money In or Money Out transactions for this QMHQ line.
+                    Record Money In or Money Out transactions for this QMHQ.
                   </p>
                 </div>
               ) : (
