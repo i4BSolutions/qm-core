@@ -8,12 +8,18 @@ interface POBalancePanelProps {
   availableBalance: number;
   poTotal: number;
   currency?: string;
+  /** PO total in original currency (before EUSD conversion) */
+  originalPoTotal?: number;
+  /** Original currency code (e.g., "MMK", "THB") */
+  originalCurrency?: string;
 }
 
 export function POBalancePanel({
   availableBalance,
   poTotal,
   currency = "EUSD",
+  originalPoTotal,
+  originalCurrency,
 }: POBalancePanelProps) {
   const remainingAfterPO = availableBalance - poTotal;
   const exceedsBalance = poTotal > availableBalance;
@@ -81,6 +87,11 @@ export function POBalancePanel({
                 {formatCurrency(poTotal)}
               </p>
               <p className="text-xs text-slate-500">{currency}</p>
+              {originalPoTotal != null && originalCurrency && originalCurrency !== "USD" && (
+                <p className="text-xs text-slate-500 font-mono mt-0.5">
+                  {formatCurrency(originalPoTotal)} {originalCurrency}
+                </p>
+              )}
             </div>
 
             {/* Remaining */}
