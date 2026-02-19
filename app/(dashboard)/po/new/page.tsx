@@ -509,21 +509,28 @@ function POCreateContent() {
               htmlFor="currency"
               required
             >
-              <Select
-                value={currency}
-                onValueChange={handleCurrencyChange}
-                disabled={!!selectedQmhqId}
-              >
-                <SelectTrigger className={`bg-slate-800/50 border-slate-700 ${selectedQmhqId ? 'opacity-80 cursor-not-allowed' : ''}`}>
-                  <SelectValue placeholder="Select currency..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MMK">MMK</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="THB">THB</SelectItem>
-                  <SelectItem value="CNY">CNY</SelectItem>
-                </SelectContent>
-              </Select>
+              {selectedQmhqId ? (
+                <Input
+                  value={currency || "MMK"}
+                  readOnly
+                  className="bg-slate-800/50 border-slate-700 opacity-80 cursor-not-allowed"
+                />
+              ) : (
+                <Select
+                  value={currency}
+                  onValueChange={handleCurrencyChange}
+                >
+                  <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                    <SelectValue placeholder="Select currency..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MMK">MMK</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="THB">THB</SelectItem>
+                    <SelectItem value="CNY">CNY</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </FormField>
 
             <FormField label="Exchange Rate (to EUSD)" htmlFor="exchange_rate">
