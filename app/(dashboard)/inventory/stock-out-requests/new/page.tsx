@@ -65,6 +65,7 @@ interface LineItem {
   itemId: string;
   itemName: string;
   itemSku: string;
+  standardUnit: string; // standard unit name (e.g., "pcs", "kg")
   quantity: string;
   conversionRate: string;
 }
@@ -84,7 +85,7 @@ export default function NewStockOutRequestPage() {
 
   // Form state
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { id: crypto.randomUUID(), categoryId: "", itemId: "", itemName: "", itemSku: "", quantity: "", conversionRate: "" },
+    { id: crypto.randomUUID(), categoryId: "", itemId: "", itemName: "", itemSku: "", standardUnit: "", quantity: "", conversionRate: "" },
   ]);
   const [reason, setReason] = useState<StockOutReason>("request");
   const [notes, setNotes] = useState("");
@@ -143,6 +144,7 @@ export default function NewStockOutRequestPage() {
               itemId: qmhqItem.item_id,
               itemName: qmhqItem.item.name,
               itemSku: qmhqItem.item.sku || "",
+              standardUnit: "",
               quantity: String(qmhqItem.quantity || 0),
               conversionRate: "",
             }))
@@ -155,6 +157,7 @@ export default function NewStockOutRequestPage() {
               itemId: data.item_id,
               itemName: data.item.name,
               itemSku: data.item.sku || "",
+              standardUnit: "",
               quantity: String(data.quantity),
               conversionRate: "",
             },
@@ -363,7 +366,7 @@ export default function NewStockOutRequestPage() {
   const handleAddLineItem = () => {
     setLineItems((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), categoryId: "", itemId: "", itemName: "", itemSku: "", quantity: "", conversionRate: "" },
+      { id: crypto.randomUUID(), categoryId: "", itemId: "", itemName: "", itemSku: "", standardUnit: "", quantity: "", conversionRate: "" },
     ]);
   };
 
@@ -661,6 +664,7 @@ export default function NewStockOutRequestPage() {
                           onItemSelect={(selected) => {
                             handleLineItemChange(item.id, "itemName", selected.name);
                             handleLineItemChange(item.id, "itemSku", selected.sku || "");
+                            handleLineItemChange(item.id, "standardUnit", selected.standard_unit_name || "");
                           }}
                           disabled={!!qmhqId}
                         />
@@ -708,9 +712,22 @@ export default function NewStockOutRequestPage() {
                         placeholder="1.0000"
                         className="bg-slate-800/50 border-slate-700"
                       />
-                      <p className="text-xs text-slate-500 mt-1">
-                        To standard unit
-                      </p>
+                      {item.standardUnit &&
+                        item.conversionRate &&
+                        parseFloat(item.conversionRate) !== 1 &&
+                        parseFloat(item.conversionRate) > 0 &&
+                        parseFloat(item.quantity) > 0 ? (
+                        <p className="text-xs font-mono text-slate-400 mt-1">
+                          = {(parseFloat(item.quantity) * parseFloat(item.conversionRate)).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })} {item.standardUnit}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-500 mt-1">
+                          To standard unit{item.standardUnit ? ` (${item.standardUnit})` : ""}
+                        </p>
+                      )}
                     </div>
                   </div>
 

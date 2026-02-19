@@ -24,6 +24,7 @@ interface ItemOption {
   sku: string | null;
   default_unit: string | null;
   price_reference: string | null;
+  standard_unit_name: string | null;
 }
 
 interface CategoryItemSelectorProps {
@@ -173,7 +174,7 @@ export function CategoryItemSelector({
 
       let query = supabase
         .from("items")
-        .select("id, name, sku, default_unit, price_reference")
+        .select("id, name, sku, default_unit, price_reference, standard_unit_rel:standard_units!items_standard_unit_id_fkey(name)")
         .eq("is_active", true);
 
       // Handle uncategorized vs normal category
@@ -193,7 +194,16 @@ export function CategoryItemSelector({
         throw error;
       }
 
-      setItems(data || []);
+      // Map the joined standard_unit_rel.name into a flat field
+      const mapped = (data || []).map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        sku: item.sku,
+        default_unit: item.default_unit,
+        price_reference: item.price_reference,
+        standard_unit_name: item.standard_unit_rel?.name ?? null,
+      }));
+      setItems(mapped);
     } catch (error: unknown) {
       // Ignore abort errors
       if (error instanceof Error && error.name === "AbortError") return;
@@ -468,6 +478,11 @@ export function CategoryItemSelector({
                       <code className="ml-2 text-amber-400 text-xs font-mono">
                         {item.sku}
                       </code>
+                    )}
+                    {item.standard_unit_name && (
+                      <span className="ml-auto pl-2 text-xs text-slate-500">
+                        {item.standard_unit_name}
+                      </span>
                     )}
                   </button>
                 ))

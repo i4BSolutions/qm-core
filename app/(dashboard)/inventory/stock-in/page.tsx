@@ -148,6 +148,7 @@ function StockInContent() {
   // Manual mode state
   const [manualCategoryId, setManualCategoryId] = useState("");
   const [manualItemId, setManualItemId] = useState("");
+  const [manualStandardUnit, setManualStandardUnit] = useState<string>("");
   const [manualQuantity, setManualQuantity] = useState<string>("");
   const [manualUnitCost, setManualUnitCost] = useState<string>("");
   const [manualConversionRate, setManualConversionRate] = useState<string>("");
@@ -954,9 +955,13 @@ function StockInContent() {
                 onCategoryChange={(catId) => {
                   setManualCategoryId(catId);
                   setManualItemId("");
+                  setManualStandardUnit("");
                 }}
                 onItemChange={(itmId) => {
                   setManualItemId(itmId);
+                }}
+                onItemSelect={(selected) => {
+                  setManualStandardUnit(selected.standard_unit_name || "");
                 }}
                 disabled={isSubmitting}
               />
@@ -1004,9 +1009,22 @@ function StockInContent() {
                 onValueChange={setManualConversionRate}
                 className="bg-slate-800/50 border-slate-700"
               />
-              <p className="text-xs text-slate-500 mt-1">
-                To standard unit
-              </p>
+              {manualStandardUnit &&
+                manualConversionRate &&
+                parseFloat(manualConversionRate) !== 1 &&
+                parseFloat(manualConversionRate) > 0 &&
+                parseFloat(manualQuantity) > 0 ? (
+                <p className="text-xs font-mono text-slate-400 mt-1">
+                  = {(parseFloat(manualQuantity) * parseFloat(manualConversionRate)).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} {manualStandardUnit}
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500 mt-1">
+                  To standard unit{manualStandardUnit ? ` (${manualStandardUnit})` : ""}
+                </p>
+              )}
             </div>
 
             <div>
