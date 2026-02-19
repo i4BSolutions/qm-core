@@ -166,7 +166,7 @@ export function CommentsSection({ entityType, entityId }: CommentsSectionProps) 
           entityId={entityId}
           parentId={replyingTo}
           replyingToName={replyingTo
-            ? comments.find(c => c.id === replyingTo)?.author.full_name
+            ? (comments.find(c => c.id === replyingTo)?.author as { full_name: string } | null)?.full_name
             : undefined
           }
           onCancel={() => setReplyingTo(null)}

@@ -29,17 +29,20 @@ export function CommentCard({
   hasReplies,
   isReply = false,
 }: CommentCardProps) {
+  // author may be null at runtime when RLS blocks the users join for non-admin roles
+  const authorName = (comment.author as { full_name: string } | null)?.full_name ?? "Unknown User";
+
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/30 p-4 shadow-soft">
       <div className="flex items-start gap-3">
         {/* User Avatar */}
-        <UserAvatar fullName={comment.author.full_name} size={32} />
+        <UserAvatar fullName={authorName} size={32} />
 
         <div className="flex-1 min-w-0">
           {/* Author name and timestamp */}
           <div className="flex items-center gap-2">
             <span className="font-medium text-slate-200">
-              {comment.author.full_name}
+              {authorName}
             </span>
             <span className="text-xs text-slate-400">
               {format(new Date(comment.created_at), "MMM d, yyyy 'at' h:mm a")}
