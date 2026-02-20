@@ -321,3 +321,32 @@
 
 ---
 
+
+## v1.12 List Views & Approval Workflow (Shipped: 2026-02-20)
+
+**Delivered:** Standardized list views with consistent columns and pagination across all 6 entity pages, two-layer stock-out approval with warehouse assignment, dedicated execution page, and auto-generated user avatars throughout the UI.
+
+**Phases completed:** 55-58 (4 phases, 9 plans)
+
+**Key accomplishments:**
+
+- Built two-layer stock-out approval schema with migration, 6 trigger rewrites, and backfill of existing approved records
+- Created auto-generated user avatars (boring-avatars Beam variant) shown across list view rows, comment cards, and audit history entries
+- Standardized list views with defined columns across QMRL, QMHQ, PO, Invoice, Items, and Stock-out Request pages
+- Added URL-driven pagination (usePaginationParams hook), responsive card/list toggle, and assigned person filters on all list pages
+- Built two-layer approval UI: L1 qty approval dialog + L2 warehouse assignment dialog with real-time stock validation and hard quantity caps
+- Created dedicated stock-out execution page at /inventory/stock-out replacing sidebar link, with warehouse/status filters
+
+**Stats:**
+
+- 62 files modified (+11,894/-2,774 lines)
+- ~54,047 lines of TypeScript
+- 4 phases, 9 plans, 15 feat commits
+- 2 days from start to ship (2026-02-17 → 2026-02-18)
+
+**Git range:** `08db9fd` → `b94ccea`
+
+**What's next:** TBD — run `/gsd:new-milestone` to define next goals
+
+---
+

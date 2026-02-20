@@ -2,33 +2,20 @@
 
 ## What This Is
 
-An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with smart PO lifecycle management (6-state status engine, cancellation/void guards, admin unlock), per-line-item stock-out approval and execution workflows, per-item standard unit management with conversion rate tracking, deletion protection, team collaboration via comments, responsive financial displays, standardized UI via composite components, streamlined 3-role RBAC (Admin/QMRL/QMHQ), admin-only end-to-end flow tracking, and professional PDF receipt export.
+An internal ticket, expense, and inventory management platform serving as a Single Source of Truth (SSOT) for request-to-fulfillment workflows. The system handles QMRL (request letters), QMHQ (headquarters processing with Item/Expense/PO routes), purchase orders, invoices, and inventory with WAC valuation — with smart PO lifecycle management (6-state status engine, cancellation/void guards, admin unlock), two-layer stock-out approval (qty approval + warehouse assignment) with dedicated execution page, per-item standard unit management with conversion rate tracking, standardized list views with consistent columns and URL-driven pagination across all entity pages, auto-generated user avatars (boring-avatars), deletion protection, team collaboration via comments, responsive financial displays, standardized UI via composite components, streamlined 3-role RBAC (Admin/QMRL/QMHQ), admin-only end-to-end flow tracking, and professional PDF receipt export.
 
 ## Core Value
 
 Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-## Current Milestone: v1.12 List Views & Approval Workflow
-
-**Goal:** Standardize all list views with consistent columns/pagination, add two-layer stock-out approval with warehouse assignment, auto-generated user avatars, and audit history user attribution.
-
-**Target features:**
-- QMRL list view (table format)
-- Two-layer stock-out approval (qty approval → warehouse assignment)
-- New stock-out execution page (replaces sidebar item)
-- Audit history with user avatars
-- Standardized list view columns across 6 pages
-- Consistent pagination and assigned person filter
-- Auto-generated user profile avatars via icon library
-
-## Current State (v1.11 Shipped)
+## Current State (v1.12 Shipped)
 
 **Tech Stack:**
 - Next.js 14+ with App Router, TypeScript strict mode
 - Supabase for auth, database, and file storage
 - Tailwind CSS with dark theme support
-- ~45,170 lines of TypeScript
-- 74 database migrations with RLS policies (100 policies across 22 tables)
+- ~54,047 lines of TypeScript
+- 75 database migrations with RLS policies (100 policies across 22 tables)
 
 **Shipped Features:**
 - Email OTP authentication with 3-role RBAC (Admin/QMRL/QMHQ)
@@ -85,6 +72,13 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Per-transaction conversion rate input on PO, Invoice, stock-in, and stock-out forms
 - Standard quantity display (qty x rate) on all detail pages, tables, and PDF exports
 - USD exchange rate auto-lock at database (CHECK constraints) and UI levels
+- Two-layer stock-out approval (L1 qty approval + L2 warehouse assignment with stock validation)
+- Dedicated stock-out execution page at /inventory/stock-out with warehouse/status filters
+- Auto-generated user avatars (boring-avatars Beam variant) across list views, comments, and history
+- Standardized list views with defined columns across QMRL, QMHQ, PO, Invoice, Items, Stock-out pages
+- URL-driven pagination (usePaginationParams hook) with responsive card/list toggle
+- Assigned person filter on all applicable list pages
+- UserAvatar in audit history entries with system Bot indicator for automated actions
 
 ## Requirements
 
@@ -202,15 +196,18 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - ✓ Backfill existing transactions with conversion_rate = 1 and items with 'pcs' unit — v1.11
 - ✓ USD exchange rate auto-lock enforcement (DB constraints + UI) — v1.11
 
+<!-- V1.12 Features -->
+- ✓ QMRL list view with table columns (ID, Title, Status, Assigned Person, Request Date) — v1.12
+- ✓ Two-layer stock-out approval: Layer 1 approves qty, Layer 2 assigns warehouse — v1.12
+- ✓ Dedicated stock-out execution page with list view and warehouse filter — v1.12
+- ✓ Audit history shows user avatar + name on each action — v1.12
+- ✓ Standardized list view columns across QMRL, QMHQ, PO, Invoice, Items, Stock-out — v1.12
+- ✓ Consistent pagination UI and assigned person filter on all list/card pages — v1.12
+- ✓ Auto-generated user profile avatars shown everywhere users appear — v1.12
+
 ### Active
 
-- [ ] QMRL list view with table columns (ID, Title, Status, Assigned Person, Request Date)
-- [ ] Two-layer stock-out approval: Layer 1 approves qty, Layer 2 assigns warehouse
-- [ ] New stock-out execution page with card/list view, warehouse filter
-- [ ] Audit history shows user avatar + name on each action
-- [ ] Standardized list view columns across QMRL, QMHQ, PO, Invoice, Items, Stock-out
-- [ ] Consistent pagination UI and assigned person filter on all list/card pages
-- [ ] Auto-generated user profile avatars shown everywhere users appear
+(None — run `/gsd:new-milestone` to define next goals)
 
 ### Out of Scope
 
@@ -222,7 +219,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Edit comments — breaks audit integrity
 - @mention notifications — requires notification infrastructure
 - Manual currency override on money-out — defeats unification purpose
-- Multi-level approval chains — single-tier admin approval sufficient for internal tool
+- Multi-level approval chains — two-layer (qty + warehouse) is sufficient; three+ layers adds complexity
 - Stock reservation on request creation — adds complexity; internal tool doesn't need overselling prevention
 - Approval delegation to non-admin roles — permission complexity; keep admin-only for now
 - Real-time notification of approval status — no notification infrastructure yet
@@ -235,6 +232,12 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Real-time subscription for execution status — query invalidation sufficient for internal tool
 - WAC per standard unit display — deferred, no user request yet
 - Aggregate standard units on dashboards — deferred, per-item units make aggregation less meaningful
+- Custom profile photo upload — deterministic boring-avatars sufficient for internal tool
+- Column sorting by header click in list views — deferred, filtering sufficient for now
+- View mode preference persistence (localStorage) — deferred, card default works
+- Server-side pagination — client-side sufficient for <500 records per entity
+- Configurable/hideable list view columns — low value for internal tool
+- Card view on execution page — list-only per user decision (task queue is better as list)
 
 ## Context
 
@@ -251,6 +254,7 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - v1.9 PO Lifecycle, Cancellation Guards & PDF Export — PO smart status, matching panel, void guards, PDF receipts (shipped 2026-02-13)
 - v1.10 Tech Debt Cleanup — PO edit page, flow tracking performance, type safety (shipped 2026-02-14)
 - v1.11 Standard Unit System — Per-item standard units, conversion rates, standard qty display, USD auto-lock (shipped 2026-02-16)
+- v1.12 List Views & Approval Workflow — Standardized list views, two-layer approval, execution page, user avatars (shipped 2026-02-20)
 
 **Technical Patterns Established:**
 - Enhanced Supabase error extraction for PostgresError
@@ -304,6 +308,14 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Entity-managed standard units replacing key-value config pattern
 - InlineCreateSelect extension for new entity types (standard_unit with no color picker)
 - USD exchange rate CHECK constraints on financial tables (rate = 1.0 when currency = USD)
+- Two-layer approval schema: L1 (quartermaster) auto-sets layer via trigger, L2 (admin) references parent_approval_id
+- Data-passive UserAvatar component (accepts fullName string, no internal fetch — prevents N+1)
+- boring-avatars Beam variant deterministic SVG (pure function of name string, no server state)
+- usePaginationParams hook for URL-driven pagination (?page=N&pageSize=N) with router.push
+- Responsive card/list toggle with auto-switch below 768px via useEffect + window.innerWidth
+- Filter collapse to Popover on mobile (hidden md:flex desktop, md:hidden mobile)
+- History avatar detection via changed_by UUID null check (not name string comparison)
+- System Bot indicator: slate-700 circle with Bot icon for null changed_by entries
 
 ## Key Decisions
 
@@ -378,6 +390,17 @@ Users can reliably create purchase orders, receive inventory, and track request 
 | USD exchange rate CHECK constraints | Database-level enforcement (rate = 1.0 when USD) — cannot be bypassed | ✓ Good |
 | ConversionRateInput mirrors ExchangeRateInput | Same API, same decimal precision, consistent UX across financial and unit inputs | ✓ Good |
 | Skip aggregate standard qty on PO totals | Different items have different units — aggregating is meaningless | ✓ Good |
+| Data-passive UserAvatar (fullName only) | Prevents N+1 queries on list pages — caller provides name | ✓ Good |
+| boring-avatars Beam variant (no custom colors) | Deterministic, visually distinct, zero configuration | ✓ Good |
+| Two-layer approval (L1 qty + L2 warehouse) | Separates quantity decision from warehouse allocation | ✓ Good |
+| L2 hard cap at min(remaining, stock) | Prevents over-allocation and over-commitment | ✓ Good |
+| Pending inventory_transaction at L2 time | Warehouse known at L2, execution just updates status | ✓ Good |
+| Execution page list-only (no card view) | Task queue is clearer as list; user decision override | ✓ Good |
+| No new request button on execution page | Execution-only page; creation stays at SOR list | ✓ Good |
+| URL-driven pagination (usePaginationParams) | Browser back works, shareable state, consistent UX | ✓ Good |
+| Responsive auto-switch to card below 768px | Tables don't work on mobile; automatic fallback | ✓ Good |
+| History avatar UUID null check (not name) | Authoritative detection; name strings are fragile | ✓ Good |
+| System Bot indicator (slate-700 + Bot icon) | Visually distinct from colorful boring-avatars output | ✓ Good |
 
 ## Constraints
 
@@ -390,6 +413,8 @@ Users can reliably create purchase orders, receive inventory, and track request 
 - Context slider deferred for stock-out approval/execution pages (CSLR-02, CSLR-03)
   - Approval detail page already shows full request context
   - Execution is a dialog modal, not a standalone page
+- Orphaned file: `components/stock-out-requests/approval-dialog.tsx` (old pre-v1.12 dialog, not imported anywhere)
+- Local `UserAvatar` definitions in flow-tracking components (shadow the boring-avatars component; pre-existing)
 
 ---
-*Last updated: 2026-02-17 after v1.12 milestone started*
+*Last updated: 2026-02-20 after v1.12 milestone shipped*
