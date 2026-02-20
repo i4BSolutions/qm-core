@@ -207,7 +207,17 @@ Users can reliably create purchase orders, receive inventory, and track request 
 
 ### Active
 
-(None — run `/gsd:new-milestone` to define next goals)
+#### Current Milestone: v1.13 Permission Matrix & Auto Status
+
+**Goal:** Replace fixed 3-role RBAC with per-user permission matrix across 15 resources, add computed QMHQ auto status by route type, and redesign dashboard as a permission-filtered QMRL list with auto status.
+
+**Target features:**
+- Per-user permission matrix (Edit/View/Block) across 15 resource areas
+- Full RLS policy rewrite for permission-matrix enforcement
+- Permission management UI (admin sets per-user, required at creation)
+- Sidebar navigation filtered by user permissions (Block = hidden)
+- QMHQ route-based auto status (Item/Expense/PO × Pending/Processing/Done)
+- Dashboard redesign: QMRL list with QMHQ auto status column (permission-filtered)
 
 ### Out of Scope
 

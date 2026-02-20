@@ -10,15 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** Planning next milestone
+**Current Focus:** v1.13 Permission Matrix & Auto Status
 
 ---
 
 ## Current Position
 
-Phase: Between milestones
-Status: v1.12 shipped, ready for next milestone
-Last activity: 2026-02-20 — v1.12 milestone archived
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-20 — Milestone v1.13 started
 
 ---
 
