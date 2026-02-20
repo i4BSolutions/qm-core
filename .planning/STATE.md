@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-20 (v1.12 milestone complete)
+**Last Updated:** 2026-02-20 (v1.13 roadmap created)
 
 ---
 
@@ -10,16 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.13 Permission Matrix & Auto Status
+**Current Focus:** v1.13 Permission Matrix & Auto Status — Phase 59 (Permission Schema & Migration)
 
 ---
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-20 — Milestone v1.13 started
+Phase: 59 of 64 (Permission Schema & Migration)
+Plan: — (not yet planned)
+Status: Ready to plan
+Last activity: 2026-02-20 — v1.13 roadmap created, 6 phases defined
+
+Progress: [████████████████████░░░] 58/64 phases complete (prior milestones)
 
 ---
 
@@ -31,37 +33,36 @@ Last activity: 2026-02-20 — Milestone v1.13 started
 - 100 RLS policies across 22 tables
 
 **Shipped Milestones:**
-- v1.0 MVP (4 phases, 8 plans) - 2026-01-27
-- v1.1 Enhancement (6 phases, 17 plans) - 2026-01-28
-- v1.2 Inventory & Financial Accuracy (6 phases, 14 plans) - 2026-01-31
-- v1.3 UX & Bug Fixes (3 phases, 11 plans) - 2026-02-02
-- v1.4 UX Enhancements (3 phases, 9 plans) - 2026-02-06
-- v1.5 UX Polish & Collaboration (4 phases, 9 plans) - 2026-02-09
-- v1.6 Stock-Out Approval (5 phases, 12 plans) - 2026-02-10
-- v1.7 Stock-Out Logic Repair (4 phases, 7 plans) - 2026-02-11
-- v1.8 UI Consistency & RBAC (5 phases, 15 plans) - 2026-02-12
-- v1.9 PO Lifecycle & PDF Export (3 phases, 8 plans) - 2026-02-13
-- v1.10 Tech Debt Cleanup (3 phases, 3 plans) - 2026-02-14
-- v1.11 Standard Unit System (8 phases, 17 plans) - 2026-02-16
-- v1.12 List Views & Approval Workflow (4 phases, 9 plans) - 2026-02-20
+- 13 milestones shipped (v1.0 through v1.12)
+- 58 phases, 146 plans total delivered
 
-**Total Delivered:**
-- 58 phases (1-58)
-- 146 plans
-- 13 milestones shipped
+**v1.13 Scope:**
+- 6 phases (59-64)
+- 24 requirements (11 PERM, 9 AUTO, 4 DASH)
 
 ---
 
 ## Accumulated Context
 
-### Decisions Made
+### Key Decisions for v1.13
 
-All decisions archived in PROJECT.md Key Decisions table.
+- Permission matrix is per-user per-resource (15 resources), not role-based groups
+- Edit = CRUD, View = read-only, Block = no access
+- Admin lockout prevention: admin cannot remove their own Admin resource Edit permission
+- Auto status is computed (VIEW or trigger), not stored — derived from child record state
+- Dashboard becomes a QMRL list; all existing KPI sections removed entirely
+- Phase 60 (RLS rewrite) is the heaviest lift — 100 policies across 22 tables
 
-### TODOs
+### Phase Dependency Order
 
-**Immediate Next Steps:**
-1. Run `/gsd:new-milestone` to define v1.13 goals
+```
+59 (Schema) → 60 (RLS) → 62 (Frontend enforcement)
+59 (Schema) → 61 (Permission UI)
+58 (v1.12 done) → 63 (Auto Status)
+60 + 61 + 63 → 64 (Dashboard)
+```
+
+Note: Phase 63 (Auto Status) can run in parallel with 60-62 if needed.
 
 ### Blockers
 
@@ -72,19 +73,18 @@ All decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 **What Just Happened:**
-- v1.12 milestone completed and archived
-- Archives: milestones/v1.12-ROADMAP.md, milestones/v1.12-REQUIREMENTS.md, milestones/v1.12-MILESTONE-AUDIT.md
-- PROJECT.md evolved with v1.12 features, decisions, patterns
-- ROADMAP.md collapsed v1.12 to one-line summary
-- REQUIREMENTS.md deleted (fresh for next milestone)
+- v1.13 requirements defined (24 reqs: PERM-01 to PERM-11, AUTO-01 to AUTO-09, DASH-01 to DASH-04)
+- Roadmap created with 6 phases (59-64)
+- REQUIREMENTS.md traceability table populated
 
 **Context for Next Agent:**
-- 13 milestones shipped, 58 phases, ~54K LOC
-- All v1.12 features delivered: list views, two-layer approval, execution page, user avatars
-- Known tech debt: orphaned approval-dialog.tsx, local UserAvatar shadows in flow-tracking
+- Start with Phase 59: new `user_permissions` table, 15-resource enum, migration of existing users
+- Existing users table has `role` column with values: admin, qmrl, qmhq
+- Migration must derive sensible default permissions per role before role column is deprecated
+- 100 existing RLS policies use `auth.jwt()->>'role'` or similar — all need rewriting in Phase 60
 
-**Resume at:** Next milestone planning (`/gsd:new-milestone`)
+**Resume at:** `/gsd:plan-phase 59`
 
 ---
 
-*State last updated: 2026-02-20 after v1.12 milestone archived*
+*State last updated: 2026-02-20 after v1.13 roadmap created*

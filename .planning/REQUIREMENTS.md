@@ -62,36 +62,36 @@ Requirements for v1.13 Permission Matrix & Auto Status. Each maps to roadmap pha
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PERM-01 | — | Pending |
-| PERM-02 | — | Pending |
-| PERM-03 | — | Pending |
-| PERM-04 | — | Pending |
-| PERM-05 | — | Pending |
-| PERM-06 | — | Pending |
-| PERM-07 | — | Pending |
-| PERM-08 | — | Pending |
-| PERM-09 | — | Pending |
-| PERM-10 | — | Pending |
-| PERM-11 | — | Pending |
-| AUTO-01 | — | Pending |
-| AUTO-02 | — | Pending |
-| AUTO-03 | — | Pending |
-| AUTO-04 | — | Pending |
-| AUTO-05 | — | Pending |
-| AUTO-06 | — | Pending |
-| AUTO-07 | — | Pending |
-| AUTO-08 | — | Pending |
-| AUTO-09 | — | Pending |
-| DASH-01 | — | Pending |
-| DASH-02 | — | Pending |
-| DASH-03 | — | Pending |
-| DASH-04 | — | Pending |
+| PERM-01 | Phase 59 | Pending |
+| PERM-02 | Phase 61 | Pending |
+| PERM-03 | Phase 61 | Pending |
+| PERM-04 | Phase 61 | Pending |
+| PERM-05 | Phase 62 | Pending |
+| PERM-06 | Phase 62 | Pending |
+| PERM-07 | Phase 62 | Pending |
+| PERM-08 | Phase 62 | Pending |
+| PERM-09 | Phase 60 | Pending |
+| PERM-10 | Phase 59 | Pending |
+| PERM-11 | Phase 61 | Pending |
+| AUTO-01 | Phase 63 | Pending |
+| AUTO-02 | Phase 63 | Pending |
+| AUTO-03 | Phase 63 | Pending |
+| AUTO-04 | Phase 63 | Pending |
+| AUTO-05 | Phase 63 | Pending |
+| AUTO-06 | Phase 63 | Pending |
+| AUTO-07 | Phase 63 | Pending |
+| AUTO-08 | Phase 63 | Pending |
+| AUTO-09 | Phase 63 | Pending |
+| DASH-01 | Phase 64 | Pending |
+| DASH-02 | Phase 64 | Pending |
+| DASH-03 | Phase 64 | Pending |
+| DASH-04 | Phase 64 | Pending |
 
 **Coverage:**
 - v1.13 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24
+- Mapped to phases: 24
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-20*
-*Last updated: 2026-02-20 after initial definition*
+*Last updated: 2026-02-20 after v1.13 roadmap created*
