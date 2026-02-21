@@ -21,7 +21,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import type { User as UserType, Department } from "@/types/database";
+import { PermissionMatrix } from "@/components/admin/permission-matrix";
+import {
+  PERMISSION_RESOURCES,
+  PERMISSION_LEVEL_LABELS,
+} from "@/types/database";
+import type {
+  User as UserType,
+  Department,
+  PermissionResource,
+  PermissionLevel,
+} from "@/types/database";
 
 type UserWithDepartment = UserType & {
   departments: Pick<Department, "id" | "name"> | null;
@@ -43,7 +53,13 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
     department_id: "",
     phone: "",
   });
+  // Partial record — missing keys = unset (not yet configured)
+  const [permissions, setPermissions] = useState<Partial<Record<PermissionResource, PermissionLevel>>>({});
   const { toast } = useToast();
+
+  const configuredCount = PERMISSION_RESOURCES.filter(
+    (r) => permissions[r] !== undefined
+  ).length;
 
   useEffect(() => {
     if (user) {
@@ -61,7 +77,26 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
         phone: "",
       });
     }
+    // Reset permissions when dialog opens
+    setPermissions({});
   }, [user, open]);
+
+  const handlePermissionChange = (resource: PermissionResource, level: PermissionLevel) => {
+    setPermissions((prev) => ({ ...prev, [resource]: level }));
+  };
+
+  const handleSetAll = (level: PermissionLevel) => {
+    const confirmed = window.confirm(
+      `Set all 16 resources to "${PERMISSION_LEVEL_LABELS[level]}"? This will overwrite all current selections.`
+    );
+    if (confirmed) {
+      const all: Partial<Record<PermissionResource, PermissionLevel>> = {};
+      for (const resource of PERMISSION_RESOURCES) {
+        all[resource] = level;
+      }
+      setPermissions(all);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,8 +106,12 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
 
     try {
       if (isCreateMode) {
-        // Create new user via API route (uses admin invite)
-        // Permission assignment for new users is handled separately (Plan 02)
+        // Build permissions array from state
+        const permissionsArray = PERMISSION_RESOURCES.map((resource) => ({
+          resource,
+          level: permissions[resource] as PermissionLevel,
+        }));
+
         const response = await fetch("/api/admin/invite-user", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -81,6 +120,7 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
             full_name: formData.full_name,
             department_id: formData.department_id || null,
             phone: formData.phone || null,
+            permissions: permissionsArray,
           }),
         });
 
@@ -129,14 +169,26 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
     }
   };
 
+  const isCreateSubmitDisabled =
+    isLoading ||
+    !formData.email ||
+    !formData.full_name ||
+    configuredCount < 16;
+
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent
+        className={
+          isCreateMode
+            ? "sm:max-w-[700px] max-h-[80vh] overflow-y-auto"
+            : "sm:max-w-[500px]"
+        }
+      >
         <DialogHeader>
           <DialogTitle>{isCreateMode ? "Create User" : "Edit User"}</DialogTitle>
           <DialogDescription>
             {isCreateMode
-              ? "Create a new user account. They will receive an email to verify their account."
+              ? "Create a new user account. Set all 16 permissions below before saving."
               : "Update the user's information."}
           </DialogDescription>
         </DialogHeader>
@@ -206,9 +258,33 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
                 placeholder="+1 234 567 890"
               />
             </div>
+
+            {/* Permission matrix — create mode only */}
+            {isCreateMode && (
+              <div className="grid gap-3 pt-2">
+                <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+                  Permissions
+                </h3>
+                <PermissionMatrix
+                  mode="create"
+                  permissions={permissions}
+                  onChange={handlePermissionChange}
+                  onSetAll={handleSetAll}
+                />
+              </div>
+            )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex items-center gap-2">
+            {isCreateMode && (
+              <span
+                className={`text-xs mr-auto ${
+                  configuredCount === 16 ? "text-emerald-400" : "text-slate-400"
+                }`}
+              >
+                {configuredCount}/16 configured
+              </span>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -219,7 +295,7 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
             </Button>
             <Button
               type="submit"
-              disabled={isLoading || !formData.email || !formData.full_name}
+              disabled={isCreateMode ? isCreateSubmitDisabled : isLoading || !formData.email || !formData.full_name}
             >
               {isLoading ? "Saving..." : isCreateMode ? "Create User" : "Update"}
             </Button>

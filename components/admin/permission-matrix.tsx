@@ -14,8 +14,12 @@ import {
 import type { PermissionResource, PermissionLevel } from "@/types/database";
 
 interface PermissionMatrixProps {
-  /** Current permission state for all resources */
-  permissions: Record<PermissionResource, PermissionLevel>;
+  /**
+   * Current permission state for all resources.
+   * In edit mode, all 16 resources must have a value.
+   * In create mode, missing keys are treated as "unset" (no radio selected).
+   */
+  permissions: Record<PermissionResource, PermissionLevel> | Partial<Record<PermissionResource, PermissionLevel>>;
   /** Called when a single radio button changes */
   onChange: (resource: PermissionResource, level: PermissionLevel) => void;
   /**
