@@ -13,14 +13,16 @@ export default async function QmhqLayout({
     redirect("/login");
   }
 
-  // TODO Phase 62: replace role-based access guard with has_permission('qmhq', 'view') check
-  // users.role column dropped in Phase 60 — role guard disabled until Phase 62
-  // const { data: profile } = await supabase
-  //   .from("users")
-  //   .select("role")
-  //   .eq("id", user.id)
-  //   .single();
-  // if (profile?.role === "qmrl") { redirect("/dashboard"); }
+  const { data: perm } = await supabase
+    .from("user_permissions")
+    .select("level")
+    .eq("user_id", user.id)
+    .eq("resource", "qmhq")
+    .single();
+
+  if (!perm || perm.level === "block") {
+    redirect("/dashboard");
+  }
 
   return <>{children}</>;
 }

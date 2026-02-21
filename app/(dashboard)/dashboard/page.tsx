@@ -1,9 +1,9 @@
 /**
  * Dashboard Page
  *
- * Server component that provides role-based access control for the management dashboard.
- * Admin users see the live dashboard.
- * Other roles are redirected to their primary workflow page.
+ * Server component that provides permission-based access control for the management dashboard.
+ * Users with system_dashboard access see the live dashboard.
+ * Users with Block permission on system_dashboard are redirected to /qmrl.
  */
 
 import { redirect } from 'next/navigation';
@@ -20,8 +20,18 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
-  // TODO Phase 62: replace role-based redirect with permission check (has_permission('admin', 'edit'))
-  // users.role column dropped in Phase 60 — role-based redirect disabled until Phase 62
+  // Check permission for system_dashboard resource
+  const { data: perm } = await supabase
+    .from('user_permissions')
+    .select('level')
+    .eq('user_id', user.id)
+    .eq('resource', 'system_dashboard')
+    .single();
+
+  if (!perm || perm.level === 'block') {
+    redirect('/qmrl');
+  }
+
   const { data: profile } = await supabase
     .from('users')
     .select('full_name')

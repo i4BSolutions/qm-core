@@ -1,12 +1,26 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
+import type { PermissionResource as DbPermissionResource } from "@/types/database";
 
-// Routes that each role is NOT allowed to access (direct navigation blocked)
-const ROLE_BLOCKED_ROUTES: Record<string, string[]> = {
-  qmrl: ["/qmhq", "/po", "/invoice", "/inventory", "/warehouse", "/admin"],
-  qmhq: ["/po", "/invoice", "/inventory", "/warehouse", "/admin"],
-};
+/**
+ * Maps URL path prefixes to the PermissionResource that controls access.
+ * Ordered longest-prefix-first so more specific routes match before general ones.
+ */
+const ROUTE_RESOURCE_MAP: { prefix: string; resource: DbPermissionResource }[] = [
+  { prefix: '/inventory/stock-in', resource: 'stock_in' },
+  { prefix: '/inventory/stock-out-requests', resource: 'sor' },
+  { prefix: '/inventory/stock-out', resource: 'sor' },
+  { prefix: '/inventory', resource: 'inventory_dashboard' },
+  { prefix: '/dashboard', resource: 'system_dashboard' },
+  { prefix: '/qmrl', resource: 'qmrl' },
+  { prefix: '/qmhq', resource: 'qmhq' },
+  { prefix: '/po', resource: 'po' },
+  { prefix: '/invoice', resource: 'invoice' },
+  { prefix: '/warehouse', resource: 'warehouse' },
+  { prefix: '/item', resource: 'item' },
+  { prefix: '/admin', resource: 'admin' },
+];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -57,7 +71,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If user exists and route is protected, check if user is still active and enforce RBAC
+  // If user exists and route is protected, check if user is still active and enforce permissions
   if (user && !isPublicRoute) {
     const { data: profile } = await supabase
       .from("users")
@@ -74,20 +88,35 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // TODO Phase 62: replace role-based route blocking with permission-based checks
-    // users.role column dropped in Phase 60 — ROLE_BLOCKED_ROUTES disabled until Phase 62
-    // if (profile && profile.role) {
-    //   const blockedRoutes = ROLE_BLOCKED_ROUTES[profile.role as string] ?? [];
-    //   const pathname = request.nextUrl.pathname;
-    //   const isBlocked = blockedRoutes.some((blocked) =>
-    //     pathname === blocked || pathname.startsWith(blocked + "/")
-    //   );
-    //   if (isBlocked) {
-    //     const url = request.nextUrl.clone();
-    //     url.pathname = "/dashboard";
-    //     return NextResponse.redirect(url);
-    //   }
-    // }
+    // Permission-based route blocking
+    // Skip check for root path (it redirects to dashboard anyway)
+    const pathname = request.nextUrl.pathname;
+    if (pathname !== '/') {
+      const match = ROUTE_RESOURCE_MAP.find(
+        (entry) => pathname === entry.prefix || pathname.startsWith(entry.prefix + '/')
+      );
+
+      if (match) {
+        // Fetch only the relevant permission row for this resource
+        const { data: perm } = await supabase
+          .from("user_permissions")
+          .select("resource, level")
+          .eq("user_id", user.id)
+          .eq("resource", match.resource)
+          .single();
+
+        const level = perm?.level ?? 'block';
+
+        if (level === 'block') {
+          // User is blocked from this resource — redirect to /dashboard
+          // If the blocked route IS /dashboard, fall back to /qmrl
+          const fallback = match.resource === 'system_dashboard' ? '/qmrl' : '/dashboard';
+          const url = request.nextUrl.clone();
+          url.pathname = fallback;
+          return NextResponse.redirect(url);
+        }
+      }
+    }
   }
 
   if (user && request.nextUrl.pathname === "/login") {
