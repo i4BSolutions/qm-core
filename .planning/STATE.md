@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-21 (62-01 complete)
+**Last Updated:** 2026-02-21 (62-02 complete)
 
 ---
 
@@ -17,9 +17,9 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 62 of 64 (Frontend Permission Enforcement)
-Plan: 01 — COMPLETE
-Status: Phase 62 Plan 01 done — middleware + layout guards wired to user_permissions; header shows Administrator/Operator
-Last activity: 2026-02-21 — Phase 62 plan 01 executed (route blocking via user_permissions, layout guards, header label)
+Plan: 02 — COMPLETE
+Status: Phase 62 COMPLETE — all TODO Phase 62 markers resolved; button gating, server action enforcement, UserRole cleanup done
+Last activity: 2026-02-21 — Phase 62 plan 02 executed (usePermissions() replaced, server actions enforce user_permissions, UserRole removed)
 
 Progress: [█████████████████████░░] 60/64 phases complete
 
@@ -43,6 +43,14 @@ Progress: [█████████████████████░░
 ---
 
 ## Accumulated Context
+
+### Key Decisions from Phase 62 Plan 02
+
+- **canEdit("admin") covers all admin-page entities** — departments, contacts, suppliers, categories, statuses, standard-units, users all map to single admin resource
+- **ClickableStatusBadge fixed** — canEdit(entityType as DbPermissionResource) replaces can("update", entityType) which was always false since Phase 60; all users can now click status badges if they have edit on qmrl/qmhq
+- **SOR approve/execute restored** — canApprove = canEdit("sor_l1"), canExecute = canEdit("sor"); were hardcoded false since Phase 60
+- **Server actions check user_permissions directly** — defense in depth beyond RLS; deactivate-user, reactivate-user, cancelPO, unlockClosedPO all return 403/error if caller lacks edit permission
+- **UserRole type fully removed** — types/database.ts and types/index.ts cleaned up; local alias kept in use-permissions.ts for legacy permissionMatrix
 
 ### Key Decisions from Phase 62 Plan 01
 
@@ -114,22 +122,21 @@ Note: Phase 63 (Auto Status) can run in parallel with 60-62 if needed.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 62 Plan 01 executed: Permission-based route blocking and header label
-- `lib/supabase/middleware.ts` — ROUTE_RESOURCE_MAP + user_permissions query; ROLE_BLOCKED_ROUTES removed
-- `app/(dashboard)/qmhq/layout.tsx` — server-side guard for qmhq resource
-- `app/(dashboard)/admin/flow-tracking/layout.tsx` — server-side guard requiring admin edit level
-- `app/(dashboard)/dashboard/page.tsx` — system_dashboard block redirects to /qmrl
-- `components/layout/header.tsx` — useResourcePermissions().isAdmin drives Administrator/Operator label
-- `lib/hooks/use-permissions.ts` — ROUTE_RESOURCE_MAP and getResourceForRoute() exported
-- Commits: cf1b833 (middleware + layouts + dashboard), 66addd9 (header + use-permissions)
+- Phase 62 Plan 02 executed: All usePermissions() replaced, server actions enforce permissions, UserRole removed
+- 17 UI files: usePermissions() -> useResourcePermissions() with correct resource mapping
+- ClickableStatusBadge: canEdit(entityType) fix restores clickability for all users with edit permission
+- SOR detail: canApprove = canEdit("sor_l1"), canExecute = canEdit("sor") — restored from false
+- deactivate-user/reactivate-user routes: user_permissions check added, 403 returned for non-admin
+- po-actions cancelPO/unlockClosedPO: user_permissions check for po resource edit level
+- UserRole removed from types/database.ts; local alias in use-permissions.ts for legacy matrix
+- Commits: ca2c2c8 (UI pages), 1066dfd (server actions + cleanup)
 
-**Context for Next Agent (Phase 62 Plan 02):**
-- Phase 62 Plan 01 is complete — middleware and layout guards enforcing permissions
-- `ROUTE_RESOURCE_MAP` and `getResourceForRoute()` exported from `lib/hooks/use-permissions.ts`
-- Plan 02 will implement client-side page guard components using these utilities
-- `useUserRole()` still returns null (deprecated alias); Plan 02 should use useResourcePermissions() hooks
+**Context for Next Agent (Phase 63):**
+- Phase 62 COMPLETE — all permission enforcement done
+- Phase 63 (Auto Status) and Phase 64 (Dashboard) can proceed
+- No TODO Phase 62 markers remain anywhere in runtime code
 
-**Resume at:** Phase 62 Plan 02 (client-side page guards)
+**Resume at:** Phase 63 (Auto Status)
 
 ---
 
