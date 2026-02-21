@@ -74,11 +74,17 @@ export async function cancelPO(
       return { success: false, error: 'Not authenticated' };
     }
 
-    // TODO Phase 62: replace role check with has_permission('admin', 'edit') via RPC
-    // users.role column dropped in Phase 60 — role check bypassed until Phase 62
-    // In the interim, RLS policies on purchase_orders enforce edit = admin permission
-    // const { data: userData, error: roleError } = await supabase.from('users').select('role').eq('id', user.id).single();
-    // if (userData?.role !== 'admin') { return { success: false, error: 'Only administrators can cancel Purchase Orders' }; }
+    // 2. Verify user has edit permission on po resource
+    const { data: perm } = await supabase
+      .from('user_permissions')
+      .select('level')
+      .eq('user_id', user.id)
+      .eq('resource', 'po')
+      .single();
+
+    if (!perm || perm.level !== 'edit') {
+      return { success: false, error: 'Only users with Edit permission on Purchase Orders can cancel POs' };
+    }
 
     // 3. Fetch PO BEFORE cancel to get baseline data
     const { data: poBefore, error: fetchError } = await supabase
@@ -238,11 +244,17 @@ export async function unlockClosedPO(
       return { success: false, error: 'Not authenticated' };
     }
 
-    // TODO Phase 62: replace role check with has_permission('admin', 'edit') via RPC
-    // users.role column dropped in Phase 60 — role check bypassed until Phase 62
-    // In the interim, RLS policies on purchase_orders enforce edit = admin permission
-    // const { data: userData, error: roleError } = await supabase.from('users').select('role').eq('id', user.id).single();
-    // if (userData?.role !== 'admin') { return { success: false, error: 'Only administrators can unlock Purchase Orders' }; }
+    // 2. Verify user has edit permission on po resource
+    const { data: perm } = await supabase
+      .from('user_permissions')
+      .select('level')
+      .eq('user_id', user.id)
+      .eq('resource', 'po')
+      .single();
+
+    if (!perm || perm.level !== 'edit') {
+      return { success: false, error: 'Only users with Edit permission on Purchase Orders can unlock POs' };
+    }
 
     // 3. Fetch current PO
     const { data: po, error: fetchError } = await supabase

@@ -15,7 +15,6 @@ export type {
   User,
   StatusConfig,
   Category,
-  UserRole,
   StatusGroup,
   EntityType,
   PriorityLevel,

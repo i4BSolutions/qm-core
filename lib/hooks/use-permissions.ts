@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import { useUserRole, useUserPermissions } from "@/components/providers/auth-provider";
-import type { UserRole } from "@/types";
+// Kept local after UserRole was removed from types/database.ts in Phase 62
+type UserRole = "admin" | "qmrl" | "qmhq";
 // Import DB permission types under distinct names to avoid collision with the
 // legacy PermissionResource type defined below in this file.
 import type {
@@ -166,6 +167,7 @@ export function getPermissions(
 
 /**
  * Hook for checking permissions
+ * @deprecated Use useResourcePermissions() instead — this uses the old role matrix which is always null since Phase 60.
  */
 export function usePermissions() {
   const role = useUserRole();

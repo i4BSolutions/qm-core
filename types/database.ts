@@ -2295,10 +2295,6 @@ export interface QMHQItemWithRelations extends QMHQItem {
 }
 
 // Enum types
-// UserRole removed in Phase 60 — users.role column dropped, replaced by permission matrix
-// TODO Phase 62: remove all UserRole references from frontend code
-/** @deprecated Use permission matrix checks instead. Removed in Phase 60. Phase 62 cleans up frontend. */
-export type UserRole = "admin" | "qmrl" | "qmhq";
 export type StatusGroup = Enums<"status_group">
 export type EntityType = Enums<"entity_type">
 export type ItemCategory = Enums<"item_category">

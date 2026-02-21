@@ -483,5 +483,5 @@ export function useUserPermissions(): UserPermissionsMap {
  */
 export function useUserRole() {
   useAuth(); // keep hook call to preserve hook order
-  return null as import("@/types").UserRole | null;
+  return null as ("admin" | "qmrl" | "qmhq") | null;
 }
