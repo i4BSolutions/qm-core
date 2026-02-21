@@ -149,10 +149,10 @@ Plans:
   3. A user with View permission on a resource can only select — insert and update return permission denied
   4. A user with Block permission on a resource receives no rows on select and permission denied on mutations
   5. Admin users retain full access to all resources regardless of permission rows
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 60-01: RLS policy rewrite for all 22 tables
+- [ ] 60-01-PLAN.md — Drop all role-based RLS policies, create permission-matrix policies for all tables, drop role column/enum, update helper functions
 
 ---
 
