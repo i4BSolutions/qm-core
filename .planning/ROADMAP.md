@@ -132,10 +132,10 @@ Phases 55-58 delivered standardized list views with consistent columns and pagin
   2. Every existing user has a complete set of 15 permissions migrated from their old role (admin gets Edit on all, qmrl/qmhq get scoped permissions)
   3. A new user creation path requires all 15 permissions to be explicitly set before the user row is saved
   4. The 15 resource identifiers are codified as an enum or constraint (no free-text resource names)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 59-01: Permission schema migration and data backfill
+- [ ] 59-01-PLAN.md — Permission schema (table, enums, helpers) and data migration (backfill all users from 3-role model)
 
 ---
 
