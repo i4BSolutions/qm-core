@@ -182,11 +182,11 @@ Plans:
   2. Navigating directly to a blocked resource URL redirects the user away (to dashboard or an access-denied page)
   3. Create, edit, and delete action buttons are not rendered when a user has View-only permission on that resource
   4. Server actions (form submissions, mutations) for a resource return an error when the caller has View or Block permission, even if the request is crafted manually
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 62-01: Sidebar filtering and page-level redirect guards
-- [ ] 62-02: Button-level gating and server-action rejection
+- [ ] 62-01-PLAN.md — Middleware permission-based route blocking, layout guards, header role label, route-to-resource mapping
+- [ ] 62-02-PLAN.md — Replace legacy usePermissions() with useResourcePermissions() on all pages, server-action permission rejection, legacy cleanup
 
 ---
 
