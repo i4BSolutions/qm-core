@@ -157,18 +157,19 @@ Plans:
 ---
 
 #### Phase 61: Permission Management UI
-**Goal**: Admins can manage any user's permissions through a matrix UI — all 15 resources visible at once, changes saved atomically, and no admin can remove their own Admin resource Edit permission.
+**Goal**: Admins can manage any user's permissions through a matrix UI — all 16 resources visible at once, changes saved atomically, and no admin can remove their own Admin resource Edit permission.
 **Depends on**: Phase 59 (permission data exists to display and edit)
 **Requirements**: PERM-02, PERM-03, PERM-04, PERM-11
 **Success Criteria** (what must be TRUE):
-  1. Admin can open a permissions screen for any user and see all 15 resources with their current Edit/View/Block assignment
-  2. Admin can change any permission and save — the matrix updates atomically (all 15 saved or none)
+  1. Admin can open a permissions screen for any user and see all 16 resources with their current Edit/View/Block assignment
+  2. Admin can change any permission and save — the matrix updates atomically (all 16 saved or none)
   3. The user creation form includes a mandatory permission matrix step that must be completed before the user is created
   4. When an admin tries to set their own Admin resource permission to View or Block, the change is rejected with a clear error
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 61-01: Permission management UI and user creation flow
+- [ ] 61-01-PLAN.md — Permission matrix component + permissions tab on user detail page + lockout prevention
+- [ ] 61-02-PLAN.md — Permission matrix in user creation form + invite API permissions support
 
 ---
 
