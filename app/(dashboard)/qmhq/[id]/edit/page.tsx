@@ -129,7 +129,8 @@ export default function EditQMHQPage() {
         .order("name"),
       supabase
         .from("users")
-        .select("id, full_name, role")
+        // TODO Phase 62: role column dropped in Phase 60 — remove from select
+        .select("id, full_name")
         .eq("is_active", true)
         .order("full_name"),
     ]);

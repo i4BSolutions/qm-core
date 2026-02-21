@@ -298,7 +298,8 @@ function NewQMHQContent() {
         .order("name"),
       supabase
         .from("users")
-        .select("id, full_name, role")
+        // TODO Phase 62: role column dropped in Phase 60 — remove from select
+        .select("id, full_name")
         .eq("is_active", true)
         .order("full_name"),
     ]);
@@ -676,7 +677,7 @@ function NewQMHQContent() {
                       {users.map((u) => (
                         <SelectItem key={u.id} value={u.id}>
                           <span className="text-slate-200">{u.full_name}</span>
-                          {u.role && <span className="text-slate-400 ml-2">- {u.role}</span>}
+                          {/* TODO Phase 62: role display replaced with permission label */}
                         </SelectItem>
                       ))}
                     </SelectContent>

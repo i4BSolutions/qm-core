@@ -140,8 +140,9 @@ export default function QMHQDetailPage() {
   // Per-file delete permission check matching RLS policy
   const canDeleteFile = useCallback((file: FileAttachmentWithUploader) => {
     if (!user) return false;
-    // Admin can delete any file
-    if (user.role === 'admin') return true;
+    // TODO Phase 62: replace role check with has_permission('admin', 'edit')
+    // users.role column dropped in Phase 60 — admin file delete check disabled until Phase 62
+    // if ((user as Record<string, unknown>)["role"] === 'admin') return true;
     // Users can delete their own uploads
     return file.uploaded_by === user.id;
   }, [user]);

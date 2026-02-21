@@ -13,16 +13,14 @@ export default async function FlowTrackingLayout({
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  // Admin-only route guard
-  if (profile?.role !== "admin") {
-    redirect("/dashboard");
-  }
+  // TODO Phase 62: replace role-based access guard with has_permission('admin', 'edit') check
+  // users.role column dropped in Phase 60 — role guard disabled until Phase 62
+  // const { data: profile } = await supabase
+  //   .from("users")
+  //   .select("role")
+  //   .eq("id", user.id)
+  //   .single();
+  // if (profile?.role !== "admin") { redirect("/dashboard"); }
 
   return <>{children}</>;
 }

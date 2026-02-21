@@ -59,7 +59,8 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
       setFormData({
         email: user.email || "",
         full_name: user.full_name || "",
-        role: (user.role || "qmrl") as UserRole,
+        // TODO Phase 62: role field removed from User type (Phase 60 dropped users.role)
+        role: "qmrl" as UserRole,
         department_id: user.department_id || "",
         phone: user.phone || "",
       });
@@ -109,11 +110,12 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
         onClose(true);
       } else if (user) {
         // Update existing user
+        // TODO Phase 62: role field removed from users table (Phase 60 — use permission matrix instead)
         const { error } = await supabase
           .from("users")
           .update({
             full_name: formData.full_name,
-            role: formData.role,
+            // role: formData.role, // removed in Phase 60
             department_id: formData.department_id || null,
             phone: formData.phone || null,
           })

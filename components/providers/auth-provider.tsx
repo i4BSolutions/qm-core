@@ -418,6 +418,8 @@ export function useUser() {
 }
 
 export function useUserRole() {
-  const { user } = useAuth();
-  return user?.role ?? null;
+  // TODO Phase 62: replace with permission-based check (has_permission hook)
+  // users.role column dropped in Phase 60 — always returns null until Phase 62
+  useAuth(); // keep hook call to preserve hook order
+  return null as import("@/types").UserRole | null;
 }

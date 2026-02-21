@@ -185,7 +185,9 @@ function NavItemComponent({ item }: { item: NavItem }) {
 
 export function Sidebar() {
   const { user } = useUser();
-  const userRole = user?.role ?? null;
+  // TODO Phase 62: replace role-based navigation filter with permission-based check
+  // users.role column dropped in Phase 60 — userRole always null until Phase 62
+  const userRole = null as import("@/types").UserRole | null;
 
   // Filter navigation items based on user role
   const visibleNavigation = useMemo(() => {
@@ -260,7 +262,8 @@ export function Sidebar() {
         <p className="text-xs text-slate-600 font-mono">SINGLE SOURCE OF TRUTH</p>
         {user && (
           <p className="mt-1 text-xs text-amber-500/70 font-mono uppercase">
-            OPERATOR: {user.role}
+            {/* TODO Phase 62: display permission-based role label */}
+            OPERATOR: {(user as Record<string, unknown>)["role"] as string | undefined}
           </p>
         )}
       </div>

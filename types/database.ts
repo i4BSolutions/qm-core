@@ -788,7 +788,6 @@ export type Database = {
           id: string
           is_active: boolean | null
           phone: string | null
-          role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
           updated_by: string | null
         }
@@ -802,7 +801,6 @@ export type Database = {
           id: string
           is_active?: boolean | null
           phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -816,7 +814,6 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -1970,14 +1967,6 @@ export type Database = {
         Args: { p_entity_type: Database["public"]["Enums"]["entity_type"] }
         Returns: string
       }
-      get_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: Database["public"]["Enums"]["user_role"]
-      }
-      has_role: {
-        Args: { required_role: Database["public"]["Enums"]["user_role"] }
-        Returns: boolean
-      }
       get_qmrl_status_counts: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -2036,7 +2025,7 @@ export type Database = {
       entity_type: "qmrl" | "qmhq" | "item"
       item_category: "equipment" | "consumable" | "uniform" | "other"
       status_group: "to_do" | "in_progress" | "done"
-      user_role: "admin" | "qmrl" | "qmhq"
+      // user_role enum removed in Phase 60 — role column dropped from users table
       // Future enums (will be added when tables are created)
       priority_level: "low" | "medium" | "high" | "critical"
       route_type: "item" | "expense" | "po"
@@ -2253,7 +2242,10 @@ export interface QMHQItemWithRelations extends QMHQItem {
 }
 
 // Enum types
-export type UserRole = Enums<"user_role">
+// UserRole removed in Phase 60 — users.role column dropped, replaced by permission matrix
+// TODO Phase 62: remove all UserRole references from frontend code
+/** @deprecated Use permission matrix checks instead. Removed in Phase 60. Phase 62 cleans up frontend. */
+export type UserRole = "admin" | "qmrl" | "qmhq";
 export type StatusGroup = Enums<"status_group">
 export type EntityType = Enums<"entity_type">
 export type ItemCategory = Enums<"item_category">

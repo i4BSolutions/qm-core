@@ -20,17 +20,13 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
-  // Fetch user profile with role
+  // TODO Phase 62: replace role-based redirect with permission check (has_permission('admin', 'edit'))
+  // users.role column dropped in Phase 60 — role-based redirect disabled until Phase 62
   const { data: profile } = await supabase
     .from('users')
-    .select('role, full_name')
+    .select('full_name')
     .eq('id', user.id)
     .single();
-
-  // Redirect non-admin users to their primary page
-  if (profile?.role && profile.role !== 'admin') {
-    redirect(profile.role === 'qmhq' ? '/qmhq' : '/qmrl');
-  }
 
   // Fetch dashboard data for management users
   const dashboardData = await getDashboardData();

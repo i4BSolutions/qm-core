@@ -74,26 +74,11 @@ export async function cancelPO(
       return { success: false, error: 'Not authenticated' };
     }
 
-    // 2. Check user role is admin
-    const { data: userData, error: roleError } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (roleError) {
-      return {
-        success: false,
-        error: `Failed to verify user role: ${roleError.message}`,
-      };
-    }
-
-    if (userData?.role !== 'admin') {
-      return {
-        success: false,
-        error: 'Only administrators can cancel Purchase Orders',
-      };
-    }
+    // TODO Phase 62: replace role check with has_permission('admin', 'edit') via RPC
+    // users.role column dropped in Phase 60 — role check bypassed until Phase 62
+    // In the interim, RLS policies on purchase_orders enforce edit = admin permission
+    // const { data: userData, error: roleError } = await supabase.from('users').select('role').eq('id', user.id).single();
+    // if (userData?.role !== 'admin') { return { success: false, error: 'Only administrators can cancel Purchase Orders' }; }
 
     // 3. Fetch PO BEFORE cancel to get baseline data
     const { data: poBefore, error: fetchError } = await supabase
@@ -253,26 +238,11 @@ export async function unlockClosedPO(
       return { success: false, error: 'Not authenticated' };
     }
 
-    // 2. Check user role is admin
-    const { data: userData, error: roleError } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (roleError) {
-      return {
-        success: false,
-        error: `Failed to verify user role: ${roleError.message}`,
-      };
-    }
-
-    if (userData?.role !== 'admin') {
-      return {
-        success: false,
-        error: 'Only administrators can unlock Purchase Orders',
-      };
-    }
+    // TODO Phase 62: replace role check with has_permission('admin', 'edit') via RPC
+    // users.role column dropped in Phase 60 — role check bypassed until Phase 62
+    // In the interim, RLS policies on purchase_orders enforce edit = admin permission
+    // const { data: userData, error: roleError } = await supabase.from('users').select('role').eq('id', user.id).single();
+    // if (userData?.role !== 'admin') { return { success: false, error: 'Only administrators can unlock Purchase Orders' }; }
 
     // 3. Fetch current PO
     const { data: po, error: fetchError } = await supabase

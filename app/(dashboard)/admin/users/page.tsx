@@ -58,7 +58,8 @@ export default function UsersPage() {
     const [usersRes, deptsRes] = await Promise.all([
       supabase
         .from("users")
-        .select("id, email, full_name, role, department_id, phone, is_active, departments:departments!department_id(id, name)")
+        // TODO Phase 62: role column dropped in Phase 60 — remove "role" from select
+        .select("id, email, full_name, department_id, phone, is_active, departments:departments!department_id(id, name)")
         .order("full_name")
         .limit(200),
       supabase
@@ -205,15 +206,16 @@ export default function UsersPage() {
       },
     },
     {
-      accessorKey: "role",
+      // TODO Phase 62: replace role column with permission-based display
+      // users.role column dropped in Phase 60
+      id: "role",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Role" />,
       cell: ({ row }) => {
         const isInactive = !row.original.is_active;
-        const role = roleConfig[row.original.role || "qmrl"];
         return (
           <div className={`flex items-center gap-2 ${isInactive ? "opacity-50" : ""}`}>
-            <span className={`w-2 h-2 rounded-full ${role?.color || "bg-slate-500"}`} />
-            <span className="text-slate-300">{role?.label || row.original.role}</span>
+            <span className="w-2 h-2 rounded-full bg-slate-500" />
+            <span className="text-slate-400">—</span>
           </div>
         );
       },
@@ -296,12 +298,9 @@ export default function UsersPage() {
     },
   ];
 
-  // Count users by role and status
-  const roleCounts = users.reduce((acc, user) => {
-    const role = user.role || "qmrl";
-    acc[role] = (acc[role] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  // TODO Phase 62: replace role counting with permission-based grouping
+  // users.role column dropped in Phase 60
+  const roleCounts: Record<string, number> = {}; // was: users.reduce(...) by role
 
   const activeCount = users.filter(u => u.is_active).length;
   const inactiveCount = users.filter(u => !u.is_active).length;

@@ -83,8 +83,9 @@ export default function QMRLDetailPage() {
   // Per-file delete permission check matching RLS policy
   const canDeleteFile = useCallback((file: FileAttachmentWithUploader) => {
     if (!user) return false;
-    // Admin can delete any file
-    if (user.role === 'admin') return true;
+    // TODO Phase 62: replace role check with has_permission('admin', 'edit')
+    // users.role column dropped in Phase 60 — admin file delete check disabled until Phase 62
+    // if ((user as Record<string, unknown>)["role"] === 'admin') return true;
     // Users can delete their own uploads
     return file.uploaded_by === user.id;
   }, [user]);
@@ -115,10 +116,9 @@ export default function QMRLDetailPage() {
 
     setQmrl(data as QMRLWithRelations);
 
-    // Fetch related QMHQ records only for roles with qmhq read access
-    // (admin and qmhq roles only - qmrl role has zero visibility into QMHQ)
-    // The RLS policy also enforces this at the database level
-    if (user && user.role !== "qmrl") {
+    // TODO Phase 62: replace role-based QMHQ visibility check with has_permission('qmhq', 'view')
+    // users.role column dropped in Phase 60 — role check disabled, RLS enforces access
+    if (user) { // was: user.role !== "qmrl"
       const { data: qmhqData } = await supabase
         .from("qmhq")
         .select(`
@@ -444,8 +444,9 @@ export default function QMRLDetailPage() {
                       )}
                       <div>
                         <p className="data-value">{qmrl.assigned_user?.full_name || "Unassigned"}</p>
-                        {qmrl.assigned_user?.role && (
-                          <p className="text-xs text-slate-400 capitalize">{qmrl.assigned_user.role}</p>
+                        {/* TODO Phase 62: display permission-based label instead of role */}
+                        {Boolean((qmrl.assigned_user as Record<string, unknown>)?.["role"]) && (
+                          <p className="text-xs text-slate-400 capitalize">{String((qmrl.assigned_user as Record<string, unknown>)?.["role"])}</p>
                         )}
                       </div>
                     </div>
@@ -463,8 +464,9 @@ export default function QMRLDetailPage() {
                       )}
                       <div>
                         <p className="data-value">{qmrl.requester?.full_name || "—"}</p>
-                        {qmrl.requester?.role && (
-                          <p className="text-xs text-slate-400 capitalize">{qmrl.requester.role}</p>
+                        {/* TODO Phase 62: display permission-based label instead of role */}
+                        {Boolean((qmrl.requester as Record<string, unknown>)?.["role"]) && (
+                          <p className="text-xs text-slate-400 capitalize">{String((qmrl.requester as Record<string, unknown>)?.["role"])}</p>
                         )}
                       </div>
                     </div>

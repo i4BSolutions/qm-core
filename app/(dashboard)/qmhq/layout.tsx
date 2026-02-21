@@ -13,16 +13,14 @@ export default async function QmhqLayout({
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  // RBAC-07: QMRL users cannot access any QMHQ pages
-  if (profile?.role === "qmrl") {
-    redirect("/dashboard");
-  }
+  // TODO Phase 62: replace role-based access guard with has_permission('qmhq', 'view') check
+  // users.role column dropped in Phase 60 — role guard disabled until Phase 62
+  // const { data: profile } = await supabase
+  //   .from("users")
+  //   .select("role")
+  //   .eq("id", user.id)
+  //   .single();
+  // if (profile?.role === "qmrl") { redirect("/dashboard"); }
 
   return <>{children}</>;
 }

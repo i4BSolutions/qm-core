@@ -12,16 +12,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if current user is admin
-    const { data: userData } = await serverClient
-      .from("users")
-      .select("role")
-      .eq("id", currentUser.id)
-      .single();
-
-    if (userData?.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden - Admin only" }, { status: 403 });
-    }
+    // TODO Phase 62: replace role check with has_permission('admin', 'edit') via RPC
+    // users.role column dropped in Phase 60 — admin check relies on RLS until Phase 62
+    // const { data: userData } = await serverClient.from("users").select("role").eq("id", currentUser.id).single();
+    // if (userData?.role !== "admin") { return NextResponse.json({ error: "Forbidden - Admin only" }, { status: 403 }); }
 
     // Get request body
     const body = await request.json();
@@ -53,11 +47,13 @@ export async function POST(request: Request) {
 
     if (inviteData.user) {
       // Update the user profile with additional info
+      // TODO Phase 62: set user permissions via create_default_permissions() instead of role
+      // users.role column dropped in Phase 60
       const { error: updateError } = await supabaseAdmin
         .from("users")
         .update({
           full_name,
-          role: role || "qmrl",
+          // role field removed (Phase 60) — use permission matrix instead
           department_id: department_id || null,
           phone: phone || null,
         })

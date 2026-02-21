@@ -115,7 +115,8 @@ export function Header() {
                   {user?.full_name ?? "Guest"}
                 </p>
                 <p className="text-xs text-amber-500/70 font-mono uppercase">
-                  {user?.role ? formatRole(user.role) : "Not signed in"}
+                  {/* TODO Phase 62: display permission-based role label */}
+                  {"Not signed in"}
                 </p>
               </div>
               <ChevronDown
@@ -150,7 +151,8 @@ export function Header() {
                   <div className="mt-3 flex items-center gap-2">
                     <Shield className="h-3 w-3 text-amber-500" />
                     <span className="text-xs font-mono text-amber-400 uppercase tracking-wider">
-                      {formatRole(user.role)}
+                      {/* TODO Phase 62: display permission-based role label */}
+                      {"—"}
                     </span>
                   </div>
                 </div>

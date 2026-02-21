@@ -61,7 +61,7 @@ export async function updateSession(request: NextRequest) {
   if (user && !isPublicRoute) {
     const { data: profile } = await supabase
       .from("users")
-      .select("is_active, role")
+      .select("is_active")
       .eq("id", user.id)
       .single();
 
@@ -74,19 +74,20 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Enforce role-based route access
-    if (profile && profile.role) {
-      const blockedRoutes = ROLE_BLOCKED_ROUTES[profile.role as string] ?? [];
-      const pathname = request.nextUrl.pathname;
-      const isBlocked = blockedRoutes.some((blocked) =>
-        pathname === blocked || pathname.startsWith(blocked + "/")
-      );
-      if (isBlocked) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/dashboard";
-        return NextResponse.redirect(url);
-      }
-    }
+    // TODO Phase 62: replace role-based route blocking with permission-based checks
+    // users.role column dropped in Phase 60 — ROLE_BLOCKED_ROUTES disabled until Phase 62
+    // if (profile && profile.role) {
+    //   const blockedRoutes = ROLE_BLOCKED_ROUTES[profile.role as string] ?? [];
+    //   const pathname = request.nextUrl.pathname;
+    //   const isBlocked = blockedRoutes.some((blocked) =>
+    //     pathname === blocked || pathname.startsWith(blocked + "/")
+    //   );
+    //   if (isBlocked) {
+    //     const url = request.nextUrl.clone();
+    //     url.pathname = "/dashboard";
+    //     return NextResponse.redirect(url);
+    //   }
+    // }
   }
 
   if (user && request.nextUrl.pathname === "/login") {

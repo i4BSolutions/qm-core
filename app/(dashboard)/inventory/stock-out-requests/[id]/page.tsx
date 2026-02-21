@@ -176,14 +176,15 @@ export default function StockOutRequestDetailPage() {
   } | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
 
-  // Permission checks (RBAC-15: stock-out approvals restricted to Admin only)
-  const canApprove = user?.role === "admin";
+  // TODO Phase 62: replace role checks with has_permission('sor_l1', 'edit'), has_permission('sor', 'edit')
+  // users.role column dropped in Phase 60 — admin checks disabled until Phase 62
+  const canApprove = false; // was: user?.role === "admin"
   const isRequester = user?.id === request?.requester_id;
   const canCancel = isRequester && request?.status === "pending";
 
   // Execute is only available when request is fully_approved or partially_executed/executed (any pending transactions remain)
   // The button per row in WarehouseAssignmentsTab handles this — canExecute just checks admin role
-  const canExecute = user?.role === "admin";
+  const canExecute = false; // was: user?.role === "admin" — TODO Phase 62: replace with permission check
 
   /**
    * Fetch request data with two-layer-aware line item quantities
