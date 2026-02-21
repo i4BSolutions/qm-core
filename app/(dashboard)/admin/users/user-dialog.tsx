@@ -27,8 +27,6 @@ type UserWithDepartment = UserType & {
   departments: Pick<Department, "id" | "name"> | null;
 };
 
-type UserRole = "admin" | "qmrl" | "qmhq";
-
 interface UserDialogProps {
   open: boolean;
   onClose: (refresh?: boolean) => void;
@@ -37,18 +35,11 @@ interface UserDialogProps {
   isCreateMode: boolean;
 }
 
-const roles = [
-  { value: "admin", label: "Admin", description: "Full system access" },
-  { value: "qmrl", label: "QMRL", description: "Create and manage request letters" },
-  { value: "qmhq", label: "QMHQ", description: "HQ operations, POs, invoices, inventory requests" },
-];
-
 export function UserDialog({ open, onClose, user, departments, isCreateMode }: UserDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     full_name: "",
-    role: "qmrl" as UserRole,
     department_id: "",
     phone: "",
   });
@@ -59,8 +50,6 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
       setFormData({
         email: user.email || "",
         full_name: user.full_name || "",
-        // TODO Phase 62: role field removed from User type (Phase 60 dropped users.role)
-        role: "qmrl" as UserRole,
         department_id: user.department_id || "",
         phone: user.phone || "",
       });
@@ -68,7 +57,6 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
       setFormData({
         email: "",
         full_name: "",
-        role: "qmrl",
         department_id: "",
         phone: "",
       });
@@ -84,13 +72,13 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
     try {
       if (isCreateMode) {
         // Create new user via API route (uses admin invite)
+        // Permission assignment for new users is handled separately (Plan 02)
         const response = await fetch("/api/admin/invite-user", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: formData.email,
             full_name: formData.full_name,
-            role: formData.role,
             department_id: formData.department_id || null,
             phone: formData.phone || null,
           }),
@@ -110,12 +98,10 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
         onClose(true);
       } else if (user) {
         // Update existing user
-        // TODO Phase 62: role field removed from users table (Phase 60 — use permission matrix instead)
         const { error } = await supabase
           .from("users")
           .update({
             full_name: formData.full_name,
-            // role: formData.role, // removed in Phase 60
             department_id: formData.department_id || null,
             phone: formData.phone || null,
           })
@@ -151,7 +137,7 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
           <DialogDescription>
             {isCreateMode
               ? "Create a new user account. They will receive an email to verify their account."
-              : "Update the user's information and role."}
+              : "Update the user's information."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -187,54 +173,26 @@ export function UserDialog({ open, onClose, user, departments, isCreateMode }: U
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="role">Role *</Label>
-                <Select
-                  value={formData.role}
-                  onValueChange={(value: UserRole) =>
-                    setFormData({ ...formData, role: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles.map((role) => (
-                      <SelectItem key={role.value} value={role.value}>
-                        <div className="flex flex-col">
-                          <span>{role.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-slate-400">
-                  {roles.find((r) => r.value === formData.role)?.description}
-                </p>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="department">Department</Label>
-                <Select
-                  value={formData.department_id || "none"}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, department_id: value === "none" ? "" : value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Department</SelectItem>
-                    {departments.map((dept) => (
-                      <SelectItem key={dept.id} value={dept.id}>
-                        {dept.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid gap-2">
+              <Label htmlFor="department">Department</Label>
+              <Select
+                value={formData.department_id || "none"}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, department_id: value === "none" ? "" : value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Department</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-2">

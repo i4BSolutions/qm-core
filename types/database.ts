@@ -1942,6 +1942,41 @@ export type Database = {
           }
         ]
       }
+      user_permissions: {
+        Row: {
+          id: string
+          user_id: string
+          resource: Database["public"]["Enums"]["permission_resource"]
+          level: Database["public"]["Enums"]["permission_level"]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          resource: Database["public"]["Enums"]["permission_resource"]
+          level: Database["public"]["Enums"]["permission_level"]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          resource?: Database["public"]["Enums"]["permission_resource"]
+          level?: Database["public"]["Enums"]["permission_level"]
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2087,6 +2122,24 @@ export type Database = {
         | "approve"
         | "close"
         | "cancel"
+      permission_resource:
+        | "system_dashboard"
+        | "qmrl"
+        | "qmhq"
+        | "money_transactions"
+        | "inv_transactions"
+        | "po"
+        | "invoice"
+        | "stock_in"
+        | "sor"
+        | "sor_l1"
+        | "sor_l2"
+        | "sor_l3"
+        | "warehouse"
+        | "inventory_dashboard"
+        | "item"
+        | "admin"
+      permission_level: "edit" | "view" | "block"
     }
     CompositeTypes: {
       [_ in never]: never

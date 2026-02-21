@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, MoreHorizontal, Pencil, UserX, RotateCcw, Radio, Users, Shield, Mail, Lock } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, UserX, RotateCcw, Radio, Users, Shield, Lock } from "lucide-react";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,22 +14,24 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { UserDialog } from "./user-dialog";
 import { DeactivateUserDialog } from "./deactivate-user-dialog";
+import { PermissionsTab } from "./permissions-tab";
 import { PageHeader } from "@/components/composite";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { User as UserType, Department } from "@/types/database";
 
 type UserWithDepartment = UserType & {
   departments: Pick<Department, "id" | "name"> | null;
-};
-
-const roleConfig: Record<string, { label: string; color: string }> = {
-  admin: { label: "Admin", color: "bg-red-500" },
-  qmrl: { label: "QMRL", color: "bg-blue-500" },
-  qmhq: { label: "QMHQ", color: "bg-amber-500" },
 };
 
 export default function UsersPage() {
@@ -42,6 +44,9 @@ export default function UsersPage() {
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
   const [deactivatingUser, setDeactivatingUser] = useState<UserWithDepartment | null>(null);
   const [isDeactivating, setIsDeactivating] = useState(false);
+  // Permissions dialog state
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<UserWithDepartment | null>(null);
   const { toast } = useToast();
   const { can } = usePermissions();
   const { user: currentUser } = useAuth();
@@ -58,7 +63,6 @@ export default function UsersPage() {
     const [usersRes, deptsRes] = await Promise.all([
       supabase
         .from("users")
-        // TODO Phase 62: role column dropped in Phase 60 — remove "role" from select
         .select("id, email, full_name, department_id, phone, is_active, departments:departments!department_id(id, name)")
         .order("full_name")
         .limit(200),
@@ -181,6 +185,16 @@ export default function UsersPage() {
     }
   };
 
+  const handleOpenPermissions = (user: UserWithDepartment) => {
+    setSelectedUserForPermissions(user);
+    setPermissionsOpen(true);
+  };
+
+  const handlePermissionsClose = () => {
+    setPermissionsOpen(false);
+    setSelectedUserForPermissions(null);
+  };
+
   const columns: ColumnDef<UserWithDepartment>[] = [
     {
       accessorKey: "full_name",
@@ -201,21 +215,6 @@ export default function UsersPage() {
               </div>
               <p className="text-xs text-slate-400">{row.original.email}</p>
             </div>
-          </div>
-        );
-      },
-    },
-    {
-      // TODO Phase 62: replace role column with permission-based display
-      // users.role column dropped in Phase 60
-      id: "role",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Role" />,
-      cell: ({ row }) => {
-        const isInactive = !row.original.is_active;
-        return (
-          <div className={`flex items-center gap-2 ${isInactive ? "opacity-50" : ""}`}>
-            <span className="w-2 h-2 rounded-full bg-slate-500" />
-            <span className="text-slate-400">—</span>
           </div>
         );
       },
@@ -265,6 +264,12 @@ export default function UsersPage() {
                     Edit
                   </DropdownMenuItem>
                 )}
+                {canUpdate && (
+                  <DropdownMenuItem onClick={() => handleOpenPermissions(row.original)}>
+                    <Shield className="mr-2 h-4 w-4" />
+                    Permissions
+                  </DropdownMenuItem>
+                )}
                 {canDelete && !isInactive && !isSelf && (
                   <DropdownMenuItem
                     onClick={() => {
@@ -298,10 +303,6 @@ export default function UsersPage() {
     },
   ];
 
-  // TODO Phase 62: replace role counting with permission-based grouping
-  // users.role column dropped in Phase 60
-  const roleCounts: Record<string, number> = {}; // was: users.reduce(...) by role
-
   const activeCount = users.filter(u => u.is_active).length;
   const inactiveCount = users.filter(u => !u.is_active).length;
 
@@ -309,7 +310,7 @@ export default function UsersPage() {
     <div className="space-y-6">
       <PageHeader
         title="User Management"
-        description="Manage system users and their roles"
+        description="Manage system users and their permissions"
         badge={
           <div className="flex items-center gap-2 px-3 py-1 rounded bg-violet-500/10 border border-violet-500/20">
             <Radio className="h-4 w-4 text-violet-500" />
@@ -328,44 +329,15 @@ export default function UsersPage() {
         }
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="command-panel p-4">
-          <div className="flex items-center gap-3">
-            <Users className="h-5 w-5 text-amber-400" />
-            <div>
-              <p className="text-2xl font-bold text-slate-200">{users.length}</p>
-              <p className="text-xs text-slate-400">
-                {activeCount} Active / {inactiveCount} Inactive
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="command-panel p-4">
-          <div className="flex items-center gap-3">
-            <Shield className="h-5 w-5 text-red-400" />
-            <div>
-              <p className="text-2xl font-bold text-slate-200">{roleCounts.admin || 0}</p>
-              <p className="text-xs text-slate-400">Admins</p>
-            </div>
-          </div>
-        </div>
-        <div className="command-panel p-4">
-          <div className="flex items-center gap-3">
-            <Shield className="h-5 w-5 text-blue-400" />
-            <div>
-              <p className="text-2xl font-bold text-slate-200">{roleCounts.qmrl || 0}</p>
-              <p className="text-xs text-slate-400">QMRL Users</p>
-            </div>
-          </div>
-        </div>
-        <div className="command-panel p-4">
-          <div className="flex items-center gap-3">
-            <Mail className="h-5 w-5 text-amber-400" />
-            <div>
-              <p className="text-2xl font-bold text-slate-200">{roleCounts.qmhq || 0}</p>
-              <p className="text-xs text-slate-400">QMHQ Users</p>
-            </div>
+      {/* Stats — Total Users only (role counts removed in Phase 60) */}
+      <div className="command-panel p-4 w-fit">
+        <div className="flex items-center gap-3">
+          <Users className="h-5 w-5 text-amber-400" />
+          <div>
+            <p className="text-2xl font-bold text-slate-200">{users.length}</p>
+            <p className="text-xs text-slate-400">
+              {activeCount} Active / {inactiveCount} Inactive
+            </p>
           </div>
         </div>
       </div>
@@ -381,7 +353,7 @@ export default function UsersPage() {
         />
       </div>
 
-      {/* Dialogs */}
+      {/* Edit / Create User Dialog */}
       <UserDialog
         open={dialogOpen}
         onClose={handleDialogClose}
@@ -389,6 +361,30 @@ export default function UsersPage() {
         departments={departments}
         isCreateMode={isCreateMode}
       />
+
+      {/* Permissions Dialog */}
+      {selectedUserForPermissions && (
+        <Dialog open={permissionsOpen} onOpenChange={handlePermissionsClose}>
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-violet-400" />
+                Permissions — {selectedUserForPermissions.full_name}
+              </DialogTitle>
+              <DialogDescription>
+                Manage resource-level permissions for this user. All 16 resources are shown.
+                Changes take effect immediately after saving.
+              </DialogDescription>
+            </DialogHeader>
+            <PermissionsTab
+              userId={selectedUserForPermissions.id}
+              userName={selectedUserForPermissions.full_name}
+              isSelf={selectedUserForPermissions.id === currentUser?.id}
+              onClose={handlePermissionsClose}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
 
       <DeactivateUserDialog
         open={deactivateDialogOpen}
