@@ -23,15 +23,15 @@ Requirements for v1.13 Permission Matrix & Auto Status. Each maps to roadmap pha
 
 ### Auto Status
 
-- [ ] **AUTO-01**: Item route QMHQ shows "Item Pending" when no SOR L1 approval/rejection exists
-- [ ] **AUTO-02**: Item route QMHQ shows "Item Processing" when any SOR L1 or L2 approval exists
-- [ ] **AUTO-03**: Item route QMHQ shows "Item Done" when all SOR line items are executed
-- [ ] **AUTO-04**: Expense route QMHQ shows "Expense Pending" when no money-in transaction exists
-- [ ] **AUTO-05**: Expense route QMHQ shows "Expense Processing" when any money-in transaction exists
-- [ ] **AUTO-06**: Expense route QMHQ shows "Expense Done" when Yet to Receive <= 0
-- [ ] **AUTO-07**: PO route QMHQ shows "PO Pending" when no non-cancelled PO exists for this QMHQ
-- [ ] **AUTO-08**: PO route QMHQ shows "PO Processing" when any non-cancelled PO exists
-- [ ] **AUTO-09**: PO route QMHQ shows "PO Done" when Yet to Receive <= 0 AND Balance in Hand <= 0
+- [x] **AUTO-01**: Item route QMHQ shows "Item Pending" when no SOR L1 approval/rejection exists
+- [x] **AUTO-02**: Item route QMHQ shows "Item Processing" when any SOR L1 or L2 approval exists
+- [x] **AUTO-03**: Item route QMHQ shows "Item Done" when all SOR line items are executed
+- [x] **AUTO-04**: Expense route QMHQ shows "Expense Pending" when no money-in transaction exists
+- [x] **AUTO-05**: Expense route QMHQ shows "Expense Processing" when any money-in transaction exists
+- [x] **AUTO-06**: Expense route QMHQ shows "Expense Done" when Yet to Receive <= 0
+- [x] **AUTO-07**: PO route QMHQ shows "PO Pending" when no non-cancelled PO exists for this QMHQ
+- [x] **AUTO-08**: PO route QMHQ shows "PO Processing" when any non-cancelled PO exists
+- [x] **AUTO-09**: PO route QMHQ shows "PO Done" when Yet to Receive <= 0 AND Balance in Hand <= 0
 
 ### Dashboard
 
@@ -73,15 +73,15 @@ Requirements for v1.13 Permission Matrix & Auto Status. Each maps to roadmap pha
 | PERM-09 | Phase 60 | Complete |
 | PERM-10 | Phase 59 | Pending |
 | PERM-11 | Phase 61 | Complete |
-| AUTO-01 | Phase 63 | Pending |
-| AUTO-02 | Phase 63 | Pending |
-| AUTO-03 | Phase 63 | Pending |
-| AUTO-04 | Phase 63 | Pending |
-| AUTO-05 | Phase 63 | Pending |
-| AUTO-06 | Phase 63 | Pending |
-| AUTO-07 | Phase 63 | Pending |
-| AUTO-08 | Phase 63 | Pending |
-| AUTO-09 | Phase 63 | Pending |
+| AUTO-01 | Phase 63 | Complete |
+| AUTO-02 | Phase 63 | Complete |
+| AUTO-03 | Phase 63 | Complete |
+| AUTO-04 | Phase 63 | Complete |
+| AUTO-05 | Phase 63 | Complete |
+| AUTO-06 | Phase 63 | Complete |
+| AUTO-07 | Phase 63 | Complete |
+| AUTO-08 | Phase 63 | Complete |
+| AUTO-09 | Phase 63 | Complete |
 | DASH-01 | Phase 64 | Pending |
 | DASH-02 | Phase 64 | Pending |
 | DASH-03 | Phase 64 | Pending |
