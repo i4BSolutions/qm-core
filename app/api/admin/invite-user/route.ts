@@ -1,6 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { PERMISSION_RESOURCES } from "@/types/database";
+import type { PermissionResource, PermissionLevel } from "@/types/database";
+
+interface PermissionEntry {
+  resource: PermissionResource;
+  level: PermissionLevel;
+}
+
+const VALID_LEVELS: PermissionLevel[] = ["edit", "view", "block"];
 
 export async function POST(request: Request) {
   try {
@@ -12,17 +21,42 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // TODO Phase 62: replace role check with has_permission('admin', 'edit') via RPC
-    // users.role column dropped in Phase 60 — admin check relies on RLS until Phase 62
-    // const { data: userData } = await serverClient.from("users").select("role").eq("id", currentUser.id).single();
-    // if (userData?.role !== "admin") { return NextResponse.json({ error: "Forbidden - Admin only" }, { status: 403 }); }
-
     // Get request body
     const body = await request.json();
-    const { email, full_name, role, department_id, phone } = body;
+    const { email, full_name, department_id, phone, permissions } = body;
 
     if (!email || !full_name) {
       return NextResponse.json({ error: "Email and full name are required" }, { status: 400 });
+    }
+
+    // Validate permissions if provided
+    if (permissions !== undefined) {
+      if (!Array.isArray(permissions) || permissions.length !== 16) {
+        return NextResponse.json(
+          { error: "All 16 permissions must be configured" },
+          { status: 400 }
+        );
+      }
+
+      const providedResources = new Set<string>(permissions.map((p: PermissionEntry) => p.resource));
+
+      for (const resource of PERMISSION_RESOURCES) {
+        if (!providedResources.has(resource)) {
+          return NextResponse.json(
+            { error: `All 16 permissions must be configured. Missing: ${resource}` },
+            { status: 400 }
+          );
+        }
+      }
+
+      for (const entry of permissions as PermissionEntry[]) {
+        if (!VALID_LEVELS.includes(entry.level)) {
+          return NextResponse.json(
+            { error: `Invalid permission level "${entry.level}" for resource "${entry.resource}"` },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     // Create admin client with service role key
@@ -47,13 +81,10 @@ export async function POST(request: Request) {
 
     if (inviteData.user) {
       // Update the user profile with additional info
-      // TODO Phase 62: set user permissions via create_default_permissions() instead of role
-      // users.role column dropped in Phase 60
       const { error: updateError } = await supabaseAdmin
         .from("users")
         .update({
           full_name,
-          // role field removed (Phase 60) — use permission matrix instead
           department_id: department_id || null,
           phone: phone || null,
         })
@@ -62,6 +93,36 @@ export async function POST(request: Request) {
       if (updateError) {
         console.error("Profile update error:", updateError);
         // Continue anyway - profile might be created by trigger
+      }
+
+      // Save permissions if provided.
+      // The handle_new_user() trigger already creates 16 Block rows;
+      // upsert overwrites them with the admin-specified levels.
+      if (permissions && Array.isArray(permissions)) {
+        const permissionRows = (permissions as PermissionEntry[]).map((p) => ({
+          user_id: inviteData.user!.id,
+          resource: p.resource,
+          level: p.level,
+        }));
+
+        const { error: permError } = await supabaseAdmin
+          .from("user_permissions")
+          .upsert(permissionRows, { onConflict: "user_id,resource" });
+
+        if (permError) {
+          console.error("Permission upsert error:", permError);
+          // Roll back: delete the invited user to maintain atomicity (PERM-03)
+          const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(
+            inviteData.user.id
+          );
+          if (deleteError) {
+            console.error("Rollback delete error:", deleteError);
+          }
+          return NextResponse.json(
+            { error: "Failed to set permissions. User creation rolled back. Please try again." },
+            { status: 500 }
+          );
+        }
       }
     }
 
