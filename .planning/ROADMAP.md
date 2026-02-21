@@ -114,7 +114,7 @@ Phases 55-58 delivered standardized list views with consistent columns and pagin
 
 **Milestone Goal:** Replace fixed 3-role RBAC with a per-user permission matrix across 15 resources, add computed QMHQ auto status by route type, and redesign the dashboard as a permission-filtered QMRL list with auto status column.
 
-- [ ] **Phase 59: Permission Schema & Migration** - New permission table, 15-resource enum, and migration of existing users from 3-role model
+- [x] **Phase 59: Permission Schema & Migration** - New permission table, 15-resource enum, and migration of existing users from 3-role model
 - [ ] **Phase 60: RLS Policy Rewrite** - Replace all 100 role-based RLS policies with permission-matrix enforcement across all 22 tables
 - [ ] **Phase 61: Permission Management UI** - Admin can view, assign, and edit per-user permissions with lockout prevention
 - [ ] **Phase 62: Frontend Permission Enforcement** - Sidebar hiding, page redirects, button gating, and server-action rejection
@@ -135,7 +135,7 @@ Phases 55-58 delivered standardized list views with consistent columns and pagin
 **Plans**: 1 plan
 
 Plans:
-- [ ] 59-01-PLAN.md — Permission schema (table, enums, helpers) and data migration (backfill all users from 3-role model)
+- [x] 59-01-PLAN.md — Permission schema (table, enums, helpers) and data migration (backfill all users from 3-role model)
 
 ---
 
@@ -239,7 +239,7 @@ Plans:
 | 44-46. PO Edit -> Flow Perf -> Type Safety | v1.10 | 3/3 | ✓ Complete | 2026-02-14 |
 | 47-54. Standard Units -> USD Lock | v1.11 | 17/17 | ✓ Complete | 2026-02-16 |
 | 55-58. List Views -> Avatars | v1.12 | 9/9 | ✓ Complete | 2026-02-20 |
-| 59. Permission Schema & Migration | v1.13 | 0/TBD | Not started | - |
+| 59. Permission Schema & Migration | v1.13 | 1/1 | ✓ Complete | 2026-02-21 |
 | 60. RLS Policy Rewrite | v1.13 | 0/TBD | Not started | - |
 | 61. Permission Management UI | v1.13 | 0/TBD | Not started | - |
 | 62. Frontend Permission Enforcement | v1.13 | 0/TBD | Not started | - |
@@ -247,4 +247,4 @@ Plans:
 | 64. Dashboard Redesign | v1.13 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-20 after v1.13 roadmap created*
+*Last updated: 2026-02-21 after Phase 59 Plan 01 complete*
