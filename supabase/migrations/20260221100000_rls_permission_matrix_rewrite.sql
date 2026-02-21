@@ -167,10 +167,14 @@ DROP POLICY IF EXISTS standard_units_update ON public.standard_units;
 DROP POLICY IF EXISTS standard_units_delete ON public.standard_units;
 
 -- system_config table (if exists)
-DROP POLICY IF EXISTS system_config_select ON public.system_config;
-DROP POLICY IF EXISTS system_config_insert ON public.system_config;
-DROP POLICY IF EXISTS system_config_update ON public.system_config;
-DROP POLICY IF EXISTS system_config_delete ON public.system_config;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'system_config') THEN
+    EXECUTE 'DROP POLICY IF EXISTS system_config_select ON public.system_config';
+    EXECUTE 'DROP POLICY IF EXISTS system_config_insert ON public.system_config';
+    EXECUTE 'DROP POLICY IF EXISTS system_config_update ON public.system_config';
+    EXECUTE 'DROP POLICY IF EXISTS system_config_delete ON public.system_config';
+  END IF;
+END $$;
 
 -- user_permissions table
 DROP POLICY IF EXISTS admin_full_access_permissions ON public.user_permissions;
