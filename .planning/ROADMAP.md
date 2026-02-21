@@ -245,7 +245,7 @@ Plans:
 | 60. RLS Policy Rewrite | 1/1 | Complete    | 2026-02-21 | - |
 | 61. Permission Management UI | 2/2 | Complete    | 2026-02-21 | - |
 | 62. Frontend Permission Enforcement | 2/2 | Complete    | 2026-02-21 | - |
-| 63. QMHQ Auto Status | 2/2 | Complete   | 2026-02-21 | - |
+| 63. QMHQ Auto Status | 2/2 | Complete    | 2026-02-21 | - |
 | 64. Dashboard Redesign | v1.13 | 0/TBD | Not started | - |
 
 ---
