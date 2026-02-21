@@ -10,16 +10,16 @@ Requirements for v1.13 Permission Matrix & Auto Status. Each maps to roadmap pha
 ### Permission Matrix
 
 - [ ] **PERM-01**: Admin can assign Edit, View, or Block permission per resource per user (15 resources: System Dashboard, QMRL, QMHQ, Money Transactions, Inv Transactions, PO, Invoice, Stock In, SOR-L1, SOR-L2, SOR-L3, Warehouse, Inventory Dashboard, Item, Admin)
-- [ ] **PERM-02**: Admin can manage any user's permissions through a permission matrix UI
+- [x] **PERM-02**: Admin can manage any user's permissions through a permission matrix UI
 - [ ] **PERM-03**: All 15 permissions must be set when creating a new user account
-- [ ] **PERM-04**: Admin can edit an existing user's permissions
+- [x] **PERM-04**: Admin can edit an existing user's permissions
 - [ ] **PERM-05**: Sidebar navigation hides resources where user has Block permission
 - [ ] **PERM-06**: Pages redirect when user has Block permission on that resource
 - [ ] **PERM-07**: Create/edit/delete buttons hidden when user has View-only permission
 - [ ] **PERM-08**: Server actions reject mutations when user has View or Block permission
 - [x] **PERM-09**: All RLS policies rewritten to enforce permission matrix (Edit=CRUD, View=read, Block=none)
 - [ ] **PERM-10**: Existing users migrated from 3-role system to permission matrix
-- [ ] **PERM-11**: User with Edit on Admin cannot remove their own Admin Edit permission (lockout prevention)
+- [x] **PERM-11**: User with Edit on Admin cannot remove their own Admin Edit permission (lockout prevention)
 
 ### Auto Status
 
@@ -63,16 +63,16 @@ Requirements for v1.13 Permission Matrix & Auto Status. Each maps to roadmap pha
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | PERM-01 | Phase 59 | Pending |
-| PERM-02 | Phase 61 | Pending |
+| PERM-02 | Phase 61 | Complete |
 | PERM-03 | Phase 61 | Pending |
-| PERM-04 | Phase 61 | Pending |
+| PERM-04 | Phase 61 | Complete |
 | PERM-05 | Phase 62 | Pending |
 | PERM-06 | Phase 62 | Pending |
 | PERM-07 | Phase 62 | Pending |
 | PERM-08 | Phase 62 | Pending |
 | PERM-09 | Phase 60 | Complete |
 | PERM-10 | Phase 59 | Pending |
-| PERM-11 | Phase 61 | Pending |
+| PERM-11 | Phase 61 | Complete |
 | AUTO-01 | Phase 63 | Pending |
 | AUTO-02 | Phase 63 | Pending |
 | AUTO-03 | Phase 63 | Pending |

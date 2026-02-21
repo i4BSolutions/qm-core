@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-21 (60-01 complete)
+**Last Updated:** 2026-02-21 (61-01 complete)
 
 ---
 
@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.13 Permission Matrix & Auto Status — Phase 60 complete, ready for Phase 61 (Permission UI)
+**Current Focus:** v1.13 Permission Matrix & Auto Status — Phase 61 Plan 01 complete (Permission Matrix UI)
 
 ---
 
 ## Current Position
 
-Phase: 60 of 64 (RLS Policy Rewrite)
+Phase: 61 of 64 (Permission Management UI)
 Plan: 01 — COMPLETE
-Status: Phase 60 done — ready for Phase 61
-Last activity: 2026-02-21 — Phase 60 plan 01 executed (RLS rewrite + role column drop)
+Status: Phase 61 Plan 01 done — permission matrix UI shipped
+Last activity: 2026-02-21 — Phase 61 plan 01 executed (PermissionMatrix + PermissionsTab + user-dialog cleanup)
 
 Progress: [█████████████████████░░] 60/64 phases complete
 
@@ -43,6 +43,13 @@ Progress: [█████████████████████░░
 ---
 
 ## Accumulated Context
+
+### Key Decisions from Phase 61 Plan 01
+
+- **user_permissions table added to Database type** — `types/database.ts` now includes full Row/Insert/Update types and `permission_resource`/`permission_level` enums, enabling typed Supabase client access from the UI
+- **Dialog modal (700px) for permissions UI** — no dedicated `/admin/users/[id]` page exists; modal is the equivalent of a "Permissions tab" as noted in the plan objective
+- **window.confirm() for Set All** — keeps component complexity minimal; matches existing pattern in codebase (reactivate confirmation)
+- **Atomic upsert for all 16 rows** — `onConflict: 'user_id,resource'` ensures idempotent save regardless of existing state
 
 ### Key Decisions for v1.13
 
@@ -93,20 +100,23 @@ Note: Phase 63 (Auto Status) can run in parallel with 60-62 if needed.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 60 Plan 01 executed: complete RLS rewrite (102 policies), users.role column dropped
-- Migration: 20260221100000_rls_permission_matrix_rewrite.sql (861 lines, wrapped in transaction)
-- TypeScript User type cleaned of role field; 20+ frontend files updated with TODO Phase 62 markers
-- Commits: 328e226 (migration), 2a1e206 (TypeScript types + frontend fixes)
+- Phase 61 Plan 01 executed: Permission Matrix UI — PermissionMatrix component + PermissionsTab + user management page cleanup
+- `components/admin/permission-matrix.tsx` — 16-resource grid, dirty-state indicators, Set All buttons, lockout support
+- `app/(dashboard)/admin/users/permissions-tab.tsx` — fetches/saves permissions, atomic upsert, admin lockout prevention
+- `app/(dashboard)/admin/users/page.tsx` — Permissions modal added, stale role stat cards removed, role column removed from table
+- `app/(dashboard)/admin/users/user-dialog.tsx` — role dropdown removed, department spans full width
+- `types/database.ts` — user_permissions table + permission_resource/level enums added
+- Commits: fa26da7 (PermissionMatrix component), be368bf (PermissionsTab + page integration + DB types)
 
-**Context for Next Agent (Phase 61 - Permission Management UI):**
-- `user_permissions` table exists with 16 rows per user
-- All RLS now enforces via `has_permission(resource, level)` — no more role-based checks
-- `UserRole` TypeScript type is now a deprecated alias — do not rely on it
-- Frontend `useUserRole()` returns null — sidebar/header role display shows placeholder
-- Admin-only routes rely on RLS enforcement (user_permissions table); frontend guards disabled until Phase 62
+**Context for Next Agent (Phase 61 Plan 02 or Phase 62):**
+- `user_permissions` table fully typed in TypeScript (Row/Insert/Update + enums in Database type)
+- Permission matrix component at `components/admin/permission-matrix.tsx` is reusable (accept props, no Supabase)
+- PermissionsTab wired to existing admin/users page — admin can manage any user's 16 permissions
+- Role dropdown removed from user edit dialog — new user permission assignment pending Plan 02
+- Phase 62 (Frontend enforcement) still needed to wire `usePermissions()` to actual DB checks
 
-**Resume at:** Phase 61 (Permission Management UI)
+**Resume at:** Phase 61 Plan 02 (or Phase 62 if Plan 02 doesn't exist)
 
 ---
 
-*State last updated: 2026-02-21 after Phase 60 Plan 01 complete*
+*State last updated: 2026-02-21 after Phase 61 Plan 01 complete*
