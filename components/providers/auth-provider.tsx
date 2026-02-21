@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo } 
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
-import type { User } from "@/types";
+import type { User, PermissionResource, PermissionLevel } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -20,9 +20,17 @@ const SESSION_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 const ACTIVITY_KEY = "qm_last_activity";
 const SESSION_KEY = "qm_session_active";
 
+/**
+ * Map of resource -> permission level for the current user.
+ * Populated from the user_permissions table.
+ * Missing resource defaults to 'block' (fail closed).
+ */
+export type UserPermissionsMap = Partial<Record<PermissionResource, PermissionLevel>>;
+
 interface AuthContextType {
   user: User | null;
   supabaseUser: SupabaseUser | null;
+  permissions: UserPermissionsMap;
   isLoading: boolean;
   error: string | null;
   signOut: () => Promise<void>;
@@ -71,6 +79,7 @@ function clearSessionMarkers() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
+  const [permissions, setPermissions] = useState<UserPermissionsMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
@@ -84,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearSessionMarkers();
     setUser(null);
     setSupabaseUser(null);
+    setPermissions({});
 
     // Broadcast to other tabs
     try {
@@ -122,6 +132,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.error("Auth: Profile exception:", err);
         return null;
+      }
+    };
+
+    // Fetch user_permissions rows and build a resource->level map
+    const fetchPermissions = async (userId: string): Promise<UserPermissionsMap> => {
+      console.log("Auth: Fetching permissions for:", userId);
+      try {
+        const { data, error } = await supabase
+          .from("user_permissions")
+          .select("resource, level")
+          .eq("user_id", userId);
+
+        if (error) {
+          console.error("Auth: Permissions error:", error.message, error.code);
+          return {};
+        }
+
+        const map: UserPermissionsMap = {};
+        for (const row of data ?? []) {
+          map[row.resource as PermissionResource] = row.level as PermissionLevel;
+        }
+        console.log("Auth: Permissions loaded, resources:", Object.keys(map).length);
+        return map;
+      } catch (err) {
+        console.error("Auth: Permissions exception:", err);
+        return {};
       }
     };
 
@@ -164,8 +200,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSessionMarkers();
       setSupabaseUser(session.user);
 
-      // Fetch profile
-      const profile = await fetchProfile(session.user.id);
+      // Fetch profile and permissions in parallel
+      const [profile, perms] = await Promise.all([
+        fetchProfile(session.user.id),
+        fetchPermissions(session.user.id),
+      ]);
 
       if (cancelled) {
         console.log("Auth: Cancelled after profile");
@@ -174,6 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log("Auth: Setting user:", profile?.email);
       setUser(profile);
+      setPermissions(perms);
       setIsLoading(false);
       console.log("Auth: Init complete");
     };
@@ -309,18 +349,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (session?.user) {
       setSupabaseUser(session.user);
-      const { data: profile } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", session.user.id)
-        .single();
-      setUser(profile as User || null);
+      const [profileResult, permsResult] = await Promise.all([
+        supabase.from("users").select("*").eq("id", session.user.id).single(),
+        supabase.from("user_permissions").select("resource, level").eq("user_id", session.user.id),
+      ]);
+      setUser(profileResult.data as User || null);
+      if (!permsResult.error && permsResult.data) {
+        const map: UserPermissionsMap = {};
+        for (const row of permsResult.data) {
+          map[row.resource as PermissionResource] = row.level as PermissionLevel;
+        }
+        setPermissions(map);
+      }
       try {
         localStorage.setItem(ACTIVITY_KEY, Date.now().toString());
       } catch {}
     } else {
       setUser(null);
       setSupabaseUser(null);
+      setPermissions({});
     }
     setIsLoading(false);
   }, []);
@@ -359,11 +406,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthContextType>(() => ({
     user,
     supabaseUser,
+    permissions,
     isLoading,
     error,
     signOut,
     refreshUser,
-  }), [user, supabaseUser, isLoading, error, signOut, refreshUser]);
+  }), [user, supabaseUser, permissions, isLoading, error, signOut, refreshUser]);
 
   return (
     <AuthContext.Provider value={value}>
@@ -417,9 +465,23 @@ export function useUser() {
   return { user, isLoading };
 }
 
+/**
+ * Returns the current user's permission map (resource -> level).
+ * Populated from the user_permissions table.
+ * Empty object while loading; missing resource = 'block' (fail closed).
+ */
+export function useUserPermissions(): UserPermissionsMap {
+  const { permissions } = useAuth();
+  return permissions;
+}
+
+/**
+ * @deprecated Phase 60 removed users.role. Use useUserPermissions() instead.
+ * Kept only to satisfy legacy call sites that haven't been migrated yet.
+ * Always returns null — callers that depended on role for navigation
+ * must migrate to resource-based permission checks.
+ */
 export function useUserRole() {
-  // TODO Phase 62: replace with permission-based check (has_permission hook)
-  // users.role column dropped in Phase 60 — always returns null until Phase 62
   useAuth(); // keep hook call to preserve hook order
   return null as import("@/types").UserRole | null;
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/components/providers/auth-provider";
-import { canAccessRoute } from "@/lib/hooks/use-permissions";
+import { useResourcePermissions } from "@/lib/hooks/use-permissions";
 import {
   LayoutDashboard,
   FileText,
@@ -20,15 +20,19 @@ import {
   Shield,
 } from "lucide-react";
 import { useState, useMemo } from "react";
-import type { UserRole } from "@/types";
+import type { PermissionResource } from "@/types";
 
 interface NavItem {
   label: string;
   href?: string;
   icon: React.ElementType;
   children?: { label: string; href: string }[];
-  // Optional: specify which roles can see this item
-  roles?: UserRole[];
+  /**
+   * The DB resource that gates visibility of this nav item.
+   * If omitted, the item is visible to all authenticated users.
+   * Item is hidden when the user's permission level is 'block'.
+   */
+  resource?: PermissionResource;
 }
 
 const allNavigation: NavItem[] = [
@@ -36,34 +40,36 @@ const allNavigation: NavItem[] = [
     label: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+    resource: "system_dashboard",
   },
   {
     label: "QMRL",
     href: "/qmrl",
     icon: FileText,
+    resource: "qmrl",
   },
   {
     label: "QMHQ",
     href: "/qmhq",
     icon: ClipboardList,
-    roles: ["admin", "qmhq"],
+    resource: "qmhq",
   },
   {
     label: "Purchase Orders",
     href: "/po",
     icon: ShoppingCart,
-    roles: ["admin"],
+    resource: "po",
   },
   {
     label: "Invoices",
     href: "/invoice",
     icon: FileSpreadsheet,
-    roles: ["admin"],
+    resource: "invoice",
   },
   {
     label: "Inventory",
     icon: Package,
-    roles: ["admin"],
+    resource: "inventory_dashboard",
     children: [
       { label: "Dashboard", href: "/inventory" },
       { label: "Stock In", href: "/inventory/stock-in" },
@@ -75,12 +81,13 @@ const allNavigation: NavItem[] = [
     label: "Warehouses",
     href: "/warehouse",
     icon: Warehouse,
-    roles: ["admin"],
+    resource: "warehouse",
   },
   {
     label: "Items",
     href: "/item",
     icon: Box,
+    resource: "item",
   },
 ];
 
@@ -88,7 +95,7 @@ const adminNavigation: NavItem[] = [
   {
     label: "Admin",
     icon: Settings,
-    roles: ["admin"],
+    resource: "admin",
     children: [
       { label: "Users", href: "/admin/users" },
       { label: "Departments", href: "/admin/departments" },
@@ -185,29 +192,26 @@ function NavItemComponent({ item }: { item: NavItem }) {
 
 export function Sidebar() {
   const { user } = useUser();
-  // TODO Phase 62: replace role-based navigation filter with permission-based check
-  // users.role column dropped in Phase 60 — userRole always null until Phase 62
-  const userRole = null as import("@/types").UserRole | null;
+  const { canView } = useResourcePermissions();
 
-  // Filter navigation items based on user role
+  // Filter navigation items based on DB permission level.
+  // An item is visible if:
+  //   - It has no resource tag (always show to authenticated users), OR
+  //   - The user has at least 'view' level on that resource (view or edit).
+  // Items with 'block' are hidden entirely.
   const visibleNavigation = useMemo(() => {
     return allNavigation.filter((item) => {
-      // If no roles specified, show to everyone
-      if (!item.roles) return true;
-      // If user has no role, hide role-restricted items
-      if (!userRole) return false;
-      // Check if user's role is in the allowed roles
-      return item.roles.includes(userRole);
+      if (!item.resource) return true;
+      return canView(item.resource);
     });
-  }, [userRole]);
+  }, [canView]);
 
   const visibleAdminNavigation = useMemo(() => {
     return adminNavigation.filter((item) => {
-      if (!item.roles) return true;
-      if (!userRole) return false;
-      return item.roles.includes(userRole);
+      if (!item.resource) return true;
+      return canView(item.resource);
     });
-  }, [userRole]);
+  }, [canView]);
 
   return (
     <aside className="flex w-64 flex-col border-r border-slate-800 bg-slate-950">
@@ -262,8 +266,7 @@ export function Sidebar() {
         <p className="text-xs text-slate-600 font-mono">SINGLE SOURCE OF TRUTH</p>
         {user && (
           <p className="mt-1 text-xs text-amber-500/70 font-mono uppercase">
-            {/* TODO Phase 62: display permission-based role label */}
-            OPERATOR: {(user as Record<string, unknown>)["role"] as string | undefined}
+            OPERATOR: {user.full_name ?? user.email}
           </p>
         )}
       </div>

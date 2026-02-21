@@ -1,8 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import { useUserRole } from "@/components/providers/auth-provider";
+import { useUserRole, useUserPermissions } from "@/components/providers/auth-provider";
 import type { UserRole } from "@/types";
+// Import DB permission types under distinct names to avoid collision with the
+// legacy PermissionResource type defined below in this file.
+import type {
+  PermissionResource as DbPermissionResource,
+  PermissionLevel as DbPermissionLevel,
+} from "@/types";
 
 /**
  * Permission actions
@@ -231,6 +237,7 @@ export const roleNavigation: Record<UserRole, string[]> = {
 
 /**
  * Check if a role can access a route
+ * @deprecated Use useResourcePermission() instead — this uses the old role system.
  */
 export function canAccessRoute(role: UserRole | null, path: string): boolean {
   if (!role) return false;
@@ -243,4 +250,69 @@ export function canAccessRoute(role: UserRole | null, path: string): boolean {
     if (path.startsWith(route + "/")) return true;
     return false;
   });
+}
+
+// ============================================
+// NEW: DB-backed permission hooks (Phase 62)
+// These replace the legacy role-matrix system.
+// ============================================
+
+/**
+ * Returns the current user's permission level for a given resource.
+ * Returns 'block' when not loaded or resource not found (fail closed).
+ */
+export function useResourcePermission(resource: DbPermissionResource): DbPermissionLevel {
+  const perms = useUserPermissions();
+  return perms[resource] ?? 'block';
+}
+
+/**
+ * Returns true if the current user has at least 'view' access to the resource.
+ * edit >= view > block
+ */
+export function useCanView(resource: DbPermissionResource): boolean {
+  const level = useResourcePermission(resource);
+  return level === 'view' || level === 'edit';
+}
+
+/**
+ * Returns true if the current user has 'edit' access to the resource.
+ */
+export function useCanEdit(resource: DbPermissionResource): boolean {
+  const level = useResourcePermission(resource);
+  return level === 'edit';
+}
+
+/**
+ * Hook that provides DB-backed permission checks for all resources.
+ * Used by the sidebar and any component that needs to gate visibility
+ * based on the user_permissions table (not the old role matrix).
+ */
+export function useResourcePermissions() {
+  const perms = useUserPermissions();
+
+  const getLevel = useMemo(() => {
+    return (resource: DbPermissionResource): DbPermissionLevel => {
+      return perms[resource] ?? 'block';
+    };
+  }, [perms]);
+
+  const canView = useMemo(() => {
+    return (resource: DbPermissionResource): boolean => {
+      const level = perms[resource] ?? 'block';
+      return level === 'view' || level === 'edit';
+    };
+  }, [perms]);
+
+  const canEdit = useMemo(() => {
+    return (resource: DbPermissionResource): boolean => {
+      return (perms[resource] ?? 'block') === 'edit';
+    };
+  }, [perms]);
+
+  const isAdmin = useMemo(() => {
+    return (perms['admin'] ?? 'block') === 'edit';
+  }, [perms]);
+
+  return { getLevel, canView, canEdit, isAdmin, permissions: perms };
 }
