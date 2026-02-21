@@ -258,6 +258,37 @@ export function canAccessRoute(role: UserRole | null, path: string): boolean {
 // ============================================
 
 /**
+ * Maps URL path prefixes to their controlling PermissionResource.
+ * Ordered by specificity (longest prefix first) for correct matching.
+ * Used by middleware (server) and page guards (client).
+ */
+export const ROUTE_RESOURCE_MAP: { prefix: string; resource: DbPermissionResource }[] = [
+  { prefix: '/inventory/stock-in', resource: 'stock_in' },
+  { prefix: '/inventory/stock-out-requests', resource: 'sor' },
+  { prefix: '/inventory/stock-out', resource: 'sor' },
+  { prefix: '/inventory', resource: 'inventory_dashboard' },
+  { prefix: '/dashboard', resource: 'system_dashboard' },
+  { prefix: '/qmrl', resource: 'qmrl' },
+  { prefix: '/qmhq', resource: 'qmhq' },
+  { prefix: '/po', resource: 'po' },
+  { prefix: '/invoice', resource: 'invoice' },
+  { prefix: '/warehouse', resource: 'warehouse' },
+  { prefix: '/item', resource: 'item' },
+  { prefix: '/admin', resource: 'admin' },
+];
+
+/**
+ * Find the permission resource controlling a given URL path.
+ * Returns undefined if no route matches (unprotected page).
+ */
+export function getResourceForRoute(pathname: string): DbPermissionResource | undefined {
+  const match = ROUTE_RESOURCE_MAP.find(
+    (entry) => pathname === entry.prefix || pathname.startsWith(entry.prefix + '/')
+  );
+  return match?.resource;
+}
+
+/**
  * Returns the current user's permission level for a given resource.
  * Returns 'block' when not loaded or resource not found (fail closed).
  */

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useResourcePermissions } from "@/lib/hooks/use-permissions";
 import { cn } from "@/lib/utils";
 import { Search, Bell, User, LogOut, Settings, ChevronDown, Radio, Shield } from "lucide-react";
 import { Skeleton } from "@/components/ui";
@@ -29,6 +30,8 @@ function getInitials(name: string): string {
 export function Header() {
   const router = useRouter();
   const { user, isLoading, signOut } = useAuth();
+  const { isAdmin } = useResourcePermissions();
+  const accessLabel = user ? (isAdmin ? "Administrator" : "Operator") : "";
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -115,8 +118,7 @@ export function Header() {
                   {user?.full_name ?? "Guest"}
                 </p>
                 <p className="text-xs text-amber-500/70 font-mono uppercase">
-                  {/* TODO Phase 62: display permission-based role label */}
-                  {"Not signed in"}
+                  {accessLabel}
                 </p>
               </div>
               <ChevronDown
@@ -151,8 +153,7 @@ export function Header() {
                   <div className="mt-3 flex items-center gap-2">
                     <Shield className="h-3 w-3 text-amber-500" />
                     <span className="text-xs font-mono text-amber-400 uppercase tracking-wider">
-                      {/* TODO Phase 62: display permission-based role label */}
-                      {"—"}
+                      {accessLabel}
                     </span>
                   </div>
                 </div>
