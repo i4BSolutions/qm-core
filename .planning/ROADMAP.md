@@ -239,7 +239,7 @@ Plans:
 | 44-46. PO Edit -> Flow Perf -> Type Safety | v1.10 | 3/3 | ✓ Complete | 2026-02-14 |
 | 47-54. Standard Units -> USD Lock | v1.11 | 17/17 | ✓ Complete | 2026-02-16 |
 | 55-58. List Views -> Avatars | v1.12 | 9/9 | ✓ Complete | 2026-02-20 |
-| 59. Permission Schema & Migration | v1.13 | 1/1 | ✓ Complete | 2026-02-21 |
+| 59. Permission Schema & Migration | v1.13 | Complete    | 2026-02-21 | 2026-02-21 |
 | 60. RLS Policy Rewrite | v1.13 | 0/TBD | Not started | - |
 | 61. Permission Management UI | v1.13 | 0/TBD | Not started | - |
 | 62. Frontend Permission Enforcement | v1.13 | 0/TBD | Not started | - |
