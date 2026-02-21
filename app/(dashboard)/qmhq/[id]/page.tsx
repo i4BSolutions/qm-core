@@ -652,14 +652,20 @@ export default function QMHQDetailPage() {
       backHref="/qmhq"
       header={
         <div>
-          {/* Route Type Badge */}
-          <div className="flex items-center gap-3 mb-2">
+          {/* Route Type Badge, Auto Status Badge, Manual Status Badge */}
+          <div className="flex items-center gap-3 mb-2 flex-wrap">
+            {/* Route Type Badge (existing) */}
             <div className={`flex items-center gap-2 px-3 py-1 rounded border ${routeColors?.bgColor}`}>
               <RouteIcon className={`h-4 w-4 ${routeColors?.color}`} />
               <span className={`text-xs font-semibold uppercase tracking-widest ${routeColors?.color}`}>
                 {routeColors?.label} Route
               </span>
             </div>
+
+            {/* Auto Status Badge — computed from child record state, shown to all viewers */}
+            {autoStatus && <AutoStatusBadge status={autoStatus} />}
+
+            {/* Manual Status Badge (existing) */}
             {qmhq.status && (
               <ClickableStatusBadge
                 status={qmhq.status}
