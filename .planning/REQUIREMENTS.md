@@ -13,8 +13,8 @@ Requirements for v1.13 Permission Matrix & Auto Status. Each maps to roadmap pha
 - [x] **PERM-02**: Admin can manage any user's permissions through a permission matrix UI
 - [x] **PERM-03**: All 15 permissions must be set when creating a new user account
 - [x] **PERM-04**: Admin can edit an existing user's permissions
-- [ ] **PERM-05**: Sidebar navigation hides resources where user has Block permission
-- [ ] **PERM-06**: Pages redirect when user has Block permission on that resource
+- [x] **PERM-05**: Sidebar navigation hides resources where user has Block permission
+- [x] **PERM-06**: Pages redirect when user has Block permission on that resource
 - [ ] **PERM-07**: Create/edit/delete buttons hidden when user has View-only permission
 - [ ] **PERM-08**: Server actions reject mutations when user has View or Block permission
 - [x] **PERM-09**: All RLS policies rewritten to enforce permission matrix (Edit=CRUD, View=read, Block=none)
@@ -66,8 +66,8 @@ Requirements for v1.13 Permission Matrix & Auto Status. Each maps to roadmap pha
 | PERM-02 | Phase 61 | Complete |
 | PERM-03 | Phase 61 | Complete |
 | PERM-04 | Phase 61 | Complete |
-| PERM-05 | Phase 62 | Pending |
-| PERM-06 | Phase 62 | Pending |
+| PERM-05 | Phase 62 | Complete |
+| PERM-06 | Phase 62 | Complete |
 | PERM-07 | Phase 62 | Pending |
 | PERM-08 | Phase 62 | Pending |
 | PERM-09 | Phase 60 | Complete |

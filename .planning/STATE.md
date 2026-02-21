@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-21 (61-02 complete)
+**Last Updated:** 2026-02-21 (62-01 complete)
 
 ---
 
@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.13 Permission Matrix & Auto Status — Phase 61 complete (Permission Management UI)
+**Current Focus:** v1.13 Permission Matrix & Auto Status — Phase 62 Plan 01 complete (Frontend Permission Enforcement)
 
 ---
 
 ## Current Position
 
-Phase: 61 of 64 (Permission Management UI)
-Plan: 02 — COMPLETE
-Status: Phase 61 fully done — permission matrix UI + mandatory permissions on user creation shipped
-Last activity: 2026-02-21 — Phase 61 plan 02 executed (user creation dialog with embedded permission matrix + atomic API save)
+Phase: 62 of 64 (Frontend Permission Enforcement)
+Plan: 01 — COMPLETE
+Status: Phase 62 Plan 01 done — middleware + layout guards wired to user_permissions; header shows Administrator/Operator
+Last activity: 2026-02-21 — Phase 62 plan 01 executed (route blocking via user_permissions, layout guards, header label)
 
 Progress: [█████████████████████░░] 60/64 phases complete
 
@@ -43,6 +43,13 @@ Progress: [█████████████████████░░
 ---
 
 ## Accumulated Context
+
+### Key Decisions from Phase 62 Plan 01
+
+- **Middleware fetches only matched resource's permission row** — not all 16 — to minimize DB round trips per request
+- **system_dashboard block falls back to /qmrl** — avoids infinite redirect loop if /dashboard itself is blocked
+- **admin/flow-tracking requires level === 'edit'** — view-only admin access is insufficient for flow tracking operations
+- **ROUTE_RESOURCE_MAP placed in use-permissions.ts** — exported for Plan 02 client-side guards to reuse without importing server-only modules
 
 ### Key Decisions from Phase 61 Plan 02
 
@@ -107,22 +114,23 @@ Note: Phase 63 (Auto Status) can run in parallel with 60-62 if needed.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 61 Plan 02 executed: User Creation with Mandatory Permissions
-- `app/(dashboard)/admin/users/user-dialog.tsx` — PermissionMatrix embedded in create mode, X/16 counter, Set All, permissions sent to API
-- `app/api/admin/invite-user/route.ts` — permissions validated, upserted after invite, deleteUser rollback if upsert fails, stale role code removed
-- `components/admin/permission-matrix.tsx` — props widened to accept Partial<Record<...>> for create mode
-- Commits: 144f0b7 (user-dialog), dfc9944 (invite-user API)
+- Phase 62 Plan 01 executed: Permission-based route blocking and header label
+- `lib/supabase/middleware.ts` — ROUTE_RESOURCE_MAP + user_permissions query; ROLE_BLOCKED_ROUTES removed
+- `app/(dashboard)/qmhq/layout.tsx` — server-side guard for qmhq resource
+- `app/(dashboard)/admin/flow-tracking/layout.tsx` — server-side guard requiring admin edit level
+- `app/(dashboard)/dashboard/page.tsx` — system_dashboard block redirects to /qmrl
+- `components/layout/header.tsx` — useResourcePermissions().isAdmin drives Administrator/Operator label
+- `lib/hooks/use-permissions.ts` — ROUTE_RESOURCE_MAP and getResourceForRoute() exported
+- Commits: cf1b833 (middleware + layouts + dashboard), 66addd9 (header + use-permissions)
 
-**Context for Next Agent (Phase 62):**
-- Phase 61 is fully complete — permission matrix UI (Plan 01) + mandatory permissions on user creation (Plan 02)
-- `user_permissions` table fully typed in TypeScript (Row/Insert/Update + enums in Database type)
-- PermissionMatrix component accepts Partial records in create mode, full records in edit mode
-- User creation now saves 16 permission rows atomically; rollback if upsert fails
-- Phase 62 (Frontend Permission Enforcement) is next — wire `usePermissions()` to actual DB checks
-- `useUserRole()` currently returns null; Phase 62 replaces role-based checks with permission-based checks
+**Context for Next Agent (Phase 62 Plan 02):**
+- Phase 62 Plan 01 is complete — middleware and layout guards enforcing permissions
+- `ROUTE_RESOURCE_MAP` and `getResourceForRoute()` exported from `lib/hooks/use-permissions.ts`
+- Plan 02 will implement client-side page guard components using these utilities
+- `useUserRole()` still returns null (deprecated alias); Plan 02 should use useResourcePermissions() hooks
 
-**Resume at:** Phase 62 (Frontend Permission Enforcement)
+**Resume at:** Phase 62 Plan 02 (client-side page guards)
 
 ---
 
-*State last updated: 2026-02-21 after Phase 61 Plan 02 complete*
+*State last updated: 2026-02-21 after Phase 62 Plan 01 complete*
