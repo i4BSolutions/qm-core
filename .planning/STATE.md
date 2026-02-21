@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-21 (59-01 complete)
+**Last Updated:** 2026-02-21 (60-01 complete)
 
 ---
 
@@ -10,34 +10,34 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.13 Permission Matrix & Auto Status — Phase 59 complete, ready for Phase 60 (RLS Rewrite)
+**Current Focus:** v1.13 Permission Matrix & Auto Status — Phase 60 complete, ready for Phase 61 (Permission UI)
 
 ---
 
 ## Current Position
 
-Phase: 59 of 64 (Permission Schema & Migration)
+Phase: 60 of 64 (RLS Policy Rewrite)
 Plan: 01 — COMPLETE
-Status: Phase 59 done — ready for Phase 60
-Last activity: 2026-02-21 — Phase 59 plan 01 executed (permission schema + data migration)
+Status: Phase 60 done — ready for Phase 61
+Last activity: 2026-02-21 — Phase 60 plan 01 executed (RLS rewrite + role column drop)
 
-Progress: [████████████████████░░░] 59/64 phases complete
+Progress: [█████████████████████░░] 60/64 phases complete
 
 ---
 
 ## Performance Metrics
 
 **Codebase:**
-- ~54,047 lines of TypeScript (+ permission types added)
-- 77 database migrations (2 new: permission schema + data backfill)
-- 100 RLS policies across 22 tables (unchanged — Phase 60 will rewrite)
+- ~54,047 lines of TypeScript (+ role references removed/TODO'd)
+- 78 database migrations (1 new: RLS permission matrix rewrite)
+- 102 RLS policies across 25 tables (rewritten to use has_permission())
 
 **Shipped Milestones:**
 - 13 milestones shipped (v1.0 through v1.12)
-- 59 phases, 147 plans total delivered
+- 60 phases, 148 plans total delivered
 
 **v1.13 Scope:**
-- 6 phases (59-64), phase 59 complete
+- 6 phases (59-64), phases 59+60 complete
 - 24 requirements (11 PERM, 9 AUTO, 4 DASH)
 
 ---
@@ -63,6 +63,16 @@ Progress: [████████████████████░░░
 - **Inactive users** get all-block permissions for referential integrity
 - **Validation block** in data migration raises exception if any user has fewer than 16 rows
 
+### Key Decisions from Phase 60
+
+- **102 RLS policies** across 25 tables rewritten to use `has_permission(resource, level)`
+- **Recursion-safe user_permissions policies**: use direct `EXISTS` subquery instead of `has_permission()` to avoid circular dependency
+- **Cross-cutting tables** (file_attachments, comments) use `attachment_entity_resource()` and `comment_entity_resource()` IMMUTABLE helpers to map `entity_type` text to `permission_resource` enum
+- **stock_out_approvals** uses OR across sor_l1/sor_l2/sor_l3 for SELECT/INSERT/UPDATE; DELETE is admin-only
+- **users.role column, user_role enum, get_user_role() dropped** — all RLS now uses permission matrix
+- **UserRole TypeScript type kept as deprecated alias** (string union) for Phase 62 compatibility — not removed to avoid 15+ compile errors
+- **Frontend role checks disabled with TODO Phase 62** — useUserRole() returns null, middleware role guards commented out, role-based redirects removed
+
 ### Phase Dependency Order
 
 ```
@@ -83,21 +93,20 @@ Note: Phase 63 (Auto Status) can run in parallel with 60-62 if needed.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 59 Plan 01 executed: created user_permissions table + permission_resource/level enums
-- Data migration backfills all existing users with 16 permission rows based on role
-- TypeScript types added: PermissionResource, PermissionLevel, UserPermission, PERMISSION_RESOURCES, PERMISSION_RESOURCE_LABELS, PERMISSION_LEVEL_LABELS
-- Commits: bac332e (schema), 117e525 (data migration + types)
+- Phase 60 Plan 01 executed: complete RLS rewrite (102 policies), users.role column dropped
+- Migration: 20260221100000_rls_permission_matrix_rewrite.sql (861 lines, wrapped in transaction)
+- TypeScript User type cleaned of role field; 20+ frontend files updated with TODO Phase 62 markers
+- Commits: 328e226 (migration), 2a1e206 (TypeScript types + frontend fixes)
 
-**Context for Next Agent (Phase 60 - RLS Rewrite):**
-- `user_permissions` table exists with correct schema
-- `has_permission(resource, level)` function available for RLS policies (reads auth.uid() automatically)
-- Replace `get_user_role() = 'admin'` with `has_permission('admin', 'edit')`
-- Replace role-based resource guards with `has_permission('<resource>', 'edit')` or `has_permission('<resource>', 'view')`
-- After ALL RLS policies are rewritten, drop users.role column and user_role enum
-- 100 policies across 22 tables need rewriting
+**Context for Next Agent (Phase 61 - Permission Management UI):**
+- `user_permissions` table exists with 16 rows per user
+- All RLS now enforces via `has_permission(resource, level)` — no more role-based checks
+- `UserRole` TypeScript type is now a deprecated alias — do not rely on it
+- Frontend `useUserRole()` returns null — sidebar/header role display shows placeholder
+- Admin-only routes rely on RLS enforcement (user_permissions table); frontend guards disabled until Phase 62
 
-**Resume at:** Phase 60 (RLS Rewrite)
+**Resume at:** Phase 61 (Permission Management UI)
 
 ---
 
-*State last updated: 2026-02-21 after Phase 59 Plan 01 complete*
+*State last updated: 2026-02-21 after Phase 60 Plan 01 complete*

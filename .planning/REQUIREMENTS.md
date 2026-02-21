@@ -17,7 +17,7 @@ Requirements for v1.13 Permission Matrix & Auto Status. Each maps to roadmap pha
 - [ ] **PERM-06**: Pages redirect when user has Block permission on that resource
 - [ ] **PERM-07**: Create/edit/delete buttons hidden when user has View-only permission
 - [ ] **PERM-08**: Server actions reject mutations when user has View or Block permission
-- [ ] **PERM-09**: All RLS policies rewritten to enforce permission matrix (Edit=CRUD, View=read, Block=none)
+- [x] **PERM-09**: All RLS policies rewritten to enforce permission matrix (Edit=CRUD, View=read, Block=none)
 - [ ] **PERM-10**: Existing users migrated from 3-role system to permission matrix
 - [ ] **PERM-11**: User with Edit on Admin cannot remove their own Admin Edit permission (lockout prevention)
 
@@ -70,7 +70,7 @@ Requirements for v1.13 Permission Matrix & Auto Status. Each maps to roadmap pha
 | PERM-06 | Phase 62 | Pending |
 | PERM-07 | Phase 62 | Pending |
 | PERM-08 | Phase 62 | Pending |
-| PERM-09 | Phase 60 | Pending |
+| PERM-09 | Phase 60 | Complete |
 | PERM-10 | Phase 59 | Pending |
 | PERM-11 | Phase 61 | Pending |
 | AUTO-01 | Phase 63 | Pending |
