@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, MoreHorizontal, Pencil, UserX, RotateCcw, Radio, Users, Shield, Lock } from "lucide-react";
+import Link from "next/link";
+import { Plus, MoreHorizontal, Pencil, UserX, RotateCcw, Radio, Users, Lock, Eye } from "lucide-react";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,18 +15,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { UserDialog } from "./user-dialog";
 import { DeactivateUserDialog } from "./deactivate-user-dialog";
-import { PermissionsTab } from "./permissions-tab";
 import { PageHeader } from "@/components/composite";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { User as UserType, Department } from "@/types/database";
@@ -40,13 +33,9 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithDepartment | null>(null);
-  const [isCreateMode, setIsCreateMode] = useState(false);
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
   const [deactivatingUser, setDeactivatingUser] = useState<UserWithDepartment | null>(null);
   const [isDeactivating, setIsDeactivating] = useState(false);
-  // Permissions dialog state
-  const [permissionsOpen, setPermissionsOpen] = useState(false);
-  const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<UserWithDepartment | null>(null);
   const { toast } = useToast();
   const { canEdit } = useResourcePermissions();
   const { user: currentUser } = useAuth();
@@ -166,33 +155,15 @@ export default function UsersPage() {
 
   const handleEdit = (user: UserWithDepartment) => {
     setEditingUser(user);
-    setIsCreateMode(false);
-    setDialogOpen(true);
-  };
-
-  const handleCreate = () => {
-    setEditingUser(null);
-    setIsCreateMode(true);
     setDialogOpen(true);
   };
 
   const handleDialogClose = (refresh?: boolean) => {
     setDialogOpen(false);
     setEditingUser(null);
-    setIsCreateMode(false);
     if (refresh) {
       fetchData();
     }
-  };
-
-  const handleOpenPermissions = (user: UserWithDepartment) => {
-    setSelectedUserForPermissions(user);
-    setPermissionsOpen(true);
-  };
-
-  const handlePermissionsClose = () => {
-    setPermissionsOpen(false);
-    setSelectedUserForPermissions(null);
   };
 
   const columns: ColumnDef<UserWithDepartment>[] = [
@@ -202,11 +173,14 @@ export default function UsersPage() {
       cell: ({ row }) => {
         const isInactive = !row.original.is_active;
         return (
-          <div className={`flex items-center gap-3 ${isInactive ? "opacity-50" : ""}`}>
+          <Link
+            href={`/admin/users/${row.original.id}`}
+            className={`flex items-center gap-3 hover:opacity-80 transition-opacity ${isInactive ? "opacity-50" : ""}`}
+          >
             <UserAvatar fullName={row.original.full_name || "?"} size={32} />
             <div>
               <div className="flex items-center gap-2">
-                <p className="font-medium text-slate-200">{row.original.full_name}</p>
+                <p className="font-medium text-slate-200 hover:text-amber-400 transition-colors">{row.original.full_name}</p>
                 {isInactive && (
                   <Badge variant="outline" className="text-red-400 border-red-500/30 text-xs">
                     Inactive
@@ -215,7 +189,7 @@ export default function UsersPage() {
               </div>
               <p className="text-xs text-slate-400">{row.original.email}</p>
             </div>
-          </div>
+          </Link>
         );
       },
     },
@@ -258,16 +232,16 @@ export default function UsersPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href={`/admin/users/${row.original.id}`}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    View
+                  </Link>
+                </DropdownMenuItem>
                 {canUpdate && (
                   <DropdownMenuItem onClick={() => handleEdit(row.original)}>
                     <Pencil className="mr-2 h-4 w-4" />
                     Edit
-                  </DropdownMenuItem>
-                )}
-                {canUpdate && (
-                  <DropdownMenuItem onClick={() => handleOpenPermissions(row.original)}>
-                    <Shield className="mr-2 h-4 w-4" />
-                    Permissions
                   </DropdownMenuItem>
                 )}
                 {canDelete && !isInactive && !isSelf && (
@@ -321,10 +295,12 @@ export default function UsersPage() {
         }
         actions={
           canCreate && (
-            <Button onClick={handleCreate} className="group">
-              <Plus className="h-4 w-4 mr-2 transition-transform group-hover:rotate-90" />
-              New User
-            </Button>
+            <Link href="/admin/users/new">
+              <Button className="group">
+                <Plus className="h-4 w-4 mr-2 transition-transform group-hover:rotate-90" />
+                New User
+              </Button>
+            </Link>
           )
         }
       />
@@ -353,38 +329,14 @@ export default function UsersPage() {
         />
       </div>
 
-      {/* Edit / Create User Dialog */}
+      {/* Edit User Dialog */}
       <UserDialog
         open={dialogOpen}
         onClose={handleDialogClose}
         user={editingUser}
         departments={departments}
-        isCreateMode={isCreateMode}
+        isCreateMode={false}
       />
-
-      {/* Permissions Dialog */}
-      {selectedUserForPermissions && (
-        <Dialog open={permissionsOpen} onOpenChange={handlePermissionsClose}>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-violet-400" />
-                Permissions — {selectedUserForPermissions.full_name}
-              </DialogTitle>
-              <DialogDescription>
-                Manage resource-level permissions for this user. All 16 resources are shown.
-                Changes take effect immediately after saving.
-              </DialogDescription>
-            </DialogHeader>
-            <PermissionsTab
-              userId={selectedUserForPermissions.id}
-              userName={selectedUserForPermissions.full_name}
-              isSelf={selectedUserForPermissions.id === currentUser?.id}
-              onClose={handlePermissionsClose}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
 
       <DeactivateUserDialog
         open={deactivateDialogOpen}
