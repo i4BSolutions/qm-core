@@ -51,6 +51,8 @@ import { FulfillmentMetrics } from "@/components/qmhq/fulfillment-metrics";
 import { DetailPageLayout } from "@/components/composite";
 import { MoneyOutPDFButton } from "@/components/qmhq/money-out-pdf-button";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { computeQmhqAutoStatus } from "@/lib/utils/qmhq-auto-status";
+import { AutoStatusBadge } from "@/components/qmhq/auto-status-badge";
 import type {
   QMHQ,
   StatusConfig,
@@ -543,6 +545,66 @@ export default function QMHQDetailPage() {
       };
     });
   }, [qmhqItems, stockOutRequest, stockOutTransactions]);
+
+  // Compute auto status from existing page state — no additional queries needed.
+  // Placed before early returns to satisfy React hooks rules (hooks must not be
+  // called conditionally), but useMemo safely returns null when qmhq is null.
+  const autoStatus = useMemo(() => {
+    if (!qmhq) return null;
+
+    if (qmhq.route_type === "item") {
+      // Check if any SOR L1 or L2 approval exists
+      const hasAnySorApproval = stockOutRequest?.line_items?.some(
+        (li: any) => li.approvals?.some(
+          (a: any) => a.decision === "approved" && (a.layer === "quartermaster" || a.layer === "admin")
+        )
+      ) ?? false;
+
+      // Check if all SOR line items are executed (same logic as allItemsFullyIssued)
+      return computeQmhqAutoStatus({
+        routeType: "item",
+        hasAnySorApproval,
+        allSorLineItemsExecuted: allItemsFullyIssued,
+      });
+    }
+
+    if (qmhq.route_type === "expense") {
+      // moneyInTotal is defined after the early returns so we compute locally.
+      // transactions is already in scope from useState.
+      const moneyInEusd = transactions
+        .filter((t) => t.transaction_type === "money_in")
+        .reduce((sum, t) => sum + (t.amount_eusd ?? 0), 0);
+      const yetToReceiveEusd = (qmhq.amount_eusd ?? 0) - moneyInEusd;
+
+      return computeQmhqAutoStatus({
+        routeType: "expense",
+        hasAnyMoneyIn: moneyInEusd > 0,
+        yetToReceiveEusd,
+      });
+    }
+
+    if (qmhq.route_type === "po") {
+      // Check for any non-cancelled PO
+      const hasNonCancelledPO = purchaseOrders.some(
+        (po) => po.status !== "cancelled"
+      );
+
+      const moneyInEusd = transactions
+        .filter((t) => t.transaction_type === "money_in")
+        .reduce((sum, t) => sum + (t.amount_eusd ?? 0), 0);
+      const yetToReceivePOEusd = (qmhq.amount_eusd ?? 0) - moneyInEusd;
+      const balanceInHandEusd = moneyInEusd - (qmhq.total_po_committed ?? 0);
+
+      return computeQmhqAutoStatus({
+        routeType: "po",
+        hasNonCancelledPO,
+        yetToReceivePOEusd,
+        balanceInHandEusd,
+      });
+    }
+
+    return null;
+  }, [qmhq, stockOutRequest, allItemsFullyIssued, transactions, purchaseOrders]);
 
   if (isLoading) {
     return (
