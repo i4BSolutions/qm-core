@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useResourcePermissions } from "@/lib/hooks/use-permissions";
+import type { PermissionResource as DbPermissionResource } from "@/types/database";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -34,7 +35,7 @@ export function ClickableStatusBadge({
   onStatusChange,
   isClickable = true,
 }: ClickableStatusBadgeProps) {
-  const { can } = usePermissions();
+  const { canEdit } = useResourcePermissions();
   const { user } = useAuth();
   const { toast } = useToast();
   const [statuses, setStatuses] = useState<StatusConfig[]>([]);
@@ -43,7 +44,7 @@ export function ClickableStatusBadge({
   const [selectedStatus, setSelectedStatus] = useState<StatusConfig | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const canUpdate = can("update", entityType);
+  const canUpdate = canEdit(entityType as DbPermissionResource);
 
   // Fetch all statuses for this entity type
   useEffect(() => {

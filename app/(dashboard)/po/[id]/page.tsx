@@ -50,7 +50,7 @@ import { cancelPO, unlockClosedPO } from "@/lib/actions/po-actions";
 import { useToast } from "@/components/ui/use-toast";
 import { Lock } from "lucide-react";
 import { HistoryTab } from "@/components/history";
-import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useResourcePermissions } from "@/lib/hooks/use-permissions";
 import { CommentsSection } from "@/components/comments";
 import { DetailPageLayout } from "@/components/composite";
 import type {
@@ -89,7 +89,7 @@ interface InvoiceForPO extends Invoice {
 export default function PODetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { can } = usePermissions();
+  const { canEdit } = useResourcePermissions();
   const poId = params.id as string;
 
   const [po, setPO] = useState<POWithRelations | null>(null);
@@ -302,7 +302,7 @@ export default function PODetailPage() {
   const isTerminalState = po.status === 'cancelled' || po.status === 'closed';
   const isClosed = po.status === 'closed';
   const isCancelled = po.status === 'cancelled';
-  const isAdmin = can("delete", "purchase_orders"); // admin-only permission
+  const isAdmin = canEdit("po"); // edit on po resource = full PO access
 
   // Check for active (non-voided) invoices for cancel guard
   const hasActiveInvoices = invoices.some(inv => !inv.is_voided && inv.is_active !== false);
@@ -312,7 +312,7 @@ export default function PODetailPage() {
   const canCancelNow = !hasActiveInvoices && !isClosed && !isCancelled;
 
   // Edit button: visible when user has update permission, hidden for terminal states
-  const showEditButton = can("update", "purchase_orders") && !isTerminalState;
+  const showEditButton = canEdit("po") && !isTerminalState;
 
   // Unlock button: visible to admin when PO is closed
   const showUnlockButton = isAdmin && isClosed;

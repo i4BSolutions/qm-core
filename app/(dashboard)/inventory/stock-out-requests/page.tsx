@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/popover";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { RequestCard } from "@/components/stock-out-requests/request-card";
-import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useResourcePermissions } from "@/lib/hooks/use-permissions";
 import { usePaginationParams } from "@/lib/hooks";
 import type { StockOutReason } from "@/types/database";
 
@@ -96,7 +96,7 @@ export default function StockOutRequestsPage() {
   const [requesterFilter, setRequesterFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
-  const { can } = usePermissions();
+  const { canEdit } = useResourcePermissions();
 
   // URL-driven pagination
   const {
@@ -330,7 +330,7 @@ export default function StockOutRequestsPage() {
         title="Stock-Out Requests"
         description="Request items to be issued from warehouse"
         actions={
-          can("create", "stock_out_requests") && (
+          canEdit("sor") && (
             <Link href="/inventory/stock-out-requests/new">
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />

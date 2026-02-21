@@ -43,7 +43,6 @@ import {
   areAllItemsReceived,
 } from "@/lib/utils/invoice-status";
 import { useAuth } from "@/components/providers/auth-provider";
-import { usePermissions } from "@/lib/hooks/use-permissions";
 import { HistoryTab } from "@/components/history";
 import { voidInvoice } from "@/lib/actions/invoice-actions";
 import { useToast } from "@/components/ui/use-toast";

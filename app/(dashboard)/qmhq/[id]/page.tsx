@@ -32,7 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/utils";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { useAuth } from "@/components/providers/auth-provider";
-import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useResourcePermissions } from "@/lib/hooks/use-permissions";
 import { TransactionDialog } from "@/components/qmhq/transaction-dialog";
 import { TransactionViewModal } from "@/components/qmhq/transaction-view-modal";
 import { POStatusBadge } from "@/components/po/po-status-badge";
@@ -131,7 +131,7 @@ export default function QMHQDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const { can } = usePermissions();
+  const { canEdit } = useResourcePermissions();
   const qmhqId = params.id as string;
 
   // Track updated param to trigger refetch after stock-out
@@ -140,12 +140,10 @@ export default function QMHQDetailPage() {
   // Per-file delete permission check matching RLS policy
   const canDeleteFile = useCallback((file: FileAttachmentWithUploader) => {
     if (!user) return false;
-    // TODO Phase 62: replace role check with has_permission('admin', 'edit')
-    // users.role column dropped in Phase 60 — admin file delete check disabled until Phase 62
-    // if ((user as Record<string, unknown>)["role"] === 'admin') return true;
-    // Users can delete their own uploads
+    // Users with edit on qmhq can delete any file; otherwise only their own uploads
+    if (canEdit("qmhq")) return true;
     return file.uploaded_by === user.id;
-  }, [user]);
+  }, [user, canEdit]);
 
   const [qmhq, setQmhq] = useState<QMHQWithRelations | null>(null);
   const [qmhqItems, setQmhqItems] = useState<QMHQItemWithRelations[]>([]);
@@ -633,7 +631,7 @@ export default function QMHQDetailPage() {
       }
       actions={
         <>
-          {can("update", "qmhq") && (
+          {canEdit("qmhq") && (
             <Link href={`/qmhq/${qmhqId}/edit`}>
               <Button variant="outline" className="border-slate-700 hover:bg-slate-800 text-slate-300">
                 <Edit className="h-4 w-4 md:mr-2" />
@@ -1036,7 +1034,7 @@ export default function QMHQDetailPage() {
                   <ArrowUpFromLine className="h-4 w-4 text-red-400" />
                   <h2>Stock Out Transactions</h2>
                 </div>
-                {!stockOutRequest && can("create", "stock_out_requests") && (
+                {!stockOutRequest && canEdit("sor") && (
                   <Link href={`/inventory/stock-out-requests/new?qmhq=${qmhqId}`}>
                     <Button className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400">
                       <Plus className="mr-2 h-4 w-4" />
@@ -1063,7 +1061,7 @@ export default function QMHQDetailPage() {
                   <p className="text-sm text-slate-400 max-w-md mb-4">
                     Stock-out transactions will appear here once a stock-out request is approved and executed.
                   </p>
-                  {can("create", "stock_out_requests") && !stockOutRequest && (
+                  {canEdit("sor") && !stockOutRequest && (
                     <Link href={`/inventory/stock-out-requests/new?qmhq=${qmhqId}`}>
                       <Button variant="outline" className="border-slate-700">
                         <Plus className="mr-2 h-4 w-4" />
@@ -1100,7 +1098,7 @@ export default function QMHQDetailPage() {
                   <DollarSign className="h-4 w-4 text-amber-500" />
                   <h2>Financial Transactions</h2>
                 </div>
-                {can("create", "financial_transactions") && (
+                {canEdit("money_transactions") && (
                   <Button
                     onClick={() => setIsTransactionDialogOpen(true)}
                     className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400"
@@ -1228,7 +1226,7 @@ export default function QMHQDetailPage() {
                   <ShoppingCart className="h-4 w-4 text-amber-500" />
                   <h2>Purchase Orders ({purchaseOrders.length})</h2>
                 </div>
-                {can("create", "purchase_orders") && (
+                {canEdit("po") && (
                   (qmhq.balance_in_hand ?? 0) > 0 ? (
                     <Link href={`/po/new?qmhq=${qmhqId}`}>
                       <Button className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400">

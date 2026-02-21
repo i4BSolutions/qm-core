@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { Plus, MoreHorizontal, Pencil, Trash2, Radio, Tag, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useResourcePermissions } from "@/lib/hooks/use-permissions";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import {
   DropdownMenu,
@@ -25,12 +25,12 @@ export default function StandardUnitsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUnit, setEditingUnit] = useState<StandardUnit | null>(null);
   const { toast } = useToast();
-  const { can } = usePermissions();
+  const { canEdit } = useResourcePermissions();
 
-  // Permission checks (using categories as admin proxy)
-  const canCreate = can("create", "categories");
-  const canUpdate = can("update", "categories");
-  const canDelete = can("delete", "categories");
+  // Permission checks — edit on admin resource covers all admin CRUD
+  const canCreate = canEdit("admin");
+  const canUpdate = canEdit("admin");
+  const canDelete = canEdit("admin");
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);

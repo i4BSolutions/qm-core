@@ -460,7 +460,6 @@ export default function NewQMRLPage() {
                   {users.map((u) => (
                     <SelectItem key={u.id} value={u.id}>
                       {u.full_name}
-                      {/* TODO Phase 62: role display replaced with permission label */}
                     </SelectItem>
                   ))}
                 </SelectContent>

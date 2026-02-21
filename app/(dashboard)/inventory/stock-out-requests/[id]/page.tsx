@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useResourcePermissions } from "@/lib/hooks/use-permissions";
 import { HistoryTab } from "@/components/history/history-tab";
 import { LineItemTable } from "@/components/stock-out-requests/line-item-table";
 import type { LineItemWithApprovals, L1ApprovalData } from "@/components/stock-out-requests/line-item-table";
@@ -143,6 +144,7 @@ export default function StockOutRequestDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { canEdit } = useResourcePermissions();
   const requestId = params.id as string;
 
   const [request, setRequest] = useState<StockOutRequestWithRelations | null>(
@@ -176,15 +178,14 @@ export default function StockOutRequestDetailPage() {
   } | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
 
-  // TODO Phase 62: replace role checks with has_permission('sor_l1', 'edit'), has_permission('sor', 'edit')
-  // users.role column dropped in Phase 60 — admin checks disabled until Phase 62
-  const canApprove = false; // was: user?.role === "admin"
+  // L1 approval requires sor_l1 edit permission; execution requires sor edit permission
+  const canApprove = canEdit("sor_l1");
   const isRequester = user?.id === request?.requester_id;
   const canCancel = isRequester && request?.status === "pending";
 
   // Execute is only available when request is fully_approved or partially_executed/executed (any pending transactions remain)
-  // The button per row in WarehouseAssignmentsTab handles this — canExecute just checks admin role
-  const canExecute = false; // was: user?.role === "admin" — TODO Phase 62: replace with permission check
+  // The button per row in WarehouseAssignmentsTab handles this — canExecute checks sor edit permission
+  const canExecute = canEdit("sor");
 
   /**
    * Fetch request data with two-layer-aware line item quantities

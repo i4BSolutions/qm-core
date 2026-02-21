@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { Plus, MoreHorizontal, Pencil, Trash2, Radio, Layers, Filter, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useResourcePermissions } from "@/lib/hooks/use-permissions";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import {
   DropdownMenu,
@@ -40,12 +40,12 @@ export default function StatusesPage() {
   const [editingStatus, setEditingStatus] = useState<StatusConfig | null>(null);
   const [entityFilter, setEntityFilter] = useState<EntityTypeFilter>("all");
   const { toast } = useToast();
-  const { can } = usePermissions();
+  const { canEdit } = useResourcePermissions();
 
-  // Permission checks
-  const canCreate = can("create", "statuses");
-  const canUpdate = can("update", "statuses");
-  const canDelete = can("delete", "statuses");
+  // Permission checks — edit on admin resource covers all admin CRUD
+  const canCreate = canEdit("admin");
+  const canUpdate = canEdit("admin");
+  const canDelete = canEdit("admin");
 
   // Filter statuses based on selected entity type
   const filteredStatuses = useMemo(() => {

@@ -34,7 +34,7 @@ import { HistoryTab } from "@/components/history";
 import { AttachmentsTab } from "@/components/files/attachments-tab";
 import { ClickableStatusBadge } from "@/components/status/clickable-status-badge";
 import { useAuth } from "@/components/providers/auth-provider";
-import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useResourcePermissions } from "@/lib/hooks/use-permissions";
 import { useToast } from "@/components/ui/use-toast";
 import { CommentsSection } from "@/components/comments";
 import { DetailPageLayout } from "@/components/composite";
@@ -73,7 +73,7 @@ export default function QMRLDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const { can } = usePermissions();
+  const { canEdit, canView } = useResourcePermissions();
   const { toast } = useToast();
   const [qmrl, setQmrl] = useState<QMRLWithRelations | null>(null);
   const [relatedQmhq, setRelatedQmhq] = useState<QMHQWithRelations[]>([]);
@@ -83,12 +83,10 @@ export default function QMRLDetailPage() {
   // Per-file delete permission check matching RLS policy
   const canDeleteFile = useCallback((file: FileAttachmentWithUploader) => {
     if (!user) return false;
-    // TODO Phase 62: replace role check with has_permission('admin', 'edit')
-    // users.role column dropped in Phase 60 — admin file delete check disabled until Phase 62
-    // if ((user as Record<string, unknown>)["role"] === 'admin') return true;
-    // Users can delete their own uploads
+    // Users with edit on qmrl can delete any file; otherwise only their own uploads
+    if (canEdit("qmrl")) return true;
     return file.uploaded_by === user.id;
-  }, [user]);
+  }, [user, canEdit]);
 
   const fetchQMRL = useCallback(async (id: string) => {
     setIsLoading(true);
@@ -116,9 +114,8 @@ export default function QMRLDetailPage() {
 
     setQmrl(data as QMRLWithRelations);
 
-    // TODO Phase 62: replace role-based QMHQ visibility check with has_permission('qmhq', 'view')
-    // users.role column dropped in Phase 60 — role check disabled, RLS enforces access
-    if (user) { // was: user.role !== "qmrl"
+    // Show QMHQ tab only for users with at least view on qmhq resource
+    if (canView("qmhq")) {
       const { data: qmhqData } = await supabase
         .from("qmhq")
         .select(`
@@ -147,7 +144,7 @@ export default function QMRLDetailPage() {
     setFileCount(filesCount ?? 0);
 
     setIsLoading(false);
-  }, [router, user]);
+  }, [router, user, canView]);
 
   useEffect(() => {
     if (params.id) {
@@ -305,7 +302,7 @@ export default function QMRLDetailPage() {
       }
       actions={
         <>
-          {can("update", "qmrl") && (
+          {canEdit("qmrl") && (
             <Link href={`/qmrl/${qmrl.id}/edit`}>
               <Button variant="outline" className="border-slate-700 hover:bg-slate-800 hover:border-amber-500/30">
                 <Pencil className="h-4 w-4 md:mr-2" />
@@ -313,7 +310,7 @@ export default function QMRLDetailPage() {
               </Button>
             </Link>
           )}
-          {can("create", "qmhq") && (
+          {canEdit("qmhq") && (
             <Link href={`/qmhq/new?qmrl=${qmrl.id}`}>
               <Button className="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400">
                 <Plus className="mr-2 h-4 w-4" />
@@ -331,7 +328,7 @@ export default function QMRLDetailPage() {
             <FileText className="mr-2 h-4 w-4" />
             Details
           </TabsTrigger>
-          {can("read", "qmhq") && (
+          {canView("qmhq") && (
             <TabsTrigger value="qmhq" className="data-[state=active]:bg-slate-700 data-[state=active]:text-amber-400">
               <ExternalLink className="mr-2 h-4 w-4" />
               QMHQ ({relatedQmhq.length})
@@ -444,10 +441,6 @@ export default function QMRLDetailPage() {
                       )}
                       <div>
                         <p className="data-value">{qmrl.assigned_user?.full_name || "Unassigned"}</p>
-                        {/* TODO Phase 62: display permission-based label instead of role */}
-                        {Boolean((qmrl.assigned_user as Record<string, unknown>)?.["role"]) && (
-                          <p className="text-xs text-slate-400 capitalize">{String((qmrl.assigned_user as Record<string, unknown>)?.["role"])}</p>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -464,10 +457,6 @@ export default function QMRLDetailPage() {
                       )}
                       <div>
                         <p className="data-value">{qmrl.requester?.full_name || "—"}</p>
-                        {/* TODO Phase 62: display permission-based label instead of role */}
-                        {Boolean((qmrl.requester as Record<string, unknown>)?.["role"]) && (
-                          <p className="text-xs text-slate-400 capitalize">{String((qmrl.requester as Record<string, unknown>)?.["role"])}</p>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -530,8 +519,8 @@ export default function QMRLDetailPage() {
           </div>
         </TabsContent>
 
-        {/* QMHQ Tab - only visible to roles with qmhq read access */}
-        {can("read", "qmhq") && (
+        {/* QMHQ Tab - only visible to users with qmhq view access */}
+        {canView("qmhq") && (
         <TabsContent value="qmhq">
           <div className="command-panel corner-accents animate-slide-up">
             <div className="flex items-center justify-between mb-6">
@@ -539,7 +528,7 @@ export default function QMRLDetailPage() {
                 <ExternalLink className="h-4 w-4 text-amber-500" />
                 <h3>QMHQ</h3>
               </div>
-              {can("create", "qmhq") && (
+              {canEdit("qmhq") && (
                 <Link href={`/qmhq/new?qmrl=${qmrl.id}`}>
                   <Button size="sm" className="bg-gradient-to-r from-amber-600 to-amber-500">
                     <Plus className="mr-2 h-4 w-4" />
@@ -554,7 +543,7 @@ export default function QMRLDetailPage() {
                 <div className="text-center">
                   <ExternalLink className="h-8 w-8 text-slate-400 mx-auto mb-2" />
                   <p className="text-sm text-slate-400">No QMHQ yet</p>
-                  {can("create", "qmhq") && (
+                  {canEdit("qmhq") && (
                     <p className="text-xs text-slate-400 mt-1">Click "Add Line" to create one</p>
                   )}
                 </div>

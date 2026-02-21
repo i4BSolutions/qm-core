@@ -5,7 +5,7 @@ import { Plus, MoreHorizontal, Pencil, UserX, RotateCcw, Radio, Users, Shield, L
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { usePermissions } from "@/lib/hooks/use-permissions";
+import { useResourcePermissions } from "@/lib/hooks/use-permissions";
 import { useAuth } from "@/components/providers/auth-provider";
 import { DataTable, DataTableColumnHeader } from "@/components/tables/data-table";
 import {
@@ -48,13 +48,13 @@ export default function UsersPage() {
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<UserWithDepartment | null>(null);
   const { toast } = useToast();
-  const { can } = usePermissions();
+  const { canEdit } = useResourcePermissions();
   const { user: currentUser } = useAuth();
 
-  // Permission checks
-  const canCreate = can("create", "users");
-  const canUpdate = can("update", "users");
-  const canDelete = can("delete", "users");
+  // Permission checks — edit on admin resource covers all admin CRUD
+  const canCreate = canEdit("admin");
+  const canUpdate = canEdit("admin");
+  const canDelete = canEdit("admin");
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
