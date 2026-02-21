@@ -200,10 +200,11 @@ Plans:
   3. An Item route QMHQ where all SOR line items are executed displays "Item Done"
   4. Expense route QMHQ transitions correctly through "Expense Pending" (no money-in), "Expense Processing" (any money-in), and "Expense Done" (yet-to-receive <= 0)
   5. PO route QMHQ transitions correctly through "PO Pending" (no non-cancelled PO), "PO Processing" (any non-cancelled PO exists), and "PO Done" (yet-to-receive <= 0 AND balance-in-hand <= 0)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 63-01: Auto status computation logic (VIEW or trigger) and API exposure
+- [ ] 63-01-PLAN.md — Auto status computation utility and badge component
+- [ ] 63-02-PLAN.md — Wire auto status into QMHQ detail page
 
 ---
 
@@ -244,8 +245,8 @@ Plans:
 | 60. RLS Policy Rewrite | 1/1 | Complete    | 2026-02-21 | - |
 | 61. Permission Management UI | 2/2 | Complete    | 2026-02-21 | - |
 | 62. Frontend Permission Enforcement | 2/2 | Complete    | 2026-02-21 | - |
-| 63. QMHQ Auto Status | v1.13 | 0/TBD | Not started | - |
+| 63. QMHQ Auto Status | v1.13 | 0/2 | Not started | - |
 | 64. Dashboard Redesign | v1.13 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-21 after Phase 59 Plan 01 complete*
+*Last updated: 2026-02-21 after Phase 63 planning complete*
