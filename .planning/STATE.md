@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-21 (61-01 complete)
+**Last Updated:** 2026-02-21 (61-02 complete)
 
 ---
 
@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.13 Permission Matrix & Auto Status — Phase 61 Plan 01 complete (Permission Matrix UI)
+**Current Focus:** v1.13 Permission Matrix & Auto Status — Phase 61 complete (Permission Management UI)
 
 ---
 
 ## Current Position
 
 Phase: 61 of 64 (Permission Management UI)
-Plan: 01 — COMPLETE
-Status: Phase 61 Plan 01 done — permission matrix UI shipped
-Last activity: 2026-02-21 — Phase 61 plan 01 executed (PermissionMatrix + PermissionsTab + user-dialog cleanup)
+Plan: 02 — COMPLETE
+Status: Phase 61 fully done — permission matrix UI + mandatory permissions on user creation shipped
+Last activity: 2026-02-21 — Phase 61 plan 02 executed (user creation dialog with embedded permission matrix + atomic API save)
 
 Progress: [█████████████████████░░] 60/64 phases complete
 
@@ -34,15 +34,22 @@ Progress: [█████████████████████░░
 
 **Shipped Milestones:**
 - 13 milestones shipped (v1.0 through v1.12)
-- 60 phases, 148 plans total delivered
+- 60 phases, 150 plans total delivered
 
 **v1.13 Scope:**
-- 6 phases (59-64), phases 59+60 complete
+- 6 phases (59-64), phases 59+60+61 complete
 - 24 requirements (11 PERM, 9 AUTO, 4 DASH)
 
 ---
 
 ## Accumulated Context
+
+### Key Decisions from Phase 61 Plan 02
+
+- **Partial<Record<...>> accepted by PermissionMatrix** — widened props to allow partial records in create mode; no type cast needed in user-dialog.tsx
+- **configuredCount < 16 gates the Create button** — enforces PERM-03 at UI layer before any API call
+- **deleteUser rollback on permission upsert failure** — maintains atomicity for PERM-03; user without explicit permissions cannot exist
+- **Backward-compatible API** — omitting permissions in request body skips upsert (trigger default Block values stand), enabling safe future callers
 
 ### Key Decisions from Phase 61 Plan 01
 
@@ -100,23 +107,22 @@ Note: Phase 63 (Auto Status) can run in parallel with 60-62 if needed.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 61 Plan 01 executed: Permission Matrix UI — PermissionMatrix component + PermissionsTab + user management page cleanup
-- `components/admin/permission-matrix.tsx` — 16-resource grid, dirty-state indicators, Set All buttons, lockout support
-- `app/(dashboard)/admin/users/permissions-tab.tsx` — fetches/saves permissions, atomic upsert, admin lockout prevention
-- `app/(dashboard)/admin/users/page.tsx` — Permissions modal added, stale role stat cards removed, role column removed from table
-- `app/(dashboard)/admin/users/user-dialog.tsx` — role dropdown removed, department spans full width
-- `types/database.ts` — user_permissions table + permission_resource/level enums added
-- Commits: fa26da7 (PermissionMatrix component), be368bf (PermissionsTab + page integration + DB types)
+- Phase 61 Plan 02 executed: User Creation with Mandatory Permissions
+- `app/(dashboard)/admin/users/user-dialog.tsx` — PermissionMatrix embedded in create mode, X/16 counter, Set All, permissions sent to API
+- `app/api/admin/invite-user/route.ts` — permissions validated, upserted after invite, deleteUser rollback if upsert fails, stale role code removed
+- `components/admin/permission-matrix.tsx` — props widened to accept Partial<Record<...>> for create mode
+- Commits: 144f0b7 (user-dialog), dfc9944 (invite-user API)
 
-**Context for Next Agent (Phase 61 Plan 02 or Phase 62):**
+**Context for Next Agent (Phase 62):**
+- Phase 61 is fully complete — permission matrix UI (Plan 01) + mandatory permissions on user creation (Plan 02)
 - `user_permissions` table fully typed in TypeScript (Row/Insert/Update + enums in Database type)
-- Permission matrix component at `components/admin/permission-matrix.tsx` is reusable (accept props, no Supabase)
-- PermissionsTab wired to existing admin/users page — admin can manage any user's 16 permissions
-- Role dropdown removed from user edit dialog — new user permission assignment pending Plan 02
-- Phase 62 (Frontend enforcement) still needed to wire `usePermissions()` to actual DB checks
+- PermissionMatrix component accepts Partial records in create mode, full records in edit mode
+- User creation now saves 16 permission rows atomically; rollback if upsert fails
+- Phase 62 (Frontend Permission Enforcement) is next — wire `usePermissions()` to actual DB checks
+- `useUserRole()` currently returns null; Phase 62 replaces role-based checks with permission-based checks
 
-**Resume at:** Phase 61 Plan 02 (or Phase 62 if Plan 02 doesn't exist)
+**Resume at:** Phase 62 (Frontend Permission Enforcement)
 
 ---
 
-*State last updated: 2026-02-21 after Phase 61 Plan 01 complete*
+*State last updated: 2026-02-21 after Phase 61 Plan 02 complete*

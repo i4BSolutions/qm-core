@@ -11,7 +11,7 @@ Requirements for v1.13 Permission Matrix & Auto Status. Each maps to roadmap pha
 
 - [ ] **PERM-01**: Admin can assign Edit, View, or Block permission per resource per user (15 resources: System Dashboard, QMRL, QMHQ, Money Transactions, Inv Transactions, PO, Invoice, Stock In, SOR-L1, SOR-L2, SOR-L3, Warehouse, Inventory Dashboard, Item, Admin)
 - [x] **PERM-02**: Admin can manage any user's permissions through a permission matrix UI
-- [ ] **PERM-03**: All 15 permissions must be set when creating a new user account
+- [x] **PERM-03**: All 15 permissions must be set when creating a new user account
 - [x] **PERM-04**: Admin can edit an existing user's permissions
 - [ ] **PERM-05**: Sidebar navigation hides resources where user has Block permission
 - [ ] **PERM-06**: Pages redirect when user has Block permission on that resource
@@ -64,7 +64,7 @@ Requirements for v1.13 Permission Matrix & Auto Status. Each maps to roadmap pha
 |-------------|-------|--------|
 | PERM-01 | Phase 59 | Pending |
 | PERM-02 | Phase 61 | Complete |
-| PERM-03 | Phase 61 | Pending |
+| PERM-03 | Phase 61 | Complete |
 | PERM-04 | Phase 61 | Complete |
 | PERM-05 | Phase 62 | Pending |
 | PERM-06 | Phase 62 | Pending |
