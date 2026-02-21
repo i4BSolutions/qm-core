@@ -118,7 +118,7 @@ Phases 55-58 delivered standardized list views with consistent columns and pagin
 - [x] **Phase 60: RLS Policy Rewrite** - Replace all 100 role-based RLS policies with permission-matrix enforcement across all 22 tables (completed 2026-02-21)
 - [x] **Phase 61: Permission Management UI** - Admin can view, assign, and edit per-user permissions with lockout prevention (completed 2026-02-21)
 - [x] **Phase 62: Frontend Permission Enforcement** - Sidebar hiding, page redirects, button gating, and server-action rejection (completed 2026-02-21)
-- [ ] **Phase 63: QMHQ Auto Status** - Computed route-based status (Item/Expense/PO × Pending/Processing/Done) derived from child records
+- [x] **Phase 63: QMHQ Auto Status** - Computed route-based status (Item/Expense/PO × Pending/Processing/Done) derived from child records (completed 2026-02-21)
 - [ ] **Phase 64: Dashboard Redesign** - QMRL list with auto status column, old KPI sections removed, permission-gated access
 
 ---
@@ -245,7 +245,7 @@ Plans:
 | 60. RLS Policy Rewrite | 1/1 | Complete    | 2026-02-21 | - |
 | 61. Permission Management UI | 2/2 | Complete    | 2026-02-21 | - |
 | 62. Frontend Permission Enforcement | 2/2 | Complete    | 2026-02-21 | - |
-| 63. QMHQ Auto Status | 1/2 | In Progress|  | - |
+| 63. QMHQ Auto Status | 2/2 | Complete   | 2026-02-21 | - |
 | 64. Dashboard Redesign | v1.13 | 0/TBD | Not started | - |
 
 ---

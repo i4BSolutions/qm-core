@@ -1,6 +1,6 @@
 # State: QM System
 
-**Last Updated:** 2026-02-21 (63-01 complete)
+**Last Updated:** 2026-02-21 (63-02 complete)
 
 ---
 
@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core Value:** Users can reliably create purchase orders, receive inventory, and track request status with full documentation and audit trails.
 
-**Current Focus:** v1.13 Auto Status — Phase 63 Plan 01 complete (QMHQ Auto Status Utility and Badge)
+**Current Focus:** v1.13 Auto Status — Phase 63 complete (QMHQ Auto Status: utility, badge, and detail page integration)
 
 ---
 
 ## Current Position
 
 Phase: 63 of 64 (QMHQ Auto Status)
-Plan: 01 — COMPLETE
-Status: Phase 63 Plan 01 COMPLETE — auto status utility and badge component created
-Last activity: 2026-02-21 — Phase 63 plan 01 executed (qmhq-auto-status.ts + auto-status-badge.tsx)
+Plan: 02 — COMPLETE
+Status: Phase 63 COMPLETE — auto status utility, badge component, and detail page integration shipped
+Last activity: 2026-02-21 — Phase 63 plan 02 executed (QMHQ detail page auto status integration)
 
 Progress: [█████████████████████░░] 60/64 phases complete
 
@@ -43,6 +43,13 @@ Progress: [█████████████████████░░
 ---
 
 ## Accumulated Context
+
+### Key Decisions from Phase 63 Plan 02
+
+- **autoStatus useMemo before early returns** — React hooks rules require unconditional invocation; memo returns null when qmhq is null, satisfying the rules safely
+- **Local moneyInEusd inside memo** — moneyInTotal is defined after early returns; memo computes locally from transactions state (already a dependency) to avoid restructuring the component
+- **Badge ordering: route type -> auto status -> manual status** — makes it visually clear that auto status is computed (route property) while manual status is user-controlled
+- **No permission gating on AutoStatusBadge** — all viewers of the detail page see it per user decision; no canEdit/canView check needed
 
 ### Key Decisions from Phase 63 Plan 01
 
@@ -129,18 +136,19 @@ Note: Phase 63 (Auto Status) can run in parallel with 60-62 if needed.
 ## Session Continuity
 
 **What Just Happened:**
-- Phase 63 Plan 01 executed: QMHQ auto status computation utility and badge component created
-- lib/utils/qmhq-auto-status.ts: QmhqAutoStatus type (9 literals), QMHQ_AUTO_STATUS_CONFIG (9 entries), computeQmhqAutoStatus(), getAutoStatusHexColor()
-- components/qmhq/auto-status-badge.tsx: AutoStatusBadge client component with route type icon + label, sm/md size support
-- All 9 auto status states covered; amber/blue/green color scheme for pending/processing/done
-- Commits: c0546d7 (utility), 4e5b2fd (badge component)
+- Phase 63 Plan 02 executed: QMHQ detail page wired up with auto status computation and badge display
+- autoStatus useMemo added before early returns in app/(dashboard)/qmhq/[id]/page.tsx
+- All three route types handled: item (SOR approvals), expense (money-in/yet-to-receive), PO (non-cancelled PO + balance)
+- AutoStatusBadge rendered in header between route type badge and ClickableStatusBadge
+- Commits: 989334f (auto status computation), 91b1392 (badge in header)
+- Phase 63 fully complete: utility + badge + detail page integration
 
-**Context for Next Agent (Phase 63 Plan 02):**
-- Phase 63 Plan 01 COMPLETE — utility and badge ready
-- Next: integrate AutoStatusBadge into QMHQ detail page and wire up computeQmhqAutoStatus with real data
-- lib/utils/qmhq-auto-status.ts and components/qmhq/auto-status-badge.tsx are importable with no side effects
+**Context for Next Agent (Phase 64 Dashboard):**
+- Phase 63 COMPLETE — all 9 auto status states visible on QMHQ detail pages
+- lib/utils/qmhq-auto-status.ts, components/qmhq/auto-status-badge.tsx ready for any dashboard use
+- Prerequisites for Phase 64: phases 60, 61, 63 all complete
 
-**Resume at:** Phase 63 Plan 02 (QMHQ detail page integration)
+**Resume at:** Phase 64 (Dashboard)
 
 ---
 
